@@ -1,11 +1,8 @@
-import { ConvexError } from "convex/values";
-import type { Doc, Id } from "../_generated/dataModel";
+import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { CommercialFileSourceType } from "./commercialFilePolicy";
 
 type CommercialFileChainCtx = Pick<QueryCtx | MutationCtx, "db">;
-const MAX_RELATIONSHIP_REKEY_FILES = 100;
-const MAX_RELATIONSHIP_REKEY_JOB_CARDS = 25;
 
 function queryChainKey(queryId: Id<"queries">) {
   return `query:${String(queryId)}`;
@@ -61,40 +58,9 @@ export async function resolveCommercialFileChainKey(
   return `jobCard:${String(jobCard._id)}`;
 }
 
-async function inheritedJobCardFileRows(
-  ctx: MutationCtx,
-  jobCards: Doc<"jobCards">[],
-  index: number,
-  remaining: number,
-  rows: Doc<"commercialFiles">[]
-): Promise<Doc<"commercialFiles">[]> {
-  if (index >= jobCards.length) {
-    return rows;
-  }
-  const jobCard = jobCards[index];
-  if (!jobCard || jobCard.queryId) {
-    return await inheritedJobCardFileRows(ctx, jobCards, index + 1, remaining, rows);
-  }
-  const sourceRows = await ctx.db
-    .query("commercialFiles")
-    .withIndex("by_source", (q) =>
-      q.eq("sourceType", "jobCard").eq("sourceId", String(jobCard._id))
-    )
-    .take(remaining + 1);
-  if (sourceRows.length > remaining) {
-    throw new ConvexError("Commercial File relationship rekey exceeds its bounded file limit");
-  }
-  return await inheritedJobCardFileRows(ctx, jobCards, index + 1, remaining - sourceRows.length, [
-    ...rows,
-    ...sourceRows,
-  ]);
-}
-
-/**
- * Keep new canonical rows aligned when a Proposal's exact primary Query pair
- * changes. The ordinary writer is fail-closed and transactionally bounded; it
- * is not a target migration or compatibility cutover.
- */
+// Keep file access aligned in the same transaction as the relationship edit.
+// ponytail: source-scoped collections share Convex's transaction ceiling; use a
+// staged rekey if measured source sizes approach that ceiling.
 export async function rekeyCommercialFilesForProposalRelationship(
   ctx: MutationCtx,
   proposalId: Id<"proposals">,
@@ -112,25 +78,26 @@ export async function rekeyCommercialFilesForProposalRelationship(
     .withIndex("by_source", (q) =>
       q.eq("sourceType", "proposal").eq("sourceId", String(proposalId))
     )
-    .take(MAX_RELATIONSHIP_REKEY_FILES + 1);
-  if (proposalRows.length > MAX_RELATIONSHIP_REKEY_FILES) {
-    throw new ConvexError("Commercial File relationship rekey exceeds its bounded file limit");
-  }
+    .collect();
 
   const jobCards = await ctx.db
     .query("jobCards")
     .withIndex("by_proposalId", (q) => q.eq("proposalId", proposalId))
-    .take(MAX_RELATIONSHIP_REKEY_JOB_CARDS + 1);
-  if (jobCards.length > MAX_RELATIONSHIP_REKEY_JOB_CARDS) {
-    throw new ConvexError("Commercial File relationship rekey exceeds its bounded source limit");
-  }
-  const inheritedRows = await inheritedJobCardFileRows(
-    ctx,
-    jobCards,
-    0,
-    MAX_RELATIONSHIP_REKEY_FILES - proposalRows.length,
-    []
-  );
+    .collect();
+  const inheritedRows = (
+    await Promise.all(
+      jobCards
+        .filter((jobCard) => !jobCard.queryId)
+        .map((jobCard) =>
+          ctx.db
+            .query("commercialFiles")
+            .withIndex("by_source", (q) =>
+              q.eq("sourceType", "jobCard").eq("sourceId", String(jobCard._id))
+            )
+            .collect()
+        )
+    )
+  ).flat();
   await Promise.all(
     [...proposalRows, ...inheritedRows].map((row) =>
       ctx.db.patch("commercialFiles", row._id, { chainKey: nextChainKey })

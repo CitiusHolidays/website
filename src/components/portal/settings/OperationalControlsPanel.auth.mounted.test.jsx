@@ -104,6 +104,11 @@ beforeAll(async () => {
   globalThis.document = dom.window.document;
   globalThis.HTMLElement = dom.window.HTMLElement;
   globalThis.Node = dom.window.Node;
+  globalThis.Element = dom.window.Element;
+  globalThis.KeyboardEvent = dom.window.KeyboardEvent;
+  globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
+  globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
+  globalThis.cancelAnimationFrame = (frame) => clearTimeout(frame);
   ({ createRoot } = await import("react-dom/client"));
   ({ OperationalControlsPanel } = await import("./OperationalControlsPanel"));
 });
@@ -161,6 +166,44 @@ describe("OperationalControlsPanel authentication boundary", () => {
         .every(({ args }) => args === "skip")
     ).toBe(true);
 
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("keeps feature changes and Test Lab disabled while target identity is unknown", async () => {
+    isAuthenticated = true;
+    liveAccess = { allowed: true, roles: ["Admin"], staffId: "staff_admin" };
+    queryResults.set("listOperationalControls", [
+      {
+        availability: "available",
+        blockedBy: [],
+        category: "AI",
+        configuredState: "normal",
+        dependencies: [],
+        description: "Concierge requests",
+        effectiveEnabled: true,
+        key: "ai.concierge",
+        label: "Citius Concierge",
+        revision: 1,
+        source: "configured_default",
+        state: "default",
+      },
+    ]);
+    queryResults.set("listRecipes", [{ id: "inbound_leads", label: "Inbound leads" }]);
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => root.render(<OperationalControlsPanel />));
+    expect(container.querySelector('[role="switch"]').disabled).toBe(true);
+    expect(container.textContent).toContain("Confirming the deployment target");
+    await act(async () => container.querySelector('[data-tab-id="tests"]').click());
+    expect(container.textContent).not.toContain("Production Test Lab");
+    const run = [...container.querySelectorAll("button")].find((button) =>
+      button.textContent.startsWith("Run 1 selected")
+    );
+    expect(run.disabled).toBe(true);
+    expect(mutationCalls).toEqual([]);
+    expect(actionCalls).toEqual([]);
     await act(async () => root.unmount());
     container.remove();
   });
@@ -436,6 +479,8 @@ describe("OperationalControlsPanel authentication boundary", () => {
     await act(async () =>
       testTab.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }))
     );
+    expect(container.textContent).toContain("Development Test Lab");
+    expect(container.textContent).not.toContain("Production Test Lab");
     const runButton = Array.from(container.querySelectorAll("button")).find((button) =>
       button.textContent?.startsWith("Run 1 selected")
     );
@@ -522,7 +567,13 @@ describe("OperationalControlsPanel authentication boundary", () => {
       },
     ]);
     queryResults.set("previewOperationalCutover", readyCutoverPreview());
-    queryResults.set("applyOperationalChangeSet:result", new Error("STALE_OPERATIONAL_CHANGE_SET"));
+    let rejectApply;
+    queryResults.set(
+      "applyOperationalChangeSet:result",
+      new Promise((_resolve, reject) => {
+        rejectApply = reject;
+      })
+    );
     const container = document.createElement("div");
     document.body.append(container);
     const root = createRoot(container);
@@ -547,10 +598,22 @@ describe("OperationalControlsPanel authentication boundary", () => {
     );
     await act(async () => apply.click());
 
-    expect(toastCalls.at(-1)).toEqual([
-      "error",
-      expect.stringContaining("STALE_OPERATIONAL_CHANGE_SET"),
-    ]);
+    expect(container.querySelector('[role="switch"]').disabled).toBe(true);
+    expect(container.querySelector("textarea").disabled).toBe(true);
+    expect(container.textContent).toContain("Applying…");
+    await act(async () => {
+      rejectApply(new Error("STALE_OPERATIONAL_CHANGE_SET"));
+      await Promise.resolve();
+    });
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      "Changes were not applied."
+    );
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      "STALE_OPERATIONAL_CHANGE_SET"
+    );
+    expect(container.textContent).toContain("Proposed: Paused. Not applied yet.");
+    expect(container.textContent).toContain("Current: Normal behavior. Effective: Available.");
+    expect(container.textContent).not.toContain("Most recent operational result");
     expect(container.querySelector("textarea")?.value).toBe(
       "Pause Concierge after reviewing provider health."
     );

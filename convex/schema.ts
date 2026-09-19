@@ -1478,6 +1478,7 @@ export default defineSchema({
     storageIds: v.array(v.id("_storage")),
     tableName: v.string(),
   })
+    .index("by_tableName_documentId", ["tableName", "documentId"])
     .index("by_runId_createdAt", ["runId", "createdAt"])
     .index("by_runId_cleanupOrder_createdAt", ["runId", "cleanupOrder", "createdAt"])
     .index("by_runId_tableName_documentId", ["runId", "tableName", "documentId"]),
@@ -1854,6 +1855,7 @@ export default defineSchema({
     idempotencyKey: v.string(),
     providerStatus: v.optional(v.number()),
     recipientHash: v.string(),
+    resendSourceUpdatedAt: v.optional(v.number()),
     sentAt: v.optional(v.number()),
     status: v.union(
       v.literal("queued"),

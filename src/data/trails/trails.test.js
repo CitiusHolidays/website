@@ -37,7 +37,7 @@ const SACRED_BHARAT_TRAIL_SLUGS = [
 ];
 
 const UNAVAILABLE_PROMISE_PATTERN = /brochure|priority|notified first/i;
-const INTEREST_ACTION_PATTERN = /register interest/i;
+const ENQUIRY_ACTION_PATTERN = /enquire/i;
 
 describe("Public trail catalog", () => {
   test("Preserves stable identifiers, order, and public static params", () => {
@@ -73,7 +73,7 @@ describe("Public trail catalog", () => {
     const comingSoonCopy = [...bookingCopy, ...overviewCopy].join(" ");
 
     expect(comingSoonCopy).not.toMatch(UNAVAILABLE_PROMISE_PATTERN);
-    expect(comingSoonCopy).toMatch(INTEREST_ACTION_PATTERN);
+    expect(comingSoonCopy).toMatch(ENQUIRY_ACTION_PATTERN);
   });
 });
 

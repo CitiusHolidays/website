@@ -37,6 +37,17 @@ afterAll(() => dom.window.close());
 
 const flushDialog = () => act(async () => new Promise((resolve) => setTimeout(resolve, 350)));
 
+async function waitForDialogState(isSettled, attempts = 100) {
+  if (isSettled()) {
+    return;
+  }
+  if (attempts === 0) {
+    throw new Error("Passport dialog focus or visibility did not settle");
+  }
+  await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+  return await waitForDialogState(isSettled, attempts - 1);
+}
+
 function Harness({ isUploading, onClose }) {
   const [traveller, setTraveller] = useState(null);
   const [passportForm, setPassportForm] = useState({
@@ -73,7 +84,9 @@ async function openPassport(root, isUploading, onClose) {
   const opener = document.querySelector('[data-testid="passport-opener"]');
   opener.focus();
   await act(async () => opener.click());
-  await flushDialog();
+  await waitForDialogState(() =>
+    document.querySelector('[role="dialog"]')?.contains(document.activeElement)
+  );
   return { dialog: document.querySelector('[role="dialog"]'), opener };
 }
 
@@ -116,7 +129,9 @@ describe("PassportUploadModal", () => {
       (button) => button.textContent === "Cancel"
     );
     await act(async () => cancel.click());
-    await flushDialog();
+    await waitForDialogState(
+      () => !document.querySelector('[role="dialog"]') && document.activeElement === view.opener
+    );
     expect(closeCount).toBe(1);
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(document.activeElement).toBe(view.opener);
@@ -142,7 +157,9 @@ describe("PassportUploadModal", () => {
     expect(submit.disabled).toBe(true);
 
     await act(async () => close.click());
-    await flushDialog();
+    await waitForDialogState(
+      () => !document.querySelector('[role="dialog"]') && document.activeElement === view.opener
+    );
     expect(closeCount).toBe(1);
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(document.activeElement).toBe(view.opener);

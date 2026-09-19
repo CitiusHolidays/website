@@ -13,6 +13,37 @@ import { DeleteButton, EditButton, StatusBadge } from "../portalWorkspaceListUi"
 
 type TicketRow = PortalTicketListRow;
 
+function renderTicketMobileCard(row: TicketRow) {
+  return (
+    <div className="space-y-2 text-sm">
+      <p className="font-semibold text-brand-dark">{row.travellerName || "Unassigned traveller"}</p>
+      <p className="text-brand-muted">
+        {[
+          row.ticketNumber || "Ticket number pending",
+          row.jobCode,
+          row.travelBatchReference || row.travelBatchCode,
+        ]
+          .filter(Boolean)
+          .join(" · ")}
+      </p>
+      <StatusBadge domain="ticketing" status={row.ticketStatus} />
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-brand-muted text-xs">
+        {row.ticketType ? <span>{row.ticketType}</span> : null}
+        <span>{row.cabinClass || "Economy"}</span>
+        {row.seatNumber || row.seatPreference ? (
+          <span>Seat: {row.seatNumber || row.seatPreference}</span>
+        ) : null}
+        {row.pnrCode ? (
+          <span className="inline-flex items-center gap-2">
+            PNR: {row.pnrCode}
+            <PortalCopyButton aria-label={`Copy PNR ${row.pnrCode}`} value={row.pnrCode} />
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function ticketRowAttention(row: TicketRow) {
   return getTicketAttention(row.ticketStatus);
 }
@@ -147,6 +178,7 @@ export function TicketsView({
       ]}
       empty="No tickets yet."
       entityLabel="ticket"
+      mobileCardRender={renderTicketMobileCard}
       onBulkDelete={
         canManage
           ? async (ids) => {

@@ -107,17 +107,15 @@ function RecoveryItemCard({
           <p className="mt-3 font-medium text-brand-dark text-sm">{item.summary}</p>
           <dl className="mt-3 grid gap-2 text-xs sm:grid-cols-3">
             <div>
-              <dt className="font-semibold text-brand-muted uppercase tracking-[0.08em]">Owner</dt>
+              <dt className="font-semibold text-brand-muted">Owner</dt>
               <dd className="mt-1 text-brand-dark">{item.owner.label}</dd>
             </div>
             <div>
-              <dt className="font-semibold text-brand-muted uppercase tracking-[0.08em]">Age</dt>
+              <dt className="font-semibold text-brand-muted">Age</dt>
               <dd className="mt-1 text-brand-dark">{formatRecoveryAge(item.ageMs)}</dd>
             </div>
             <div>
-              <dt className="font-semibold text-brand-muted uppercase tracking-[0.08em]">
-                Freshness
-              </dt>
+              <dt className="font-semibold text-brand-muted">Freshness</dt>
               <dd className="mt-1 text-brand-dark">
                 {item.freshness === "recent" ? "Recently updated" : "Aged record"}
               </dd>
@@ -125,14 +123,14 @@ function RecoveryItemCard({
           </dl>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <Link className="portal-small-btn bg-white" href={item.href}>
+          <Link className="portal-small-btn min-h-11 bg-white" href={item.href}>
             Open owner
             <ExternalLink aria-hidden="true" size={14} />
           </Link>
           {item.retry ? (
             <Button
               aria-busy={isRetrying || undefined}
-              className="portal-primary-btn"
+              className="portal-primary-btn min-h-11"
               disabled={isRetrying}
               onClick={() => onRetry(item)}
               type="button"
@@ -196,6 +194,7 @@ export function RecoveryCenterView({ access = {} }: { access?: PortalAccessSlice
   const [source, setSource] = useState<RecoverySource>(sources[0]?.id ?? "passenger_import");
   const [referenceNow, setReferenceNow] = useState(() => Date.now());
   const [announcement, setAnnouncement] = useState("");
+  const [retryFailed, setRetryFailed] = useState(false);
   const [retryingId, setRetryingId] = useState<string | null>(null);
   const commandIdsByRetryRevision = useRef(new Map<string, string>());
   const startPassengerExport = useAction(api.crm.importActions.startPassengerExport);
@@ -222,10 +221,12 @@ export function RecoveryCenterView({ access = {} }: { access?: PortalAccessSlice
   const canLoadMore = page.status === "CanLoadMore";
 
   const selectSource = (nextSource: RecoverySource) => {
+    setRetryFailed(false);
     setSource(nextSource);
     setAnnouncement("");
   };
   const refresh = () => {
+    setRetryFailed(false);
     commandIdsByRetryRevision.current.clear();
     setReferenceNow(Date.now());
     setAnnouncement("Recovery records refreshed from a new reference time.");
@@ -235,6 +236,7 @@ export function RecoveryCenterView({ access = {} }: { access?: PortalAccessSlice
       return;
     }
     setRetryingId(item.id);
+    setRetryFailed(false);
     setAnnouncement("");
     try {
       if (item.retry.kind === "passenger_export") {
@@ -259,6 +261,7 @@ export function RecoveryCenterView({ access = {} }: { access?: PortalAccessSlice
       setReferenceNow(Date.now());
       setAnnouncement("Replay-safe retry accepted. Progress will update on refresh.");
     } catch {
+      setRetryFailed(true);
       setAnnouncement(
         "Retry was not accepted. Refresh this record and review its owning workflow."
       );
@@ -279,11 +282,10 @@ export function RecoveryCenterView({ access = {} }: { access?: PortalAccessSlice
               Recovery Center
             </h2>
             <p className="mt-1 max-w-3xl text-brand-muted text-sm">
-              Actionable background work only. Missing rows do not prove that every system is
-              healthy, and retry is available only for reviewed replay-safe commands.
+              Review failed work and use the recovery supported by its owning workflow.
             </p>
           </div>
-          <Button className="portal-small-btn bg-white" onClick={refresh} type="button">
+          <Button className="portal-small-btn min-h-11 bg-white" onClick={refresh} type="button">
             <RefreshCw aria-hidden="true" size={14} />
             Refresh
           </Button>
@@ -291,42 +293,36 @@ export function RecoveryCenterView({ access = {} }: { access?: PortalAccessSlice
         <p className="mt-3 text-brand-muted text-xs">Reference time {formatDate(referenceNow)}</p>
       </div>
 
-      <div aria-label="Recovery work type" className="flex flex-wrap gap-2" role="tablist">
-        {sources.map((candidate) => (
-          <Button
-            aria-controls="recovery-work-panel"
-            aria-selected={candidate.id === selectedSource}
-            className={
-              candidate.id === selectedSource
-                ? "portal-small-btn border-citius-blue bg-citius-blue text-white"
-                : "portal-small-btn bg-white"
+      <label className="block max-w-md text-brand-dark text-sm">
+        <span className="font-medium">Work type</span>
+        <select
+          aria-controls="recovery-work-panel"
+          className="portal-input mt-2 min-h-11 w-full"
+          onChange={(event) => {
+            const nextSource = sources.find((candidate) => candidate.id === event.target.value);
+            if (nextSource) {
+              selectSource(nextSource.id);
             }
-            key={candidate.id}
-            onClick={() => selectSource(candidate.id)}
-            role="tab"
-            type="button"
-          >
-            {candidate.label}
-          </Button>
-        ))}
-      </div>
+          }}
+          value={selectedSource}
+        >
+          {sources.map((candidate) => (
+            <option key={candidate.id} value={candidate.id}>
+              {candidate.label}
+            </option>
+          ))}
+        </select>
+      </label>
 
-      <div
+      <section
         aria-busy={loading || loadingMore || undefined}
-        aria-labelledby="recovery-work-title"
+        aria-label={activeSource.label}
         id="recovery-work-panel"
-        role="tabpanel"
       >
         {selectedSource === "workflow_nudge" ? (
           <span aria-hidden="true" id="workflow-automation" />
         ) : null}
         <div className="mb-3">
-          <h3
-            className="font-heading font-semibold text-brand-dark text-lg"
-            id="recovery-work-title"
-          >
-            {activeSource.label}
-          </h3>
           <p className="mt-1 text-brand-muted text-sm">{activeSource.description}</p>
         </div>
 
@@ -339,14 +335,16 @@ export function RecoveryCenterView({ access = {} }: { access?: PortalAccessSlice
         />
 
         <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
-          <span className="text-brand-muted text-xs">
-            {page.results.length} actionable records loaded
-            {canLoadMore ? "; more source records are available." : "."}
-          </span>
+          {!loading && page.results.length > 0 ? (
+            <span className="text-brand-muted text-xs">
+              {page.results.length} actionable records loaded
+              {canLoadMore ? "; more source records are available." : "."}
+            </span>
+          ) : null}
           {canLoadMore || loadingMore ? (
             <Button
               aria-busy={loadingMore || undefined}
-              className="portal-small-btn bg-white"
+              className="portal-small-btn min-h-11 bg-white"
               disabled={loadingMore}
               onClick={() => page.loadMore(PAGE_SIZE)}
               type="button"
@@ -355,9 +353,14 @@ export function RecoveryCenterView({ access = {} }: { access?: PortalAccessSlice
             </Button>
           ) : null}
         </div>
-      </div>
+      </section>
 
-      <p aria-atomic="true" aria-live="polite" className="sr-only" role="status">
+      <p
+        aria-atomic="true"
+        aria-live={retryFailed ? "assertive" : "polite"}
+        className="text-brand-dark text-sm"
+        role={retryFailed ? "alert" : "status"}
+      >
         {announcement}
       </p>
     </section>

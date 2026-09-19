@@ -42,9 +42,27 @@ export const AUTH_LOGIN_VARIANTS = {
     },
     visible: true,
   },
+  vendor: {
+    allowSignup: false,
+    authPath: "/auth/vendor",
+    copy: {
+      signInSubtitle: "Use your supplier account to manage documents and coordination.",
+      signInTitle: "Vendor sign in",
+      signUpSubtitle: "Vendor accounts are provisioned by Citius Holidays.",
+      signUpTitle: "Vendor Portal",
+      submitSignIn: "Sign in",
+      submitSignUp: "Create Account",
+    },
+    href: "/vendor",
+    id: "vendor",
+    label: "Vendor Sign In",
+    metadata: {
+      description: "Partner and supplier sign in for the Citius Holidays vendor portal.",
+      title: "Vendor Sign In | Citius Holidays",
+    },
+    visible: false,
+  },
 };
-
-const UNAVAILABLE_SIGN_IN_PREFIXES = new Map([["/vendor", "/contact"]]);
 
 export const SIGN_IN_TARGET_LIST = Object.values(AUTH_LOGIN_VARIANTS);
 
@@ -139,14 +157,8 @@ export function getAuthRecoveryUrl(path, variantId, callbackUrl) {
 }
 
 export function getLoginUrlForCallback(callbackUrl) {
-  for (const [prefix, unavailableRedirect] of UNAVAILABLE_SIGN_IN_PREFIXES) {
-    if (
-      callbackUrl === prefix ||
-      callbackUrl?.startsWith(`${prefix}/`) ||
-      callbackUrl?.startsWith(`${prefix}?`)
-    ) {
-      return unavailableRedirect;
-    }
+  if (!isRuntimeString(callbackUrl)) {
+    return AUTH_LOGIN_VARIANTS.guest.authPath;
   }
   const variant = getAuthVariantFromCallbackUrl(callbackUrl);
   const returnTo = resolveAuthReturnTarget(variant.id, callbackUrl);

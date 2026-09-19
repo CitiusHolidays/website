@@ -71,6 +71,33 @@ describe("Portal workflow presentation policy", () => {
     ).toBeUndefined();
   });
 
+  test("Contracting terminal decisions replace stale proposal attention but retain assignment gaps", () => {
+    for (const staleWork of [
+      { proposal: { status: "Sent" } },
+      { proposal: { status: "Rejected" } },
+      { proposal: { sentToClientAt: "2026-07-13" } },
+      { contractingStatus: "Date/Destination Change Required" },
+      { submittedToContractingAt: "2026-07-08T12:00:00.000Z" },
+    ]) {
+      expect(
+        getContractingAttention({ ...ASSIGNED, ...staleWork, salesStatus: "Order Confirmed" }, NOW)
+      ).toBeUndefined();
+    }
+    expect(
+      getContractingAttention({ ...ASSIGNED, contractingStatus: "Order Confirmed" })
+    ).toBeUndefined();
+    expect(
+      getContractingAttention({ contractingStatus: "Order Confirmed", salesStatus: "Order Lost" })
+    ).toEqual({ label: "Blocked: order lost", tone: "danger" });
+    expect(getContractingAttention({ salesStatus: "Order Confirmed" })).toEqual({
+      label: "Contracting SPOC unassigned",
+      tone: "warning",
+    });
+    expect(
+      getContractingAttention({ ...ASSIGNED, salesStatus: "Order Confirmed", ticketingScope: "" })
+    ).toEqual({ label: "Ticketing scope pending", tone: "warning" });
+  });
+
   test("Has an explicit attention result for every canonical Ticketing status", () => {
     expect(CANONICAL_TICKET_STATUSES.map((status) => [status, getTicketAttention(status)])).toEqual(
       [

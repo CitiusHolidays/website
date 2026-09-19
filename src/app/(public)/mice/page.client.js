@@ -94,7 +94,7 @@ export default function MicePageClient({ images = [] }) {
   return (
     <>
       <section
-        className="relative flex min-h-[44rem] items-end overflow-hidden bg-public-night pt-28 text-white md:min-h-[52rem]"
+        className="relative flex min-h-[34rem] items-end overflow-hidden bg-public-night pt-28 text-white md:min-h-[52rem]"
         data-mice-stage="1"
       >
         <Image
@@ -107,28 +107,28 @@ export default function MicePageClient({ images = [] }) {
         />
         <div className="absolute inset-0 bg-public-night/70" />
         <PublicGrain />
-        <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-16 sm:px-6 md:pb-24 lg:px-8">
-          <h1 className="max-w-[680px] text-balance font-heading font-semibold text-5xl text-white leading-[1.4] sm:text-6xl md:text-7xl lg:leading-tight">
+        <div className="relative z-10 mx-auto w-full max-w-7xl px-4 pb-10 sm:px-6 md:pb-24 lg:px-8">
+          <h1 className="max-w-[680px] text-balance font-heading font-semibold text-4xl text-white leading-tight sm:text-5xl md:text-7xl">
             Corporate events planned around your brief
           </h1>
-          <p className="mt-6 max-w-[680px] text-pretty text-lg text-white/80 leading-8 md:text-xl">
+          <p className="mt-4 max-w-[680px] text-pretty text-base text-white/80 leading-7 md:mt-6 md:text-xl md:leading-8">
             Meetings, incentives, conferences, and exhibitions. One accountable team owns the
             programme, travel details, and on-ground support.
           </p>
-          <p className="mt-4 max-w-[680px] text-sm text-white/70">
-            Fifteen years of programmes for teams that keep coming back.
-          </p>
-          <PublicContactCta className="mt-8" href={MICE_PROPOSAL_CONTACT_HREF} tone="glass">
+          <PublicContactCta className="mt-6 md:mt-8" href={MICE_PROPOSAL_CONTACT_HREF} tone="glass">
             Request a Proposal
           </PublicContactCta>
         </div>
       </section>
 
-      <AnimatedSection className="bg-public-paper px-4 py-24 sm:px-6 lg:px-8" data-mice-stage="2">
-        <div className="mx-auto grid max-w-7xl items-stretch gap-16 lg:grid-cols-12 lg:gap-10">
+      <AnimatedSection
+        className="bg-public-paper px-4 py-16 sm:px-6 md:py-24 lg:px-8"
+        data-mice-stage="2"
+      >
+        <div className="mx-auto grid max-w-7xl items-stretch gap-8 lg:grid-cols-12 lg:gap-10">
           <div className="lg:col-span-5">
-            <PublicTaglineReveal lines={MICE_TAGLINE_LINES} />
-            <h2 className="mt-16 max-w-[680px] text-balance font-heading font-semibold text-4xl text-public-ink leading-[1.4] md:text-5xl lg:leading-tight">
+            <PublicTaglineReveal className="text-3xl" lines={MICE_TAGLINE_LINES} />
+            <h2 className="mt-8 max-w-[680px] text-balance font-heading font-semibold text-3xl text-public-ink leading-tight md:mt-16 md:text-5xl">
               Start with the outcome, not a package
             </h2>
             <p className="mt-6 max-w-[680px] text-pretty text-public-muted leading-7">
@@ -146,7 +146,7 @@ export default function MicePageClient({ images = [] }) {
               ))}
             </ul>
           </div>
-          <div className="public-media-edge relative min-h-[30rem] overflow-hidden lg:col-span-7 lg:min-h-[42rem]">
+          <div className="public-media-edge relative min-h-[20rem] overflow-hidden lg:col-span-7 lg:min-h-[42rem]">
             <Image
               alt="Conference audience facing an illuminated stage"
               className="object-cover object-[58%_center]"
@@ -158,10 +158,13 @@ export default function MicePageClient({ images = [] }) {
         </div>
       </AnimatedSection>
 
-      <AnimatedSection className="bg-public-surface px-4 py-24 sm:px-6 lg:px-8" data-mice-stage="3">
+      <AnimatedSection
+        className="bg-public-surface px-4 py-16 sm:px-6 md:py-24 lg:px-8"
+        data-mice-stage="3"
+      >
         <div className="mx-auto max-w-7xl">
           <div className="grid gap-6 md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] md:items-end">
-            <h2 className="max-w-[680px] text-balance font-heading font-semibold text-4xl text-public-ink md:text-5xl">
+            <h2 className="max-w-[680px] text-balance font-heading font-semibold text-3xl text-public-ink md:text-5xl">
               Four formats. One operating standard.
             </h2>
             <p className="max-w-xl text-pretty text-lg text-public-muted leading-8 md:justify-self-end">
@@ -176,7 +179,7 @@ export default function MicePageClient({ images = [] }) {
                 key={title}
               >
                 <Icon aria-hidden="true" className="size-8 text-public-blue" strokeWidth={1.6} />
-                <h3 className="mt-16 font-heading font-semibold text-3xl text-public-ink">
+                <h3 className="mt-8 font-heading font-semibold text-3xl text-public-ink md:mt-16">
                   {title}
                 </h3>
                 <p className="mt-3 max-w-[42ch] text-pretty text-public-muted leading-7">
@@ -189,7 +192,7 @@ export default function MicePageClient({ images = [] }) {
       </AnimatedSection>
 
       <AnimatedSection
-        className="relative overflow-hidden bg-public-night px-4 py-24 text-white sm:px-6 lg:px-8 lg:py-32"
+        className="relative overflow-hidden bg-public-night px-4 py-16 text-white sm:px-6 md:py-24 lg:px-8 lg:py-32"
         data-mice-stage="4"
       >
         <div
@@ -198,7 +201,7 @@ export default function MicePageClient({ images = [] }) {
         />
         <div className="relative mx-auto grid max-w-7xl gap-14 lg:grid-cols-12 lg:items-center">
           <div className="lg:col-span-5">
-            <h2 className="font-heading font-semibold text-4xl leading-[1.4] md:text-5xl lg:leading-tight">
+            <h2 className="font-heading font-semibold text-3xl leading-tight md:text-5xl">
               The operating model, from first brief to on-ground delivery.
             </h2>
             <div className="mt-10 space-y-8">
@@ -229,13 +232,13 @@ export default function MicePageClient({ images = [] }) {
       </AnimatedSection>
 
       <AnimatedSection
-        className="bg-public-paper px-4 py-24 sm:px-6 lg:px-8 lg:py-32"
+        className="bg-public-paper px-4 py-16 sm:px-6 md:py-24 lg:px-8 lg:py-32"
         data-mice-stage="5"
       >
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
             <div>
-              <h2 className="font-heading font-semibold text-4xl text-public-ink md:text-5xl">
+              <h2 className="font-heading font-semibold text-3xl text-public-ink md:text-5xl">
                 The evidence: a glimpse into our events.
               </h2>
             </div>
@@ -256,17 +259,17 @@ export default function MicePageClient({ images = [] }) {
       </AnimatedSection>
 
       <AnimatedSection
-        className="relative overflow-hidden bg-public-blue px-4 py-24 text-center text-white sm:px-6 lg:px-8 lg:py-32"
+        className="relative overflow-hidden bg-public-blue px-4 py-16 text-center text-white sm:px-6 md:py-24 lg:px-8 lg:py-32"
         data-mice-stage="6"
       >
         <PublicGrain />
         <div className="relative z-10 mx-auto max-w-3xl">
-          <h2 className="font-heading font-semibold text-4xl leading-[1.4] md:text-6xl lg:leading-tight">
+          <h2 className="font-heading font-semibold text-3xl leading-tight md:text-6xl">
             The next step: bring us the brief. We&apos;ll shape the proposal.
           </h2>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-white/75 leading-8">
-            Share an editable enquiry with the Sales team. Every request is reviewed before the next
-            step.
+            Tell us about your event, dates, and group size. Our team will contact you to discuss
+            the plans.
           </p>
           <PublicContactCta className="mx-auto mt-9" href={MICE_PROPOSAL_CONTACT_HREF}>
             Request a Proposal

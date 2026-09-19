@@ -380,6 +380,7 @@ export function ExpensesView({
             ),
         },
       ]}
+      compact
       empty="No expenses yet."
       filtersActive={filtersActive}
       layoutKey="expenses:list"

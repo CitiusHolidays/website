@@ -5,13 +5,15 @@ import { useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
 import { type MouseEvent, type ReactNode, useState } from "react";
 import { formatDate } from "@/components/portal/PortalModalForm";
+import { PortalTabs } from "@/components/portal/PortalTabs";
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { Button } from "@/components/ui/application-button";
 import { getNotificationHref } from "@/lib/portal/notificationTargets";
-import { EmptyState, Timeline } from "../portalAdminHelpers";
+import { EmptyState, LoadingPanel, Timeline } from "../portalAdminHelpers";
 import type {
   ActivityViewProps,
   EmailDeliveryTriage,
+  PortalActivityRow,
   PortalDeleteHandler,
   PortalNotificationRow,
 } from "../portalViewTypes";
@@ -31,6 +33,7 @@ const EMAIL_DELIVERY_FILTERS = [
   { label: "Needs attention", value: "attention" },
   { label: "Retrying", value: "retrying" },
 ] as const;
+type EmailDeliveryFilter = (typeof EMAIL_DELIVERY_FILTERS)[number]["value"];
 
 function EmailDeliveryBadges({
   coverage,
@@ -59,7 +62,7 @@ function EmailDeliveryBadges({
       ) : null}
       {summary.exhausted > 0 ? (
         <span className="rounded-full bg-rose-100 px-2 py-1 text-rose-800">
-          {summary.exhausted} exhausted
+          {summary.exhausted} failed after retries
         </span>
       ) : null}
       {summary.skipped > 0 ? (
@@ -82,18 +85,18 @@ function EmailDeliveryTriagePanel({
 }) {
   return (
     <div className="mt-3 rounded-md border border-brand-border bg-white p-3 text-sm">
-      <p className="font-semibold text-brand-dark">Privacy-safe event triage</p>
+      <p className="font-semibold text-brand-dark">Delivery details</p>
       <p className="mt-1 text-brand-muted text-xs">
         {triage.target.targetEnvironment} · {triage.target.targetDeployment} ·{" "}
         {triage.target.targetRevision}
       </p>
       <p className="mt-1 text-brand-muted text-xs">
         Window: {formatDate(triage.window.startedAt)} to {formatDate(triage.window.endedAt)} ·
-        attempts {triage.attempts.minimum}–{triage.attempts.maximum}
+        attempts {triage.attempts.minimum} to {triage.attempts.maximum}
       </p>
       {triage.coverage === "partial" ? (
         <p className="mt-2 text-amber-900 text-xs">
-          Cause coverage is partial; do not treat these buckets as complete.
+          Only some delivery records are available. These counts may be incomplete.
         </p>
       ) : null}
       {triage.causes.length > 0 ? (
@@ -109,7 +112,7 @@ function EmailDeliveryTriagePanel({
         </ul>
       ) : (
         <p className="mt-3 text-brand-muted text-xs">
-          No retrying or terminal failure cause is recorded in this window.
+          No reason for a retry or failed delivery is recorded in this period.
         </p>
       )}
       <p className="mt-3 text-brand-muted text-xs">{triage.resendReason}</p>
@@ -156,7 +159,7 @@ function EmailDeliverySummaryCard({
         />
       ) : (
         <p className="mt-3 text-brand-muted text-xs" role="status">
-          Loading authorized delivery triage…
+          Loading delivery details…
         </p>
       );
   }
@@ -183,7 +186,7 @@ function EmailDeliverySummaryCard({
           onClick={() => onToggleEvent(summary.eventId)}
           type="button"
         >
-          {expanded ? "Hide delivery triage" : "Review delivery triage"}
+          {expanded ? "Hide delivery details" : "Review delivery details"}
         </button>
       ) : null}
       {expandedRegion}
@@ -194,6 +197,8 @@ function EmailDeliverySummaryCard({
 export function EmailDeliveryStatusRegion({
   coverage,
   expandedEventId,
+  filter,
+  onFilterChange,
   onResend,
   onToggleEvent,
   resendPending = false,
@@ -202,13 +207,14 @@ export function EmailDeliveryStatusRegion({
 }: {
   coverage: EmailDeliveryResult["coverage"];
   expandedEventId?: string | null;
+  filter: EmailDeliveryFilter;
+  onFilterChange: (value: EmailDeliveryFilter) => void;
   onResend?: (triage: EmailDeliveryTriage) => void;
   onToggleEvent?: (eventId: string) => void;
   resendPending?: boolean;
   summaries: EmailDeliverySummary[];
   triage?: EmailDeliveryTriage;
 }) {
-  const [filter, setFilter] = useState<"all" | "attention" | "retrying">("all");
   const visibleSummaries = summaries.filter((summary) => {
     if (filter === "attention") {
       return summary.exhausted + summary.skipped > 0;
@@ -222,14 +228,14 @@ export function EmailDeliveryStatusRegion({
     <Panel title="Notification email delivery">
       {coverage === "partial" ? (
         <p className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900 text-xs">
-          Delivery totals are still being reconciled. Counts shown are partial.
+          Delivery totals are still updating. Counts shown are incomplete.
         </p>
       ) : null}
       {summaries.length === 0 ? (
         <EmptyState
           label={
             coverage === "partial"
-              ? "No authorized email delivery events appear in this bounded, incomplete view yet."
+              ? "No email deliveries are shown yet. More records may be available as totals update."
               : "No email delivery events yet."
           }
         />
@@ -242,7 +248,7 @@ export function EmailDeliveryStatusRegion({
                 aria-pressed={filter === value}
                 className="portal-small-btn min-h-11"
                 key={value}
-                onClick={() => setFilter(value)}
+                onClick={() => onFilterChange(value)}
                 type="button"
               >
                 {label}
@@ -321,17 +327,118 @@ function InteractiveNotificationItem({
   );
 }
 
+function isSystemActivity(row: Pick<PortalActivityRow, "action" | "entityType">) {
+  return (
+    row.entityType === "scheduledJob" ||
+    row.entityType === "system" ||
+    row.action === "commercial_file_purge_page"
+  );
+}
+
+function ActivityNotifications({
+  deleteItem,
+  notifications,
+  notificationsLoading,
+  onNotificationClick,
+  removeNotification,
+}: Pick<
+  ActivityViewProps,
+  "deleteItem" | "notifications" | "notificationsLoading" | "removeNotification"
+> & {
+  onNotificationClick: (item: PortalNotificationRow) => void;
+}) {
+  if (notificationsLoading) {
+    return <LoadingPanel />;
+  }
+  if (notifications.length === 0) {
+    return <EmptyState label="No notifications yet." />;
+  }
+  return (
+    <div className="space-y-3">
+      {notifications.map((item) =>
+        item.entityType && item.entityId ? (
+          <InteractiveNotificationItem
+            deleteItem={deleteItem}
+            item={item}
+            key={item.id}
+            onNotificationClick={onNotificationClick}
+            removeNotification={removeNotification}
+          />
+        ) : (
+          <div className="rounded-md border border-brand-border bg-brand-light p-3" key={item.id}>
+            <NotificationItemContent
+              deleteItem={deleteItem}
+              item={item}
+              removeNotification={removeNotification}
+            />
+          </div>
+        )
+      )}
+    </div>
+  );
+}
+
+function activitySections(canViewActivityLog: boolean, showDelivery: boolean) {
+  return [
+    ...(canViewActivityLog
+      ? [
+          { id: "business", label: "Business events" },
+          { id: "notifications", label: "Notifications" },
+          { id: "system", label: "System history" },
+        ]
+      : []),
+    ...(showDelivery || !canViewActivityLog ? [{ id: "delivery", label: "Email delivery" }] : []),
+  ];
+}
+
+function ActivityTimeline({
+  loading,
+  rows,
+  section,
+}: {
+  loading: boolean;
+  rows: PortalActivityRow[];
+  section: string;
+}) {
+  if (loading) {
+    return <LoadingPanel />;
+  }
+  if (rows.length > 0) {
+    return <Timeline rows={rows} />;
+  }
+  return (
+    <EmptyState
+      label={`No ${section === "system" ? "system history" : "business events"} in the loaded records. Adjust filters or load more records if available.`}
+    />
+  );
+}
+
 export function ActivityView({
   activity,
   canViewActivityLog,
   notifications,
   deleteItem,
   emailDeliverySummaries,
+  initialFilters,
+  loading = false,
+  notificationsLoading = false,
   removeNotification,
   markNotificationRead,
 }: ActivityViewProps) {
   const router = useRouter();
   const toast = usePortalToast();
+  const filterKey = JSON.stringify([initialFilters?.action, initialFilters?.entityType]);
+  const [selection, setSelection] = useState(() => ({
+    filterKey,
+    section: isSystemActivity(initialFilters ?? {}) ? "system" : "business",
+  }));
+  if (selection.filterKey !== filterKey) {
+    setSelection({
+      filterKey,
+      section: isSystemActivity(initialFilters ?? {}) ? "system" : "business",
+    });
+  }
+  const [emailFilter, setEmailFilter] = useState<EmailDeliveryFilter>("all");
   const [expandedEmailEventId, setExpandedEmailEventId] = useState<string | null>(null);
   const [emailTriageAt, setEmailTriageAt] = useState(() => Date.now());
   const [resendPendingEventId, setResendPendingEventId] = useState<string | null>(null);
@@ -365,12 +472,12 @@ export function ActivityView({
       });
       toast.success(
         result.replayed
-          ? "That one-event retry was already queued."
-          : `${result.queuedRecipientCount} failed ${result.queuedRecipientCount === 1 ? "recipient" : "recipients"} queued with the original delivery identity.`
+          ? "That retry is already queued."
+          : `Retry queued for ${result.queuedRecipientCount} ${result.queuedRecipientCount === 1 ? "recipient" : "recipients"} whose delivery failed.`
       );
       setEmailTriageAt(Date.now());
     } catch (error) {
-      toast.error(formatConvexError(error, "Could not queue that bounded email retry."));
+      toast.error(formatConvexError(error, "Could not queue the email retry."));
     }
     setResendPendingEventId(null);
   };
@@ -389,60 +496,56 @@ export function ActivityView({
     }
   };
 
-  return (
-    <div className={`grid gap-5 ${canViewActivityLog ? "xl:grid-cols-2" : ""}`}>
-      {canViewActivityLog ? (
-        <Panel title="Activity log">
-          <Timeline rows={activity} />
-        </Panel>
-      ) : null}
-      {canViewActivityLog ? (
-        <Panel title="Notifications">
-          {notifications.length === 0 ? (
-            <EmptyState label="No notifications yet." />
-          ) : (
-            <div className="space-y-3">
-              {notifications.map((item) => {
-                const isInteractive = Boolean(item.entityType && item.entityId);
-                const itemClassName = `rounded-md border border-brand-border bg-brand-light p-3 ${
-                  isInteractive ? "cursor-pointer transition hover:bg-white" : ""
-                }`;
+  const sections = activitySections(canViewActivityLog, Boolean(emailDeliverySummaries));
+  const selectedSection = sections.some((entry) => entry.id === selection.section)
+    ? selection.section
+    : (sections[0]?.id ?? "delivery");
+  const visibleActivity = activity.filter(
+    (row) => isSystemActivity(row) === (selectedSection === "system")
+  );
 
-                return isInteractive ? (
-                  <InteractiveNotificationItem
-                    deleteItem={deleteItem}
-                    item={item}
-                    key={item.id}
-                    onNotificationClick={handleNotificationClick}
-                    removeNotification={removeNotification}
-                  />
-                ) : (
-                  <div className={itemClassName} key={item.id}>
-                    <NotificationItemContent
-                      deleteItem={deleteItem}
-                      item={item}
-                      removeNotification={removeNotification}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          )}
+  return (
+    <PortalTabs
+      ariaLabel="Activity sections"
+      items={sections}
+      onValueChange={(section) => setSelection({ filterKey, section })}
+      selectionMode="manual"
+      value={selectedSection}
+    >
+      {selectedSection === "business" || selectedSection === "system" ? (
+        <Panel title={selectedSection === "system" ? "System history" : "Business events"}>
+          <ActivityTimeline loading={loading} rows={visibleActivity} section={selectedSection} />
         </Panel>
       ) : null}
-      {emailDeliverySummaries ? (
-        <div className={canViewActivityLog ? "xl:col-span-2" : ""}>
-          <EmailDeliveryStatusRegion
-            coverage={emailDeliverySummaries.coverage}
-            expandedEventId={expandedEmailEventId}
-            onResend={resendEmailEvent}
-            onToggleEvent={toggleEmailTriage}
-            resendPending={resendPendingEventId === expandedEmailEventId}
-            summaries={emailDeliverySummaries.summaries}
-            triage={emailDeliveryTriage}
+      {selectedSection === "notifications" ? (
+        <Panel title="Notifications">
+          <ActivityNotifications
+            deleteItem={deleteItem}
+            notifications={notifications}
+            notificationsLoading={notificationsLoading}
+            onNotificationClick={handleNotificationClick}
+            removeNotification={removeNotification}
           />
-        </div>
+        </Panel>
       ) : null}
-    </div>
+      {selectedSection === "delivery" && emailDeliverySummaries ? (
+        <EmailDeliveryStatusRegion
+          coverage={emailDeliverySummaries.coverage}
+          expandedEventId={expandedEmailEventId}
+          filter={emailFilter}
+          onFilterChange={setEmailFilter}
+          onResend={resendEmailEvent}
+          onToggleEvent={toggleEmailTriage}
+          resendPending={resendPendingEventId === expandedEmailEventId}
+          summaries={emailDeliverySummaries.summaries}
+          triage={emailDeliveryTriage}
+        />
+      ) : null}
+      {selectedSection === "delivery" && !emailDeliverySummaries ? (
+        <p className="text-brand-muted text-sm" role="status">
+          Loading authorized email delivery events…
+        </p>
+      ) : null}
+    </PortalTabs>
   );
 }

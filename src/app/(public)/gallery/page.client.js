@@ -9,7 +9,7 @@ const GALLERY_VIDEO_SOURCES = [{ src: "/gallery/sunset.mp4", type: "video/mp4" }
 export default function GalleryPageClient({ images }) {
   return (
     <>
-      <section className="relative flex h-[70vh] items-center justify-center overflow-hidden text-center">
+      <section className="relative flex min-h-[22rem] items-center justify-center overflow-hidden px-4 pt-32 pb-12 text-center sm:min-h-[28rem]">
         <HeroVideo
           className="absolute inset-0 size-full bg-public-night object-cover object-center brightness-75"
           label="gallery background video"
@@ -35,17 +35,15 @@ export default function GalleryPageClient({ images }) {
           </m.p>
         </div>
       </section>
-      {/* <AnimatedSection className="py-16 bg-white px-4"> */}
       <m.div
-        animate={{ opacity: 1, scale: 1 }}
-        className="bg-[url('/gallery/bgfooter.webp')] bg-center px-4 py-16"
-        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1 }}
+        className="bg-public-paper px-4 py-10 sm:py-16"
+        initial={{ opacity: 0 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
         viewport={{ amount: 0.1, once: true }}
       >
         <GalleryGrid className="mx-auto max-w-6xl" images={images} />
       </m.div>
-      {/* </AnimatedSection> */}
     </>
   );
 }

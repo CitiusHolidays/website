@@ -1,5 +1,6 @@
 import { isRuntimeNumber } from "../runtimeValues";
 import type { PortalGridAttention } from "./portalDataGrid";
+import { getPipelineStage } from "./workflow";
 
 interface ProposalSnapshot {
   pricingEnteredAt?: string | null;
@@ -14,6 +15,7 @@ interface ContractingAttentionInput {
   contractingStatus?: string;
   createdAt?: string | number;
   proposal?: ProposalSnapshot | null;
+  salesStatus?: string;
   submittedToContractingAt?: string | number | null;
   ticketingOwnerId?: string | null;
   ticketingOwnerName?: string | null;
@@ -39,7 +41,8 @@ export function getContractingAttention(
   row: ContractingAttentionInput,
   now = Date.now()
 ): PortalGridAttention | undefined {
-  if (["Order Lost", "Rejected"].includes(row.contractingStatus || "")) {
+  const stage = getPipelineStage(row);
+  if (stage === "Order Lost" || row.contractingStatus === "Rejected") {
     return { label: "Blocked: order lost", tone: "danger" };
   }
   if (!(row.contractingOwnerId || row.contractingOwnerName)) {
@@ -50,6 +53,9 @@ export function getContractingAttention(
   }
   if (row.ticketingScope !== "Not required" && !(row.ticketingOwnerId || row.ticketingOwnerName)) {
     return { label: "Ticketing SPOC unassigned", tone: "warning" };
+  }
+  if (stage === "Order Confirmed") {
+    return;
   }
   if (
     ["Change in destination", "Date/Destination Change Required"].includes(
@@ -68,13 +74,14 @@ export function getContractingAttention(
     return { label: "With Sales: awaiting Sales Decision", tone: "info" };
   }
   const ageDays = ageInDays(row.submittedToContractingAt || row.createdAt, now);
-  if (!row.proposal?.pricingEnteredAt) {
-    if (ageDays >= OVERDUE_DAYS) {
-      return { label: `Proposal overdue: ${ageDays} days since received`, tone: "warning" };
-    }
-    return {
-      label: row.proposal ? "Waiting: costing not started" : "Waiting: proposal not started",
-      tone: "warning",
-    };
+  if (row.proposal?.pricingEnteredAt) {
+    return;
   }
+  if (ageDays >= OVERDUE_DAYS) {
+    return { label: `Proposal overdue: ${ageDays} days since received`, tone: "warning" };
+  }
+  return {
+    label: row.proposal ? "Waiting: costing not started" : "Waiting: proposal not started",
+    tone: "warning",
+  };
 }

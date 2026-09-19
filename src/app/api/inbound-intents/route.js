@@ -1,10 +1,6 @@
 import { createHash } from "node:crypto";
 import { fetchMutation } from "convex/nextjs";
 import { anyApi } from "convex/server";
-import {
-  isInboundReceiptReference,
-  normalizeInboundEnquiryBrief,
-} from "@/lib/contact/inboundIntentContract";
 import { checkContactRateLimit } from "@/lib/contact/rate-limit";
 import {
   detectSpamContent,
@@ -18,7 +14,6 @@ import {
   isTurnstilePartiallyConfigured,
   verifyTurnstileToken,
 } from "@/lib/contact/turnstile";
-import { resolveWebsiteSourceContext } from "@/lib/contact/websiteSourceContext";
 import { isJsonObject, readJsonBodyWithinLimit } from "@/lib/http/readJsonBody";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
 import { normalizeSacredBharatIntentContext } from "@/lib/sacredBharat/inboundIntent";
@@ -29,13 +24,14 @@ const MAX_IDEMPOTENCY_KEY_LENGTH = 128;
 const CLIENT_NAME_MAX = 160;
 const EMAIL_MAX = 254;
 const MOBILE_MAX = 50;
+const DESTINATION_MAX = 240;
 const NOTES_MAX = 5000;
+const MAX_PAX_COUNT = 1000;
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MOBILE_PATTERN = /^[+()\d][\d\s().-]{5,49}$/;
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const ALLOWED_SOURCES = new Set(["Citius Concierge", "Sacred Bharat", "Website"]);
-const LEGACY_BRIEF_FIELDS = ["destination", "paxCount", "travelStartDate"];
 const ALLOWED_BODY_FIELDS = new Set([
-  "brief",
   "clientName",
   "company",
   "consent",
@@ -52,7 +48,6 @@ const ALLOWED_BODY_FIELDS = new Set([
   "travelStartDate",
   "turnstileToken",
   "wishlist",
-  "websiteSourceContext",
 ]);
 
 function jsonResponse(payload, status, headers = {}) {
@@ -122,12 +117,17 @@ function validateContactIdentity({ clientName, consent, contactEmail, contactMob
 }
 
 function validateIntentDetails({
+  destination,
   notes,
+  paxCount,
   rawSacredBharatContext,
   sacredBharatContext,
   source,
-  websiteSourceContext,
+  travelStartDate,
 }) {
+  if (destination !== undefined && destination.length > DESTINATION_MAX) {
+    return "Destination is too long.";
+  }
   if (notes !== undefined && notes.length > NOTES_MAX) {
     return "Notes are too long.";
   }
@@ -140,21 +140,16 @@ function validateIntentDetails({
   if (source !== "Sacred Bharat" && rawSacredBharatContext !== undefined) {
     return "Sacred Bharat context does not match this enquiry source.";
   }
-  if (source !== "Website" && websiteSourceContext !== undefined) {
-    return "Website context does not match this enquiry source.";
+  if (
+    paxCount !== undefined &&
+    !(Number.isInteger(paxCount) && paxCount >= 1 && paxCount <= MAX_PAX_COUNT)
+  ) {
+    return "Pax count must be a whole number between 1 and 1,000.";
+  }
+  if (travelStartDate !== undefined && !DATE_PATTERN.test(travelStartDate)) {
+    return "Travel date must use YYYY-MM-DD format.";
   }
   return null;
-}
-
-function legacyBrief(body) {
-  if (!LEGACY_BRIEF_FIELDS.some((field) => body[field] !== undefined)) {
-    return;
-  }
-  return {
-    destination: body.destination,
-    paxCount: body.paxCount === undefined ? undefined : Number(body.paxCount),
-    travelStartDate: body.travelStartDate,
-  };
 }
 
 function normalizeBody(body) {
@@ -171,21 +166,12 @@ function normalizeBody(body) {
   const clientName = optionalTrimmedString(body.clientName) ?? "";
   const contactEmail = optionalTrimmedString(body.contactEmail, true);
   const contactMobile = optionalTrimmedString(body.contactMobile);
+  const destination = optionalTrimmedString(body.destination);
   const source = optionalTrimmedString(body.source) ?? "";
   const notes = normalizedNotes(body, source);
   const sacredBharatContext = normalizeSacredBharatIntentContext(body.sacredBharatContext);
-  const hasLegacyBrief = LEGACY_BRIEF_FIELDS.some((field) => body[field] !== undefined);
-  if (body.brief !== undefined && hasLegacyBrief) {
-    return { error: "Submit one enquiry brief.", ok: false };
-  }
-  const briefResult = normalizeInboundEnquiryBrief(body.brief ?? legacyBrief(body));
-  if (!briefResult.ok) {
-    return { error: briefResult.error, ok: false };
-  }
-  const websiteContextResult = resolveWebsiteSourceContext(body.websiteSourceContext);
-  if (!websiteContextResult.ok) {
-    return { error: websiteContextResult.error, ok: false };
-  }
+  const travelStartDate = optionalTrimmedString(body.travelStartDate);
+  const paxCount = body.paxCount === undefined ? undefined : Number(body.paxCount);
   const error =
     validateContactIdentity({
       clientName,
@@ -194,11 +180,13 @@ function normalizeBody(body) {
       contactMobile,
     }) ??
     validateIntentDetails({
+      destination,
       notes,
+      paxCount,
       rawSacredBharatContext: body.sacredBharatContext,
       sacredBharatContext,
       source,
-      websiteSourceContext: websiteContextResult.value,
+      travelStartDate,
     });
   if (error) {
     return { error, ok: false };
@@ -209,15 +197,14 @@ function normalizeBody(body) {
     value: {
       clientName,
       consent: true,
-      ...propertiesWhen(briefResult.value, () => ({ brief: briefResult.value })),
       ...propertiesWhen(contactEmail, () => ({ contactEmail })),
       ...propertiesWhen(contactMobile, () => ({ contactMobile })),
+      ...propertiesWhen(destination, () => ({ destination })),
       ...propertiesWhen(notes, () => ({ notes })),
+      ...propertiesWhen(!(paxCount === undefined), () => ({ paxCount })),
       ...propertiesWhen(sacredBharatContext, () => ({ sacredBharatContext })),
       source,
-      ...propertiesWhen(websiteContextResult.value, () => ({
-        websiteSourceContext: websiteContextResult.value,
-      })),
+      ...propertiesWhen(travelStartDate, () => ({ travelStartDate })),
     },
   };
 }
@@ -365,20 +352,12 @@ export async function handleInboundIntentRequest(
         503
       );
     }
-    if (
-      (result.status === "created" || result.status === "duplicate") &&
-      !isInboundReceiptReference(result.receiptReference)
-    ) {
-      return jsonResponse({ error: "Enquiry service is temporarily unavailable." }, 503);
-    }
     return jsonResponse(
       {
         accepted: result.status === "created" || result.status === "duplicate",
         duplicate: result.status === "duplicate",
         ...propertiesWhen(result.effects, () => ({ effects: result.effects })),
-        ...propertiesWhen(isInboundReceiptReference(result.receiptReference), () => ({
-          receiptReference: result.receiptReference,
-        })),
+        ...propertiesWhen(result.intentId !== undefined, () => ({ intentId: result.intentId })),
         status: result.status,
       },
       result.status === "created" ? 201 : 200

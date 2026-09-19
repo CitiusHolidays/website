@@ -7,7 +7,12 @@ import { ControlledDialog, ControlledDialogTitle } from "@/components/ui/applica
 import { PUBLIC_EASE_OUT } from "@/lib/publicInteractionMotion";
 import { PlusIcon, useAnimatedIconTrigger, XIcon } from "./AnimatedLucideIcons";
 import { ChatbotComposer } from "./ChatbotComposer";
-import { ChatbotAnnouncement, ChatbotMessageList, ChatbotSuggestions } from "./ChatbotMessages";
+import {
+  ChatbotAnnouncement,
+  ChatbotMessageList,
+  ChatbotProcessingNotice,
+  ChatbotSuggestions,
+} from "./ChatbotMessages";
 import { ConciergeContactHandoff } from "./ConciergeContactHandoff";
 import TurnstileWidget from "./TurnstileWidget";
 import { useChatbotConversation } from "./useChatbotConversation";
@@ -19,7 +24,7 @@ function HeaderAction({ children, iconRef, label, onClick, reference }) {
   return (
     <button
       aria-label={label}
-      className="inline-flex size-10 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
+      className="inline-flex size-11 items-center justify-center rounded-full text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
       onClick={onClick}
       ref={reference}
       title={label}
@@ -51,7 +56,7 @@ function ChatbotPanelHeader({
           <Compass className="size-5" />
         </span>
         <div className="min-w-0">
-          <ControlledDialogTitle className="truncate font-heading font-semibold text-[15px] text-slate-950 tracking-[-0.01em]">
+          <ControlledDialogTitle className="font-heading font-semibold text-[15px] text-slate-950 leading-5">
             Citius Concierge
           </ControlledDialogTitle>
         </div>
@@ -88,7 +93,7 @@ function ChatbotPanelHeader({
 
 function chatPanelHeightClass(isMinimized, avoidsMobileBottomBar) {
   if (isMinimized) {
-    return "h-[72px]";
+    return "h-auto";
   }
   if (avoidsMobileBottomBar) {
     return "safe-area-mobile-bottom-bar-panel";
@@ -196,7 +201,7 @@ export function ChatbotWindow({ avoidsMobileBottomBar = false, isOpen, onClose, 
             className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain"
             ref={messagesContainerRef}
           >
-            <div className={messages.length === 0 ? "p-4 sm:p-5" : "p-4 sm:p-5"}>
+            <div className="space-y-4 p-4 sm:p-5">
               {messages.length === 0 ? <ChatbotSuggestions onSelectPrompt={setInput} /> : null}
               <ChatbotMessageList
                 errorMessage={errorMessage}
@@ -209,6 +214,9 @@ export function ChatbotWindow({ avoidsMobileBottomBar = false, isOpen, onClose, 
           </div>
 
           <ConciergeContactHandoff />
+          <div className="max-h-[35%] shrink-0 overflow-y-auto overscroll-contain border-slate-200 border-t px-4 pt-3 sm:px-5">
+            <ChatbotProcessingNotice />
+          </div>
           {TURNSTILE_SITE_KEY ? (
             <div className="pointer-events-auto absolute inset-x-2 bottom-20 z-10 flex justify-center">
               <TurnstileWidget

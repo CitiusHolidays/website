@@ -7,6 +7,7 @@ let ChangeSetReviewPanel;
 let AuthenticationEmailHealth;
 let OperationalActivity;
 let OperationalControlCatalog;
+let LatestChangeReceipt;
 let OperationalTargetBanner;
 let ProductionTestLab;
 let UndoReviewPanel;
@@ -29,6 +30,7 @@ beforeAll(async () => {
     ChangeSetReviewPanel,
     OperationalActivity,
     OperationalControlCatalog,
+    LatestChangeReceipt,
     OperationalTargetBanner,
     ProductionTestLab,
     UndoReviewPanel,
@@ -44,6 +46,9 @@ async function mount(element) {
   await act(async () => root.render(element));
   return {
     container,
+    rerender: async (next) => {
+      await act(async () => root.render(next));
+    },
     unmount: async () => {
       await act(async () => root.unmount());
       container.remove();
@@ -66,6 +71,11 @@ const control = {
   source: "prerequisite_disabled",
   standardEnabled: true,
   state: "enabled",
+};
+const testIdentity = {
+  targetDeployment: "local-convex",
+  targetEnvironment: "development",
+  targetRevision: "working-tree",
 };
 const noop = () => undefined;
 const stagedControls = [];
@@ -170,12 +180,81 @@ describe("Mounted live feature control sections", () => {
       />
     );
     const toggle = view.container.querySelector('[role="switch"]');
+    expect(toggle.getAttribute("aria-label")).toBe("Inbound Sales bell availability");
     expect(toggle.getAttribute("aria-checked")).toBe("true");
     expect(view.container.textContent).toContain("Configured as Available");
     expect(view.container.textContent).toContain("CRM bell notifications");
     expect(view.container.textContent).not.toContain("notifications.crm_bell");
     await act(async () => toggle.click());
     expect(stagedControls).toEqual([["inbound.sales_bell", "disabled"]]);
+    await view.unmount();
+  });
+
+  test("keeps one availability name across proposed, pending, and committed states", async () => {
+    const catalog = (staged, nextControl = control, disabled = false) => (
+      <OperationalControlCatalog
+        controlLabels={controlLabels}
+        controls={[nextControl]}
+        disabled={disabled}
+        filter="all"
+        onFilterChange={noop}
+        onSearchChange={noop}
+        onStage={recordStagedControl}
+        search=""
+        staged={staged}
+      />
+    );
+    const view = await mount(catalog(new Map()));
+    const name = view.container.querySelector('[role="switch"]').getAttribute("aria-label");
+    await view.rerender(catalog(new Map([[control.key, "disabled"]])));
+    expect(view.container.querySelector('[role="switch"]').getAttribute("aria-label")).toBe(name);
+    expect(view.container.querySelector('[role="switch"]').getAttribute("aria-checked")).toBe(
+      "false"
+    );
+    expect(view.container.textContent).toContain("Current: Available. Effective: Unavailable.");
+    expect(view.container.textContent).toContain("Proposed: Paused. Not applied yet.");
+    expect(view.container.textContent).toContain("Configured as Available");
+    await view.rerender(catalog(new Map([[control.key, "disabled"]]), control, true));
+    expect(view.container.querySelector('[role="switch"]').disabled).toBe(true);
+    await view.rerender(
+      catalog(new Map(), {
+        ...control,
+        blockedBy: [],
+        configuredState: "paused",
+        state: "disabled",
+      })
+    );
+    expect(view.container.querySelector('[role="switch"]').getAttribute("aria-label")).toBe(name);
+    expect(view.container.textContent).toContain("Current: Paused. Effective: Unavailable.");
+    expect(view.container.textContent).not.toContain("Proposed:");
+    await view.unmount();
+  });
+
+  test("keeps restoration failure explicit and leaves Apply announcements to the toast owner", async () => {
+    const view = await mount(
+      <LatestChangeReceipt
+        changeSet={{
+          _id: "change-1",
+          appliedAt: Date.now(),
+          appliedByName: "Admin",
+          auditEventId: "audit-1",
+          changeCount: 1,
+          changes: [
+            { after: { state: "disabled" }, before: { state: "enabled" }, key: control.key },
+          ],
+          reason: "Provider review",
+          status: "restoration_failed",
+          targetDeployment: "local-convex",
+          targetEnvironment: "development",
+          targetRevision: "working-tree",
+          undoAvailable: false,
+        }}
+        controlLabels={controlLabels}
+      />
+    );
+    expect(view.container.textContent).toContain("Automatic restoration needs attention");
+    expect(view.container.textContent).not.toContain("Automatic restoration completed");
+    expect(view.container.querySelector('[role="status"]')).toBeNull();
     await view.unmount();
   });
 
@@ -334,6 +413,7 @@ describe("Mounted live feature control sections", () => {
         activeRuns={[]}
         canLoadMore={false}
         history={[]}
+        identity={testIdentity}
         latestResults={null}
         note=""
         onLoadMore={noop}
@@ -371,6 +451,7 @@ describe("Mounted live feature control sections", () => {
         activeRuns={[]}
         canLoadMore={false}
         history={[]}
+        identity={testIdentity}
         latestResults={[
           {
             cleanup: "passed",
@@ -445,6 +526,7 @@ describe("Mounted live feature control sections", () => {
         activeRuns={[]}
         canLoadMore={false}
         history={[]}
+        identity={testIdentity}
         latestResults={null}
         note=""
         onLoadMore={noop}
@@ -471,6 +553,7 @@ describe("Mounted live feature control sections", () => {
         activeRuns={[]}
         canLoadMore={false}
         history={[]}
+        identity={testIdentity}
         latestResults={null}
         note=""
         onLoadMore={noop}
@@ -484,7 +567,7 @@ describe("Mounted live feature control sections", () => {
       />
     );
     expect(empty.container.textContent).toContain(
-      "No Production Test Lab checks are available for this source revision"
+      "No Test Lab checks are available for this source revision"
     );
     expect(empty.container.textContent).toContain("No Test Lab runs yet");
     await empty.unmount();
@@ -508,6 +591,7 @@ describe("Mounted live feature control sections", () => {
         ]}
         canLoadMore={false}
         history={[]}
+        identity={testIdentity}
         latestResults={null}
         note="Immutable note"
         onLoadMore={noop}
@@ -561,6 +645,7 @@ describe("Mounted live feature control sections", () => {
         activeRuns={[]}
         canLoadMore={true}
         history={[]}
+        identity={testIdentity}
         latestResults={[result("passed"), result("failed"), result("skipped")]}
         note=""
         onLoadMore={() => {

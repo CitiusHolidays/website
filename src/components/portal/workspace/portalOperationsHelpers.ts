@@ -109,7 +109,7 @@ export function getAssignedTourManagerNames(
   byKey: Map<string, string[]>
 ) {
   if (!row.jobCardId) {
-    return "Unassigned";
+    return "No loaded assignment";
   }
   const batchNames = byKey.get(tourManagerAssignmentKey(row.jobCardId, row.travelBatchId));
   if (batchNames?.length) {
@@ -119,5 +119,5 @@ export function getAssignedTourManagerNames(
   if (fallbackNames?.length) {
     return fallbackNames.join(", ");
   }
-  return "Unassigned";
+  return "No loaded assignment";
 }

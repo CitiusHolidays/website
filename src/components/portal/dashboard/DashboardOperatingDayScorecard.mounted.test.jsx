@@ -160,14 +160,14 @@ describe("Operating-day scorecard Staff view", () => {
     const view = await mount(<OperatingDayScorecardView scorecard={scorecard()} />);
     const text = view.container.textContent;
     expect(text).toContain("Operating-day scorecard");
-    expect(text).toContain("Role scope · Sales, Sales Head");
+    expect(text).toContain("Roles: Sales, Sales Head");
     expect(text).toContain("Confirmed from consented enquiries");
-    expect(text).toContain("1/1 usable · 0 missing clocks · 0 unresolved · 0 pending");
+    expect(text).toContain("1/1 usable · 0 missing dates · 0 unresolved · 0 pending");
     expect(text).toContain("2026-08-30 16:00 UTC");
     expect(text).toContain("Enquiry received to Query");
     expect(text).toContain("Unknown");
-    expect(text).toContain("0/2 usable · 1 missing clocks · 1 unresolved · 0 pending");
-    expect(text).toContain("Drill-down is withheld until this cohort is complete.");
+    expect(text).toContain("0/2 usable · 1 missing dates · 1 unresolved · 0 pending");
+    expect(text).toContain("Records are unavailable while this result is incomplete.");
     expect(text).toContain("setup required");
     const exactLink = view.container.querySelector(
       'a[href="/portal/queries?open=query&id=safe-query-id"]'

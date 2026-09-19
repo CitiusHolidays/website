@@ -26,7 +26,7 @@ const values = [
     title: "Relationships",
   },
   {
-    description: "We travel responsibly — respecting communities, culture, and the environment.",
+    description: "We respect the communities, culture, and environment of the places we visit.",
     icon: <TreePine />,
     title: "Sustainability",
   },
@@ -41,7 +41,7 @@ const values = [
     title: "Women's Inclusiveness",
   },
   {
-    description: "We aim for programmes that clients remember — not just itineraries on paper.",
+    description: "We plan trips around what clients want to see and do.",
     icon: <Users />,
     title: "Impact",
   },
@@ -51,9 +51,7 @@ export default function ValuesCard() {
   return (
     <AnimatedSection>
       <section className="bg-brand-light px-4 py-16">
-        <h2 className="mb-12 text-center font-bold font-heading text-3xl text-citius-blue">
-          Our Values
-        </h2>
+        <h2 className="mb-12 text-center font-bold text-3xl text-citius-blue">Our Values</h2>
         <div className="mx-auto grid max-w-6xl grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {values.map((value) => (
             <div
@@ -65,9 +63,7 @@ export default function ValuesCard() {
                 <div className="mb-4 inline-flex size-10 items-center justify-center rounded-full bg-citius-blue text-brand-light">
                   {value.icon}
                 </div>
-                <h3 className="mb-2 font-heading font-semibold text-brand-dark text-xl">
-                  {value.title}
-                </h3>
+                <h3 className="mb-2 font-semibold text-brand-dark text-xl">{value.title}</h3>
                 <p className="text-brand-muted text-sm leading-relaxed">{value.description}</p>
               </div>
             </div>

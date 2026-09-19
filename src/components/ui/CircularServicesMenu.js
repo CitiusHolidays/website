@@ -95,6 +95,9 @@ function getServiceLayout() {
     return DESKTOP_MEDIUM_LAYOUT;
   }
   const width = window.innerWidth;
+  if (width < 375) {
+    return MOBILE_TINY_LAYOUT;
+  }
   if (width < 500) {
     return MOBILE_SMALL_LAYOUT;
   }
@@ -107,7 +110,8 @@ function getServiceLayout() {
   return DESKTOP_LARGE_LAYOUT;
 }
 
-const MOBILE_SMALL_LAYOUT = Object.freeze({ isMobile: true, radius: 180 });
+const MOBILE_TINY_LAYOUT = Object.freeze({ isMobile: true, radius: 100 });
+const MOBILE_SMALL_LAYOUT = Object.freeze({ isMobile: true, radius: 130 });
 const MOBILE_MEDIUM_LAYOUT = Object.freeze({ isMobile: true, radius: 200 });
 const DESKTOP_MEDIUM_LAYOUT = Object.freeze({ isMobile: false, radius: 240 });
 const DESKTOP_LARGE_LAYOUT = Object.freeze({ isMobile: false, radius: 280 });
@@ -178,8 +182,9 @@ function OrbitService({
       variants={itemVariants}
     >
       <button
-        aria-label={`Maps to ${service.title} service`}
+        aria-label={`Show ${service.title} details`}
         className="group flex size-12 cursor-pointer items-center justify-center rounded-full border-2 border-citius-orange bg-brand-light shadow-lg focus:outline-none focus:ring-4 focus:ring-citius-orange/30 md:h-16 md:w-16 lg:h-18 lg:w-18"
+        onFocus={handleHoverStart}
         tabIndex={0}
         type="button"
       >
@@ -187,7 +192,7 @@ function OrbitService({
       </button>
       <span
         aria-hidden="true"
-        className="mt-2 max-w-[80px] select-none text-center font-medium text-brand-dark text-xs leading-tight md:max-w-[100px] md:text-sm lg:text-base"
+        className="mt-2 hidden max-w-[80px] select-none text-center font-medium text-brand-dark text-xs leading-tight md:max-w-[100px] md:text-sm lg:text-base min-[500px]:block"
       >
         {service.title}
       </span>
@@ -290,7 +295,7 @@ export default function CircularServicesMenu() {
       </AnimatePresence>
       <m.div
         animate={{ opacity: 1, scale: 1 }}
-        className="relative z-20 flex size-32 flex-col items-center justify-center rounded-full border-4 border-citius-blue bg-white px-3 pb-8 shadow-2xl md:h-52 md:w-52"
+        className="relative z-20 flex size-32 flex-col items-center justify-center rounded-full border-4 border-citius-blue bg-white px-3 shadow-2xl md:h-52 md:w-52 min-[500px]:pb-8"
         initial={{ opacity: 0, scale: 0.8 }}
         transition={{ duration: 0.6, ease: "easeOut" }}
       >
@@ -321,10 +326,10 @@ export default function CircularServicesMenu() {
               key={selectedService?.title || "default"}
               transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
             >
-              <h3 className="mb-1 font-bold font-heading text-brand-dark text-xs leading-tight md:text-base">
+              <h3 className="mb-1 font-bold text-brand-dark text-xs leading-tight md:text-base">
                 {selectedService?.title || "Our Services"}
               </h3>
-              <p className="px-1 text-brand-muted text-xs leading-tight">
+              <p className="hidden px-1 text-brand-muted text-xs leading-tight min-[500px]:block">
                 {selectedService?.description ||
                   (layout.isMobile
                     ? "Tap a service to learn more"
@@ -334,6 +339,13 @@ export default function CircularServicesMenu() {
           </AnimatePresence>
         </div>
       </m.div>
+
+      <p
+        aria-live="polite"
+        className="absolute inset-x-0 bottom-0 text-center text-brand-muted text-sm min-[500px]:hidden"
+      >
+        {selectedService?.description || "Tap a service to learn more"}
+      </p>
 
       <m.div
         animate="show"

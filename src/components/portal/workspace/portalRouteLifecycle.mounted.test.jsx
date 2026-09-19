@@ -84,6 +84,47 @@ const PAGINATION = {
 };
 
 describe("Mounted portal route lifecycle", () => {
+  test("Preserves source readiness for Leave, Travellers, and Activity without hiding loaded pages", () => {
+    const workspace = {
+      has: () => true,
+      pagination: {},
+      periodFiltered: { notifications: [], travellers: [] },
+    };
+    for (const [view, source] of [
+      ["employees-on-leave", "leaves"],
+      ["travellers", "travellers"],
+      ["activity", "activity"],
+    ]) {
+      expect(createPortalRouteModel(view, workspace).content.props.loading).toBe(true);
+      expect(
+        createPortalRouteModel(view, { ...workspace, [source]: [] }).content.props.loading
+      ).toBe(false);
+    }
+    expect(createPortalRouteModel("activity", workspace).content.props.notificationsLoading).toBe(
+      true
+    );
+    expect(
+      createPortalRouteModel("activity", { ...workspace, notifications: [] }).content.props
+        .notificationsLoading
+    ).toBe(false);
+    const accounts = { ...workspace, accountsJobCardCreators: [], jobCards: [], queries: [] };
+    expect(createPortalRouteModel("accounts-job-cards", accounts).content.props.loading).toBe(
+      false
+    );
+    for (const source of ["jobCards", "queries"]) {
+      expect(
+        createPortalRouteModel("accounts-job-cards", { ...accounts, [source]: undefined }).content
+          .props.loading
+      ).toBe(true);
+    }
+    expect(
+      createPortalRouteModel("accounts-job-cards", {
+        ...accounts,
+        accountsJobCardCreators: undefined,
+      }).content.props.creatorsLoading
+    ).toBe(true);
+  });
+
   test("Gives every route a unique title and one forward-navigation focus target", async () => {
     const titles = Object.keys(PORTAL_ROUTES).map(
       (view) => getPortalRouteAccessibilityMetadata(view).documentTitle
@@ -212,7 +253,7 @@ describe("Mounted portal route lifecycle", () => {
 
     expect(mounted.container.textContent).toContain("Pipeline Budget");
     expect(mounted.container.textContent).toContain("Confirmed Revenue");
-    expect(mounted.container.textContent).toContain("Revenue by query type");
+    expect(mounted.container.textContent).toContain("Pipeline budget by query type");
     expect(
       mounted.container.querySelector('[data-portal-route-component="ReportsView"]')
     ).not.toBeNull();

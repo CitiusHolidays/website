@@ -4,18 +4,20 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { isRuntimeNumber } from "../../../lib/runtimeValues";
 
-export const TabButton = ({ active, onClick, label, icon: Icon }) => (
+export const TabButton = ({ active, onClick, label, icon: Icon, contentId }) => (
   <button
+    aria-controls={contentId}
+    aria-pressed={active}
     className={cn(
-      "flex items-center gap-2 whitespace-nowrap rounded-full border px-4 py-2.5 font-heading text-xs uppercase tracking-wider transition-[border-color,background-color,color,box-shadow] md:px-6 md:py-3 md:text-sm",
+      "flex min-h-11 min-w-0 max-w-full items-center justify-center gap-2 rounded-full border px-4 py-2 text-left font-medium text-sm transition-[border-color,background-color,color] focus-visible:outline-2 focus-visible:outline-public-blue focus-visible:outline-offset-2",
       active
-        ? "scale-105 border-citius-blue bg-citius-blue text-white shadow-lg"
+        ? "border-citius-blue bg-citius-blue text-white"
         : "border-gray-200 bg-white text-brand-muted hover:border-citius-blue/30 hover:text-citius-blue"
     )}
     onClick={onClick}
     type="button"
   >
-    {Boolean(Icon) && <Icon className="size-3.5 md:h-4 md:w-4" />}
+    {Boolean(Icon) && <Icon aria-hidden className="size-4 shrink-0" />}
     {label}
   </button>
 );
@@ -126,7 +128,7 @@ export function ItineraryTab({ itinerary, itineraryTimelineImage }) {
       exit={{ opacity: 0, scale: 1.05 }}
       initial={{ opacity: 0, scale: 0.95 }}
     >
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h3 className="font-heading text-citius-blue text-xl md:text-2xl">
           {itinerary.length}-Day Route
         </h3>

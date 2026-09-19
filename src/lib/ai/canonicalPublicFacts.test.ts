@@ -34,9 +34,9 @@ describe("Canonical public facts adapter", () => {
     ]);
     expect(PUBLIC_HOME_SERVICES.map((service) => service.home.title)).toEqual([
       "MICE",
-      "Global Voyages",
-      "Domestic Gems",
-      "Elite Sports",
+      "International Travel",
+      "Domestic Travel",
+      "Sports Travel",
     ]);
   });
 

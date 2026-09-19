@@ -303,7 +303,7 @@ export const PORTAL_ROUTES = {
   },
   "tour-managers": {
     component: "TourManagersView",
-    dependencies: ["tourManagers", "jobCards"],
+    dependencies: ["tourManagers", "travellers", "jobCards"],
     family: "operations",
     paginationKey: "tourManagers",
     permission: P.VIEW_TOUR_MANAGERS,

@@ -98,3 +98,9 @@ export function getTripDestination(trip) {
     ? trip.name.trim()
     : "Destination details to follow";
 }
+
+export function getDistinctTripDestination(trip) {
+  const destination = getTripDestination(trip);
+  const name = isRuntimeString(trip?.name) ? trip.name.trim() : "";
+  return destination.toLowerCase() === name.toLowerCase() ? null : destination;
+}

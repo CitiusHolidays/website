@@ -157,29 +157,6 @@ function validateJobCard(form) {
     endLabel: "Travel end date",
     startLabel: "Travel start date",
   });
-  if (!form.entityId && form._confirmedOfferState === "ready") {
-    for (const [field, sourceField, reasonField, label] of [
-      ["confirmedPax", "_openingSourceConfirmedPax", "openingConfirmedPaxReason", "confirmed pax"],
-      ["destination", "_openingSourceDestination", "openingDestinationReason", "destination"],
-      [
-        "travelEndDate",
-        "_openingSourceTravelEndDate",
-        "openingTravelEndDateReason",
-        "travel end date",
-      ],
-      [
-        "travelStartDate",
-        "_openingSourceTravelStartDate",
-        "openingTravelStartDateReason",
-        "travel start date",
-      ],
-    ]) {
-      const changed = String(form[field] ?? "") !== String(form[sourceField] ?? "");
-      if (changed && !String(form[reasonField] ?? "").trim()) {
-        throw new Error(`Explain why ${label} differs from the Confirmed Offer.`);
-      }
-    }
-  }
 }
 
 function validateTraveller(form) {
@@ -329,12 +306,6 @@ function validateAssignJobCardOwner(form) {
 
 function validateSalesDecision(form) {
   const decision = form.salesDecision || form.salesStatus || "Proposal in discussion";
-  if (!String(form.proposalId ?? "").trim()) {
-    throw new Error("Select the handed-off Proposal for this Sales Decision.");
-  }
-  if (!(Number.isSafeInteger(Number(form.proposalRevision)) && Number(form.proposalRevision) > 0)) {
-    throw new Error("Select the exact handed-off Proposal revision.");
-  }
   if (decision === "Order Lost" && !String(form.lostReason ?? "").trim()) {
     throw new Error("Select a lost reason.");
   }
@@ -346,29 +317,14 @@ function validateSalesDecision(form) {
     throw new Error("Enter the other lost reason.");
   }
   if (decision === "Order Confirmed") {
-    return;
-  }
-  if (decision === "Date/Destination Change Required" && !String(form.reason ?? "").trim()) {
-    throw new Error("Explain why this Proposal revision must change.");
-  }
-}
-
-function validateJobCardExactOffer(form) {
-  if (form.entityId) {
-    return;
-  }
-  if (
-    !(
-      String(form.confirmedOfferId ?? "").trim() &&
-      String(form.proposalId ?? "").trim() &&
-      String(form.proposalQueryHandoffId ?? "").trim() &&
-      Number.isSafeInteger(Number(form.proposalRevision)) &&
-      Number(form.proposalRevision) > 0
-    )
-  ) {
-    throw new Error(
-      "Open the Job Card from an exact Confirmed Offer and Proposal handoff revision."
-    );
+    if (!String(form.proposalId ?? "").trim()) {
+      throw new Error("Select the handed-off Proposal revision.");
+    }
+    if (
+      !(Number.isSafeInteger(Number(form.proposalRevision)) && Number(form.proposalRevision) > 0)
+    ) {
+      throw new Error("Select the exact handed-off Proposal revision.");
+    }
   }
 }
 
@@ -471,10 +427,7 @@ const MODAL_VALIDATORS = {
   expense: validateExpense,
   hotel: validateHotel,
   invoice: validateInvoice,
-  jobCard: (form) => {
-    validateJobCard(form);
-    validateJobCardExactOffer(form);
-  },
+  jobCard: validateJobCard,
   leave_create: validateLeaveCreate,
   pnr: validatePnr,
   proposal: validateProposal,

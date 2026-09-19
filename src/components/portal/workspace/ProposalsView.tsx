@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { formatDate, LifecycleDates } from "@/components/portal/PortalModalForm";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { markPortalNavigationFirstContent } from "@/lib/portal/navigationPerformance";
 import { proposalLinkedQueryLabel } from "@/lib/portal/proposalLinks";
 import { getProposalAttention, proposalWorkflowLabel } from "@/lib/portal/proposalListPresentation";
-import { ProposalPairLifecycle } from "./ProposalPairLifecycle";
 import type { ProposalsViewProps } from "./portalViewTypes";
 import { money, openFinalizedProposalPdf, strong } from "./portalWorkspaceListHelpers";
 import {
@@ -104,143 +103,121 @@ function ProposalRowActions({
   );
 }
 
-interface ProposalMobileCardProps {
-  canApproveSend: boolean;
-  canManage: boolean;
-  getFinalizedPdfUrl: ProposalsViewProps["getFinalizedPdfUrl"];
-  getProposalAttachmentUrl: ProposalsViewProps["getProposalAttachmentUrl"];
-  onHandoff: (row: PortalProposalRow, queryId: string) => void;
-  row: PortalProposalRow;
-  visibleColumnIds: ReadonlySet<string>;
-}
-
-function ProposalMobileCard({
-  canApproveSend,
-  getFinalizedPdfUrl,
-  getProposalAttachmentUrl,
-  canManage,
-  onHandoff,
-  row,
-  visibleColumnIds,
-}: ProposalMobileCardProps) {
+function ProposalMobileCard({ row }: { row: PortalProposalRow }) {
   const attention = getProposalAttention(row);
-  const handleDownload = () => openFinalizedProposalPdf(String(row.id), getFinalizedPdfUrl);
   return (
     <div className="space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="font-semibold text-brand-dark">{row.proposalCode}</div>
-          <div className="text-brand-muted text-sm">{row.clientName}</div>
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="font-semibold text-citius-blue">{row.proposalCode}</div>
+          <h3 className="break-words font-heading font-semibold text-brand-dark">
+            {row.clientName}
+          </h3>
         </div>
         <StatusBadge domain="proposal" label={proposalWorkflowLabel(row)} status={row.status} />
       </div>
-      <div
+      <div className="text-brand-muted text-sm">{proposalLinkedQueryLabel(row)}</div>
+      <p
         className={`rounded-lg border px-3 py-2 font-medium text-xs ${proposalAttentionClass(attention.tone)}`}
       >
         {attention.label}
-      </div>
-      <LifecycleDates compact items={[{ label: "Created", value: row.createdAt }]} />
-      <div className="grid grid-cols-2 gap-2 text-sm">
-        {visibleColumnIds.has("linked-queries") ? (
-          <div>
-            <span className="text-brand-muted">Queries</span>
-            <div className="font-medium">{proposalLinkedQueryLabel(row)}</div>
-          </div>
-        ) : null}
-        {visibleColumnIds.has("land") ? (
-          <div>
-            <span className="text-brand-muted">Land/Pax</span>
-            <div className="font-medium">{money(row.landCostPerPax)}</div>
-          </div>
-        ) : null}
-        {visibleColumnIds.has("airfare") ? (
-          <div>
-            <span className="text-brand-muted">Airfare/Pax</span>
-            <div className="font-medium">{money(row.airfarePerPax)}</div>
-          </div>
-        ) : null}
-        {visibleColumnIds.has("visa") ? (
-          <div>
-            <span className="text-brand-muted">Visa/Pax</span>
-            <div className="font-medium">{money(row.visaCostPerPax)}</div>
-          </div>
-        ) : null}
-        <div>
-          <span className="text-brand-muted">Cost Price per person</span>
-          <div className="font-medium">{money(row.costPrice)}</div>
-        </div>
-        {visibleColumnIds.has("tax") ? (
-          <div>
-            <span className="text-brand-muted">Tax</span>
-            <div className="font-medium">{row.taxRate === null ? "-" : `${row.taxRate}%`}</div>
-          </div>
-        ) : null}
-        <div>
-          <span className="text-brand-muted">Selling</span>
-          <div className="font-medium">{money(row.sellingPrice)}</div>
-        </div>
-        {visibleColumnIds.has("last-edit") ? (
-          <div>
-            <span className="text-brand-muted">Last edit</span>
-            <div className="font-medium">
-              {row.lastEditedByName
-                ? `${row.lastEditedByName} · ${formatDate(row.lastEditedAt)}`
-                : "Not edited"}
-            </div>
-          </div>
-        ) : null}
-      </div>
-      {visibleColumnIds.has("finalized-pdf") || visibleColumnIds.has("working-files") ? (
-        <div className="space-y-3 border-brand-border/70 border-t pt-3">
-          {visibleColumnIds.has("finalized-pdf") ? (
-            <FinalizedProposalPdfSummary
-              canSend={false}
-              finalizedPdf={row.finalizedPdf}
-              onDownload={handleDownload}
-            />
-          ) : null}
-          {visibleColumnIds.has("working-files") ? (
-            <QueryAttachmentSummary
-              attachmentCount={row.attachmentCount}
-              attachmentKind="proposal"
-              attachments={row.attachments || []}
-              canManage={false}
-              getQueryAttachmentUrl={getProposalAttachmentUrl}
-            />
-          ) : null}
-        </div>
-      ) : null}
-      <div className="space-y-2">
-        {(row.queryPreview ?? []).map((pair) => (
-          <ProposalPairLifecycle
-            canApproveSend={canApproveSend}
-            canManage={canManage}
-            key={String(pair.id)}
-            onHandoff={(queryId) => onHandoff(row, queryId)}
-            pair={pair}
-            proposalId={String(row.id)}
-            proposalRevision={row.proposalRevision}
-          />
-        ))}
+      </p>
+      <div className="text-brand-muted text-xs">
+        Updated {formatDate(row.lastEditedAt || row.updatedAt || row.createdAt)}
       </div>
     </div>
   );
 }
 
-function ProposalPdfCell({
+function ProposalRecordDetails({
+  canManage,
+  deleteItem,
   getFinalizedPdfUrl,
+  getProposalAttachmentUrl,
+  onHandoff,
+  openModal,
+  removeProposal,
   row,
-}: {
+}: ProposalRowActionsProps & {
   getFinalizedPdfUrl: ProposalsViewProps["getFinalizedPdfUrl"];
-  row: PortalProposalRow;
+  getProposalAttachmentUrl: ProposalsViewProps["getProposalAttachmentUrl"];
+  onHandoff: (row: PortalProposalRow, queryId: string) => void;
 }) {
+  const [visited, setVisited] = useState(false);
   const handleDownload = () => openFinalizedProposalPdf(String(row.id), getFinalizedPdfUrl);
+  const handleHandoff = () => {
+    if (row.queryId) {
+      onHandoff(row, row.queryId);
+    }
+  };
   return (
-    <FinalizedProposalPdfSummary
-      canSend={false}
-      finalizedPdf={row.finalizedPdf}
-      onDownload={handleDownload}
-    />
+    <details
+      name="proposal-record"
+      onToggle={(event) => {
+        if (event.currentTarget.open) {
+          setVisited(true);
+        }
+      }}
+    >
+      <summary
+        aria-label={`Review Proposal ${row.proposalCode}`}
+        className="min-h-11 cursor-pointer content-center rounded-lg border border-brand-border bg-white px-3 py-2 font-semibold text-citius-blue text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
+      >
+        Review Proposal
+      </summary>
+      {visited ? (
+        <div className="mt-4 space-y-4">
+          <h3 className="font-heading font-semibold text-brand-dark">
+            {row.proposalCode} · revision {row.proposalRevision}
+          </h3>
+          <ProposalRowActions
+            canManage={canManage}
+            deleteItem={deleteItem}
+            openModal={openModal}
+            removeProposal={removeProposal}
+            row={row}
+          />
+          <dl className="grid grid-cols-2 gap-3 text-sm">
+            {[
+              ["Land/Pax", money(row.landCostPerPax)],
+              ["Airfare/Pax", money(row.airfarePerPax)],
+              ["Visa/Pax", money(row.visaCostPerPax)],
+              ["Cost Price per person", money(row.costPrice)],
+              ["Selling Price per Person", money(row.sellingPrice)],
+              ["Tax", (row.taxRate ?? null) === null ? "Not entered" : `${row.taxRate}%`],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <dt className="text-brand-muted text-xs">{label}</dt>
+                <dd className="font-medium text-brand-dark">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          <LifecycleDates compact items={[{ label: "Created", value: row.createdAt }]} />
+          <p className="text-brand-muted text-xs">
+            {row.lastEditedByName
+              ? `Last edited by ${row.lastEditedByName} · ${formatDate(row.lastEditedAt)}`
+              : "No edit recorded"}
+          </p>
+          <FinalizedProposalPdfSummary
+            canSend={false}
+            finalizedPdf={row.finalizedPdf}
+            onDownload={handleDownload}
+          />
+          <QueryAttachmentSummary
+            attachmentCount={row.attachmentCount}
+            attachmentKind="proposal"
+            attachments={row.attachments || []}
+            canManage={false}
+            getQueryAttachmentUrl={getProposalAttachmentUrl}
+          />
+          {canManage && row.status === "Draft" && row.queryId ? (
+            <button className="portal-small-btn" onClick={handleHandoff} type="button">
+              Send to Sales for {row.query?.queryCode ?? "Query"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </details>
   );
 }
 
@@ -262,7 +239,6 @@ export function ProposalsView({
   }, [loading, rows]);
 
   const canManage = has(P.MANAGE_PROPOSALS);
-  const canApproveSend = has(P.SEND_PROPOSALS);
   const handoffPair = (row: PortalProposalRow, queryId: string) => {
     sendProposalToSales({
       proposalId: String(row.id),
@@ -270,17 +246,7 @@ export function ProposalsView({
       queryId,
     });
   };
-  const renderMobileCard = (row: PortalProposalRow, visibleColumnIds: ReadonlySet<string>) => (
-    <ProposalMobileCard
-      canApproveSend={canApproveSend}
-      canManage={canManage}
-      getFinalizedPdfUrl={getFinalizedPdfUrl}
-      getProposalAttachmentUrl={getProposalAttachmentUrl}
-      onHandoff={handoffPair}
-      row={row}
-      visibleColumnIds={visibleColumnIds}
-    />
-  );
+  const renderMobileCard = (row: PortalProposalRow) => <ProposalMobileCard row={row} />;
 
   return (
     <SelectableDataTable<PortalProposalRow>
@@ -313,27 +279,6 @@ export function ProposalsView({
           id: "linked-queries",
           label: "Linked Queries",
           render: (row: PortalProposalRow) => proposalLinkedQueryLabel(row),
-        },
-        {
-          cellClassName: "min-w-80",
-          headerClassName: "min-w-80",
-          id: "pair-lifecycle",
-          label: "Query-pair lifecycle",
-          render: (row: PortalProposalRow) => (
-            <div className="space-y-2">
-              {(row.queryPreview ?? []).map((pair) => (
-                <ProposalPairLifecycle
-                  canApproveSend={canApproveSend}
-                  canManage={canManage}
-                  key={String(pair.id)}
-                  onHandoff={(queryId) => handoffPair(row, queryId)}
-                  pair={pair}
-                  proposalId={String(row.id)}
-                  proposalRevision={row.proposalRevision}
-                />
-              ))}
-            </div>
-          ),
         },
         {
           align: "right",
@@ -395,23 +340,16 @@ export function ProposalsView({
           hideable: true,
           id: "finalized-pdf",
           label: "Proposal Doc",
-          render: (row: PortalProposalRow) => (
-            <ProposalPdfCell getFinalizedPdfUrl={getFinalizedPdfUrl} row={row} />
-          ),
+          render: (row: PortalProposalRow) => row.finalizedPdf?.fileName || "No Proposal Doc",
         },
         {
           hideable: true,
           id: "working-files",
           label: "Working Files",
-          render: (row: PortalProposalRow) => (
-            <QueryAttachmentSummary
-              attachmentCount={row.attachmentCount}
-              attachmentKind="proposal"
-              attachments={row.attachments || []}
-              canManage={false}
-              getQueryAttachmentUrl={getProposalAttachmentUrl}
-            />
-          ),
+          render: (row: PortalProposalRow) => {
+            const count = row.attachmentCount ?? row.attachments?.length;
+            return count === undefined ? "File count unavailable" : `${count} files`;
+          },
         },
         {
           id: "status",
@@ -441,9 +379,12 @@ export function ProposalsView({
           kind: "action",
           label: "Action",
           render: (row: PortalProposalRow) => (
-            <ProposalRowActions
+            <ProposalRecordDetails
               canManage={canManage}
               deleteItem={deleteItem}
+              getFinalizedPdfUrl={getFinalizedPdfUrl}
+              getProposalAttachmentUrl={getProposalAttachmentUrl}
+              onHandoff={handoffPair}
               openModal={openModal}
               removeProposal={removeProposal}
               row={row}

@@ -55,7 +55,7 @@ async function handleArrivalPack(
       },
     });
   } catch {
-    return privateJson({ error: "Arrival Pack could not be prepared. Please try again." }, 400);
+    return privateJson({ error: "Arrival Pack could not be prepared. Please try again." }, 500);
   }
 }
 

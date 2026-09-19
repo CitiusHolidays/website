@@ -1,6 +1,11 @@
-import { isRuntimeNumber } from "../runtimeValues";
+import {
+  isRuntimeBoolean,
+  isRuntimeNumber,
+  isRuntimeObject,
+  isRuntimeString,
+} from "../runtimeValues";
 
-export type SpreadsheetScalar = number | string | boolean | null;
+export type SpreadsheetScalar = number | string | boolean | null | { error: string };
 
 export interface SpreadsheetFormulaResolver {
   resolveCell: (reference: string) => SpreadsheetScalar;
@@ -11,7 +16,7 @@ export type SpreadsheetFormulaResult =
   | { status: "calculated"; value: number }
   | { status: "unsupported" };
 
-type FormulaValue = number | SpreadsheetScalar[];
+type FormulaValue = SpreadsheetScalar | SpreadsheetScalar[];
 interface Token {
   type: "cell" | "identifier" | "number" | "operator";
   value: string;
@@ -27,6 +32,8 @@ const FORBIDDEN_FORMULA_PATTERN = /[[\]{};"@]/;
 const OPERATOR_PATTERN = /^[()+\-*/,:]/;
 const WHITESPACE_PATTERN = /^\s+/;
 const WORD_PATTERN = /^[A-Z_$][A-Z0-9_.$]*/i;
+const NUMERIC_CELL_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i;
+const MAX_FORMULA_CHARACTERS = 8192;
 
 function normalizeCellReference(value: string) {
   return value.replaceAll("$", "").toUpperCase();
@@ -34,7 +41,9 @@ function normalizeCellReference(value: string) {
 
 function tokenize(formula: string): Token[] | null {
   const source = formula.trim().replace(FORMULA_PREFIX_PATTERN, "");
-  if (!(source && !FORBIDDEN_FORMULA_PATTERN.test(source))) {
+  if (
+    !(source && source.length <= MAX_FORMULA_CHARACTERS && !FORBIDDEN_FORMULA_PATTERN.test(source))
+  ) {
     return null;
   }
   const tokens: Token[] = [];
@@ -85,13 +94,6 @@ function tokenize(formula: string): Token[] | null {
   return tokens;
 }
 
-function numericValues(value: FormulaValue) {
-  const values = Array.isArray(value) ? value : [value];
-  return values.filter(
-    (candidate): candidate is number => isRuntimeNumber(candidate) && Number.isFinite(candidate)
-  );
-}
-
 class FormulaParser {
   private cursor = 0;
   private readonly resolver: SpreadsheetFormulaResolver;
@@ -103,8 +105,8 @@ class FormulaParser {
   }
 
   parse() {
-    const value = this.expression();
-    if (this.cursor !== this.tokens.length || Array.isArray(value) || !Number.isFinite(value)) {
+    const value = this.expression() ?? 0;
+    if (this.cursor !== this.tokens.length || !isRuntimeNumber(value) || !Number.isFinite(value)) {
       throw new Error("Unsupported formula");
     }
     return value;
@@ -147,7 +149,11 @@ class FormulaParser {
 
   private valueForToken(token: Token): FormulaValue {
     if (token.type === "number") {
-      return Number(token.value);
+      const value = Number(token.value);
+      if (!Number.isFinite(value)) {
+        throw new Error("Invalid numeric literal");
+      }
+      return value;
     }
     if (token.type === "identifier") {
       return this.functionCall(token.value);
@@ -160,8 +166,7 @@ class FormulaParser {
 
   private cellValue(startReference: string): FormulaValue {
     if (!this.peekOperator(":")) {
-      const value = this.resolver.resolveCell(startReference);
-      return isRuntimeNumber(value) && Number.isFinite(value) ? value : 0;
+      return this.resolver.resolveCell(startReference);
     }
     this.take();
     const end = this.take();
@@ -193,6 +198,9 @@ class FormulaParser {
       }
     }
     this.expectOperator(")");
+    if (values.some((value) => isRuntimeNumber(value) && !Number.isFinite(value))) {
+      throw new Error("Aggregate contains an invalid number");
+    }
     const numbers = values.filter(
       (value): value is number => isRuntimeNumber(value) && Number.isFinite(value)
     );
@@ -200,13 +208,19 @@ class FormulaParser {
       return numbers.length;
     }
     if (name === "COUNTA") {
-      return values.filter((value) => value !== null && value !== "").length;
+      return values.filter((value) => value !== null).length;
+    }
+    if (values.some((value) => isRuntimeObject(value))) {
+      throw new Error("Aggregate contains a cell error");
     }
     if (name === "SUM") {
       return numbers.reduce((sum, value) => sum + value, 0);
     }
     if (numbers.length === 0) {
-      throw new Error("Aggregate has no numeric values");
+      if (name === "AVERAGE") {
+        throw new Error("Aggregate has no numeric values");
+      }
+      return 0;
     }
     if (name === "AVERAGE") {
       return numbers.reduce((sum, value) => sum + value, 0) / numbers.length;
@@ -233,11 +247,25 @@ class FormulaParser {
   }
 
   private scalar(value: FormulaValue) {
-    const numbers = numericValues(value);
-    if (numbers.length !== 1) {
+    if (Array.isArray(value)) {
       throw new Error("Range cannot be used as a scalar");
     }
-    return numbers[0];
+    if (value === null) {
+      return 0;
+    }
+    if (isRuntimeBoolean(value)) {
+      return Number(value);
+    }
+    if (isRuntimeString(value) && NUMERIC_CELL_PATTERN.test(value.trim())) {
+      const number = Number(value);
+      if (Number.isFinite(number)) {
+        return number;
+      }
+    }
+    if (isRuntimeNumber(value) && Number.isFinite(value)) {
+      return value;
+    }
+    throw new Error("Cell cannot be used in numeric arithmetic");
   }
 
   private peekOperator(value: string) {

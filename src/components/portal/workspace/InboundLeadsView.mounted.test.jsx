@@ -10,6 +10,8 @@ const dom = new JSDOM("<!doctype html><html><body></body></html>", {
 let InboundLeadsView;
 let createRoot;
 let selectedIntent;
+let searchParams;
+let pageStatus;
 const convert = mock(async () => ({ queryCode: "Q-0042" }));
 const dismiss = mock(async () => ({ status: "dismissed" }));
 const replace = mock(() => undefined);
@@ -49,19 +51,21 @@ beforeAll(async () => {
     usePaginatedQuery: () => ({
       loadMore: () => undefined,
       results: selectedIntent ? [selectedIntent] : [],
-      status: "Exhausted",
+      status: pageStatus,
     }),
     useQuery: () => selectedIntent,
   }));
   mock.module("next/navigation", () => ({
     useRouter: () => ({ replace }),
-    useSearchParams: () => new URLSearchParams("open=inboundIntent&id=inboundQueryIntents_1"),
+    useSearchParams: () => new URLSearchParams(searchParams),
   }));
   ({ InboundLeadsView } = await import("./InboundLeadsView"));
 });
 
 beforeEach(() => {
   selectedIntent = lead();
+  searchParams = "open=inboundIntent&id=inboundQueryIntents_1";
+  pageStatus = "Exhausted";
   convert.mockClear();
   dismiss.mockClear();
   replace.mockClear();
@@ -90,13 +94,25 @@ async function mount() {
 }
 
 describe("InboundLeadsView conversion", () => {
-  test("renders the empty detail state before a lead is selected", async () => {
+  test("shows one empty list and no empty detail pane before selection", async () => {
     selectedIntent = undefined;
+    searchParams = "";
     const view = await mount();
 
-    expect(view.container.textContent).toContain("Select a lead to review its details.");
+    expect(view.container.querySelector("aside")).toBeNull();
     expect(view.container.textContent).toContain("No inbound leads match these filters.");
 
+    await view.unmount();
+  });
+
+  test("distinguishes loading list and selected detail from an empty result", async () => {
+    selectedIntent = undefined;
+    pageStatus = "LoadingFirstPage";
+    const view = await mount();
+    expect(view.container.textContent).toContain("Loading inbound leads…");
+    expect(view.container.textContent).toContain("Loading lead details…");
+    expect(view.container.textContent).not.toContain("0 loaded");
+    expect(view.container.textContent).not.toContain("No inbound leads");
     await view.unmount();
   });
 
@@ -111,40 +127,6 @@ describe("InboundLeadsView conversion", () => {
     expect(view.container.textContent).toContain("Sacred planning context");
     expect(view.container.textContent).toContain("Journey Planner · Kashi Vishwanath & Varanasi");
     expect(view.container.textContent).not.toContain("Soul Score");
-    await view.unmount();
-  });
-
-  test("projects the typed brief and non-sensitive receipt into the authorized Staff review", async () => {
-    selectedIntent = lead({
-      brief: {
-        contactWindow: "afternoon",
-        dateFlexibility: "flexible",
-        destination: "Edited Kerala programme",
-        paxCount: 12,
-        serviceType: "meetings_events",
-        travelStartDate: "2026-10-12",
-      },
-      receiptReference: "ENQ-M123-ABCDEF12",
-      source: "Website",
-      websiteSourceContext: {
-        intent: "mice-proposal",
-        label: "MICE proposal request",
-      },
-    });
-    const view = await mount();
-
-    expect(view.container.textContent).toContain("ENQ-M123-ABCDEF12");
-    expect(view.container.textContent).toContain("MICE proposal request");
-    expect(view.container.textContent).toContain("Meetings and events");
-    expect(view.container.textContent).toContain("Edited Kerala programme");
-    expect(view.container.textContent).toContain("Dates are flexible");
-    expect(view.container.textContent).toContain("Afternoon");
-    expect(view.container.querySelector('input[name="destination"]')?.value).toBe(
-      "Edited Kerala programme"
-    );
-    expect(view.container.querySelector('input[name="paxCount"]')?.value).toBe("12");
-    expect(view.container.textContent).not.toContain("submissionKeyHash");
-
     await view.unmount();
   });
 

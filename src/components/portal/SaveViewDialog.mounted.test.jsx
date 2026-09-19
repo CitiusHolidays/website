@@ -63,7 +63,14 @@ function Harness({
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button id="save-view-trigger" onClick={() => setOpen(true)} type="button">
+      <button
+        id="save-view-trigger"
+        onClick={(event) => {
+          event.currentTarget.focus();
+          setOpen(true);
+        }}
+        type="button"
+      >
         Save view
       </button>
       <SaveViewDialog
@@ -105,7 +112,7 @@ describe("SaveViewDialog", () => {
 
     await act(async () => root.render(<Harness />));
     await act(async () => container.querySelector("#save-view-trigger").click());
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 30)));
 
     const viewport = document.querySelector(".portal-command-overlay");
     const backdrop = viewport.querySelector(".portal-command-backdrop");
@@ -152,7 +159,7 @@ describe("SaveViewDialog", () => {
     trigger.focus();
     await act(async () => trigger.click());
     await act(async () => {
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 30));
     });
 
     const dialog = document.querySelector('[role="dialog"]');
@@ -170,13 +177,13 @@ describe("SaveViewDialog", () => {
     );
     await act(async () => {
       beforeGuard.focus();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 30));
     });
     expect(document.activeElement).toBe(cancel);
 
     await act(async () => {
       afterGuard.focus();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 30));
     });
     expect(document.activeElement).toBe(input);
 
@@ -185,7 +192,7 @@ describe("SaveViewDialog", () => {
         new dom.window.KeyboardEvent("keydown", { bubbles: true, key: "Escape" })
       )
     );
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 30)));
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(container.hasAttribute("aria-hidden")).toBe(false);
     expect(document.body.style.overflowY).toBe("");
@@ -205,7 +212,7 @@ describe("SaveViewDialog", () => {
     const trigger = container.querySelector("#save-view-trigger");
     trigger.focus();
     await act(async () => trigger.click());
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 30)));
 
     const input = document.querySelector('input[aria-label="View name"]');
     await enterViewName(input, "Temporary name");
@@ -219,14 +226,14 @@ describe("SaveViewDialog", () => {
         })
       );
       backdrop.click();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 30));
     });
 
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
 
     await act(async () => trigger.click());
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 30)));
     expect(document.querySelector('input[aria-label="View name"]').value).toBe("");
 
     await act(async () => root.unmount());
@@ -240,7 +247,7 @@ describe("SaveViewDialog", () => {
 
     await act(async () => root.render(<Harness saving />));
     await act(async () => container.querySelector("#save-view-trigger").click());
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 30)));
 
     const dialog = document.querySelector('[role="dialog"]');
     const [cancel, save] = dialog.querySelectorAll("button");
@@ -262,7 +269,7 @@ describe("SaveViewDialog", () => {
         })
       );
       backdrop.click();
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 30));
     });
     expect(document.querySelector('[role="dialog"]')).toBe(dialog);
 
@@ -280,7 +287,7 @@ describe("SaveViewDialog", () => {
     const trigger = container.querySelector("#save-view-trigger");
     trigger.focus();
     await act(async () => trigger.click());
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 30)));
 
     const dialog = document.querySelector('[role="dialog"]');
     const input = dialog.querySelector('input[aria-label="View name"]');
@@ -289,7 +296,7 @@ describe("SaveViewDialog", () => {
     expect(dialog.querySelector('button[type="submit"]').disabled).toBe(false);
     await act(async () => {
       dialog.dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 30));
     });
 
     expect(saves).toEqual([["Leadership view", { isFavorite: true }]]);
@@ -306,7 +313,7 @@ describe("SaveViewDialog", () => {
     const privateRoot = createRoot(privateContainer);
     await act(async () => privateRoot.render(<Harness mode="layout" />));
     await act(async () => privateContainer.querySelector("#save-view-trigger").click());
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 30)));
 
     const privateDialog = document.querySelector('[role="dialog"]');
     expect(privateDialog.textContent).toContain("Filters and permissions stay unchanged");
@@ -328,7 +335,7 @@ describe("SaveViewDialog", () => {
       )
     );
     await act(async () => adminContainer.querySelector("#save-view-trigger").click());
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 30)));
 
     const adminDialog = document.querySelector('[role="dialog"]');
     const nameInput = adminDialog.querySelector('[aria-label="Preset name"]');
@@ -344,7 +351,7 @@ describe("SaveViewDialog", () => {
       adminDialog.dispatchEvent(
         new dom.window.Event("submit", { bubbles: true, cancelable: true })
       );
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 30));
     });
 
     expect(saves).toEqual([["Sales focus", { isFavorite: false, sharedRole: "Sales" }]]);

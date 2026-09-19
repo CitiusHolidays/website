@@ -39,7 +39,7 @@ export async function resolveSalesOwnerSelection(
   const requestedName = salesOwnerName?.trim();
   if (!requestedName && access.staffId) {
     const currentStaff = await ctx.db.get("staffUsers", access.staffId);
-    if (currentStaff?.active && currentStaff.roles.some((role) => SALES_REP_ROLES.has(role))) {
+    if (currentStaff?.active) {
       return currentStaff;
     }
   }

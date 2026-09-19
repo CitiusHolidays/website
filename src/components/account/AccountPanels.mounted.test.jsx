@@ -162,24 +162,21 @@ describe("AccountProfilePanel", () => {
 });
 
 describe("AccountSettingsPanel", () => {
-  test("Separates planned settings from the actionable account contact", async () => {
-    const view = await mount(<AccountSettingsPanel />);
+  test("Keeps account help in Profile and describes unavailable preferences without fake controls", async () => {
+    const view = await mount(<AccountProfilePanel user={{ ...user, hasPassportDetails: false }} />);
 
-    expect(view.container.textContent).toContain("Account Settings");
+    expect(view.container.textContent).toContain("Preferences and account help");
     expect(view.container.querySelector('[role="switch"]')).toBeNull();
-    expect(view.container.querySelector("button")).toBeNull();
-    const plannedStatuses = [...view.container.querySelectorAll("span")].filter(
-      (node) => node.textContent === "Planned"
+    expect(
+      view.container.querySelector('section[aria-labelledby="account-preferences"] button')
+    ).toBeNull();
+    expect(view.container.textContent).not.toContain("Planned");
+    expect(view.container.textContent).not.toContain("Two-step verification");
+    expect(view.container.textContent).toContain(
+      "Journey reminders are not available for your current journeys"
     );
-    expect(plannedStatuses).toHaveLength(1);
-    expect(plannedStatuses.map((status) => status.getAttribute("aria-label"))).toEqual([
-      "Two-step verification. Planned",
-    ]);
-    const perJourney = [...view.container.querySelectorAll("span")].find(
-      (node) => node.textContent === "Per journey"
-    );
-    expect(perJourney?.getAttribute("aria-label")).toBe("Journey reminders. Per journey");
-    expect(view.container.textContent).toContain("Choose reminder milestones on each Arrival Pack");
+    expect(view.container.textContent).toContain("No passport details provided");
+    expect(view.container.querySelector('[role="status"]')).toBeNull();
     const contact = view.container.querySelector('a[href="/contact?intent=account-deletion"]');
     expect(contact?.textContent).toBe("Contact team");
     expect(contact?.getAttribute("aria-label")).toBe(
@@ -187,6 +184,40 @@ describe("AccountSettingsPanel", () => {
     );
     expect(contact?.className).toContain("min-h-11");
 
+    await view.unmount();
+  });
+
+  test("Opens the exact eligible journey preference and retains unavailable-phone opt-out access", async () => {
+    const opened = [];
+    const view = await mount(
+      <AccountSettingsPanel
+        confirmedTrips={[
+          {
+            confirmedOfferId: "eligible",
+            reminders: { available: true },
+            travel: { destination: "Kyoto" },
+          },
+          {
+            confirmedOfferId: "unavailable",
+            reminders: { available: false },
+            travel: { destination: "Lisbon" },
+          },
+          {
+            confirmedOfferId: "opt-out",
+            reminders: { available: false, milestones: ["arrival_pack_ready"] },
+            travel: { destination: "Paris" },
+          },
+        ]}
+        onOpenReminders={(id) => opened.push(id)}
+      />
+    );
+    const choices = [...view.container.querySelectorAll("button")];
+    expect(choices.map((choice) => choice.textContent)).toEqual([
+      "Kyoto reminders · Dates to follow",
+      "Paris reminders · Dates to follow",
+    ]);
+    await act(async () => choices[1].click());
+    expect(opened).toEqual(["opt-out"]);
     await view.unmount();
   });
 

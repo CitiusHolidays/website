@@ -76,7 +76,8 @@ function GenericMobileCard<Row extends PortalDataRow>({
       (entry) => data.find((column) => column.id === entry.id)?.mobile === "primary"
     ) ?? dataEntries[0];
   const status = dataEntries.find(
-    (entry) => data.find((column) => column.id === entry.id)?.mobile === "status"
+    (entry) =>
+      entry.id !== lead?.id && data.find((column) => column.id === entry.id)?.mobile === "status"
   );
   const details = dataEntries.filter((entry) => entry.id !== lead?.id && entry.id !== status?.id);
   const actionEntries = renderedEntries(row, actions);

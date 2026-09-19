@@ -91,7 +91,7 @@ export function HotelsView({
         {
           id: "instructions",
           label: "Instructions",
-          render: (row: HotelRow) => row.specialInstructions || "-",
+          render: (row: HotelRow) => row.specialInstructions || null,
         },
         {
           id: "action",
@@ -108,7 +108,7 @@ export function HotelsView({
             ),
         },
       ]}
-      empty="No hotel records yet. Add a hotel property or use Import Rooming for passenger assignments below."
+      empty="No hotel properties yet. Add a hotel, or open Rooming for traveller assignments."
       entityLabel="hotel"
       filtersActive={filtersActive}
       onBulkDelete={canManage ? handleBulkDelete : undefined}

@@ -83,6 +83,7 @@ async function seedQuery(
     contractingOwnerName?: string;
     createdAt?: number;
     inboundIntentId?: Doc<"inboundQueryIntents">["_id"];
+    queryType?: Doc<"queries">["queryType"];
     salesStatus?: Doc<"queries">["salesStatus"];
     submittedToContractingAt?: number;
   } = {}
@@ -98,7 +99,7 @@ async function seedQuery(
     inboundIntentId: options.inboundIntentId,
     paxCount: 2,
     queryCode: "Q-SCORE-1",
-    queryType: "FIT",
+    queryType: options.queryType ?? "FIT",
     salesStatus: options.salesStatus ?? "Proposal in discussion",
     source: "Website",
     submittedToContractingAt: options.submittedToContractingAt,
@@ -269,7 +270,7 @@ describe("PF-SB-02 Operating-Day scorecard", () => {
 
     expect(scorecard.generatedAt).toBe(FIXED_NOW.toISOString());
     expect(scorecard.scope.kind).toBe("organization");
-    expect(scorecard.metrics).toHaveLength(10);
+    expect(scorecard.metrics).toHaveLength(9);
     const byId = new Map(scorecard.metrics.map((metric) => [metric.id, metric]));
     expect(byId.get("inbound_received")?.value.count).toBe(1);
     expect(byId.get("inbound_converted")?.value.count).toBe(1);
@@ -283,7 +284,9 @@ describe("PF-SB-02 Operating-Day scorecard", () => {
       readiness: "setup_required",
       value: { count: null, medianMs: null, status: "Unknown" },
     });
-    expect(byId.get("revision_request_to_handoff")?.value.medianMs).toBe(3_600_000);
+    expect(scorecard.metrics.map((metric) => metric.id)).not.toContain(
+      "revision_request_to_handoff"
+    );
     expect(byId.get("unassigned_query_backlog")?.value.status).toBe("No data");
 
     const setupRequired = new Set(["handoff_to_decision", "confirmation_to_job_card"]);
@@ -310,6 +313,38 @@ describe("PF-SB-02 Operating-Day scorecard", () => {
     expect(serialized).not.toContain(PII_SENTINEL);
     expect(serialized).not.toContain("+15555550123");
     expect(serialized).not.toContain("@example.test");
+  });
+
+  test("keeps mixed head and Cement roles inside their record scope", async () => {
+    const t = createHarness();
+    await t.run(seedCompleteChain);
+    const actor = "scorecard_cement_head";
+    const { ownedQueryId, hiddenQueryId } = await t.run(async (ctx) => {
+      await seedStaff(ctx, actor, ["Sales Head", "Contracting Head", "Sales Cement"]);
+      const queryOptions = {
+        queryType: "Cement" as const,
+        submittedToContractingAt: Date.parse(`${DAY}T10:00:00.000Z`),
+      };
+      return {
+        hiddenQueryId: await seedQuery(ctx, "other_staff", queryOptions),
+        ownedQueryId: await seedQuery(ctx, `${AUTH_ISSUER}|${actor}`, queryOptions),
+      };
+    });
+
+    const scorecard = await asActor(t, actor).query(api.crm.operatingDayScorecard.get, {
+      dateRange: { from: DAY, to: DAY },
+      referenceNow: REFERENCE_NOW,
+    });
+
+    expect(scorecard.metrics.map((metric) => metric.id)).toEqual([
+      "handoff_to_decision",
+      "unassigned_query_backlog",
+      "weekly_active_staff",
+    ]);
+    const backlog = scorecard.metrics.find((metric) => metric.id === "unassigned_query_backlog");
+    expect(backlog?.drillDown.rows).toHaveLength(1);
+    expect(backlog?.drillDown.rows[0]?.href).toContain(encodeURIComponent(ownedQueryId));
+    expect(JSON.stringify(scorecard)).not.toContain(hiddenQueryId);
   });
 
   test("marks a converted cohort Unknown when its durable completion clock is missing", async () => {
@@ -429,9 +464,9 @@ describe("PF-SB-02 Operating-Day scorecard", () => {
   });
 
   test("preserves the existing organization and department-head role matrix", () => {
-    expect(visibleScorecardMetricIds({ roles: ["Admin"] })).toHaveLength(10);
-    expect(visibleScorecardMetricIds({ roles: ["Directors"] })).toHaveLength(10);
-    expect(visibleScorecardMetricIds({ roles: ["Director Cement"] })).toHaveLength(10);
+    expect(visibleScorecardMetricIds({ roles: ["Admin"] })).toHaveLength(9);
+    expect(visibleScorecardMetricIds({ roles: ["Directors"] })).toHaveLength(9);
+    expect(visibleScorecardMetricIds({ roles: ["Director Cement"] })).toHaveLength(9);
     expect(visibleScorecardMetricIds({ roles: ["Sales Head"] })).toEqual([
       "inbound_received",
       "inbound_converted",
@@ -444,7 +479,6 @@ describe("PF-SB-02 Operating-Day scorecard", () => {
     ]);
     expect(visibleScorecardMetricIds({ roles: ["Contracting Head"] })).toEqual([
       "handoff_to_decision",
-      "revision_request_to_handoff",
       "unassigned_query_backlog",
       "weekly_active_staff",
     ]);

@@ -148,14 +148,14 @@ export default function HomeMainClient() {
           </h2>
           <p className="mx-auto mt-5 max-w-2xl text-lg text-public-muted leading-8">
             Fifteen years in MICE and corporate travel, 52 active corporate partners, and offices in
-            Delhi, Kolkata, and Bangalore.
+            Mumbai, Kolkata, and Bengaluru.
           </p>
         </div>
 
         <AnimatedSection className="py-20" data-proof-module="company-stats">
           <div className="mb-14 text-center">
             <h3 className="font-heading font-semibold text-3xl text-public-ink md:text-4xl">
-              Our impact, by the numbers
+              By the Numbers
             </h3>
           </div>
           <div className="mx-auto grid max-w-6xl place-items-center gap-12 px-4 sm:grid-cols-2 md:grid-cols-4">
@@ -181,7 +181,7 @@ export default function HomeMainClient() {
               </h3>
               <p className="mb-8 text-lg text-public-muted leading-relaxed">
                 We handle venue shortlists, delegate logistics, visas, hotels, and on-ground
-                coordination — so your team can focus on the programme itself.
+                coordination so your team can focus on the event.
               </p>
               <div className="grid gap-4 sm:grid-cols-2">
                 {PUBLIC_COMPANY_STRENGTHS.map((usp) => (
@@ -204,7 +204,7 @@ export default function HomeMainClient() {
                 strokeWidth={0.8}
               />
               <div className="absolute right-0 bottom-0 left-0 z-20 bg-gradient-to-t from-black/80 to-transparent p-8">
-                <div className="font-sans text-2xl text-white italic">
+                <div className="font-heading text-2xl text-white italic">
                   &quot;Travel is the only thing you buy that makes you richer.&quot;
                 </div>
               </div>
@@ -227,8 +227,8 @@ export default function HomeMainClient() {
             Planning a trip or event?
           </h2>
           <p className="mx-auto mb-10 max-w-xl text-lg text-public-lime/70">
-            Tell us your dates, group size, and destination. We&apos;ll send a proposal within two
-            business days.
+            Tell us your dates, group size, and destination. We&apos;ll contact you to discuss your
+            plans.
           </p>
           <PublicContactCta>Start Planning Now</PublicContactCta>
         </div>

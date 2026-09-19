@@ -20,8 +20,6 @@ const REVIEWED_NON_E2E_INSERT_OWNERS = [
   "convex/crm/jobCardChecklistCommands.ts",
   "convex/crm/jobCardDeletion.ts",
   "convex/crm/jobCardTravelBatchCommands.ts",
-  "convex/crm/lib/codes.ts",
-  "convex/crm/lib/operationalControls.ts",
   "convex/crm/lib/presentation.ts",
   "convex/crm/listSearch.ts",
   "convex/crm/metricAggregates.ts",
@@ -147,8 +145,7 @@ describe("Durable E2E ownership contract", () => {
     expect(ownership).toContain("notificationEmailEventOrigins: 100");
     expect(ownership).not.toContain("crmCodeSequences:");
     expect(codes).not.toContain("WithE2eOwnership");
-    expect(codes).toContain('ctx.db.patch("crmCodeSequences"');
-    expect(codes).toContain('ctx.db.insert("crmCodeSequences"');
+    expect(codes).not.toContain("crmCodeSequences");
     expect(ownership).toContain("crmImportBatches: 105");
     expect(ownership).toContain("customerJourneyEntitlements: 100");
     expect(ownership).toContain("authIdentityLinks: 30");

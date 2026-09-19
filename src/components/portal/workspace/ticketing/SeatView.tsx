@@ -80,7 +80,7 @@ export function SeatView({
         {
           id: "notes",
           label: "Notes",
-          render: (row: SeatRow) => row.notes || "-",
+          render: (row: SeatRow) => row.notes || null,
         },
         {
           id: "action",

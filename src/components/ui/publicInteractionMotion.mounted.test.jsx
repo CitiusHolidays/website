@@ -5,6 +5,7 @@ import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 const noop = () => undefined;
+const originalFetch = globalThis.fetch;
 let AnimatedSubmitButton;
 let AuthLoginForm;
 let ChatbotWindow;
@@ -57,7 +58,9 @@ beforeAll(async () => {
 });
 
 afterEach(() => {
+  globalThis.fetch = originalFetch;
   localStorage.clear();
+  dom.window.sessionStorage.clear();
   document.body.replaceChildren();
 });
 afterAll(() => dom.window.close());
@@ -92,13 +95,34 @@ function connectedOpenerRef() {
 
 describe("Mounted public interaction states", () => {
   test("Concierge minimize and expand retain accessible state labels", async () => {
+    const requests = [];
+    globalThis.fetch = (...args) => {
+      requests.push(args);
+      throw new Error("Opening Concierge must not send a request");
+    };
     const openerRef = connectedOpenerRef();
     const view = await mount(<ChatbotWindow isOpen onClose={noop} openerRef={openerRef} />);
 
     const minimize = await waitForElement('button[aria-label="Minimize chat"]');
     expect(minimize).not.toBeNull();
+    const panel = minimize.closest("#citius-concierge-dialog");
+    const processing = panel.querySelector("details");
+    expect(processing.open).toBe(false);
+    await act(() => processing.querySelector("summary").click());
+    expect(processing.open).toBe(true);
+    expect(processing.textContent).toContain("OpenRouter");
+    await act(() => panel.querySelector("button[data-prompt]").click());
+    expect(panel.querySelector('textarea[aria-label="Chat message"]').value).toContain(
+      "leadership offsite"
+    );
     await act(async () => minimize.click());
     expect(await waitForElement('button[aria-label="Expand chat"]')).not.toBeNull();
+    expect(panel.querySelector('textarea[aria-label="Chat message"]')).toBeNull();
+    await act(() => panel.querySelector('button[aria-label="Expand chat"]').click());
+    expect(panel.querySelector('textarea[aria-label="Chat message"]').value).toContain(
+      "leadership offsite"
+    );
+    expect(requests).toEqual([]);
     await view.unmount();
   });
 
@@ -115,6 +139,37 @@ describe("Mounted public interaction states", () => {
     expect(panel.className).toContain("safe-area-fixed-panel");
     expect(panel.className).toContain("overflow-hidden");
     expect(panel.className).toContain("h-[min(680px,calc(100dvh-1rem))]");
+    await view.unmount();
+  });
+
+  test("restored conversations retain processing details before another send", async () => {
+    const requests = [];
+    globalThis.fetch = (...args) => {
+      requests.push(args);
+      throw new Error("Restoring Concierge must not send a request");
+    };
+    dom.window.sessionStorage.setItem(
+      "citius-chat-history:v5",
+      JSON.stringify([
+        {
+          id: "restored-question",
+          parts: [{ id: "restored-text", text: "Explore Japan", type: "text" }],
+          role: "user",
+        },
+      ])
+    );
+    const view = await mount(
+      <ChatbotWindow isOpen onClose={noop} openerRef={connectedOpenerRef()} />
+    );
+    const panel = await waitForElement("#citius-concierge-dialog");
+    expect(panel.querySelector('[role="log"]').textContent).toContain("Explore Japan");
+    expect(panel.querySelector("button[data-prompt]")).toBeNull();
+    const processing = panel.querySelector("details");
+    await act(() => processing.querySelector("summary").click());
+    expect(processing.open).toBe(true);
+    expect(processing.textContent).toContain("remain under privacy review");
+    expect(panel.querySelector('textarea[aria-label="Chat message"]')).not.toBeNull();
+    expect(requests).toEqual([]);
     await view.unmount();
   });
 

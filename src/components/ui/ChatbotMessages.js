@@ -307,21 +307,18 @@ function ResponseActions({ message, onRegenerate, onRetry }) {
   );
 }
 
-export function ChatbotSuggestions({ onSelectPrompt }) {
-  const entrance = useChatbotEntrance();
-  const selectPrompt = (event) => onSelectPrompt(event.currentTarget.dataset.prompt);
+export function ChatbotProcessingNotice() {
   return (
-    <m.div animate={entrance.animate} initial={entrance.initial} transition={entrance.transition}>
-      <div className="rounded-[22px] bg-[#0e2238] px-5 py-4 text-white shadow-[0_20px_60px_rgba(14,34,56,0.16)]">
-        <p className="max-w-sm text-pretty text-sm text-white/80 leading-6">
-          Start with a destination, a date, or a rough idea. The Concierge will help you turn it
-          into a clear travel brief.
-        </p>
-        <p className="mt-3 inline-flex items-center gap-2 text-white/60 text-xs">
-          <Sparkles aria-hidden="true" className="size-3" />
-          Bounded history in this tab
-        </p>
-        <div className="mt-3 space-y-2 border-white/15 border-t pt-3 text-white/75 text-xs leading-5">
+    <div className="text-slate-600 text-xs leading-5">
+      <p>
+        When you send, Citius filters your conversation before AI providers process it. Avoid
+        sensitive details. Provider terms remain under privacy review.
+      </p>
+      <details>
+        <summary className="min-h-11 cursor-pointer py-3 font-semibold text-citius-blue focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2">
+          How your chat is processed
+        </summary>
+        <div className="space-y-2 pb-3">
           <p>
             This tab keeps up to {CONCIERGE_TAB_HISTORY_POLICY.maxMessages} messages in browser
             session storage until you clear the conversation or the tab session ends.
@@ -335,34 +332,40 @@ export function ChatbotSuggestions({ onSelectPrompt }) {
             Citius records only outcome, latency, grounding, model, fallback, and token-count
             telemetry—not prompt or reply text—and schedules it for deletion after 30 days.
           </p>
+          <p>
+            Recognizable contact, passport, payment, and secret patterns are removed before sending,
+            but filters can miss sensitive data. Do not enter it here. Contact details are added to
+            an advisor request only through the separate handoff after you consent.
+          </p>
         </div>
-      </div>
+      </details>
+    </div>
+  );
+}
 
-      <div className="mt-5 space-y-2">
+export function ChatbotSuggestions({ onSelectPrompt }) {
+  const entrance = useChatbotEntrance();
+  const selectPrompt = (event) => onSelectPrompt(event.currentTarget.dataset.prompt);
+  return (
+    <m.div animate={entrance.animate} initial={entrance.initial} transition={entrance.transition}>
+      <p className="text-pretty text-slate-700 text-sm leading-6">
+        Start with a destination, a date, or a rough idea. We&apos;ll help shape your travel brief.
+      </p>
+      <div className="mt-3 space-y-2">
         {CHATBOT_SUGGESTIONS.map(({ prompt, label, icon: Icon }) => (
           <button
-            className="group flex min-h-14 w-full items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left text-slate-800 text-sm shadow-[0_1px_0_rgba(15,23,42,0.04)] transition-[border-color,box-shadow,transform] hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2 motion-reduce:hover:translate-y-0"
+            className="flex min-h-11 w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-left text-slate-800 text-sm transition-colors hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
             data-prompt={prompt}
             key={prompt}
             onClick={selectPrompt}
             type="button"
           >
-            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#eef2f6] text-citius-blue">
-              <Icon aria-hidden="true" className="size-4" />
-            </span>
+            <Icon aria-hidden="true" className="size-4 shrink-0 text-citius-blue" />
             <span className="min-w-0 flex-1 break-words font-medium">{label}</span>
-            <ArrowUpRight
-              aria-hidden="true"
-              className="size-4 shrink-0 text-slate-400 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 motion-reduce:transition-none"
-            />
+            <ArrowUpRight aria-hidden="true" className="size-4 shrink-0 text-slate-400" />
           </button>
         ))}
       </div>
-      <p className="mx-auto mt-4 max-w-sm text-center text-slate-500 text-xs leading-5">
-        Recognizable contact, passport, payment, and secret patterns are removed before sending, but
-        filters can miss sensitive data. Do not enter it here. Contact details are added to an
-        advisor request only through the separate handoff after you consent.
-      </p>
     </m.div>
   );
 }

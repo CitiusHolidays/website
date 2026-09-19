@@ -29,7 +29,7 @@ export default function ServicesPage() {
             transition={{ delay: 0.2, duration: 0.6, ease: "easeOut" }}
           >
             MICE, visa assistance, event management, branding, sporting hospitality, and pilgrimage
-            routes — planned and delivered by one team.
+            routes, planned and delivered by one team.
           </m.p>
         </div>
 

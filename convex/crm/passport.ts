@@ -9,6 +9,7 @@ import {
 } from "./documentPreviewLifecycle";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { canSeeJobCardRecord, PERMISSIONS, requireStaff } from "./lib";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { buildTravellerListSearchText, markListSearchDirty } from "./listSearch";
 import {
   passportMetadataResultValidator,
@@ -112,7 +113,7 @@ export async function savePassportMetadataWithinTransaction(
   await invalidateDocumentPreviewSource(ctx, "passport", String(args.travellerId));
 
   if (existing) {
-    await ctx.db.patch("passportDetails", existing._id, {
+    await patchWithE2eOwnership(ctx, "passportDetails", existing._id, {
       encryptedPayload: args.encryptedPayload,
       expiryDate,
       fileName: args.fileName,
@@ -124,7 +125,7 @@ export async function savePassportMetadataWithinTransaction(
       updatedAt: now,
     });
   } else {
-    await ctx.db.insert("passportDetails", {
+    await insertWithE2eOwnership(ctx, "passportDetails", {
       createdAt: now,
       createdBy: args.createdBy,
       encryptedPayload: args.encryptedPayload,
@@ -140,7 +141,8 @@ export async function savePassportMetadataWithinTransaction(
     });
   }
 
-  await ctx.db.patch(
+  await patchWithE2eOwnership(
+    ctx,
     "travellers",
     args.travellerId,
     await passportTravellerPatch(ctx, args.travellerId, {
@@ -229,7 +231,7 @@ export const savePassportDetailsOnly = internalMutation({
       .unique();
 
     if (existing) {
-      await ctx.db.patch("passportDetails", existing._id, {
+      await patchWithE2eOwnership(ctx, "passportDetails", existing._id, {
         encryptedPayload: args.encryptedPayload,
         expiryDate,
         lastFour: args.lastFour,
@@ -238,7 +240,7 @@ export const savePassportDetailsOnly = internalMutation({
         updatedAt: now,
       });
     } else {
-      await ctx.db.insert("passportDetails", {
+      await insertWithE2eOwnership(ctx, "passportDetails", {
         createdAt: now,
         createdBy: args.createdBy,
         encryptedPayload: args.encryptedPayload,
@@ -251,7 +253,8 @@ export const savePassportDetailsOnly = internalMutation({
       });
     }
 
-    await ctx.db.patch(
+    await patchWithE2eOwnership(
+      ctx,
       "travellers",
       travellerId,
       await passportTravellerPatch(ctx, travellerId, {
@@ -290,7 +293,8 @@ export const deletePassportMetadata = internalMutation({
       await ctx.db.delete("passportDetails", existing._id);
     }
 
-    await ctx.db.patch(
+    await patchWithE2eOwnership(
+      ctx,
       "travellers",
       travellerIdNormalized,
       await passportTravellerPatch(ctx, travellerIdNormalized, {
@@ -351,12 +355,14 @@ export const backfillPassportExpiryDate = internalMutation({
   handler: async (ctx, args) => {
     const passport = await ctx.db.get("passportDetails", args.passportId);
     const expiryDate = normalizePassportExpiryDate(args.expiryDate);
-    await ctx.db.patch("passportDetails", args.passportId, {
+    await patchWithE2eOwnership(ctx, "passportDetails", args.passportId, {
       expiryDate,
       updatedAt: Date.now(),
     });
     if (passport) {
-      await ctx.db.patch("travellers", passport.travellerId, { passportExpiryDate: expiryDate });
+      await patchWithE2eOwnership(ctx, "travellers", passport.travellerId, {
+        passportExpiryDate: expiryDate,
+      });
       await scheduleCrmMetricSync(ctx, "travellers", String(passport.travellerId));
     }
     return null;
@@ -380,7 +386,7 @@ export const logViewActivity = internalMutation({
       return null;
     }
 
-    await ctx.db.insert("activityLogs", {
+    await insertWithE2eOwnership(ctx, "activityLogs", {
       action: "viewed",
       actorId: args.authUserId,
       actorName: args.userName,

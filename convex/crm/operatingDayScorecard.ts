@@ -3,6 +3,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { query } from "../_generated/server";
 import {
+  canSeeQueryRecord,
   isDirectorOrAdmin,
   type PortalAccess,
   type PortalDateRange,
@@ -38,7 +39,6 @@ const SCORECARD_METRIC_IDS = [
   "inbound_to_query",
   "handoff_to_decision",
   "confirmation_to_job_card",
-  "revision_request_to_handoff",
   "unassigned_query_backlog",
   "weekly_active_staff",
 ] as const;
@@ -116,11 +116,6 @@ interface InboundCohortRow {
   query: Doc<"queries"> | null;
 }
 
-interface RevisionCohortRow {
-  handoff: Doc<"proposalQueryHandoffs"> | null;
-  request: Doc<"proposalRevisionRequests">;
-}
-
 interface ScorecardSnapshot {
   aggregate: Awaited<ReturnType<typeof loadMetricTotals>> | null;
   inbound: {
@@ -130,10 +125,6 @@ interface ScorecardSnapshot {
   queries: {
     complete: boolean;
     rows: Doc<"queries">[];
-  };
-  revisionRequests: {
-    complete: boolean;
-    rows: RevisionCohortRow[];
   };
   staff: {
     complete: boolean;
@@ -164,7 +155,6 @@ const scorecardMetricIdValidator = v.union(
   v.literal("inbound_to_query"),
   v.literal("handoff_to_decision"),
   v.literal("confirmation_to_job_card"),
-  v.literal("revision_request_to_handoff"),
   v.literal("unassigned_query_backlog"),
   v.literal("weekly_active_staff")
 );
@@ -306,7 +296,6 @@ export function visibleScorecardMetricIds(access: Pick<PortalAccess, "roles">) {
   }
   if (hasAnyRole(access, ["Contracting Head"])) {
     visible.add("handoff_to_decision");
-    visible.add("revision_request_to_handoff");
     visible.add("unassigned_query_backlog");
   }
   if (hasAnyRole(access, ["Accounts Head", "Operations Head", "Head of Ticketing"])) {
@@ -382,29 +371,6 @@ async function loadInboundRows(ctx: QueryCtx, window: ScorecardWindow) {
   return { complete: loaded.complete, rows };
 }
 
-async function loadRevisionRequestRows(ctx: QueryCtx, window: ScorecardWindow) {
-  const loaded = capped(
-    await ctx.db
-      .query("proposalRevisionRequests")
-      .withIndex("by_requestedAt", (q) =>
-        q.gte("requestedAt", window.sinceMs).lte("requestedAt", window.untilMs)
-      )
-      .order("asc")
-      .take(SOURCE_ROW_LIMIT + 1)
-  );
-  const rows = await Promise.all(
-    loaded.rows.map(
-      async (request): Promise<RevisionCohortRow> => ({
-        handoff: request.resolvingHandoffId
-          ? await ctx.db.get("proposalQueryHandoffs", request.resolvingHandoffId)
-          : null,
-        request,
-      })
-    )
-  );
-  return { complete: loaded.complete, rows };
-}
-
 async function loadQueryRows(ctx: QueryCtx, access: PortalAccess, window: ScorecardWindow) {
   const loaded = capped(
     await ctx.db
@@ -417,9 +383,7 @@ async function loadQueryRows(ctx: QueryCtx, access: PortalAccess, window: Scorec
   );
   return {
     complete: loaded.complete,
-    rows: shouldApplyCementScope(access)
-      ? loaded.rows.filter((row) => ["Cement", "Cement Bidding"].includes(row.queryType))
-      : loaded.rows,
+    rows: loaded.rows.filter((row) => canSeeQueryRecord(access, row)),
   };
 }
 
@@ -440,10 +404,9 @@ async function loadScorecardSnapshot(
   referenceNow: number
 ): Promise<ScorecardSnapshot> {
   const needsInbound = INBOUND_METRIC_IDS.some((id) => visible.has(id));
-  const needsRevisions = visible.has("revision_request_to_handoff");
   const needsQueries = visible.has("unassigned_query_backlog");
   const range = { from: window.from, to: window.to };
-  const [aggregate, inbound, revisionRequests, queries, staff] = await Promise.all([
+  const [aggregate, inbound, queries, staff] = await Promise.all([
     needsQueries
       ? loadMetricTotals(
           ctx,
@@ -453,9 +416,6 @@ async function loadScorecardSnapshot(
         )
       : Promise.resolve(null),
     needsInbound ? loadInboundRows(ctx, window) : Promise.resolve({ complete: true, rows: [] }),
-    needsRevisions
-      ? loadRevisionRequestRows(ctx, window)
-      : Promise.resolve({ complete: true, rows: [] }),
     needsQueries
       ? loadQueryRows(ctx, access, window)
       : Promise.resolve({ complete: true, rows: [] }),
@@ -463,7 +423,7 @@ async function loadScorecardSnapshot(
       ? loadStaffRows(ctx)
       : Promise.resolve({ complete: true, rows: [] }),
   ]);
-  return { aggregate, inbound, queries, revisionRequests, staff };
+  return { aggregate, inbound, queries, staff };
 }
 
 function iso(timestamp: number) {
@@ -666,10 +626,6 @@ function queryHref(queryId: Id<"queries">) {
   return `/portal/queries?open=query&id=${encodeURIComponent(String(queryId))}`;
 }
 
-function proposalHref(proposalId: Id<"proposals">, queryId: Id<"queries">) {
-  return `/portal/proposals?open=proposal&id=${encodeURIComponent(String(proposalId))}&queryId=${encodeURIComponent(String(queryId))}`;
-}
-
 function inboundRow(row: InboundCohortRow, status: string): DrillDownRow {
   return {
     at: iso(row.intent.createdAt),
@@ -825,67 +781,6 @@ function buildInboundMetrics(
   ];
 }
 
-function buildRevisionMetric(
-  snapshot: ScorecardSnapshot["revisionRequests"],
-  window: ScorecardWindow,
-  generatedAt: string
-) {
-  let missingClocks = 0;
-  let pending = 0;
-  let unresolvedRecords = 0;
-  const durations: Array<{ row: DrillDownRow; value: number }> = [];
-  for (const { handoff, request } of snapshot.rows) {
-    if (request.status === "Open") {
-      pending += 1;
-      continue;
-    }
-    if (request.resolvedAt === undefined || request.resolvedAt < request.requestedAt) {
-      missingClocks += 1;
-      continue;
-    }
-    if (
-      !handoff ||
-      request.resolvingHandoffId !== handoff._id ||
-      request.proposalId !== handoff.proposalId ||
-      request.queryId !== handoff.queryId ||
-      request.resolvingProposalRevision !== handoff.proposalRevision ||
-      handoff.proposalRevision <= request.sourceProposalRevision
-    ) {
-      unresolvedRecords += 1;
-      continue;
-    }
-    if (handoff.handedOffAt !== request.resolvedAt) {
-      missingClocks += 1;
-      continue;
-    }
-    const durationMs = request.resolvedAt - request.requestedAt;
-    durations.push({
-      row: {
-        at: iso(request.requestedAt),
-        durationMs,
-        href: proposalHref(request.proposalId, request.queryId),
-        label: `Revision request · revision ${request.sourceProposalRevision}`,
-        status: "Resolved by newer handoff",
-      },
-      value: durationMs,
-    });
-  }
-  return durationMetric({
-    complete: snapshot.complete,
-    definition:
-      "Revision Requests opened in the window through the qualifying newer Proposal Handoff; open requests stay pending.",
-    durations,
-    id: "revision_request_to_handoff",
-    label: METRIC_LABELS.revision_request_to_handoff,
-    lastCompleteAt: generatedAt,
-    missingClocks,
-    pending,
-    total: snapshot.rows.length,
-    unresolvedRecords,
-    window,
-  });
-}
-
 function aggregateReadiness(snapshot: ScorecardSnapshot) {
   const { aggregate } = snapshot;
   if (!aggregate?.complete) {
@@ -1019,7 +914,6 @@ const METRIC_LABELS = {
   inbound_dismissed: "Dismissed enquiries",
   inbound_received: "Consented enquiries received",
   inbound_to_query: "Enquiry received to Query",
-  revision_request_to_handoff: "Revision request recovery",
   unassigned_query_backlog: "Unassigned Contracting backlog age",
   weekly_active_staff: "Weekly active Staff by role",
 } satisfies Record<ScorecardMetricId, string>;
@@ -1028,7 +922,6 @@ const DURATION_METRIC_IDS = new Set<ScorecardMetricId>([
   "inbound_to_query",
   "handoff_to_decision",
   "confirmation_to_job_card",
-  "revision_request_to_handoff",
   "unassigned_query_backlog",
 ]);
 
@@ -1067,10 +960,6 @@ function buildScorecardMetrics(
       "Setup required: the organization-wide confirmation clock remains Unknown until its staged time index is ready and separately authorized for reader cutover."
     )
   );
-  metrics.set(
-    "revision_request_to_handoff",
-    buildRevisionMetric(snapshot.revisionRequests, window, generatedAt)
-  );
   metrics.set("unassigned_query_backlog", buildBacklogMetric(snapshot, window, referenceNow));
   metrics.set(
     "weekly_active_staff",
@@ -1087,7 +976,6 @@ function emptySnapshot(): ScorecardSnapshot {
     aggregate: null,
     inbound: { complete: false, rows: [] },
     queries: { complete: false, rows: [] },
-    revisionRequests: { complete: false, rows: [] },
     staff: { complete: false, rows: [] },
   };
 }
@@ -1101,7 +989,13 @@ export const get = query({
     }
     const referenceNow = assertReferenceNow(args.referenceNow);
     const window = resolveOperatingDayWindow(args.dateRange, referenceNow);
-    const visibleIds = visibleScorecardMetricIds(access);
+    // Unconverted enquiries have no Query type to enforce Cement scope against.
+    const visibleIds = visibleScorecardMetricIds(access).filter(
+      (id) =>
+        !(
+          shouldApplyCementScope(access) && INBOUND_METRIC_IDS.some((inboundId) => inboundId === id)
+        )
+    );
     const snapshot =
       window.status === "bounded"
         ? await loadScorecardSnapshot(ctx, access, window, new Set(visibleIds), referenceNow)

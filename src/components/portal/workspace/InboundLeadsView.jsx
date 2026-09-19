@@ -7,11 +7,6 @@ import { useState } from "react";
 import { PortalSearchField } from "@/components/portal/PortalSearchField";
 import { Select } from "@/components/ui/application-select";
 import {
-  inboundBriefContactWindowLabel,
-  inboundBriefDateFlexibilityLabel,
-  inboundBriefServiceLabel,
-} from "@/lib/contact/inboundIntentContract";
-import {
   useTrackedPaginatedQuery as usePaginatedQuery,
   useTrackedQuery as useQuery,
 } from "@/lib/portal/trackedConvexSubscriptions";
@@ -69,21 +64,20 @@ function formatCreatedAt(value) {
 
 function formFromIntent(intent) {
   const sourceNotes = intent?.notes || "";
-  const brief = intent?.brief;
   return {
     budgetAmount: "",
     clientName: intent?.clientName || "",
     contactMobile: intent?.contactMobile || "",
     contactPerson: "",
-    destination: brief?.destination || intent?.destination || "",
+    destination: intent?.destination || "",
     intentId: intent?._id || null,
     notes: countWords(sourceNotes) <= MAX_QUERY_NOTES_WORDS ? sourceNotes : "",
-    paxCount: String(brief?.paxCount || intent?.paxCount || 1),
+    paxCount: String(intent?.paxCount || 1),
     queryType: "FIT",
     salesOwnerName: "",
     salesOwnerStaffId: "",
     travelEndDate: "",
-    travelStartDate: brief?.travelStartDate || intent?.travelStartDate || "",
+    travelStartDate: intent?.travelStartDate || "",
     travelType: "International Travel",
   };
 }
@@ -131,36 +125,6 @@ function renderSacredContextDescription(description) {
   );
 }
 
-function renderEnquiryBrief(intent) {
-  const brief = intent?.brief;
-  const rows = [
-    ["Enquiry type", inboundBriefServiceLabel(brief?.serviceType)],
-    ["Destination or programme", brief?.destination],
-    ["Preferred date", brief?.travelStartDate],
-    ["Date flexibility", inboundBriefDateFlexibilityLabel(brief?.dateFlexibility)],
-    ["Approximate group size", brief?.paxCount],
-    ["Best contact window", inboundBriefContactWindowLabel(brief?.contactWindow)],
-  ].filter(([, value]) => value !== undefined && value !== "");
-  return (
-    <div>
-      <dt className="text-brand-muted text-xs">Enquiry brief</dt>
-      <dd className="mt-1 text-brand-dark">
-        {rows.length > 0 ? (
-          <ul className="grid gap-1">
-            {rows.map(([label, value]) => (
-              <li key={label}>
-                <span className="text-brand-muted">{label}:</span> {value}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          "No optional brief supplied"
-        )}
-      </dd>
-    </div>
-  );
-}
-
 function InboundLeadRow({ row, selected, onSelect }) {
   const handleSelect = () => onSelect(row._id);
   return (
@@ -172,7 +136,7 @@ function InboundLeadRow({ row, selected, onSelect }) {
         </div>
       </td>
       <td className="px-4 py-3 align-top text-brand-muted">
-        <div>{row.brief?.destination || row.destination || "Destination TBD"}</div>
+        <div>{row.destination || "Destination TBD"}</div>
         <div className="mt-1 text-xs">{row.source}</div>
       </td>
       <td className="px-4 py-3 align-top text-brand-muted">{formatCreatedAt(row.createdAt)}</td>
@@ -401,11 +365,17 @@ function InboundLeadListPane({
             value={search}
           />
         </div>
-        <span className="pb-2 text-brand-muted text-xs">{rows.length} loaded</span>
+        <span className="pb-2 text-brand-muted text-xs">
+          {page.status === "LoadingFirstPage" ? "Loading leads…" : `${rows.length} loaded`}
+        </span>
       </div>
       {renderEither(
         rows.length === 0,
-        <p className="p-8 text-brand-muted text-sm">No inbound leads match these filters.</p>,
+        <p className="p-8 text-brand-muted text-sm" role="status">
+          {page.status === "LoadingFirstPage"
+            ? "Loading inbound leads…"
+            : "No inbound leads match these filters."}
+        </p>,
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
             <thead className="bg-brand-light/50 text-brand-muted text-xs uppercase tracking-wide">
@@ -441,7 +411,7 @@ function InboundLeadListPane({
   );
 }
 
-export function InboundLeadsView({ allowed, canFetch }) {
+function InboundLeadDetail({ controller }) {
   const {
     dismissalReason,
     error,
@@ -450,277 +420,252 @@ export function InboundLeadsView({ allowed, canFetch }) {
     handleDismiss,
     handleFieldChange,
     handleQueryTypeChange,
-    handleSearchChange,
     handleTravelTypeChange,
-    loadMore,
     message,
     notesOverLimit,
     notesWordCount,
-    page,
-    rows,
     sacredContextDescription,
     saving,
-    search,
     selected,
-    selectedId,
     setDismissalReason,
-    setSelectedId,
-    setSource,
-    setStatus,
-    shouldFetch,
-    source,
     sourceNotesOverLimit,
-    status,
-  } = useInboundLeadsController({ allowed, canFetch });
-
-  if (!shouldFetch) {
-    return null;
+  } = controller;
+  if (!selected) {
+    return (
+      <div className="py-8 text-brand-muted text-sm" role="status">
+        {selected === undefined
+          ? "Loading lead details…"
+          : "This lead is unavailable. Select another lead."}
+      </div>
+    );
   }
-
   return (
-    <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.72fr)]">
-      <InboundLeadListPane
-        handleSearchChange={handleSearchChange}
-        loadMore={loadMore}
-        page={page}
-        rows={rows}
-        search={search}
-        selectedId={selectedId}
-        setSelectedId={setSelectedId}
-        setSource={setSource}
-        setStatus={setStatus}
-        source={source}
-        status={status}
-      />
-
-      <aside className="rounded-2xl border border-brand-border bg-white p-5 shadow-sm">
-        {selected ? (
-          <>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="font-semibold text-brand-dark text-lg">{selected.clientName}</p>
-                <p className="mt-1 text-brand-muted text-xs">
-                  {selected.source} · received {formatCreatedAt(selected.createdAt)}
-                </p>
-              </div>
-              <div className="flex flex-wrap justify-end gap-2">
-                <span className="rounded-full bg-brand-light px-2.5 py-1 font-semibold text-brand-muted text-xs capitalize">
-                  {selected.status}
-                </span>
-              </div>
+    <>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold text-brand-dark text-lg">{selected.clientName}</p>
+          <p className="mt-1 text-brand-muted text-xs">
+            {selected.source} · received {formatCreatedAt(selected.createdAt)}
+          </p>
+        </div>
+        <div className="flex flex-wrap justify-end gap-2">
+          <span className="rounded-full bg-brand-light px-2.5 py-1 font-semibold text-brand-muted text-xs capitalize">
+            {selected.status}
+          </span>
+        </div>
+      </div>
+      <dl className="mt-5 grid gap-3 border-brand-border border-b pb-5 text-sm">
+        <div>
+          <dt className="text-brand-muted text-xs">Email</dt>
+          <dd className="text-brand-dark">{selected.contactEmail || "Not provided"}</dd>
+        </div>
+        <div>
+          <dt className="text-brand-muted text-xs">Mobile</dt>
+          <dd className="text-brand-dark">{selected.contactMobile || "Not provided"}</dd>
+        </div>
+        {renderSacredContextDescription(sacredContextDescription)}
+        <div>
+          <dt className="text-brand-muted text-xs">Notes</dt>
+          <dd className="whitespace-pre-wrap text-brand-dark">{selected.notes || "—"}</dd>
+        </div>
+      </dl>
+      {renderWhen(
+        message,
+        <p aria-live="polite" className="mt-4 text-emerald-700 text-sm" role="status">
+          {message}
+        </p>
+      )}
+      {renderEither(
+        selected.status === "pending",
+        <>
+          <form className="mt-5 grid gap-3" onSubmit={handleConvert}>
+            <p className="font-semibold text-brand-dark">Convert to Sales Query</p>
+            {fieldLabel(
+              "inbound-client-name",
+              "Client name",
+              <input
+                aria-label="Client name"
+                className="portal-input"
+                id="inbound-client-name"
+                name="clientName"
+                onChange={handleFieldChange}
+                required
+                value={form.clientName}
+              />
+            )}
+            <div className="grid gap-3 sm:grid-cols-2">
+              {fieldLabel(
+                "inbound-destination",
+                "Destination",
+                <input
+                  aria-label="Destination"
+                  className="portal-input"
+                  id="inbound-destination"
+                  name="destination"
+                  onChange={handleFieldChange}
+                  value={form.destination}
+                />
+              )}
+              {fieldLabel(
+                "inbound-pax-count",
+                "Pax",
+                <input
+                  aria-label="Number of passengers"
+                  className="portal-input"
+                  id="inbound-pax-count"
+                  min="1"
+                  name="paxCount"
+                  onChange={handleFieldChange}
+                  required
+                  type="number"
+                  value={form.paxCount}
+                />
+              )}
             </div>
-            <dl className="mt-5 grid gap-3 border-brand-border border-b pb-5 text-sm">
-              <div>
-                <dt className="text-brand-muted text-xs">Reference</dt>
-                <dd className="font-mono text-brand-dark">
-                  {selected.receiptReference || "Unavailable for this legacy lead"}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-brand-muted text-xs">Email</dt>
-                <dd className="text-brand-dark">{selected.contactEmail || "Not provided"}</dd>
-              </div>
-              <div>
-                <dt className="text-brand-muted text-xs">Mobile</dt>
-                <dd className="text-brand-dark">{selected.contactMobile || "Not provided"}</dd>
-              </div>
-              {renderSacredContextDescription(sacredContextDescription)}
-              {selected.websiteSourceContext ? (
-                <div>
-                  <dt className="text-brand-muted text-xs">Website source context</dt>
-                  <dd className="text-brand-dark">{selected.websiteSourceContext.label}</dd>
-                </div>
-              ) : null}
-              {renderEnquiryBrief(selected)}
-              <div>
-                <dt className="text-brand-muted text-xs">Notes</dt>
-                <dd className="whitespace-pre-wrap text-brand-dark">{selected.notes || "—"}</dd>
-              </div>
-            </dl>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {fieldLabel(
+                "inbound-query-type",
+                "Query type",
+                <Select
+                  aria-label="Query type"
+                  className="portal-input"
+                  id="inbound-query-type"
+                  onValueChange={handleQueryTypeChange}
+                  options={QUERY_TYPES.map((option) => ({ label: option, value: option }))}
+                  value={form.queryType}
+                />
+              )}
+              {fieldLabel(
+                "inbound-travel-type",
+                "Travel type",
+                <Select
+                  aria-label="Travel type"
+                  className="portal-input"
+                  id="inbound-travel-type"
+                  onValueChange={handleTravelTypeChange}
+                  options={TRAVEL_TYPES.map((option) => ({ label: option, value: option }))}
+                  value={form.travelType}
+                />
+              )}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {fieldLabel(
+                "inbound-travel-start",
+                "Travel start",
+                <input
+                  aria-label="Travel start date"
+                  className="portal-input"
+                  id="inbound-travel-start"
+                  name="travelStartDate"
+                  onChange={handleFieldChange}
+                  type="date"
+                  value={form.travelStartDate}
+                />
+              )}
+              {fieldLabel(
+                "inbound-travel-end",
+                "Travel end",
+                <input
+                  aria-label="Travel end date"
+                  className="portal-input"
+                  id="inbound-travel-end"
+                  name="travelEndDate"
+                  onChange={handleFieldChange}
+                  type="date"
+                  value={form.travelEndDate}
+                />
+              )}
+            </div>
+            {fieldLabel(
+              "inbound-query-notes",
+              "Notes",
+              <>
+                <textarea
+                  aria-describedby={`inbound-query-notes-help${notesOverLimit ? " inbound-query-notes-error" : ""}`}
+                  aria-invalid={notesOverLimit || undefined}
+                  aria-label="Query notes"
+                  className="portal-input min-h-24"
+                  id="inbound-query-notes"
+                  name="notes"
+                  onChange={handleFieldChange}
+                  value={form.notes}
+                />
+                <span className="text-brand-muted text-xs" id="inbound-query-notes-help">
+                  {sourceNotesOverLimit
+                    ? "Source notes exceed the 30-word Query Notes limit and remain available on this lead. Add a concise query note here."
+                    : `${notesWordCount}/${MAX_QUERY_NOTES_WORDS} words`}
+                </span>
+                {renderWhen(
+                  notesOverLimit,
+                  <span
+                    className="text-red-700 text-xs"
+                    id="inbound-query-notes-error"
+                    role="alert"
+                  >
+                    Query Notes must be 30 words or fewer.
+                  </span>
+                )}
+              </>
+            )}
+            <button className="portal-primary-btn justify-center" disabled={saving} type="submit">
+              {saving ? "Converting…" : "Convert to Query"}
+            </button>
             {renderWhen(
-              message,
-              <p aria-live="polite" className="mt-4 text-emerald-700 text-sm" role="status">
-                {message}
+              error && !notesOverLimit,
+              <p aria-live="assertive" className="text-red-700 text-sm" role="alert">
+                {error}
               </p>
             )}
-            {renderEither(
-              selected.status === "pending",
-              <>
-                <form className="mt-5 grid gap-3" onSubmit={handleConvert}>
-                  <p className="font-semibold text-brand-dark">Convert to Sales Query</p>
-                  {fieldLabel(
-                    "inbound-client-name",
-                    "Client name",
-                    <input
-                      aria-label="Client name"
-                      className="portal-input"
-                      id="inbound-client-name"
-                      name="clientName"
-                      onChange={handleFieldChange}
-                      required
-                      value={form.clientName}
-                    />
-                  )}
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {fieldLabel(
-                      "inbound-destination",
-                      "Destination",
-                      <input
-                        aria-label="Destination"
-                        className="portal-input"
-                        id="inbound-destination"
-                        name="destination"
-                        onChange={handleFieldChange}
-                        value={form.destination}
-                      />
-                    )}
-                    {fieldLabel(
-                      "inbound-pax-count",
-                      "Pax",
-                      <input
-                        aria-label="Number of passengers"
-                        className="portal-input"
-                        id="inbound-pax-count"
-                        min="1"
-                        name="paxCount"
-                        onChange={handleFieldChange}
-                        required
-                        type="number"
-                        value={form.paxCount}
-                      />
-                    )}
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {fieldLabel(
-                      "inbound-query-type",
-                      "Query type",
-                      <Select
-                        aria-label="Query type"
-                        className="portal-input"
-                        id="inbound-query-type"
-                        onValueChange={handleQueryTypeChange}
-                        options={QUERY_TYPES.map((option) => ({ label: option, value: option }))}
-                        value={form.queryType}
-                      />
-                    )}
-                    {fieldLabel(
-                      "inbound-travel-type",
-                      "Travel type",
-                      <Select
-                        aria-label="Travel type"
-                        className="portal-input"
-                        id="inbound-travel-type"
-                        onValueChange={handleTravelTypeChange}
-                        options={TRAVEL_TYPES.map((option) => ({ label: option, value: option }))}
-                        value={form.travelType}
-                      />
-                    )}
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {fieldLabel(
-                      "inbound-travel-start",
-                      "Travel start",
-                      <input
-                        aria-label="Travel start date"
-                        className="portal-input"
-                        id="inbound-travel-start"
-                        name="travelStartDate"
-                        onChange={handleFieldChange}
-                        type="date"
-                        value={form.travelStartDate}
-                      />
-                    )}
-                    {fieldLabel(
-                      "inbound-travel-end",
-                      "Travel end",
-                      <input
-                        aria-label="Travel end date"
-                        className="portal-input"
-                        id="inbound-travel-end"
-                        name="travelEndDate"
-                        onChange={handleFieldChange}
-                        type="date"
-                        value={form.travelEndDate}
-                      />
-                    )}
-                  </div>
-                  {fieldLabel(
-                    "inbound-query-notes",
-                    "Notes",
-                    <>
-                      <textarea
-                        aria-describedby={`inbound-query-notes-help${notesOverLimit ? " inbound-query-notes-error" : ""}`}
-                        aria-invalid={notesOverLimit || undefined}
-                        aria-label="Query notes"
-                        className="portal-input min-h-24"
-                        id="inbound-query-notes"
-                        name="notes"
-                        onChange={handleFieldChange}
-                        value={form.notes}
-                      />
-                      <span className="text-brand-muted text-xs" id="inbound-query-notes-help">
-                        {sourceNotesOverLimit
-                          ? "Source notes exceed the 30-word Query Notes limit and remain available on this lead. Add a concise query note here."
-                          : `${notesWordCount}/${MAX_QUERY_NOTES_WORDS} words`}
-                      </span>
-                      {renderWhen(
-                        notesOverLimit,
-                        <span
-                          className="text-red-700 text-xs"
-                          id="inbound-query-notes-error"
-                          role="alert"
-                        >
-                          Query Notes must be 30 words or fewer.
-                        </span>
-                      )}
-                    </>
-                  )}
-                  <button
-                    className="portal-primary-btn justify-center"
-                    disabled={saving}
-                    type="submit"
-                  >
-                    {saving ? "Converting…" : "Convert to Query"}
-                  </button>
-                  {renderWhen(
-                    error && !notesOverLimit,
-                    <p aria-live="assertive" className="text-red-700 text-sm" role="alert">
-                      {error}
-                    </p>
-                  )}
-                </form>
-                <div className="mt-5 grid gap-3 border-brand-border border-t pt-5">
-                  <p className="font-semibold text-brand-dark">Dismiss from Pending Sales</p>
-                  <label
-                    className="grid gap-1 text-brand-dark text-sm"
-                    htmlFor="inbound-dismissal-reason"
-                  >
-                    <span className="font-medium">Reason</span>
-                    <Select
-                      className="portal-input"
-                      id="inbound-dismissal-reason"
-                      onValueChange={setDismissalReason}
-                      options={DISMISSAL_OPTIONS.map(([value, label]) => ({ label, value }))}
-                      value={dismissalReason}
-                    />
-                  </label>
-                  <button
-                    className="portal-small-btn justify-center"
-                    disabled={saving}
-                    onClick={handleDismiss}
-                    type="button"
-                  >
-                    {saving ? "Saving…" : "Dismiss lead"}
-                  </button>
-                </div>
-              </>,
-              <p className="mt-5 text-brand-muted text-sm">{recordedOutcomeCopy(selected)}</p>
-            )}
-          </>
-        ) : (
-          <div className="py-8 text-brand-muted text-sm">Select a lead to review its details.</div>
-        )}
-      </aside>
+          </form>
+          <div className="mt-5 grid gap-3 border-brand-border border-t pt-5">
+            <p className="font-semibold text-brand-dark">Dismiss from Pending Sales</p>
+            <label
+              className="grid gap-1 text-brand-dark text-sm"
+              htmlFor="inbound-dismissal-reason"
+            >
+              <span className="font-medium">Reason</span>
+              <Select
+                className="portal-input"
+                id="inbound-dismissal-reason"
+                onValueChange={setDismissalReason}
+                options={DISMISSAL_OPTIONS.map(([value, label]) => ({ label, value }))}
+                value={dismissalReason}
+              />
+            </label>
+            <button
+              className="portal-small-btn justify-center"
+              disabled={saving}
+              onClick={handleDismiss}
+              type="button"
+            >
+              {saving ? "Saving…" : "Dismiss lead"}
+            </button>
+          </div>
+        </>,
+        <p className="mt-5 text-brand-muted text-sm">{recordedOutcomeCopy(selected)}</p>
+      )}
+    </>
+  );
+}
+
+export function InboundLeadsView({ allowed, canFetch }) {
+  const controller = useInboundLeadsController({ allowed, canFetch });
+  if (!controller.shouldFetch) {
+    return null;
+  }
+  return (
+    <section
+      className={`grid gap-5 ${controller.selectedId ? "xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.72fr)]" : ""}`}
+    >
+      <InboundLeadListPane {...controller} />
+      {controller.selectedId ? (
+        <aside
+          aria-label="Selected inbound lead"
+          className="min-w-0 rounded-2xl border border-brand-border bg-white p-5 shadow-sm"
+        >
+          <InboundLeadDetail controller={controller} />
+        </aside>
+      ) : null}
     </section>
   );
 }

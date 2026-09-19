@@ -8,8 +8,9 @@ export const SANITY_PUBLIC_CACHE_POLICY = Object.freeze({
 });
 
 /**
- * Cache public CMS content only. Request-derived values and authenticated data
- * must never be passed through this boundary.
+ * Cache public CMS content only. Public content selectors such as slugs and
+ * validated archive cursors are safe cache keys. Identity, cookies, headers and
+ * authenticated data must never be passed through this boundary.
  */
 export async function cachedSanityFetch(query, params = {}, tags = []) {
   "use cache";

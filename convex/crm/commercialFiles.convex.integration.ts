@@ -749,7 +749,7 @@ describe("registered Commercial File chain contract", () => {
     ).resolves.toBeNull();
   });
 
-  test("rekeys Proposal and inherited Job Card files when the primary Query changes", async () => {
+  test("rekeys Proposal history and inherited files beyond the former 100-file and 25-Job-Card limits", async () => {
     const t = createHarness();
     const firstOwnerId = await seedStaff(t, {
       name: "Relink First Owner",
@@ -797,16 +797,21 @@ describe("registered Commercial File chain contract", () => {
         proposalId: insertedProposalId,
         queryId: secondQueryId,
       });
-      const insertedJobCardId = await ctx.db.insert("jobCards", {
-        clientName: "Relink Customer",
-        confirmedPax: 2,
-        createdAt: NOW,
-        createdBy: contractingOwnerId,
-        jobCode: "J-RELINK-1",
-        proposalId: insertedProposalId,
-        status: "Open",
-        updatedAt: NOW,
-      });
+      const inheritedJobCardIds = await Promise.all(
+        Array.from({ length: 26 }, (_, index) =>
+          ctx.db.insert("jobCards", {
+            clientName: "Relink Customer",
+            confirmedPax: 2,
+            createdAt: NOW,
+            createdBy: contractingOwnerId,
+            jobCode: `J-RELINK-${index}`,
+            proposalId: insertedProposalId,
+            status: "Open",
+            updatedAt: NOW,
+          })
+        )
+      );
+      const [insertedJobCardId] = inheritedJobCardIds;
       const insertedExplicitJobCardId = await ctx.db.insert("jobCards", {
         clientName: "Relink Customer",
         confirmedPax: 2,
@@ -856,6 +861,32 @@ describe("registered Commercial File chain contract", () => {
       teamArea: "operations",
     });
 
+    const historyIds = await t.run(async (ctx) =>
+      Promise.all(
+        Array.from({ length: 101 }, (_, index) =>
+          ctx.db.insert("commercialFiles", {
+            category: "workingFile",
+            chainKey: `query:${String(firstQueryId)}`,
+            createdAt: NOW,
+            createdBy: contractingOwnerId,
+            fileName: `prior-proposal-${index}.pdf`,
+            fileSize: 7,
+            lifecycle: "history",
+            mimeType: "application/pdf",
+            proposalId,
+            sourceCode: "P-RELINK-1",
+            sourceId: String(proposalId),
+            sourceLabel: "Relink Proposal",
+            sourceType: "proposal",
+            storageId,
+            teamArea: "contracting",
+            updatedAt: NOW,
+            uploaderTeam: "Contracting",
+          })
+        )
+      )
+    );
+
     await expect(
       t.withIdentity(identity("relink_contracting_head")).mutation(updateProposal, {
         proposalId: String(proposalId),
@@ -863,6 +894,11 @@ describe("registered Commercial File chain contract", () => {
       })
     ).resolves.toEqual({ id: proposalId });
 
+    await t.run(async (ctx) => {
+      const history = await Promise.all(historyIds.map((id) => ctx.db.get("commercialFiles", id)));
+      expect(history).toHaveLength(101);
+      expect(history.every((row) => row?.chainKey === `query:${String(secondQueryId)}`)).toBe(true);
+    });
     const relinked = await t.run(async (ctx) => ({
       explicit: await ctx.db.get("commercialFiles", explicitFileId),
       inherited: await ctx.db.get("commercialFiles", inheritedFileId),

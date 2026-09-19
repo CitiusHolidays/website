@@ -25,12 +25,9 @@ export interface PortalQueryListRow {
     airfarePerPax: number;
     confirmedPax: number;
     destination: string;
-    id: string;
     landCostPerPax: number;
     profitPerPax: number;
     proposalId: string;
-    proposalQueryHandoffId: string | null;
-    proposalRevision: number | null;
     sellingPricePerPax: number;
     travelEndDate: string;
     travelStartDate: string;
@@ -114,21 +111,9 @@ export interface PortalProposalListRow {
   queryPreview?: Array<{
     clientName?: string;
     contractingOwnerId?: string | null;
-    handedOffAt?: string | null;
-    handedOffRevision?: number | null;
     id?: string;
-    pairState?:
-      | "Confirmed"
-      | "Draft"
-      | "Lost"
-      | "Revision requested"
-      | "Stale"
-      | "Unknown"
-      | "With Sales";
     paxCount?: number;
     queryCode?: string;
-    queryType?: string;
-    revisionRequestedAt?: string | null;
   }>;
   sellingPrice?: number;
   sentToClientAt?: string | null;
@@ -309,7 +294,9 @@ export interface PortalPaymentTermsReferenceRow {
 export interface AccountsJobCardViewProps {
   access: PortalAccessSlice;
   creators: PortalAccountsJobCardCreatorRow[];
+  creatorsLoading?: boolean;
   jobCards: PortalJobCardListRow[];
+  loading?: boolean;
   openModal: PortalModalOpener;
   rows: PortalQueryListRow[];
   setJobCardCreatorAccess: (args: { enabled: boolean; staffId: string }) => Promise<{ id: string }>;
@@ -501,6 +488,7 @@ export interface TravellersViewProps {
   has: PortalPermissionChecker;
   jobCardFilter: string;
   jobCards: PortalJobCardOption[];
+  loading?: boolean;
   openModal: PortalModalOpener;
   removeManyTravellers: PortalWorkspaceState["removeManyTravellers"];
   removeTraveller: PortalWorkspaceState["removeTraveller"];
@@ -568,7 +556,8 @@ export interface TourManagersViewProps {
   removeManyTourManagers: PortalWorkspaceState["removeManyTourManagers"];
   removeTourManager: PortalWorkspaceState["removeTourManager"];
   rows: PortalTourManagerListRow[];
-  travellers: PortalCallingBoardRow[];
+  travellerPagination?: PortalPaginationSlice;
+  travellers?: PortalCallingBoardRow[];
   updateCallingStatus: PortalWorkspaceState["updateCallingStatus"];
 }
 
@@ -885,8 +874,10 @@ export interface TeamViewProps {
 }
 
 export interface PortalActivityRow {
+  action?: string;
   actorName?: string;
   createdAt?: string;
+  entityType?: string;
   id: Key;
   message?: string;
 }
@@ -951,8 +942,11 @@ export interface ActivityViewProps {
       updatedAt: number;
     }>;
   };
+  initialFilters?: Pick<PortalActivityRow, "action" | "entityType">;
+  loading?: boolean;
   markNotificationRead: PortalWorkspaceState["markNotificationRead"];
   notifications: PortalNotificationRow[];
+  notificationsLoading?: boolean;
   removeNotification: PortalWorkspaceState["removeNotification"];
 }
 
@@ -987,6 +981,7 @@ export interface LeaveViewProps {
   deleteItem: PortalDeleteHandler;
   has: PortalPermissionChecker;
   leaveBalances?: PortalLeaveBalanceRow[];
+  loading?: boolean;
   openModal: PortalModalOpener;
   removeLeave: PortalWorkspaceState["removeLeave"];
   rows: PortalLeaveListRow[];

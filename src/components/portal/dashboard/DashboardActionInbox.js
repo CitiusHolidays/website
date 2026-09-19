@@ -67,7 +67,7 @@ export function DashboardActionInbox({ actions, categories = [], dateRange }) {
           ))
         ) : (
           <li className="py-3 text-brand-muted text-sm">
-            The preview is bounded. Open a queue above to inspect all matching records.
+            This is a preview. Open a queue above to see all matching records.
           </li>
         )}
       </ul>

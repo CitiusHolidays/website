@@ -7,13 +7,11 @@ const read = (path: string) => readFileSync(join(root, path), "utf8");
 const SOURCE_EXTENSION_PATTERN = /\.(?:js|jsx|ts|tsx)$/;
 
 const retiredSourcePaths = [
-  "src/app/(authenticated)/vendor/page.client.js",
   "src/components/sacredBharat/GuestSaveBanner.js",
   "src/components/sacredBharat/JourneyPlannerPanel.js",
   "src/components/sacredBharat/SacredBharatProvider.js",
   "src/components/sacredBharat/TempleChecklist.js",
   "src/components/sacredBharat/TrailCompletionReveal.js",
-  "src/components/vendor/VendorSkipLink.js",
   "src/data/sacredBharat/challenges.js",
   "src/data/sacredBharat/levels.js",
   "src/data/sacredBharat/regions.js",
@@ -39,7 +37,6 @@ const retiredImportFragments = [
   "/sacredBharat/regions",
   "/sacredBharat/scoring",
   "/sacredBharat/yatriPassport",
-  "/vendor/VendorSkipLink",
 ] as const;
 
 function productionSourceFiles(directory = "src"): string[] {

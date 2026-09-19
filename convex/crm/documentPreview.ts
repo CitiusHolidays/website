@@ -9,6 +9,7 @@ import {
   type QueryCtx,
   query,
 } from "../_generated/server";
+import { parseLegacyFileId } from "./commercialFiles";
 import {
   canRetryDocumentPreview,
   classifyDocumentPreview,
@@ -41,6 +42,12 @@ import {
   resolveSystemDocumentPreviewSource,
 } from "./documentPreviewSource";
 import { requireStaff } from "./lib";
+import {
+  type E2eOwnershipActor,
+  e2eRunForSource,
+  insertWithE2eOwnership,
+  patchWithE2eOwnership,
+} from "./lib/e2eOwnership";
 import { recordOperationalEffect, resolveOperationalControl } from "./lib/operationalControls";
 
 const PREPARATION_LEASE_MS = 5 * 60 * 1000;
@@ -50,6 +57,31 @@ const MAX_AUTOMATIC_ATTEMPTS = 3;
 const MAX_PREVIEW_ARTIFACT_BYTES = 30 * 1024 * 1024;
 const DELIVERY_TTL_MS = 2 * 60 * 1000;
 const WARM_KEY = "activeCommercialDocuments" as const;
+
+function previewOwnership(
+  source: Pick<DocumentPreviewSourceRecord, "sourceType" | "sourceId">
+): E2eOwnershipActor {
+  const tableName = {
+    commercialFile: "commercialFiles",
+    expenseAttachment: "attachments",
+    passport: "travellers",
+    proposalAttachment: "proposalAttachments",
+    proposalDocument: "proposals",
+    queryAttachment: "queryAttachments",
+  } as const;
+  const legacyTableName = {
+    proposal: "proposalAttachments",
+    proposalDoc: "proposals",
+    query: "queryAttachments",
+  } as const;
+  const legacy = source.sourceType === "commercialFile" ? parseLegacyFileId(source.sourceId) : null;
+  return {
+    source: {
+      documentId: legacy?.id ?? source.sourceId,
+      tableName: legacy ? legacyTableName[legacy.kind] : tableName[source.sourceType],
+    },
+  };
+}
 
 interface WarmPageResult {
   continueCursor: string;
@@ -252,6 +284,7 @@ async function ensurePreparation(
     await recordOperationalEffect(ctx, {
       control,
       disposition,
+      e2eOwnership: previewOwnership(source),
       effectId: `document-preview:${source.sourceType}:${source.sourceId}:${String(source.storageId)}:${disposition}`,
       entityId: source.sourceId,
       entityType: source.sourceType,
@@ -261,43 +294,54 @@ async function ensurePreparation(
     }
   }
   if (preparation.operation === "create") {
-    const id = await ctx.db.insert("documentPreviewOperations", {
-      attemptCount: 0,
-      createdAt: now,
-      generation: 1,
-      previewKind,
-      sourceId: source.sourceId,
-      sourceMimeType: source.mimeType,
-      sourceSize: source.fileSize,
-      sourceStorageId: source.storageId,
-      sourceType: source.sourceType,
-      status: "preparing",
-      updatedAt: now,
-      warningCodes: [],
-    });
+    const id = await insertWithE2eOwnership(
+      ctx,
+      "documentPreviewOperations",
+      {
+        attemptCount: 0,
+        createdAt: now,
+        generation: 1,
+        previewKind,
+        sourceId: source.sourceId,
+        sourceMimeType: source.mimeType,
+        sourceSize: source.fileSize,
+        sourceStorageId: source.storageId,
+        sourceType: source.sourceType,
+        status: "preparing",
+        updatedAt: now,
+        warningCodes: [],
+      },
+      previewOwnership(source)
+    );
     return await ctx.db.get("documentPreviewOperations", id);
   }
   if (preparation.operation === "replace" && existing) {
     const oldArtifactId = existing.artifactStorageId;
-    await ctx.db.patch("documentPreviewOperations", existing._id, {
-      artifactMimeType: undefined,
-      artifactStorageId: undefined,
-      attemptCount: 0,
-      durationMs: undefined,
-      errorCode: undefined,
-      generation: existing.generation + 1,
-      leaseExpiresAt: undefined,
-      leaseId: undefined,
-      pageCount: undefined,
-      previewKind,
-      sheetCount: undefined,
-      sourceMimeType: source.mimeType,
-      sourceSize: source.fileSize,
-      sourceStorageId: source.storageId,
-      status: "preparing",
-      updatedAt: now,
-      warningCodes: [],
-    });
+    await patchWithE2eOwnership(
+      ctx,
+      "documentPreviewOperations",
+      existing._id,
+      {
+        artifactMimeType: undefined,
+        artifactStorageId: undefined,
+        attemptCount: 0,
+        durationMs: undefined,
+        errorCode: undefined,
+        generation: existing.generation + 1,
+        leaseExpiresAt: undefined,
+        leaseId: undefined,
+        pageCount: undefined,
+        previewKind,
+        sheetCount: undefined,
+        sourceMimeType: source.mimeType,
+        sourceSize: source.fileSize,
+        sourceStorageId: source.storageId,
+        status: "preparing",
+        updatedAt: now,
+        warningCodes: [],
+      },
+      { source: { documentId: String(existing._id), tableName: "documentPreviewOperations" } }
+    );
     if (oldArtifactId) {
       await ctx.scheduler.runAfter(
         0,
@@ -310,14 +354,20 @@ async function ensurePreparation(
     return await ctx.db.get("documentPreviewOperations", existing._id);
   }
   if (preparation.operation === "retry" && existing) {
-    await ctx.db.patch("documentPreviewOperations", existing._id, {
-      errorCode: undefined,
-      leaseExpiresAt: undefined,
-      leaseId: undefined,
-      status: "preparing",
-      updatedAt: now,
-      warningCodes: [],
-    });
+    await patchWithE2eOwnership(
+      ctx,
+      "documentPreviewOperations",
+      existing._id,
+      {
+        errorCode: undefined,
+        leaseExpiresAt: undefined,
+        leaseId: undefined,
+        status: "preparing",
+        updatedAt: now,
+        warningCodes: [],
+      },
+      { source: { documentId: String(existing._id), tableName: "documentPreviewOperations" } }
+    );
     return await ctx.db.get("documentPreviewOperations", existing._id);
   }
   return existing;
@@ -420,20 +470,26 @@ export const recoverMissingArtifact = internalMutation({
       String(operation.sourceStorageId) === String(source.storageId) &&
       String(operation.artifactStorageId ?? "") === String(args.expectedArtifactStorageId)
     ) {
-      await ctx.db.patch("documentPreviewOperations", operation._id, {
-        artifactMimeType: undefined,
-        artifactStorageId: undefined,
-        attemptCount: 0,
-        durationMs: undefined,
-        errorCode: undefined,
-        leaseExpiresAt: undefined,
-        leaseId: undefined,
-        pageCount: undefined,
-        sheetCount: undefined,
-        status: "preparing",
-        updatedAt: Date.now(),
-        warningCodes: [],
-      });
+      await patchWithE2eOwnership(
+        ctx,
+        "documentPreviewOperations",
+        operation._id,
+        {
+          artifactMimeType: undefined,
+          artifactStorageId: undefined,
+          attemptCount: 0,
+          durationMs: undefined,
+          errorCode: undefined,
+          leaseExpiresAt: undefined,
+          leaseId: undefined,
+          pageCount: undefined,
+          sheetCount: undefined,
+          status: "preparing",
+          updatedAt: Date.now(),
+          warningCodes: [],
+        },
+        { source: { documentId: String(operation._id), tableName: "documentPreviewOperations" } }
+      );
     }
     return null;
   },
@@ -547,22 +603,27 @@ export const issuePortalDelivery = internalMutation({
     }
     const now = Date.now();
     const expiresAt = now + DELIVERY_TTL_MS;
-    const deliveryId = await ctx.db.insert("documentPreviewDeliveries", {
-      actorId: access.authUserId ?? access.email,
-      createdAt: now,
-      deliveryStorageId: args.deliveryStorageId,
-      encrypted: !args.servingArtifact && source.encrypted,
-      expectedSourceStorageId: source.storageId,
-      expiresAt,
-      generation: args.generation,
-      kind: "portal",
-      previewKind,
-      servingArtifact: args.servingArtifact,
-      sourceId: args.sourceId,
-      sourceType: args.sourceType,
-      tokenHash: args.tokenHash,
-      warningCodes: normalizeDocumentPreviewWarnings(args.warningCodes),
-    });
+    const deliveryId = await insertWithE2eOwnership(
+      ctx,
+      "documentPreviewDeliveries",
+      {
+        actorId: access.authUserId ?? access.email,
+        createdAt: now,
+        deliveryStorageId: args.deliveryStorageId,
+        encrypted: !args.servingArtifact && source.encrypted,
+        expectedSourceStorageId: source.storageId,
+        expiresAt,
+        generation: args.generation,
+        kind: "portal",
+        previewKind,
+        servingArtifact: args.servingArtifact,
+        sourceId: args.sourceId,
+        sourceType: args.sourceType,
+        tokenHash: args.tokenHash,
+        warningCodes: normalizeDocumentPreviewWarnings(args.warningCodes),
+      },
+      previewOwnership(source)
+    );
     await ctx.scheduler.runAt(expiresAt, expireDeliveryRef, { deliveryId });
     return { expiresAt };
   },
@@ -604,23 +665,28 @@ export const issueWorkerDelivery = internalMutation({
     }
     const now = Date.now();
     const expiresAt = Math.min(now + DELIVERY_TTL_MS, operation.leaseExpiresAt);
-    const deliveryId = await ctx.db.insert("documentPreviewDeliveries", {
-      createdAt: now,
-      deliveryStorageId: source.storageId,
-      encrypted: source.encrypted,
-      expectedSourceStorageId: source.storageId,
-      expiresAt,
-      generation: operation.generation,
-      kind: "worker",
-      leaseId: args.leaseId,
-      operationId: operation._id,
-      previewKind: operation.previewKind,
-      servingArtifact: false,
-      sourceId: operation.sourceId,
-      sourceType: operation.sourceType,
-      tokenHash: args.tokenHash,
-      warningCodes: [],
-    });
+    const deliveryId = await insertWithE2eOwnership(
+      ctx,
+      "documentPreviewDeliveries",
+      {
+        createdAt: now,
+        deliveryStorageId: source.storageId,
+        encrypted: source.encrypted,
+        expectedSourceStorageId: source.storageId,
+        expiresAt,
+        generation: operation.generation,
+        kind: "worker",
+        leaseId: args.leaseId,
+        operationId: operation._id,
+        previewKind: operation.previewKind,
+        servingArtifact: false,
+        sourceId: operation.sourceId,
+        sourceType: operation.sourceType,
+        tokenHash: args.tokenHash,
+        warningCodes: [],
+      },
+      { source: { documentId: String(operation._id), tableName: "documentPreviewOperations" } }
+    );
     await ctx.scheduler.runAt(expiresAt, expireDeliveryRef, { deliveryId });
     return {
       expiresAt,
@@ -687,7 +753,13 @@ export const claimPortalDelivery = internalMutation({
     } else if (String(delivery.deliveryStorageId) !== String(source.storageId)) {
       return null;
     }
-    await ctx.db.patch("documentPreviewDeliveries", delivery._id, { claimedAt: Date.now() });
+    await patchWithE2eOwnership(
+      ctx,
+      "documentPreviewDeliveries",
+      delivery._id,
+      { claimedAt: Date.now() },
+      { source: { documentId: String(delivery._id), tableName: "documentPreviewDeliveries" } }
+    );
     return {
       deliveryId: delivery._id,
       encrypted: delivery.encrypted,
@@ -749,16 +821,21 @@ export const completePortalDelivery = internalMutation({
       await ctx.db.delete("documentPreviewDeliveries", delivery._id);
       return false;
     }
-    await ctx.db.insert("activityLogs", {
-      action: "document_preview_opened",
-      actorId: access.authUserId ?? access.email,
-      actorName: access.name || "Staff user",
-      createdAt: Date.now(),
-      entityId: delivery.sourceId,
-      entityType: delivery.sourceType,
-      message: "Document preview opened",
-      metadata: { operation: "preview", sourceType: delivery.sourceType },
-    });
+    await insertWithE2eOwnership(
+      ctx,
+      "activityLogs",
+      {
+        action: "document_preview_opened",
+        actorId: access.authUserId ?? access.email,
+        actorName: access.name || "Staff user",
+        createdAt: Date.now(),
+        entityId: delivery.sourceId,
+        entityType: delivery.sourceType,
+        message: "Document preview opened",
+        metadata: { operation: "preview", sourceType: delivery.sourceType },
+      },
+      access
+    );
     await ctx.db.delete("documentPreviewDeliveries", delivery._id);
     return true;
   },
@@ -807,7 +884,13 @@ export const claimWorkerDelivery = internalMutation({
     ) {
       return null;
     }
-    await ctx.db.patch("documentPreviewDeliveries", delivery._id, { claimedAt: Date.now() });
+    await patchWithE2eOwnership(
+      ctx,
+      "documentPreviewDeliveries",
+      delivery._id,
+      { claimedAt: Date.now() },
+      { source: { documentId: String(delivery._id), tableName: "documentPreviewDeliveries" } }
+    );
     return {
       deliveryId: delivery._id,
       encrypted: delivery.encrypted,
@@ -907,16 +990,21 @@ export const recordCompletedAccess = internalMutation({
     if (String(source.storageId) !== String(args.expectedSourceStorageId)) {
       throw new ConvexError("Document source changed while it was being read");
     }
-    await ctx.db.insert("activityLogs", {
-      action: args.operation === "preview" ? "document_preview_opened" : "file_downloaded",
-      actorId: access.authUserId ?? access.email,
-      actorName: access.name || "Staff user",
-      createdAt: Date.now(),
-      entityId: args.sourceId,
-      entityType: args.sourceType,
-      message: args.operation === "preview" ? "Document preview opened" : "File downloaded",
-      metadata: { operation: args.operation, sourceType: args.sourceType },
-    });
+    await insertWithE2eOwnership(
+      ctx,
+      "activityLogs",
+      {
+        action: args.operation === "preview" ? "document_preview_opened" : "file_downloaded",
+        actorId: access.authUserId ?? access.email,
+        actorName: access.name || "Staff user",
+        createdAt: Date.now(),
+        entityId: args.sourceId,
+        entityType: args.sourceType,
+        message: args.operation === "preview" ? "Document preview opened" : "File downloaded",
+        metadata: { operation: args.operation, sourceType: args.sourceType },
+      },
+      access
+    );
     return null;
   },
   returns: v.null(),
@@ -961,12 +1049,18 @@ export const claimNextPreparation = internalMutation({
         await ensurePreparation(ctx, source, false);
         continue;
       }
-      await ctx.db.patch("documentPreviewOperations", operation._id, {
-        attemptCount: operation.attemptCount + 1,
-        leaseExpiresAt: now + PREPARATION_LEASE_MS,
-        leaseId,
-        updatedAt: now,
-      });
+      await patchWithE2eOwnership(
+        ctx,
+        "documentPreviewOperations",
+        operation._id,
+        {
+          attemptCount: operation.attemptCount + 1,
+          leaseExpiresAt: now + PREPARATION_LEASE_MS,
+          leaseId,
+          updatedAt: now,
+        },
+        { source: { documentId: String(operation._id), tableName: "documentPreviewOperations" } }
+      );
       return {
         generation: operation.generation,
         leaseId,
@@ -1056,8 +1150,13 @@ export const commitValidatedPreparation = internalMutation({
       ? await resolveSystemDocumentPreviewSource(ctx, operation.sourceType, operation.sourceId)
       : null;
     const artifact = await ctx.db.system.get("_storage", args.artifactStorageId);
+    const ownershipRun = await e2eRunForSource(ctx, {
+      documentId: String(args.operationId),
+      tableName: "documentPreviewOperations",
+    });
     if (
       !(operation && source && artifact) ||
+      (ownershipRun && ownershipRun.status !== "active") ||
       operation.status !== "preparing" ||
       operation.generation !== args.generation ||
       operation.leaseId !== args.leaseId ||
@@ -1085,22 +1184,33 @@ export const commitValidatedPreparation = internalMutation({
     if (args.validationErrorCode || invalidMime || invalidSize) {
       const errorCode =
         args.validationErrorCode ?? (invalidMime ? "signature_mismatch" : "resource_limit");
-      await ctx.db.patch("documentPreviewOperations", operation._id, {
-        errorCode,
-        leaseExpiresAt: undefined,
-        leaseId: undefined,
-        status: "unavailable",
-        updatedAt: Date.now(),
-        warningCodes: [],
-      });
-      await ctx.db.insert("documentPreviewMetrics", {
-        createdAt: Date.now(),
-        durationMs: Math.max(0, Math.floor(args.durationMs)),
-        errorCode,
-        format: operation.previewKind,
-        outcome: "unavailable",
-        sizeBand: documentPreviewSizeBand(operation.sourceSize),
-      });
+      await patchWithE2eOwnership(
+        ctx,
+        "documentPreviewOperations",
+        operation._id,
+        {
+          errorCode,
+          leaseExpiresAt: undefined,
+          leaseId: undefined,
+          status: "unavailable",
+          updatedAt: Date.now(),
+          warningCodes: [],
+        },
+        { source: { documentId: String(operation._id), tableName: "documentPreviewOperations" } }
+      );
+      await insertWithE2eOwnership(
+        ctx,
+        "documentPreviewMetrics",
+        {
+          createdAt: Date.now(),
+          durationMs: Math.max(0, Math.floor(args.durationMs)),
+          errorCode,
+          format: operation.previewKind,
+          outcome: "unavailable",
+          sizeBand: documentPreviewSizeBand(operation.sourceSize),
+        },
+        { source: { documentId: String(operation._id), tableName: "documentPreviewOperations" } }
+      );
       await ctx.scheduler.runAfter(
         0,
         makeFunctionReference<"mutation", { storageId: Id<"_storage"> }, { deleted: boolean }>(
@@ -1112,30 +1222,43 @@ export const commitValidatedPreparation = internalMutation({
     }
     const warningCodes = normalizeDocumentPreviewWarnings(args.warningCodes);
     const durationMs = Math.max(0, Math.floor(args.durationMs));
-    await ctx.db.patch("documentPreviewOperations", operation._id, {
-      artifactMimeType,
-      artifactStorageId: args.artifactStorageId,
-      durationMs,
-      errorCode: undefined,
-      leaseExpiresAt: undefined,
-      leaseId: undefined,
-      pageCount: args.pageCount === undefined ? undefined : Math.max(0, Math.floor(args.pageCount)),
-      sheetCount:
-        args.sheetCount === undefined ? undefined : Math.max(0, Math.floor(args.sheetCount)),
-      status: "ready",
-      updatedAt: Date.now(),
-      warningCodes,
-    });
-    await ctx.db.insert("documentPreviewMetrics", {
-      createdAt: Date.now(),
-      durationMs,
-      format: operation.previewKind,
-      outcome: "ready",
-      pageCount: args.pageCount === undefined ? undefined : Math.max(0, Math.floor(args.pageCount)),
-      sheetCount:
-        args.sheetCount === undefined ? undefined : Math.max(0, Math.floor(args.sheetCount)),
-      sizeBand: documentPreviewSizeBand(operation.sourceSize),
-    });
+    await patchWithE2eOwnership(
+      ctx,
+      "documentPreviewOperations",
+      operation._id,
+      {
+        artifactMimeType,
+        artifactStorageId: args.artifactStorageId,
+        durationMs,
+        errorCode: undefined,
+        leaseExpiresAt: undefined,
+        leaseId: undefined,
+        pageCount:
+          args.pageCount === undefined ? undefined : Math.max(0, Math.floor(args.pageCount)),
+        sheetCount:
+          args.sheetCount === undefined ? undefined : Math.max(0, Math.floor(args.sheetCount)),
+        status: "ready",
+        updatedAt: Date.now(),
+        warningCodes,
+      },
+      { source: { documentId: String(operation._id), tableName: "documentPreviewOperations" } }
+    );
+    await insertWithE2eOwnership(
+      ctx,
+      "documentPreviewMetrics",
+      {
+        createdAt: Date.now(),
+        durationMs,
+        format: operation.previewKind,
+        outcome: "ready",
+        pageCount:
+          args.pageCount === undefined ? undefined : Math.max(0, Math.floor(args.pageCount)),
+        sheetCount:
+          args.sheetCount === undefined ? undefined : Math.max(0, Math.floor(args.sheetCount)),
+        sizeBand: documentPreviewSizeBand(operation.sourceSize),
+      },
+      { source: { documentId: String(operation._id), tableName: "documentPreviewOperations" } }
+    );
     return { accepted: true };
   },
   returns: v.object({ accepted: v.boolean() }),
@@ -1172,23 +1295,34 @@ export const failPreparation = internalMutation({
     const durationMs = Math.max(0, Math.floor(args.durationMs));
     const retryScheduled =
       canRetryDocumentPreview(args.errorCode) && operation.attemptCount < MAX_AUTOMATIC_ATTEMPTS;
-    await ctx.db.patch("documentPreviewOperations", operation._id, {
-      durationMs,
-      errorCode: args.errorCode,
-      leaseExpiresAt: undefined,
-      leaseId: undefined,
-      status: retryScheduled ? "preparing" : "unavailable",
-      updatedAt: Date.now(),
-      warningCodes: [],
-    });
-    await ctx.db.insert("documentPreviewMetrics", {
-      createdAt: Date.now(),
-      durationMs,
-      errorCode: args.errorCode,
-      format: operation.previewKind,
-      outcome: "unavailable",
-      sizeBand: documentPreviewSizeBand(operation.sourceSize),
-    });
+    await patchWithE2eOwnership(
+      ctx,
+      "documentPreviewOperations",
+      operation._id,
+      {
+        durationMs,
+        errorCode: args.errorCode,
+        leaseExpiresAt: undefined,
+        leaseId: undefined,
+        status: retryScheduled ? "preparing" : "unavailable",
+        updatedAt: Date.now(),
+        warningCodes: [],
+      },
+      { source: { documentId: String(operation._id), tableName: "documentPreviewOperations" } }
+    );
+    await insertWithE2eOwnership(
+      ctx,
+      "documentPreviewMetrics",
+      {
+        createdAt: Date.now(),
+        durationMs,
+        errorCode: args.errorCode,
+        format: operation.previewKind,
+        outcome: "unavailable",
+        sizeBand: documentPreviewSizeBand(operation.sourceSize),
+      },
+      { source: { documentId: String(operation._id), tableName: "documentPreviewOperations" } }
+    );
     return { accepted: true, retryScheduled };
   },
   returns: v.object({ accepted: v.boolean(), retryScheduled: v.boolean() }),

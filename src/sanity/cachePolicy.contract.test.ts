@@ -57,6 +57,7 @@ function hasExplicitLinkPrefetch(source: string) {
 }
 
 const publicCmsRoutes = [
+  "src/app/api/blog/route.ts",
   "src/app/(public)/blog/page.js",
   "src/app/(public)/blog/[slug]/page.js",
   "src/app/(public)/gallery/page.js",
@@ -71,13 +72,17 @@ const identityScopedFiles = [
   "src/lib/auth-login-pages.js",
   "src/app/(auth)/auth/connect/page.js",
   "src/app/(auth)/auth/guest/page.js",
+  "src/app/(auth)/auth/vendor/page.js",
   "src/app/(authenticated)/account/page.js",
+  "src/app/(authenticated)/vendor/page.js",
 ];
 
 const approvedInstantBoundaries = new Set([
   "src/app/(auth)/auth/connect/page.js",
   "src/app/(auth)/auth/guest/page.js",
+  "src/app/(auth)/auth/vendor/page.js",
   "src/app/(authenticated)/account/page.js",
+  "src/app/(authenticated)/vendor/page.js",
   "src/app/(public)/sacred-bharat/[editionId]/page.js",
   "src/app/(public)/sacred-bharat/page.js",
   "src/app/portal/layout.js",
@@ -184,6 +189,7 @@ describe("Cache Components policy", () => {
   test("Identity reads establish a request boundary before auth work", () => {
     for (const path of [
       "src/app/(authenticated)/account/page.js",
+      "src/app/(authenticated)/vendor/page.js",
       "src/app/portal/PortalAuthBoundary.js",
       "src/lib/auth-login-pages.js",
     ]) {

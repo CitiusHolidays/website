@@ -13,6 +13,7 @@ import {
 } from "./expenseMaterialIntegrity";
 import { requireMutableExpenseProof, requireVisibleExpense } from "./expenseScope";
 import { scheduleFinanceMetricSync } from "./financeMetricSync";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import {
   expenseAttachmentRecordResultValidator,
   expenseIdResultValidator,
@@ -102,7 +103,7 @@ export const saveExpenseProof = internalMutation({
         await ctx.db.delete("attachments", previous._id);
       }
     }
-    const attachmentId = await ctx.db.insert("attachments", {
+    const attachmentId = await insertWithE2eOwnership(ctx, "attachments", {
       contentDigest: args.contentDigest,
       createdAt: Date.now(),
       createdBy: access.authUserId ?? args.createdBy,
@@ -118,7 +119,7 @@ export const saveExpenseProof = internalMutation({
     if (proofChanged) {
       await invalidatePendingExpenseApprovals(ctx, args.expenseId, now);
     }
-    await ctx.db.patch("expenseEntries", args.expenseId, {
+    await patchWithE2eOwnership(ctx, "expenseEntries", args.expenseId, {
       ...propertiesWhen(proofChanged, () =>
         proofChangeResetPatch(expense, args.contentDigest, now)
       ),
@@ -158,7 +159,7 @@ export const deleteExpenseProof = internalMutation({
         if (proofChanged) {
           await invalidatePendingExpenseApprovals(ctx, expenseId, now);
         }
-        await ctx.db.patch("expenseEntries", expenseId, {
+        await patchWithE2eOwnership(ctx, "expenseEntries", expenseId, {
           ...propertiesWhen(proofChanged, () => proofChangeResetPatch(expense, "", now)),
           proofAttachmentId: undefined,
           proofDigest: "",

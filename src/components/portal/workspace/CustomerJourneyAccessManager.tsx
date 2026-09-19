@@ -53,7 +53,7 @@ function AccessRecordRow({
   const restoreNeedsBinding = !active && record.role === "traveller";
   let actionLabel = active ? "Revoke access" : "Restore access";
   if (restoreNeedsBinding) {
-    actionLabel = "Verified binding required";
+    actionLabel = "Verified account link required";
   }
 
   return (
@@ -135,8 +135,7 @@ function JourneyPreview({ context }: { context: AccessContext | undefined }) {
         {context.travelEndDate ? ` – ${formatDisplayDate(context.travelEndDate)}` : ""}
       </div>
       <p className="mt-2 text-blue-900 text-xs">
-        Account access is owned by committed server entitlements. Revoked access remains denied
-        until a Staff member restores it with a reason.
+        Revoked access stays blocked until a staff member restores it and gives a reason.
       </p>
     </section>
   );
@@ -179,8 +178,8 @@ function GrantAccessSection({
           Grant access
         </h3>
         <p className="text-brand-muted text-xs">
-          Search canonical Account holders. Matching email addresses remain separate profiles.
-          Traveller grants stay unavailable until a verified Traveller-to-Account binding exists.
+          Search customer accounts. Accounts with the same email address remain separate. Traveller
+          access requires a verified link between the traveller and their account.
         </p>
       </div>
       <PortalSearchField
@@ -254,7 +253,7 @@ function AccessRecordsSection({
           Current and revoked access
         </h3>
         <p className="text-brand-muted text-xs">
-          A reason of 3–240 characters is required for every revoke or restore.
+          Enter a reason of 3 to 240 characters to revoke or restore access.
         </p>
       </div>
       <label className="block" htmlFor="customer-journey-access-reason">
@@ -283,7 +282,7 @@ function AccessRecordsSection({
       ) : null}
       {status === "Exhausted" && !hasRecords ? (
         <div className="rounded-xl border border-brand-border border-dashed p-4 text-brand-muted text-sm">
-          No explicit Customer Journey access has been granted for this Query.
+          No customer has been granted access to this journey.
         </div>
       ) : null}
       {status === "CanLoadMore" ? (
@@ -338,7 +337,7 @@ function CustomerJourneyAccessManagerInstance({
   const accountHolderOptions = [
     { label: "Select an Account holder", value: "" },
     ...accountHolders.results.map((holder) => ({
-      label: `${holder.name} · ${holder.email} · ${String(holder.id).slice(-6)}`,
+      label: `${holder.name} · ${holder.email}`,
       value: String(holder.id),
     })),
   ];
@@ -403,7 +402,7 @@ function CustomerJourneyAccessManagerInstance({
     } catch (cause) {
       const message = formatConvexError(
         cause,
-        "Unable to grant access. Revoked access must be deliberately restored below."
+        "Unable to grant access. If access was revoked, use Restore access below."
       );
       setError(message);
       toast.error(message);
@@ -463,8 +462,7 @@ function CustomerJourneyAccessManagerInstance({
                 <ShieldCheck aria-hidden size={20} /> Customer Journey access
               </ControlledDialogTitle>
               <p className="mt-1 text-brand-muted text-sm">
-                Preview, grant, inspect, revoke, or deliberately restore access for this confirmed
-                Query.
+                Review and manage customer access to this confirmed journey.
               </p>
             </div>
             <Button

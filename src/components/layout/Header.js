@@ -38,7 +38,7 @@ function HeaderNavLink({ isScrolled, link, pathname }) {
   return (
     <Link
       aria-current={current}
-      className={`group relative inline-flex items-center gap-2 overflow-hidden rounded-full px-4 py-2 font-medium text-sm transition-colors duration-200 ${tone}`}
+      className={`group relative inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 font-medium text-sm transition-colors duration-200 ${tone}`}
       data-active={current ? "true" : "false"}
       href={link.href}
     >
@@ -96,15 +96,15 @@ export default function Header() {
 
   return (
     <>
-      <header className="fixed top-0 right-0 left-0 z-50 flex justify-center pt-4">
+      <header className="public-header fixed top-0 right-0 left-0 z-50 flex justify-center pt-4">
         <div
-          className={`relative flex w-[calc(100%-2rem)] max-w-[1200px] items-center justify-between rounded-full border px-4 py-3 transition-[background-color,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] sm:w-[calc(100%-3rem)] sm:px-6 ${
+          className={`relative flex w-[calc(100%-2rem)] max-w-[96rem] items-center justify-between rounded-full border px-4 py-3 transition-[background-color,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] sm:w-[calc(100%-3rem)] sm:px-6 ${
             isScrolled
               ? "material-structural material-public-night border-white/10 bg-slate-900/40 shadow-2xl backdrop-blur-xl"
               : "border-transparent bg-transparent"
           }`}
         >
-          <Link className="group relative z-10 flex items-center gap-2" href="/">
+          <Link className="group relative z-10 flex min-h-11 shrink-0 items-center gap-2" href="/">
             <div
               className={`relative h-10 w-[120px] origin-left transition-transform duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none ${isScrolled ? "scale-90" : "scale-100"}`}
             >
@@ -120,7 +120,7 @@ export default function Header() {
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-1 xl:flex">
+          <nav aria-label="Main navigation" className="public-header-nav items-center gap-1">
             {navLinks.slice(0, 4).map((link) => (
               <HeaderNavLink
                 isScrolled={isScrolled}
@@ -140,7 +140,7 @@ export default function Header() {
             ))}
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-3">
             <HeaderSessionControl
               canAccessPortal={canAccessPortal}
               isPending={isPending}
@@ -153,7 +153,7 @@ export default function Header() {
             />
 
             <PublicContactCta
-              className="hidden sm:inline-flex"
+              className="public-header-secondary-action"
               size="compact"
               tone={isScrolled ? "light" : "glass"}
             >
@@ -165,7 +165,7 @@ export default function Header() {
               aria-expanded={isOpen}
               aria-haspopup="dialog"
               aria-label={isOpen ? "Close menu" : "Open menu"}
-              className="grid min-h-11 min-w-11 place-items-center rounded-full text-white transition-colors hover:bg-white/10 xl:hidden"
+              className="public-header-menu min-h-11 min-w-11 place-items-center rounded-full text-white transition-colors hover:bg-white/10"
               onClick={openMobileMenu}
               type="button"
               {...menuIconTrigger}

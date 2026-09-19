@@ -200,6 +200,20 @@ function button(container, label) {
   );
 }
 
+async function selectWorkType(container, label) {
+  const select = container.querySelector("select");
+  const option = [...select.options].find((entry) => entry.textContent === label);
+  expect(option).toBeDefined();
+  await act(() => {
+    const setter = Object.getOwnPropertyDescriptor(
+      dom.window.HTMLSelectElement.prototype,
+      "value"
+    ).set;
+    setter.call(select, option.value);
+    select.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+  });
+}
+
 function article(container, text) {
   return [...container.querySelectorAll("article")].find((candidate) =>
     candidate.textContent.includes(text)
@@ -219,6 +233,20 @@ describe("Mounted Recovery Center", () => {
     expect(mounted.container.textContent).not.toContain("Passport upload cleanup");
     expect(mounted.container.textContent).not.toContain("Encrypted passport cleanup");
     await mounted.unmount();
+  });
+
+  test("shows one empty recovery state with Refresh and the authorized work selector", async () => {
+    const original = resultsBySource.passenger_import;
+    resultsBySource.passenger_import = [];
+    const mounted = await mount(
+      <RecoveryCenterView access={{ permissions: [P.VIEW_DASHBOARD], roles: ["Sales"] }} />
+    );
+    expect(mounted.container.textContent).toContain("No actionable records are visible.");
+    expect(mounted.container.textContent).not.toContain("0 actionable records loaded");
+    expect(mounted.container.querySelector("select").options.length).toBe(2);
+    expect(button(mounted.container, "Refresh")).toBeDefined();
+    await mounted.unmount();
+    resultsBySource.passenger_import = original;
   });
 
   test("does not expose global Passport incident cardinality to scoped Operations access", async () => {
@@ -241,11 +269,14 @@ describe("Mounted Recovery Center", () => {
       />
     );
 
-    await act(async () => button(mounted.container, "Passport upload cleanup").click());
+    await selectWorkType(mounted.container, "Passport upload cleanup");
     expect(mounted.container.textContent).toContain("Passport operations");
     expect(mounted.container.textContent).not.toContain("Traveller");
     await act(async () => button(mounted.container, "Retry safely").click());
     expect(mounted.container.textContent).toContain("Retry was not accepted");
+    expect(mounted.container.querySelector('[role="alert"]').classList.contains("sr-only")).toBe(
+      false
+    );
     await act(async () => button(mounted.container, "Retry safely").click());
 
     expect(passportRetryCalls).toHaveLength(2);
@@ -256,7 +287,7 @@ describe("Mounted Recovery Center", () => {
     expect(passportRetryCalls[0].commandId).toMatch(UUID_PATTERN);
     expect(passportRetryCalls[1].commandId).toBe(passportRetryCalls[0].commandId);
 
-    await act(async () => button(mounted.container, "Encrypted passport cleanup").click());
+    await selectWorkType(mounted.container, "Encrypted passport cleanup");
     expect(mounted.container.textContent).toContain("active storage reference");
     const manualReview = article(mounted.container, "active storage reference");
     const retryable = article(mounted.container, "Encrypted passport cleanup did not finish");
@@ -286,14 +317,14 @@ describe("Mounted Recovery Center", () => {
         }}
       />
     );
-    await act(async () => button(mounted.container, "Job Card cleanup").click());
+    await selectWorkType(mounted.container, "Job Card cleanup");
     expect(mounted.container.textContent).toContain("Cleanup for JC-1 stopped");
     expect(button(mounted.container, "Retry safely")).toBeUndefined();
     expect(
       mounted.container.querySelector('a[href="/portal/job-cards#deletion-status"]')
     ).not.toBeNull();
 
-    await act(async () => button(mounted.container, "Notification email").click());
+    await selectWorkType(mounted.container, "Notification email");
     expect(mounted.container.textContent).toContain("1 exhausted");
     expect(button(mounted.container, "Retry safely")).toBeUndefined();
     await mounted.unmount();
@@ -306,7 +337,7 @@ describe("Mounted Recovery Center", () => {
         access={{ permissions: [P.VIEW_DASHBOARD, P.VIEW_TRAVELLERS], roles: ["Sales"] }}
       />
     );
-    await act(async () => button(mounted.container, "My exports").click());
+    await selectWorkType(mounted.container, "My exports");
     await act(async () => button(mounted.container, "Retry safely").click());
 
     expect(exportRetryCalls).toEqual([
@@ -319,6 +350,9 @@ describe("Mounted Recovery Center", () => {
     expect(mounted.container.textContent).toContain(
       "Replay-safe retry accepted. Progress will update on refresh."
     );
+    expect(mounted.container.querySelector('[role="status"]').classList.contains("sr-only")).toBe(
+      false
+    );
     await mounted.unmount();
   });
 
@@ -329,12 +363,16 @@ describe("Mounted Recovery Center", () => {
         access={{ permissions: [P.VIEW_DASHBOARD, P.VIEW_TRAVELLERS], roles: ["Sales"] }}
       />
     );
-    await act(async () => button(mounted.container, "My exports").click());
+    await selectWorkType(mounted.container, "My exports");
     await act(async () => button(mounted.container, "Retry safely").click());
 
     expect(mounted.container.textContent).toContain(
       "Retry was not accepted. Refresh this record and review its owning workflow."
     );
+    const alert = mounted.container.querySelector('[role="alert"]');
+    expect(alert.textContent).toContain("Retry was not accepted");
+    expect(alert.classList.contains("sr-only")).toBe(false);
+    expect(alert.getAttribute("aria-live")).toBe("assertive");
     expect(mounted.container.querySelector('a[href="/portal/job-cards/job_1"]')).not.toBeNull();
     exportRetryShouldFail = false;
     await mounted.unmount();
@@ -349,7 +387,7 @@ describe("Mounted Recovery Center", () => {
         }}
       />
     );
-    await act(async () => button(mounted.container, "Workflow reminders").click());
+    await selectWorkType(mounted.container, "Workflow reminders");
 
     expect(mounted.container.textContent).toContain("Manual review required");
     expect(button(mounted.container, "Retry safely")).toBeUndefined();

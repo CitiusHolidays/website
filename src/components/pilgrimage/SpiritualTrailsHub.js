@@ -1,89 +1,43 @@
 "use client";
 
-import { ArrowRight, Compass } from "lucide-react";
-import { m } from "motion/react";
+import { ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { cn } from "@/lib/utils";
 
 export default function SpiritualTrailsHub({ groups }) {
-  return (
-    <section className="border-brand-light border-t bg-white py-16 md:py-24" id="all-trails">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <m.div
-          className="mb-12 text-center md:mb-16"
-          initial={{ opacity: 0, y: 16 }}
-          viewport={{ once: true }}
-          whileInView={{ opacity: 1, y: 0 }}
-        >
-          <h2 className="mb-4 font-heading text-3xl text-brand-dark md:text-4xl lg:text-5xl">
-            Explore pilgrimage <span className="text-citius-blue">routes</span>
-          </h2>
-          <p className="mx-auto max-w-2xl font-sans text-base text-brand-muted leading-relaxed md:text-lg">
-            Choose a path below to review the programme information currently published for that
-            route. Pages marked coming soon offer an interest enquiry while details are reviewed.
-          </p>
-        </m.div>
+  const forthcomingTrails = groups.flatMap((group) =>
+    group.trails.filter((trail) => trail.status === "comingSoon")
+  );
 
-        <div className="space-y-14 md:space-y-20">
-          {groups.map((group) => (
-            <div key={group.id}>
-              <div className="mb-6 flex items-center gap-3 md:mb-8">
-                <div className="flex size-10 items-center justify-center rounded-full bg-citius-blue/10">
-                  <Compass className="size-5 text-citius-blue" />
-                </div>
-                <h3 className="font-heading text-citius-blue text-xl md:text-2xl">{group.label}</h3>
-              </div>
-              <div
-                className={cn(
-                  "grid gap-4 md:gap-6",
-                  group.trails.length <= 2 ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3"
-                )}
+  return (
+    <section
+      aria-labelledby="forthcoming-trails-title"
+      className="scroll-mt-24 border-brand-light border-t bg-public-surface py-10 md:py-16"
+      id="all-trails"
+    >
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+        <h2
+          className="font-heading text-2xl text-public-ink md:text-3xl"
+          id="forthcoming-trails-title"
+        >
+          Forthcoming programmes
+        </h2>
+        <p className="mt-3 max-w-2xl text-public-muted leading-relaxed">
+          These six programmes are under review and are not open for booking. View the known details
+          or register your interest.
+        </p>
+        <ul className="mt-6 grid gap-x-8 sm:grid-cols-2">
+          {forthcomingTrails.map((trail) => (
+            <li className="border-brand-light border-b" key={trail.slug}>
+              <Link
+                className="flex min-h-14 items-center justify-between gap-4 py-3 font-medium text-public-blue transition-colors hover:text-public-orange-ink focus-visible:outline-2 focus-visible:outline-public-blue focus-visible:outline-offset-2"
+                href={`/pilgrimage/${trail.slug}`}
               >
-                {group.trails.map((trail, idx) => (
-                  <m.div
-                    initial={{ opacity: 0, y: 12 }}
-                    key={trail.slug}
-                    transition={{ delay: idx * 0.05 }}
-                    viewport={{ once: true }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                  >
-                    <Link
-                      className={cn(
-                        "group flex h-full flex-col rounded-2xl border p-6 transition-[translate,border-color,box-shadow] duration-300 md:p-7",
-                        "border-brand-light bg-linear-to-br from-white to-brand-light/30",
-                        "fine-hover:hover:-translate-y-0.5 hover:border-citius-orange/35 hover:shadow-lg"
-                      )}
-                      href={`/pilgrimage/${trail.slug}`}
-                    >
-                      <div className="mb-3 flex flex-wrap items-center gap-2">
-                        {trail.status === "comingSoon" && (
-                          <span className="rounded-full bg-amber-100 px-2 py-0.5 font-medium text-[10px] text-amber-800 uppercase tracking-wider">
-                            Coming soon
-                          </span>
-                        )}
-                        {trail.tagline ? (
-                          <span className="font-medium text-[10px] text-public-orange-ink uppercase tracking-wider">
-                            {trail.tagline}
-                          </span>
-                        ) : null}
-                      </div>
-                      <h4 className="mb-2 font-heading text-brand-dark text-lg transition-colors group-hover:text-citius-blue md:text-xl">
-                        {trail.title}
-                      </h4>
-                      <p className="line-clamp-3 flex-1 text-brand-muted text-sm leading-relaxed">
-                        {trail.subtitle}
-                      </p>
-                      <span className="mt-5 inline-flex items-center gap-2 font-heading text-public-orange-ink text-sm tracking-wide">
-                        View trail
-                        <ArrowRight className="size-4 transition-transform fine-hover:group-hover:translate-x-0.5" />
-                      </span>
-                    </Link>
-                  </m.div>
-                ))}
-              </div>
-            </div>
+                {trail.title}
+                <ArrowRight aria-hidden className="size-4 shrink-0" />
+              </Link>
+            </li>
           ))}
-        </div>
+        </ul>
       </div>
     </section>
   );

@@ -390,6 +390,116 @@ async function seedCommercialFile(
 }
 
 describe("registered Document Preview contract", () => {
+  test("keeps expense previews inside current creator, manager, and finance authorization", async () => {
+    const t = createHarness();
+    const commercial = await seedCommercialFile(t, {
+      fileName: "commercial.pdf",
+      mimeType: "application/pdf",
+    });
+    const fixture = await t.run(async (ctx) => {
+      const staffIds: Id<"staffUsers">[] = [];
+      for (const [subject, role] of [
+        ["auth_manager", "Sales"],
+        ["auth_finance", "Finance"],
+        ["auth_unrelated", "Sales"],
+      ] as const) {
+        staffIds.push(
+          await ctx.db.insert("staffUsers", {
+            active: true,
+            authUserId: identity(subject).tokenIdentifier,
+            createdAt: NOW,
+            email: identity(subject).email,
+            emailNormalized: identity(subject).email,
+            name: subject,
+            roles: [role],
+            updatedAt: NOW,
+          })
+        );
+      }
+      const expenseId = await ctx.db.insert("expenseEntries", {
+        amount: 10,
+        approvalStatus: "Pending",
+        category: "Office",
+        createdAt: NOW,
+        createdBy: identity().tokenIdentifier,
+        managerApproverStaffId: staffIds[0],
+        paidBy: "Staff",
+        reimbursementStatus: "Pending",
+        updatedAt: NOW,
+      });
+      const storageId = await ctx.storage.store(
+        new Blob(["Private expense proof"], { type: "text/plain" })
+      );
+      const attachmentId = await ctx.db.insert("attachments", {
+        createdAt: NOW,
+        createdBy: identity().tokenIdentifier,
+        entityId: String(expenseId),
+        entityType: "expense",
+        fileName: "private-proof.txt",
+        mimeType: "text/plain",
+        storageId,
+      });
+      await ctx.db.patch("expenseEntries", expenseId, { proofAttachmentId: attachmentId });
+      return { attachmentId, expenseId, financeStaffId: staffIds[1] };
+    });
+    const source = {
+      sourceId: String(fixture.attachmentId),
+      sourceType: "expenseAttachment" as const,
+    };
+    for (const subject of ["auth_sales", "auth_manager", "auth_finance"]) {
+      const actor = t.withIdentity(identity(subject));
+      expect(await actor.query(getStatus, source)).toMatchObject({ status: "ready" });
+      const preview = await actor.action(getPreviewFile, source);
+      expect(new TextDecoder().decode(await consumePortalDelivery(t, actor, preview))).toBe(
+        "Private expense proof"
+      );
+    }
+    for (const actor of [t, t.withIdentity(identity("auth_unrelated"))]) {
+      await expect(actor.query(getStatus, source)).rejects.toThrow("FORBIDDEN");
+      await expect(actor.action(getPreviewFile, source)).rejects.toThrow("FORBIDDEN");
+    }
+    const finance = t.withIdentity(identity("auth_finance"));
+    const financePreview = await finance.action(getPreviewFile, source);
+    if (financePreview.status !== "ready") {
+      throw new Error("Expected authorized finance preview");
+    }
+    await t.run(async (ctx) =>
+      ctx.db.patch("staffUsers", fixture.financeStaffId, { roles: ["Sales"] })
+    );
+    await expect(finance.query(getStatus, source)).rejects.toThrow("FORBIDDEN");
+    await expect(
+      finance.mutation(claimPortalDelivery, {
+        tokenHash: await hashDocumentPreviewDeliveryToken(financePreview.deliveryToken),
+      })
+    ).rejects.toThrow("FORBIDDEN");
+    const creator = t.withIdentity(identity());
+    await expect(
+      creator.query(getStatus, {
+        sourceId: String(commercial.fileId),
+        sourceType: "expenseAttachment",
+      })
+    ).rejects.toThrow("FORBIDDEN");
+    const preview = await creator.action(getPreviewFile, source);
+    if (preview.status !== "ready") {
+      throw new Error("Expected authorized expense proof");
+    }
+    await t.run(async (ctx) =>
+      ctx.db.patch("expenseEntries", fixture.expenseId, { proofAttachmentId: undefined })
+    );
+    await expect(
+      creator.mutation(claimPortalDelivery, {
+        tokenHash: await hashDocumentPreviewDeliveryToken(preview.deliveryToken),
+      })
+    ).rejects.toThrow("FORBIDDEN");
+    await expect(creator.action(getPreviewFile, source)).rejects.toThrow("FORBIDDEN");
+    await t.run(async (ctx) => {
+      const logs = await ctx.db.query("activityLogs").collect();
+      expect(logs).toHaveLength(3);
+      expect(JSON.stringify(logs)).not.toContain("Private expense proof");
+      expect(JSON.stringify(logs)).not.toContain("private-proof.txt");
+    });
+  });
+
   test("classifies only the approved raster image formats", () => {
     expect(classifyDocumentPreview("animation.gif", "application/octet-stream")).toBe("image");
     expect(classifyDocumentPreview("vector.svg", "image/svg+xml")).toBe("unsupported");

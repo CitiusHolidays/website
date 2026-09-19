@@ -1,6 +1,5 @@
 import { expect, test } from "@playwright/test";
 
-const HEX_COLOR_PATTERN = /^#[\da-f]{6}$/i;
 const BILLING_POLICY_URL = /\/policies\?view=billing$/;
 const PILGRIMAGE_CALLBACK_URL = /\/contact\?intent=pilgrimage-callback$/;
 const PILGRIMAGE_ENQUIRY_URL = /\/contact\?intent=pilgrimage-enquiry$/;
@@ -10,27 +9,41 @@ function channelLuminance(channel: number) {
   return value <= 0.040_45 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
 }
 
-function parseRgb(value: string) {
-  if (HEX_COLOR_PATTERN.test(value)) {
-    return [1, 3, 5].map((offset) => Number.parseInt(value.slice(offset, offset + 2), 16));
+function compositedColors(element: Element, surfaceSelector: string) {
+  const surface = element.closest(surfaceSelector);
+  if (!surface) {
+    throw new Error(`Missing contrast surface: ${surfaceSelector}`);
   }
-  const channels = value
-    .match(/[\d.]+/g)
-    ?.slice(0, 3)
-    .map(Number);
-  if (channels?.length !== 3) {
-    throw new Error(`Expected computed RGB color, received ${value}`);
+  const style = getComputedStyle(surface);
+  const canvas = document.createElement("canvas");
+  canvas.width = 1;
+  canvas.height = 1;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new Error("Canvas color compositing is unavailable");
   }
-  return channels;
+  // Black and white bound the scenery behind a translucent card. Canvas resolves CSS color and alpha.
+  const pairs = ["#000000", "#ffffff"].map((backdrop) => {
+    context.fillStyle = backdrop;
+    context.fillRect(0, 0, 1, 1);
+    context.fillStyle = style.backgroundColor;
+    context.fillRect(0, 0, 1, 1);
+    const background = [...context.getImageData(0, 0, 1, 1).data].slice(0, 3);
+    context.fillStyle = getComputedStyle(element).color;
+    context.fillRect(0, 0, 1, 1);
+    const foreground = [...context.getImageData(0, 0, 1, 1).data].slice(0, 3);
+    return { background, foreground };
+  });
+  return { backgroundImage: style.backgroundImage, blendMode: style.backgroundBlendMode, pairs };
 }
 
-function contrastRatio(foreground: string, background: string) {
+function contrastRatio(foreground: number[], background: number[]) {
   const luminance = ([red, green, blue]: number[]) =>
     0.2126 * channelLuminance(red) +
     0.7152 * channelLuminance(green) +
     0.0722 * channelLuminance(blue);
-  const foregroundLuminance = luminance(parseRgb(foreground));
-  const backgroundLuminance = luminance(parseRgb(background));
+  const foregroundLuminance = luminance(foreground);
+  const backgroundLuminance = luminance(background);
   return (
     (Math.max(foregroundLuminance, backgroundLuminance) + 0.05) /
     (Math.min(foregroundLuminance, backgroundLuminance) + 0.05)
@@ -38,21 +51,21 @@ function contrastRatio(foreground: string, background: string) {
 }
 
 async function expectConciergeFocusLifecycle(page: import("@playwright/test").Page) {
-  const opener = page.getByRole("button", { name: "Open Citius Concierge chat" });
+  const opener = page.getByRole("button", { exact: true, name: "Open Citius Concierge" });
   await opener.focus();
   await opener.click();
   const dialog = page.getByRole("dialog", { name: "Citius Concierge" });
   await expect(dialog).toBeVisible();
   await expect(page.locator('[role="dialog"]')).toHaveCount(1);
   await expect(page.locator('[role="log"]')).toHaveCount(1);
-  await expect(page.locator('[role="status"]')).toHaveCount(1);
+  await expect(dialog.locator('[role="status"]')).toHaveCount(1);
   await expect(page.getByRole("button", { name: "Close chat" })).toBeFocused();
   await page.keyboard.press("Shift+Tab");
   expect(await dialog.evaluate((element) => element.contains(document.activeElement))).toBe(true);
   await page.getByRole("button", { name: "Minimize chat" }).click();
   await expect(page.getByRole("button", { name: "Expand chat" })).toBeVisible();
   await page.getByRole("button", { name: "Expand chat" }).click();
-  await expect(page.locator('[role="status"]')).toHaveCount(1);
+  await expect(dialog.locator('[role="status"]')).toHaveCount(1);
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await expect(opener).toBeFocused();
@@ -65,17 +78,11 @@ async function expectFooterMutedContrast(page: import("@playwright/test").Page) 
   const footerPair = await page
     .locator("footer .text-brand-muted-on-dark")
     .first()
-    .evaluate((element) => {
-      const surface = element.closest("footer");
-      const style = getComputedStyle(surface);
-      return {
-        background: style.backgroundColor,
-        blendMode: style.backgroundBlendMode,
-        foreground: getComputedStyle(element).color,
-      };
-    });
+    .evaluate(compositedColors, "footer");
   expect(footerPair.blendMode).toBe("multiply");
-  expect(contrastRatio(footerPair.foreground, footerPair.background)).toBeGreaterThanOrEqual(4.5);
+  for (const pair of footerPair.pairs) {
+    expect(contrastRatio(pair.foreground, pair.background)).toBeGreaterThanOrEqual(4.5);
+  }
 }
 
 test.describe("@smoke Public interface accessibility matrix", () => {
@@ -166,7 +173,7 @@ test.describe("@smoke Public interface accessibility matrix", () => {
     await expect(page.getByRole("textbox", { name: "Message" })).toHaveValue("");
   });
 
-  test("Rendered Footer and auth muted copy retain AA contrast on their dark surfaces", async ({
+  test("Rendered Footer and auth muted copy retain AA contrast on their actual surfaces", async ({
     page,
   }) => {
     await page.goto("/");
@@ -175,16 +182,14 @@ test.describe("@smoke Public interface accessibility matrix", () => {
     for (const route of ["/auth/guest", "/auth/forgot-password", "/auth/email-verified"]) {
       await page.goto(route);
       const authPair = await page
-        .locator(".text-brand-muted-on-dark")
-        .first()
-        .evaluate((element) => {
-          const surface = element.closest("aside") ?? element.parentElement;
-          return {
-            background: getComputedStyle(surface).backgroundColor,
-            foreground: getComputedStyle(element).color,
-          };
-        });
-      expect(contrastRatio(authPair.foreground, authPair.background)).toBeGreaterThanOrEqual(4.5);
+        .getByRole("heading", { level: 1 })
+        .locator("..")
+        .locator("p")
+        .evaluate(compositedColors, "section");
+      expect(authPair.backgroundImage).toBe("none");
+      for (const pair of authPair.pairs) {
+        expect(contrastRatio(pair.foreground, pair.background)).toBeGreaterThanOrEqual(4.5);
+      }
     }
 
     await page.setViewportSize({ height: 844, width: 390 });

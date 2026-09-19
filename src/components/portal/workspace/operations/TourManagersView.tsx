@@ -1,7 +1,5 @@
 "use client";
 
-import { CheckCircle2, ShieldCheck, Users } from "lucide-react";
-
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { Button } from "@/components/ui/application-button";
@@ -15,17 +13,10 @@ import {
 } from "../portalOperationsHelpers";
 import type { TourManagersViewProps } from "../portalViewTypes";
 import { strong } from "../portalWorkspaceListHelpers";
-import {
-  Badge,
-  DeleteButton,
-  EditButton,
-  Panel,
-  StatCard,
-  StatusBadge,
-} from "../portalWorkspaceListUi";
+import { Badge, DeleteButton, EditButton, Panel, StatusBadge } from "../portalWorkspaceListUi";
 
 type TourManagerRow = TourManagersViewProps["rows"][number];
-type CallingBoardRow = TourManagersViewProps["travellers"][number];
+type CallingBoardRow = NonNullable<TourManagersViewProps["travellers"]>[number];
 
 function TourManagerRowActions({
   deleteItem,
@@ -90,6 +81,7 @@ function CallingStatusButton({
 export function TourManagersView({
   rows,
   travellers,
+  travellerPagination,
   assignments,
   openModal,
   has,
@@ -110,75 +102,16 @@ export function TourManagersView({
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard Icon={Users} label="Total Pax" value={travellers.length} />
-        <StatCard
-          Icon={CheckCircle2}
-          label="Onboarded"
-          value={
-            travellers.filter(
-              (row: CallingBoardRow) => row.fullName && row.travelHub && row.foodPreference
-            ).length
-          }
-        />
-        <StatCard
-          Icon={ShieldCheck}
-          label="Docs Pending"
-          value={
-            travellers.filter(
-              (row: CallingBoardRow) =>
-                !["Approved", "Not Required"].includes(String(row.visaStatus || "")) ||
-                row.ticketStatus !== "Issued"
-            ).length
-          }
-        />
-      </div>
-      <SelectableDataTable
-        columns={[
-          { id: "name", label: "Name", render: (row: TourManagerRow) => strong(row.name) },
-          {
-            id: "current-tour",
-            label: "Current Tour",
-            render: (row: TourManagerRow) => row.currentTour || "Available",
-          },
-          { id: "job", label: "Job", render: (row: TourManagerRow) => row.jobCode || "-" },
-          { id: "calling", label: "Calling", render: (row: TourManagerRow) => row.callingStatus },
-          {
-            id: "available",
-            label: "Available",
-            render: (row: TourManagerRow) => formatDisplayDate(row.availabilityDate),
-          },
-          {
-            id: "status",
-            kind: "status",
-            label: "Status",
-            render: (row: TourManagerRow) => (
-              <StatusBadge domain="tourManager" status={row.status} />
-            ),
-          },
-          {
-            id: "action",
-            kind: "action",
-            label: "Action",
-            render: (row: TourManagerRow) =>
-              canAssign && (
-                <TourManagerRowActions
-                  deleteItem={deleteItem}
-                  openModal={openModal}
-                  removeTourManager={removeTourManager}
-                  row={row}
-                />
-              ),
-          },
-        ]}
-        empty="No Tour Managers yet."
-        entityLabel="tour manager"
-        onBulkDelete={canAssign ? handleBulkDelete : undefined}
-        rows={rows}
-        selectable={canAssign}
-      />
-      <Panel title="Calling status board">
+      <Panel
+        subtitle={
+          travellers
+            ? `${travellers.length} loaded travellers. Calls stay scoped to their Job Card and travel series.`
+            : "Loading travellers…"
+        }
+        title="Calling status board"
+      >
         <SelectableDataTable
+          canLoadMore={travellerPagination?.canLoadMore}
           columns={[
             {
               id: "guest",
@@ -233,7 +166,84 @@ export function TourManagersView({
           ]}
           compact
           empty="No travellers to call yet."
+          isLoadingMore={travellerPagination?.isLoadingMore}
+          onLoadMore={travellerPagination?.loadMore}
           rows={travellers}
+        />
+      </Panel>
+      {travellers ? (
+        <dl className="flex flex-wrap gap-x-6 gap-y-2 px-1 text-sm">
+          <div className="flex gap-2">
+            <dt className="text-brand-muted">Loaded travellers</dt>
+            <dd className="font-semibold tabular-nums">{travellers.length}</dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="text-brand-muted">Onboarded</dt>
+            <dd className="font-semibold tabular-nums">
+              {
+                travellers.filter((row) => row.fullName && row.travelHub && row.foodPreference)
+                  .length
+              }
+            </dd>
+          </div>
+          <div className="flex gap-2">
+            <dt className="text-brand-muted">Visa or ticket pending</dt>
+            <dd className="font-semibold tabular-nums">
+              {
+                travellers.filter(
+                  (row) =>
+                    !["Approved", "Not Required"].includes(String(row.visaStatus || "")) ||
+                    row.ticketStatus !== "Issued"
+                ).length
+              }
+            </dd>
+          </div>
+        </dl>
+      ) : null}
+      <Panel title="Tour manager assignments">
+        <SelectableDataTable
+          columns={[
+            { id: "name", label: "Name", render: (row: TourManagerRow) => strong(row.name) },
+            {
+              id: "current-tour",
+              label: "Current Tour",
+              render: (row: TourManagerRow) => row.currentTour || "Available",
+            },
+            { id: "job", label: "Job", render: (row: TourManagerRow) => row.jobCode || "-" },
+            { id: "calling", label: "Calling", render: (row: TourManagerRow) => row.callingStatus },
+            {
+              id: "available",
+              label: "Available",
+              render: (row: TourManagerRow) => formatDisplayDate(row.availabilityDate),
+            },
+            {
+              id: "status",
+              kind: "status",
+              label: "Status",
+              render: (row: TourManagerRow) => (
+                <StatusBadge domain="tourManager" status={row.status} />
+              ),
+            },
+            {
+              id: "action",
+              kind: "action",
+              label: "Action",
+              render: (row: TourManagerRow) =>
+                canAssign && (
+                  <TourManagerRowActions
+                    deleteItem={deleteItem}
+                    openModal={openModal}
+                    removeTourManager={removeTourManager}
+                    row={row}
+                  />
+                ),
+            },
+          ]}
+          empty="No Tour Managers yet."
+          entityLabel="tour manager"
+          onBulkDelete={canAssign ? handleBulkDelete : undefined}
+          rows={rows}
+          selectable={canAssign}
         />
       </Panel>
     </div>

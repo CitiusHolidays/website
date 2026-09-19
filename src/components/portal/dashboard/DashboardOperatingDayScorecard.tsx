@@ -88,7 +88,8 @@ function MetricDrillDown({ metric }: { metric: ScorecardMetric }) {
   return (
     <details className="border-brand-border/70 border-t pt-3">
       <summary className="cursor-pointer font-medium text-citius-blue text-xs">
-        Drill-down · {metric.drillDown.total} {metric.drillDown.total === 1 ? "record" : "records"}
+        View records · {metric.drillDown.total}{" "}
+        {metric.drillDown.total === 1 ? "record" : "records"}
       </summary>
       <div className="mt-3 space-y-3">
         {metric.breakdown.length > 0 ? (
@@ -132,8 +133,8 @@ function MetricDrillDown({ metric }: { metric: ScorecardMetric }) {
         ) : (
           <p className="text-brand-muted text-xs">
             {metric.value.status === "Unknown"
-              ? "Drill-down is withheld until this cohort is complete."
-              : "No matching records in this cohort."}
+              ? "Records are unavailable while this result is incomplete."
+              : "No matching records for this period."}
           </p>
         )}
         {metric.drillDown.truncated ? (
@@ -166,7 +167,8 @@ function ScorecardMetricCard({ metric }: { metric: ScorecardMetric }) {
         </p>
         {metric.unit === "milliseconds" && metric.value.status === "Known" ? (
           <p className="mt-1 text-brand-muted text-xs">
-            P90 {formatDuration(metric.value.p90Ms)} · {metric.value.count} completed
+            90% completed within {formatDuration(metric.value.p90Ms)} · {metric.value.count}{" "}
+            completed
           </p>
         ) : null}
       </div>
@@ -174,18 +176,18 @@ function ScorecardMetricCard({ metric }: { metric: ScorecardMetric }) {
         <div>
           <dt className="font-medium text-brand-dark">Coverage</dt>
           <dd className="mt-0.5 text-brand-muted">
-            {coverage.included}/{coverage.total} usable · {coverage.missingClocks} missing clocks ·{" "}
+            {coverage.included}/{coverage.total} usable · {coverage.missingClocks} missing dates ·{" "}
             {coverage.unresolvedRecords} unresolved · {coverage.pending} pending
           </dd>
         </div>
         <div>
-          <dt className="font-medium text-brand-dark">Last complete</dt>
+          <dt className="font-medium text-brand-dark">Last full update</dt>
           <dd className="mt-0.5 text-brand-muted">{formatTimestamp(metric.lastCompleteAt)}</dd>
         </div>
         <div className="sm:col-span-2">
-          <dt className="font-medium text-brand-dark">Cohort</dt>
+          <dt className="font-medium text-brand-dark">Records included</dt>
           <dd className="mt-0.5 text-brand-muted">
-            {metric.cohort.definition} {metric.cohort.from}–{metric.cohort.to} UTC.
+            {metric.cohort.definition} {metric.cohort.from} to {metric.cohort.to} UTC.
           </dd>
         </div>
       </dl>
@@ -197,19 +199,19 @@ function ScorecardMetricCard({ metric }: { metric: ScorecardMetric }) {
 export function OperatingDayScorecardView({ scorecard }: { scorecard: Scorecard }) {
   const scopeLabel =
     scorecard.scope.kind === "organization"
-      ? "Organization scope"
-      : `Role scope · ${scorecard.scope.roles.join(", ")}`;
+      ? "Whole organization"
+      : `Roles: ${scorecard.scope.roles.join(", ")}`;
   return (
     <DashboardPanel
       action={null}
       ariaLabel="Operating-day scorecard"
-      subtitle={`${scorecard.window.from}–${scorecard.window.to} UTC · ${scopeLabel}`}
+      subtitle={`${scorecard.window.from} to ${scorecard.window.to} UTC · ${scopeLabel}`}
       title="Operating-day scorecard"
     >
       {scorecard.window.status === "unsupported" ? (
         <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-950 text-xs">
-          Select at most {scorecard.window.maxDays} UTC days. Metrics remain Unknown until the
-          cohort is bounded.
+          Select a period of {scorecard.window.maxDays} days or less, using UTC dates. Results are
+          unavailable for longer periods.
         </p>
       ) : null}
       <div className="grid gap-3 lg:grid-cols-2">
@@ -243,7 +245,7 @@ export function DashboardOperatingDayScorecard({
       <DashboardPanel
         action={null}
         ariaLabel="Loading operating-day scorecard"
-        subtitle="Resolving bounded cohorts and readiness."
+        subtitle="Loading report data."
         title="Operating-day scorecard"
       >
         <p aria-live="polite" className="text-brand-muted text-sm">

@@ -76,13 +76,19 @@ beforeEach(() => {
 afterEach(() => document.body.replaceChildren());
 afterAll(() => dom.window.close());
 
-async function mount(initialUrlState, loadJourneyDetail, journeyData = journeys) {
+async function mount(
+  initialUrlState,
+  loadJourneyDetail,
+  journeyData = journeys,
+  confirmedTripPage = { continueCursor: "", isDone: true, page: [] }
+) {
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
   await act(async () =>
     root.render(
       <AccountClient
+        confirmedTripPage={confirmedTripPage}
         initialUrlState={initialUrlState}
         journeys={journeyData}
         loadJourneyDetail={loadJourneyDetail}
@@ -151,6 +157,8 @@ describe("Customer Account URL continuity", () => {
     expect(window.location.href).not.toContain(BOOKING_ID);
     expect(requested).toEqual([JOURNEY_KEY]);
     expect(document.activeElement?.textContent).toBe("Kailash Journey");
+    expect(view.container.querySelector("h1")?.textContent).toBe("Kailash Journey");
+    expect(view.container.textContent).not.toContain("Good to see you");
 
     scrollPosition = 0;
     await act(async () => historyMove("back"));
@@ -180,6 +188,65 @@ describe("Customer Account URL continuity", () => {
     await act(async () => nextAnimationFrame());
     expect(requested).toEqual([JOURNEY_KEY, JOURNEY_KEY, JOURNEY_KEY]);
     expect(document.activeElement?.textContent).toBe("Kailash Journey");
+    await view.unmount();
+  });
+
+  test("Resolves old Settings links to Profile and restores the exact preference after Back", async () => {
+    window.history.replaceState({}, "", "/account?tab=settings");
+    const view = await mount(
+      resolveAccountUrlState(new URLSearchParams(window.location.search), [journey]),
+      () => Promise.resolve(journey),
+      journeys,
+      {
+        continueCursor: "",
+        isDone: true,
+        page: [
+          {
+            confirmedOfferId: "kyoto",
+            entitlement: { role: "organizer", source: "crm_operator_grant" },
+            reminders: { available: true, milestones: [] },
+            travel: { destination: "Kyoto" },
+          },
+          {
+            confirmedOfferId: "lisbon",
+            entitlement: { role: "organizer", source: "crm_operator_grant" },
+            reminders: { available: true, milestones: [] },
+            travel: { destination: "Lisbon" },
+          },
+        ],
+      }
+    );
+    await act(async () => nextAnimationFrame());
+    expect(window.location.search).toBe("?tab=settings");
+    expect(document.activeElement?.id).toBe("account-preferences");
+    expect(view.container.querySelector("h1")?.textContent).toBe("Personal Details");
+    expect(
+      [...view.container.querySelectorAll('nav[aria-label="Account navigation"] button')].map(
+        (button) => button.textContent
+      )
+    ).toEqual(["Journeys", "Profile", "Journeys", "Profile"]);
+    expect(view.container.querySelector('[aria-current="page"]')?.textContent).toBe("Profile");
+
+    const preference = view.container.querySelector("#account-reminder-link-lisbon");
+    scrollPosition = 280;
+    await act(async () => preference.click());
+    await act(async () => nextAnimationFrame());
+    expect(window.location.search).toBe("?tab=journeys");
+    expect(document.activeElement?.id).toBe("reminders-lisbon");
+    expect(
+      document.activeElement?.closest("section")?.querySelector('input[name="reminder-lisbon"]')
+    ).not.toBeNull();
+
+    scrollPosition = 0;
+    await act(async () => historyMove("back"));
+    await act(async () => nextAnimationFrame());
+    expect(window.location.search).toBe("?tab=settings");
+    expect(scrollCalls).toContain(280);
+    expect(document.activeElement?.id).toBe("account-reminder-link-lisbon");
+
+    await act(async () => historyMove("forward"));
+    await act(async () => nextAnimationFrame());
+    expect(document.activeElement?.id).toBe("reminders-lisbon");
     await view.unmount();
   });
 

@@ -96,12 +96,13 @@ export function PnrView({
             {
               id: "fare",
               label: "Fare",
-              render: (row: PnrRow) => row.fareType || "-",
+              render: (row: PnrRow) => row.fareType || null,
             },
             {
               id: "seats",
-              label: "Seats",
-              render: (row: PnrRow) => `${row.issuedSeats ?? 0}/${row.totalSeats ?? 0}`,
+              label: "Issued / capacity",
+              render: (row: PnrRow) =>
+                `${row.issuedSeats ?? "Unknown"} / ${row.totalSeats ?? "Unknown"}`,
             },
             {
               id: "action",

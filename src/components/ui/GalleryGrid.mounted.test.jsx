@@ -56,6 +56,61 @@ const images = [
 ];
 
 describe("Mounted GalleryGrid", () => {
+  test("Appends twelve photos at a time without repeats and focuses the first new photo", async () => {
+    const archive = Array.from({ length: 75 }, (_, index) => ({
+      _key: `photo-${index}`,
+      alt: `Event photograph ${index + 1}`,
+      asset: { url: `/photo-${index}.webp` },
+    }));
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => root.render(<GalleryGrid images={archive} />));
+    expect(container.querySelectorAll("[data-gallery-index]")).toHaveLength(12);
+
+    for (const expectedCount of [24, 36, 48, 60, 72, 75]) {
+      const previousCount = container.querySelectorAll("[data-gallery-index]").length;
+      const loadMore = [...container.querySelectorAll("button")].find(
+        (button) => button.textContent === "Load more photos"
+      );
+      expect(loadMore).not.toBeUndefined();
+      // biome-ignore lint/performance/noAwaitInLoops: each user action appends the next page before its assertions.
+      await act(async () => loadMore.click());
+      const tiles = [...container.querySelectorAll("[data-gallery-index]")];
+      expect(tiles).toHaveLength(expectedCount);
+      expect(tiles.map((tile) => Number(tile.dataset.galleryIndex))).toEqual(
+        Array.from({ length: expectedCount }, (_, index) => index)
+      );
+      expect(document.activeElement).toBe(tiles[previousCount]);
+      expect(container.querySelector('[role="status"]')?.textContent).toBe(
+        `Showing ${expectedCount} of 75 photos`
+      );
+    }
+    expect(container.textContent).not.toContain("Load more photos");
+    await act(async () => root.unmount());
+  });
+
+  test("Uses reviewed asset descriptions while preserving an editor's supplied alt text", async () => {
+    const image = {
+      asset: {
+        _id: "image-5dc6d5197969a6aa36db4ac3842a3ec5b0e6867f-4032x3024-png",
+        url: "/reviewed-gallery-photo.webp",
+      },
+    };
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => root.render(<GalleryGrid images={[image]} />));
+    expect(container.querySelector("img")?.alt).toBe(
+      "Large group in white shirts gathered on a lawn outside a hotel."
+    );
+    await act(async () =>
+      root.render(<GalleryGrid images={[{ ...image, alt: "Editor description" }]} />)
+    );
+    expect(container.querySelector("img")?.alt).toBe("Editor description");
+    await act(async () => root.unmount());
+  });
+
   test("Opens a labelled modal, navigates by arrow key, and restores tile focus", async () => {
     const container = document.createElement("div");
     document.body.append(container);

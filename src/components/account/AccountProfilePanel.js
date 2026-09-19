@@ -9,6 +9,7 @@ import {
   readJsonError,
   withSupportReference,
 } from "@/lib/userFacingErrors";
+import { AccountSettingsPanel } from "./AccountSettingsPanel";
 import { ACCOUNT_CONTAINER_VARIANTS, ProfileAlert, ProfileField, ProfileInput } from "./AccountUi";
 
 const PHONE_REGEX = /^(\+\d{1,3}[\s.-]?)?\(?([0-9]{3})\)?[\s.-]?([0-9]{3})[\s.-]?([0-9]{4})$/;
@@ -42,7 +43,12 @@ function profileReducer(state, action) {
   return reduce ? reduce(state, action) : state;
 }
 
-export function AccountProfilePanel({ user }) {
+export function AccountProfilePanel({
+  user,
+  confirmedTrips = [],
+  hasMoreTrips = false,
+  onOpenReminders,
+}) {
   const [state, dispatch] = useReducer(profileReducer, user, createProfileState);
   const { savedProfileData, profileForm, isEditingProfile, isSavingProfile, profileAlert } = state;
   const profileData = savedProfileData ?? user;
@@ -193,101 +199,107 @@ export function AccountProfilePanel({ user }) {
   return (
     <m.div
       animate="visible"
-      className="account-card overflow-hidden rounded-sm"
+      className="max-w-4xl space-y-7"
       exit={{ opacity: 0, y: 10 }}
       initial="hidden"
       key="profile"
       variants={ACCOUNT_CONTAINER_VARIANTS}
     >
-      <div className="border-gray-100 border-b p-8">
-        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-          <div>
-            <h2 className="account-display text-3xl text-[var(--account-ink)]">Personal Details</h2>
-            <p className="text-[var(--account-muted)] text-sm">
-              Update how we reach you and what shows on bookings.
-            </p>
-          </div>
-          {isEditingProfile ? (
-            <div className="flex items-center gap-3">
-              <Button
-                className="inline-flex min-h-11 items-center rounded-full border border-[var(--account-border)] px-4 py-2 font-medium text-[var(--account-muted)] text-sm transition-colors hover:bg-[var(--account-paper)]"
-                onClick={resetProfileForm}
-                surface="account"
-                type="button"
-              >
-                Cancel
-              </Button>
-              <Button
-                className={`inline-flex min-h-11 items-center rounded-full px-4 py-2 font-semibold text-sm transition-colors disabled:opacity-100 ${
-                  isSavingProfile
-                    ? "cursor-not-allowed bg-[var(--account-night)]/60 text-white"
-                    : "bg-[var(--account-night)] text-white hover:bg-[var(--account-ink)]"
-                }`}
-                loading={isSavingProfile}
-                onClick={handleProfileSave}
-                surface="account"
-                type="button"
-              >
-                {isSavingProfile ? "Saving…" : "Save Changes"}
-              </Button>
+      <section className="account-card min-w-0 rounded-2xl p-5 sm:p-6">
+        <div>
+          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+            <div>
+              <h1 className="account-display text-2xl text-[var(--account-ink)]">
+                Personal Details
+              </h1>
+              <p className="text-[var(--account-muted)] text-sm">
+                Update how we reach you and what shows on bookings.
+              </p>
             </div>
-          ) : (
-            <Button
-              className="inline-flex min-h-11 items-center rounded-full border border-[var(--account-night)] px-4 py-2 font-semibold text-[var(--account-night)] text-sm transition-colors hover:bg-[var(--account-night)] hover:text-white"
-              onClick={beginProfileEdit}
-              surface="account"
-              type="button"
-            >
-              Edit Details
-            </Button>
-          )}
+            {isEditingProfile ? (
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  className="inline-flex min-h-11 items-center rounded-full border border-[var(--account-border)] px-4 py-2 font-medium text-[var(--account-muted)] text-sm transition-colors hover:bg-[var(--account-paper)]"
+                  onClick={resetProfileForm}
+                  surface="account"
+                  type="button"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  className={`inline-flex min-h-11 items-center rounded-full px-4 py-2 font-semibold text-sm transition-colors disabled:opacity-100 ${
+                    isSavingProfile
+                      ? "cursor-not-allowed bg-[var(--account-night)]/60 text-white"
+                      : "bg-[var(--account-night)] text-white hover:bg-[var(--account-ink)]"
+                  }`}
+                  loading={isSavingProfile}
+                  onClick={handleProfileSave}
+                  surface="account"
+                  type="button"
+                >
+                  {isSavingProfile ? "Saving…" : "Save Changes"}
+                </Button>
+              </div>
+            ) : (
+              <Button
+                className="inline-flex min-h-11 items-center rounded-full border border-[var(--account-night)] px-4 py-2 font-semibold text-[var(--account-night)] text-sm transition-colors hover:bg-[var(--account-night)] hover:text-white"
+                onClick={beginProfileEdit}
+                surface="account"
+                type="button"
+              >
+                Edit Details
+              </Button>
+            )}
+          </div>
+          {profileAlert ? (
+            <ProfileAlert message={profileAlert.message} type={profileAlert.type} />
+          ) : null}
         </div>
-        {profileAlert ? (
-          <ProfileAlert message={profileAlert.message} type={profileAlert.type} />
-        ) : null}
-      </div>
 
-      {isEditingProfile ? (
-        <div className="grid gap-x-12 gap-y-8 p-8 md:grid-cols-2">
-          <ProfileInput
-            label="Full Name"
-            onChange={handleNameInput}
-            placeholder="Enter your full name"
-            value={profileForm.name}
-          />
-          <ProfileInput disabled label="Email Address" value={profileData.email} />
-          <ProfileInput
-            label="Phone Number"
-            onChange={handlePhoneInput}
-            placeholder="+1 555-123-4567"
-            type="tel"
-            value={profileForm.phoneNumber}
-          />
-          <ProfileField label="Member Since" value={memberSince} />
-        </div>
-      ) : (
-        <div className="grid gap-x-12 gap-y-8 p-8 md:grid-cols-2">
-          <ProfileField label="Full Name" value={profileData.name} />
-          <ProfileField label="Email Address" value={profileData.email} />
-          <ProfileField label="Phone Number" value={profileData.phoneNumber || "Not provided"} />
-          <ProfileField label="Member Since" value={memberSince} />
-        </div>
-      )}
+        {isEditingProfile ? (
+          <div className="grid gap-x-8 gap-y-5 py-6 md:grid-cols-2">
+            <ProfileInput
+              label="Full Name"
+              onChange={handleNameInput}
+              placeholder="Enter your full name"
+              value={profileForm.name}
+            />
+            <ProfileInput disabled label="Email Address" value={profileData.email} />
+            <ProfileInput
+              label="Phone Number"
+              onChange={handlePhoneInput}
+              placeholder="+1 555-123-4567"
+              type="tel"
+              value={profileForm.phoneNumber}
+            />
+            <ProfileField label="Member Since" value={memberSince} />
+          </div>
+        ) : (
+          <div className="grid gap-x-8 gap-y-5 py-6 md:grid-cols-2">
+            <ProfileField label="Full Name" value={profileData.name} />
+            <ProfileField label="Email Address" value={profileData.email} />
+            <ProfileField label="Phone Number" value={profileData.phoneNumber || "Not provided"} />
+            <ProfileField label="Member Since" value={memberSince} />
+          </div>
+        )}
 
-      <div className="border-[var(--account-border)] border-t bg-[var(--account-paper)] p-8">
-        <h3 className="account-display mb-4 text-2xl text-[var(--account-ink)]">
-          Passport Details
-        </h3>
-        <p className="mb-4 text-[var(--account-muted)] text-sm">
-          Passport information is kept securely by the Citius travel desk and is not shown here.
-        </p>
-        <div className="flex max-w-md items-center gap-3 rounded-sm border border-[var(--account-border)] bg-white p-4 text-[var(--account-muted)] text-sm">
-          <div className="size-2 rounded-full bg-green-500" />
-          {profileData.hasPassportDetails
-            ? "Passport details on file"
-            : "No passport details provided"}
+        <div className="border-[var(--account-border)] border-t pt-5">
+          <h2 className="font-medium text-[var(--account-ink)]">Passport Details</h2>
+          <p className="mt-2 text-[var(--account-muted)] text-sm">
+            {profileData.hasPassportDetails
+              ? "Passport details on file"
+              : "No passport details provided"}
+          </p>
+          <p className="mt-1 text-[var(--account-muted)] text-sm">
+            Passport information is kept securely by the Citius travel desk and is not shown here.
+          </p>
         </div>
-      </div>
+      </section>
+      <AccountSettingsPanel
+        confirmedTrips={confirmedTrips}
+        hasMoreTrips={hasMoreTrips}
+        onOpenReminders={onOpenReminders}
+      />
     </m.div>
   );
 }

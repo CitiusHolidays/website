@@ -1,8 +1,9 @@
 "use client";
 
 import { ArrowRight, CreditCard, FileText, Mail, MapPin, Phone, Shield } from "lucide-react";
-import { m, useReducedMotion, useScroll, useTransform } from "motion/react";
+import { m, useScroll, useTransform } from "motion/react";
 import Link from "next/link";
+import { useHydratedReducedMotion } from "@/components/providers/ReducedMotionProvider";
 import { publicRevealMotion } from "@/lib/publicInteractionMotion";
 import { POLICY_VIEW_HREFS, resolvePolicyView } from "./policyView";
 
@@ -338,7 +339,7 @@ const Section = ({ data }) => (
 function PolicyPage({ activeTab }) {
   const { scrollYProgress } = useScroll();
   const scaleX = useTransform(scrollYProgress, [0, 1], [0, 1]);
-  const contentMotion = publicRevealMotion(!!useReducedMotion());
+  const contentMotion = publicRevealMotion(useHydratedReducedMotion());
 
   return (
     <div className="min-h-screen bg-[#FDFBF7]">

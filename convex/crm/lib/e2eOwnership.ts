@@ -4,11 +4,6 @@ import type { MutationCtx } from "../../_generated/server";
 import { authorizedCustomerIdentityIds } from "../../lib/customerIdentityAccess";
 import type { RuntimeValue } from "../../lib/runtimeValues";
 import { hasOwnKey, isRuntimeObject, isRuntimeString } from "../../lib/runtimeValues";
-import {
-  assertCrmCodeSourceMutationAllowed,
-  crmCodeSourcePatchTouchesCode,
-  isCrmCodeSourceTable,
-} from "./codes";
 
 type InsertValue<TableName extends TableNames> = WithoutSystemFields<Doc<TableName>>;
 type PatchValue<TableName extends TableNames> = Partial<InsertValue<TableName>>;
@@ -20,31 +15,42 @@ const STORAGE_ID_KEY_PATTERN = /storageId$/i;
 
 export interface E2eOwnershipActor {
   authUserId?: string | null;
+  source?: { tableName: TableNames; documentId: string };
 }
 
 export const E2E_CLEANUP_TABLE_ORDER = {
   activityLogs: 100,
   approvalRequests: 90,
+  attachments: 90,
   authIdentityLinks: 30,
   checklistTasks: 90,
   clients: 20,
   commandReceipts: 100,
+  commercialFiles: 92,
+  commercialFileUploadSessions: 93,
   confirmedOffers: 90,
   contractingAssignments: 90,
   crmImportBatches: 105,
   crmListSearchDirty: 100,
   customerJourneyEntitlements: 100,
+  documentPreviewDeliveries: 120,
+  documentPreviewMetrics: 120,
+  documentPreviewOperations: 115,
   expenseEntries: 50,
   jobCards: 50,
   notificationEmailEventOrigins: 100,
   notificationReads: 100,
   notifications: 100,
+  operationalEffectReceipts: 120,
   passengerExportOperations: 90,
   passengerExportSourceChunks: 100,
   passengerImportOperationBatches: 110,
   passengerImportOperations: 100,
   passportDetails: 100,
+  passportUploadCleanupRecords: 112,
+  passportUploadTickets: 111,
   pnrs: 90,
+  proposalAttachments: 90,
   proposalMiceDocDrafts: 94,
   proposalQueryDecisions: 96,
   proposalQueryHandoffs: 95,
@@ -76,13 +82,19 @@ function cleanupOrder(tableName: TableNames) {
   return E2E_CLEANUP_TABLE_ORDER[tableName];
 }
 
-function collectStorageIds(value: RuntimeValue) {
+function collectStorageIds(tableName: TableNames, value: RuntimeValue) {
   if (!(value && isRuntimeObject(value)) || Array.isArray(value)) {
+    return [];
+  }
+  // Delivery/source IDs are borrowed references, never authority to delete a source blob.
+  if (tableName === "documentPreviewDeliveries") {
     return [];
   }
   // SAFETY: candidates retained by the filter are schema-owned Convex storage ID strings.
   return Object.entries(value).flatMap(([key, candidate]) =>
-    STORAGE_ID_KEY_PATTERN.test(key) && isRuntimeString(candidate)
+    STORAGE_ID_KEY_PATTERN.test(key) &&
+    (tableName !== "documentPreviewOperations" || key === "artifactStorageId") &&
+    isRuntimeString(candidate)
       ? [candidate as Id<"_storage">]
       : []
   );
@@ -164,7 +176,46 @@ async function resolveActiveRunForActor(ctx: MutationCtx, actor: E2eOwnershipAct
   return run?.status === "active" ? run._id : null;
 }
 
-function activeRun(ctx: MutationCtx, actor?: E2eOwnershipActor) {
+export async function e2eRunForSource(
+  ctx: MutationCtx,
+  source: NonNullable<E2eOwnershipActor["source"]>
+) {
+  const owned = await ctx.db
+    .query("e2eOwnedRecords")
+    .withIndex("by_tableName_documentId", (q) =>
+      q.eq("tableName", source.tableName).eq("documentId", source.documentId)
+    )
+    .unique();
+  if (!owned) {
+    return null;
+  }
+  const run = await ctx.db
+    .query("e2eRuns")
+    .withIndex("by_runId", (q) => q.eq("runId", owned.runId))
+    .unique();
+  if (!run) {
+    throw new Error("E2E ownership run is missing");
+  }
+  return run;
+}
+
+async function sourceRun(ctx: MutationCtx, source: NonNullable<E2eOwnershipActor["source"]>) {
+  const run = await e2eRunForSource(ctx, source);
+  if (!run) {
+    return activeRun(ctx);
+  }
+  // A delayed worker must not silently become an ordinary writer during teardown,
+  // or adopt a later run belonging to the same reusable Staff actor.
+  if (run.status !== "active") {
+    throw new Error("E2E ownership run is not active");
+  }
+  return run._id;
+}
+
+function activeRun(ctx: MutationCtx, actor?: E2eOwnershipActor): Promise<Id<"e2eRuns"> | null> {
+  if (actor?.source) {
+    return sourceRun(ctx, actor.source);
+  }
   if (actor) {
     const authUserId = actor.authUserId?.trim();
     if (!authUserId) {
@@ -211,7 +262,7 @@ function recordOwnership<TableName extends TableNames>(
       createdAt: Date.now(),
       documentId: String(documentId),
       runId: run.runId,
-      storageIds: collectStorageIds(value),
+      storageIds: collectStorageIds(tableName, value),
       tableName,
     });
     await ctx.db.patch("e2eRuns", runId, {
@@ -294,7 +345,7 @@ async function recordPatchedStorageIds<TableName extends TableNames>(
   documentId: Id<TableName>,
   value: PatchValue<TableName>
 ) {
-  const storageIds = collectStorageIds(value);
+  const storageIds = collectStorageIds(tableName, value);
   if (storageIds.length === 0) {
     return;
   }
@@ -317,7 +368,7 @@ async function recordPatchedStorageIds<TableName extends TableNames>(
 
 /**
  * Atomically records inserts made by an authenticated E2E actor. Production
- * users and internal workers take the ordinary insert path with no ledger IO.
+ * users take the ordinary insert path; internal workers can name an owned source.
  */
 export async function insertWithE2eOwnership<TableName extends TableNames>(
   ctx: MutationCtx,
@@ -325,9 +376,6 @@ export async function insertWithE2eOwnership<TableName extends TableNames>(
   value: InsertValue<TableName>,
   actor?: E2eOwnershipActor
 ) {
-  if (isCrmCodeSourceTable(tableName)) {
-    await assertCrmCodeSourceMutationAllowed(ctx, tableName);
-  }
   const documentId = await ctx.db.insert(tableName, value);
   const runId = await activeRun(ctx, actor);
   if (!runId) {
@@ -344,9 +392,6 @@ export async function patchWithE2eOwnership<TableName extends TableNames>(
   value: PatchValue<TableName>,
   actor?: E2eOwnershipActor
 ) {
-  if (crmCodeSourcePatchTouchesCode(tableName, value)) {
-    await assertCrmCodeSourceMutationAllowed(ctx, tableName);
-  }
   const [runId, document] = await Promise.all([
     activeRun(ctx, actor),
     ctx.db.get(tableName, documentId),
@@ -367,9 +412,6 @@ export async function insertE2eFixtureWithOwnership<TableName extends TableNames
   tableName: TableName,
   value: InsertValue<TableName>
 ) {
-  if (isCrmCodeSourceTable(tableName)) {
-    await assertCrmCodeSourceMutationAllowed(ctx, tableName);
-  }
   const run = await runDocument(ctx, runId);
   const documentId = await ctx.db.insert(tableName, value);
   await recordOwnership(ctx, run._id, tableName, documentId, value);
@@ -383,9 +425,6 @@ export async function patchE2eFixtureWithOwnership<TableName extends TableNames>
   documentId: Id<TableName>,
   value: PatchValue<TableName>
 ) {
-  if (crmCodeSourcePatchTouchesCode(tableName, value)) {
-    await assertCrmCodeSourceMutationAllowed(ctx, tableName);
-  }
   const [run, document] = await Promise.all([
     runDocument(ctx, runId),
     ctx.db.get(tableName, documentId),

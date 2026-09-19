@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useState } from "react";
 import { usePortalToast } from "@/components/portal/PortalToast";
@@ -119,23 +120,14 @@ export function SettingsView({
 
   return (
     <div className="space-y-5">
-      {isExactAdmin(access) ? <OperationalControlsPanel /> : null}
-      {showWorkbookImport ? (
-        <LazyStaffWorkbookImportPanel />
-      ) : (
-        <section className="rounded-lg border border-brand-border bg-white p-5 shadow-sm md:p-6">
-          <h2 className="font-heading font-semibold text-citius-blue text-lg md:text-xl">
-            Leave matrix workbook
-          </h2>
-          <p className="mt-1 max-w-2xl text-brand-muted text-sm">
-            Open this when you need to preview or apply staff changes.
-          </p>
-          <button className="portal-primary-btn mt-4" onClick={showWorkbook} type="button">
-            Open workbook import
-          </button>
-        </section>
-      )}
-      <Panel title="Staff allowlist">
+      <details className="group rounded-lg border border-brand-border bg-white p-4 md:p-5">
+        <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3 font-heading font-semibold text-citius-blue text-lg">
+          Staff and access
+          <ChevronDown aria-hidden="true" className="size-4 shrink-0 group-open:rotate-180" />
+        </summary>
+        <p className="my-3 text-brand-muted text-sm">
+          Staff records, roles, onboarding, and leave approvers.
+        </p>
         <SelectableDataTable
           columns={[
             {
@@ -224,28 +216,62 @@ export function SettingsView({
           empty={searchTerm ? "No staff match your search." : "No staff records yet."}
           rows={staff}
         />
-      </Panel>
-      <Panel title="Workflow dropdowns">
-        {searchTerm && Object.keys(visibleDropdowns).length === 0 ? (
-          <EmptyState label="No workflow dropdown values match your search." />
-        ) : (
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {Object.entries(visibleDropdowns).map(([category, values]) => (
-              <div
-                className="rounded-md border border-brand-border bg-brand-light p-4"
-                key={category}
-              >
-                <div className="mb-2 font-semibold text-sm capitalize">{category}</div>
-                <div className="flex flex-wrap gap-2">
-                  {values.map((value) => (
-                    <Badge key={value} label={value} tone="gray" />
-                  ))}
-                </div>
+      </details>
+      <details className="group rounded-lg border border-brand-border bg-white p-4 md:p-5">
+        <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3 font-heading font-semibold text-citius-blue text-lg">
+          Workflow configuration
+          <ChevronDown aria-hidden="true" className="size-4 shrink-0 group-open:rotate-180" />
+        </summary>
+        <div className="mt-4 space-y-5">
+          {showWorkbookImport ? (
+            <LazyStaffWorkbookImportPanel />
+          ) : (
+            <section className="rounded-lg border border-brand-border bg-white p-5 shadow-sm md:p-6">
+              <h2 className="font-heading font-semibold text-citius-blue text-lg md:text-xl">
+                Leave matrix workbook
+              </h2>
+              <p className="mt-1 max-w-2xl text-brand-muted text-sm">
+                Open this when you need to preview or apply staff changes.
+              </p>
+              <button className="portal-primary-btn mt-4" onClick={showWorkbook} type="button">
+                Open workbook import
+              </button>
+            </section>
+          )}
+          <Panel title="Workflow dropdowns">
+            {searchTerm && Object.keys(visibleDropdowns).length === 0 ? (
+              <EmptyState label="No workflow dropdown values match your search." />
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {Object.entries(visibleDropdowns).map(([category, values]) => (
+                  <div
+                    className="rounded-md border border-brand-border bg-brand-light p-4"
+                    key={category}
+                  >
+                    <div className="mb-2 font-semibold text-sm capitalize">{category}</div>
+                    <div className="flex flex-wrap gap-2">
+                      {values.map((value) => (
+                        <Badge key={value} label={value} tone="gray" />
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+          </Panel>
+        </div>
+      </details>
+      {isExactAdmin(access) ? (
+        <details className="group rounded-lg border border-brand-border bg-white p-4 md:p-5">
+          <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3 font-heading font-semibold text-citius-blue text-lg">
+            System operations
+            <ChevronDown aria-hidden="true" className="size-4 shrink-0 group-open:rotate-180" />
+          </summary>
+          <div className="mt-4">
+            <OperationalControlsPanel />
           </div>
-        )}
-      </Panel>
+        </details>
+      ) : null}
     </div>
   );
 }

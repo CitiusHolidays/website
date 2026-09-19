@@ -3,7 +3,6 @@ import { describe, expect, test } from "vitest";
 import { api } from "../_generated/api";
 import schema from "../schema";
 import { modules } from "../test.setup";
-import { PROPOSAL_LIFECYCLE_RETENTION_MESSAGE, syncProposalQueryLinks } from "./proposalRelations";
 
 const NOW = new Date("2026-08-31T16:00:00.000Z").getTime();
 const AUTH_USER_ID = "auth_proposal_deletion_admin";
@@ -187,98 +186,70 @@ async function seedDeletionCases(t: ReturnType<typeof createHarness>) {
   });
 }
 
-describe("Proposal deletion lifecycle retention", () => {
-  test("blocks immutable lifecycle rows and still deletes a lifecycle-free Proposal", async () => {
+describe("Proposal deletion follows the existing CRM workflow", () => {
+  test("deletes a Proposal immediately while retaining its file for recovery", async () => {
+    const t = createHarness();
+    const fixture = await seedDeletionCases(t);
+    const storageId = await t.run(async (ctx) => {
+      const id = await ctx.storage.store(
+        new Blob(["retained proposal"], { type: "application/pdf" })
+      );
+      await ctx.db.insert("proposalAttachments", {
+        createdAt: NOW,
+        createdBy: CANONICAL_AUTH_USER_ID,
+        fileName: "proposal.pdf",
+        fileSize: 17,
+        mimeType: "application/pdf",
+        proposalId: fixture.cleanProposalId,
+        storageId: id,
+      });
+      return id;
+    });
+    const before = Date.now();
+    await t
+      .withIdentity(adminIdentity)
+      .mutation(api.crm.proposals.remove, { proposalId: fixture.cleanProposalId });
+    await t.run(async (ctx) => {
+      expect(await ctx.db.get("proposals", fixture.cleanProposalId)).toBeNull();
+      const retained = await ctx.db
+        .query("commercialFiles")
+        .withIndex("by_source", (q) =>
+          q.eq("sourceType", "proposal").eq("sourceId", fixture.cleanProposalId)
+        )
+        .unique();
+      expect(retained?.lifecycle).toBe("deleted");
+      expect(retained?.storageId).toBe(storageId);
+      expect(retained?.purgeAfter).toBeGreaterThanOrEqual(before + 14 * 24 * 60 * 60 * 1000);
+      expect(await ctx.storage.get(storageId)).not.toBeNull();
+    });
+  });
+
+  test("allows sent proposals to be unlinked or deleted without a new lifecycle gate", async () => {
     const t = createHarness();
     const fixture = await seedDeletionCases(t);
     const asAdmin = t.withIdentity(adminIdentity);
-
-    const retainedProposalIds = [
-      fixture.handoffProposalId,
-      fixture.decisionProposalId,
-      fixture.revisionProposalId,
-      fixture.legacyProposalId,
-    ];
-    for (const proposalId of retainedProposalIds) {
-      await expect(
-        t.run(
-          async (ctx) => await syncProposalQueryLinks(ctx, proposalId, [], CANONICAL_AUTH_USER_ID)
-        )
-      ).rejects.toThrow(PROPOSAL_LIFECYCLE_RETENTION_MESSAGE);
-      await expect(
-        asAdmin.mutation(api.crm.proposals.remove, { proposalId: String(proposalId) })
-      ).rejects.toThrow(PROPOSAL_LIFECYCLE_RETENTION_MESSAGE);
-    }
-
-    await expect(
-      asAdmin.mutation(api.crm.proposals.update, {
-        proposalId: String(fixture.legacyPrimaryProposalId),
-        queryIds: [],
-      })
-    ).rejects.toThrow(PROPOSAL_LIFECYCLE_RETENTION_MESSAGE);
-    await expect(
-      asAdmin.mutation(api.crm.proposals.remove, {
-        proposalId: String(fixture.legacyPrimaryProposalId),
-      })
-    ).rejects.toThrow(PROPOSAL_LIFECYCLE_RETENTION_MESSAGE);
-    for (const proposalId of [
-      fixture.salesHandoffProposalId,
-      fixture.legacySalesHandoffProposalId,
-    ]) {
-      await expect(
-        asAdmin.mutation(api.crm.proposals.remove, { proposalId: String(proposalId) })
-      ).rejects.toThrow(PROPOSAL_LIFECYCLE_RETENTION_MESSAGE);
-    }
-    await expect(
-      asAdmin.mutation(api.crm.proposals.update, {
-        clientName: "Edited legacy lifecycle client",
-        proposalId: String(fixture.legacySalesHandoffPrimaryProposalId),
-      })
-    ).resolves.toEqual({ id: fixture.legacySalesHandoffPrimaryProposalId });
     for (const proposalId of [
       fixture.salesHandoffPrimaryProposalId,
       fixture.legacySalesHandoffPrimaryProposalId,
     ]) {
       await expect(
-        asAdmin.mutation(api.crm.proposals.update, {
-          proposalId: String(proposalId),
-          queryIds: [],
-        })
-      ).rejects.toThrow(PROPOSAL_LIFECYCLE_RETENTION_MESSAGE);
+        asAdmin.mutation(api.crm.proposals.update, { proposalId: String(proposalId), queryIds: [] })
+      ).resolves.toEqual({ id: proposalId });
+      await t.run(async (ctx) => {
+        expect((await ctx.db.get("proposals", proposalId))?.queryId).toBeUndefined();
+      });
     }
-
-    await expect(
-      t.run(
-        async (ctx) =>
-          await syncProposalQueryLinks(ctx, fixture.cleanProposalId, [], CANONICAL_AUTH_USER_ID)
-      )
-    ).resolves.toEqual([String(fixture.queryId)]);
-    await expect(
-      asAdmin.mutation(api.crm.proposals.remove, {
-        proposalId: String(fixture.cleanProposalId),
-      })
-    ).resolves.toEqual({ id: fixture.cleanProposalId });
-
-    await t.run(async (ctx) => {
-      expect(await ctx.db.get("proposals", fixture.decisionProposalId)).not.toBeNull();
-      expect(await ctx.db.get("proposals", fixture.handoffProposalId)).not.toBeNull();
-      const legacyPrimaryProposal = await ctx.db.get("proposals", fixture.legacyPrimaryProposalId);
-      expect(legacyPrimaryProposal?.queryId).toBe(fixture.queryId);
-      expect(await ctx.db.get("proposals", fixture.legacyProposalId)).not.toBeNull();
-      expect(await ctx.db.get("proposals", fixture.legacySalesHandoffProposalId)).not.toBeNull();
-      expect(
-        (await ctx.db.get("proposals", fixture.legacySalesHandoffPrimaryProposalId))?.queryId
-      ).toBe(fixture.queryId);
-      expect(await ctx.db.get("proposals", fixture.revisionProposalId)).not.toBeNull();
-      expect(await ctx.db.get("proposals", fixture.salesHandoffProposalId)).not.toBeNull();
-      expect((await ctx.db.get("proposals", fixture.salesHandoffPrimaryProposalId))?.queryId).toBe(
-        fixture.queryId
-      );
-      expect(await ctx.db.get("proposals", fixture.cleanProposalId)).toBeNull();
-      expect(await ctx.db.query("proposalQueryHandoffs").collect()).toHaveLength(2);
-      expect(await ctx.db.query("proposalQueryDecisions").collect()).toHaveLength(1);
-      expect(await ctx.db.query("proposalQueryLinks").collect()).toHaveLength(4);
-      expect(await ctx.db.query("proposalRevisionRequests").collect()).toHaveLength(1);
-    });
+    for (const proposalId of [
+      fixture.salesHandoffProposalId,
+      fixture.legacySalesHandoffProposalId,
+      fixture.cleanProposalId,
+    ]) {
+      await expect(
+        asAdmin.mutation(api.crm.proposals.remove, { proposalId: String(proposalId) })
+      ).resolves.toEqual({ id: proposalId });
+      await t.run(async (ctx) => {
+        expect(await ctx.db.get("proposals", proposalId)).toBeNull();
+      });
+    }
   });
 });

@@ -31,6 +31,8 @@ export interface DocumentPreviewRequest {
 }
 
 const PORTAL_FILE_ROUTE_PREFIX = "/api/portal/files/";
+const COMMERCIAL_FILE_PATH_PATTERN =
+  /^\/api\/portal\/files\/(commercial|query|proposal|proposal-finalized)\/[^/]+$/;
 const FILE_NAME_STAR_PATTERN = /filename\*=UTF-8''([^;]+)/i;
 const FILE_NAME_PATTERN = /filename="?([^";]+)"?/i;
 const FILE_EXTENSION_PATTERN = /\.[^.]+$/;
@@ -93,10 +95,33 @@ export function isSensitivePortalFileUrl(sourceUrl: string) {
     const { pathname } = portalFileUrl(sourceUrl);
     return (
       pathname.startsWith(`${PORTAL_FILE_ROUTE_PREFIX}passport/`) ||
-      pathname.startsWith(`${PORTAL_FILE_ROUTE_PREFIX}visa/`)
+      pathname.startsWith(`${PORTAL_FILE_ROUTE_PREFIX}visa/`) ||
+      pathname.startsWith(`${PORTAL_FILE_ROUTE_PREFIX}expense/`)
     );
   } catch {
     return false;
+  }
+}
+
+export function documentPreviewNavigation(request: DocumentPreviewRequest) {
+  const { navigation } = request;
+  if (!(navigation && Number.isInteger(navigation.currentIndex))) {
+    return null;
+  }
+  try {
+    const current = navigation.items[navigation.currentIndex];
+    if (
+      !current ||
+      portalFileDownloadUrl(current.sourceUrl) !== portalFileDownloadUrl(request.sourceUrl) ||
+      !navigation.items.every((item) =>
+        COMMERCIAL_FILE_PATH_PATTERN.test(portalFileUrl(item.sourceUrl).pathname)
+      )
+    ) {
+      return null;
+    }
+    return navigation;
+  } catch {
+    return null;
   }
 }
 
@@ -106,7 +131,8 @@ export function documentPreviewRolloutAllows(request: DocumentPreviewRequest) {
     return false;
   }
   const { pathname } = portalFileUrl(request.sourceUrl);
-  if (pathname.startsWith(`${PORTAL_FILE_ROUTE_PREFIX}commercial/`)) {
+  const commercialSource = COMMERCIAL_FILE_PATH_PATTERN.exec(pathname)?.[1];
+  if (commercialSource === "commercial") {
     const kind = classifyDocumentPreview(request);
     if (kind === "unsupported") {
       const hasFormatMetadata = Boolean(request.fileName || request.mimeType);
@@ -115,11 +141,7 @@ export function documentPreviewRolloutAllows(request: DocumentPreviewRequest) {
     const extension = extensionFor(request.fileName || "");
     return !OFFICE_EXTENSIONS.has(extension) || rank >= 2;
   }
-  if (
-    pathname.startsWith(`${PORTAL_FILE_ROUTE_PREFIX}query/`) ||
-    pathname.startsWith(`${PORTAL_FILE_ROUTE_PREFIX}proposal/`) ||
-    pathname.startsWith(`${PORTAL_FILE_ROUTE_PREFIX}proposal-finalized/`)
-  ) {
+  if (commercialSource) {
     return rank >= 3;
   }
   if (

@@ -4,8 +4,8 @@ import { api } from "@convex/_generated/api";
 import { useAction, useConvexAuth, useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { ShieldCheck } from "lucide-react";
 import { useRef, useState } from "react";
+import { PortalTabs } from "@/components/portal/PortalTabs";
 import { usePortalToast } from "@/components/portal/PortalToast";
-import { cn } from "@/lib/utils";
 import { formatConvexError } from "../workspace/portalWorkspaceListHelpers";
 import {
   AuthenticationEmailHealth,
@@ -114,6 +114,7 @@ function useOperationalControlsPanel(tab: PanelTab, onUndoClosed: () => void) {
   const [reason, setReason] = useState("");
   const [restoration, setRestoration] = useState<RestorationChoice>("none");
   const [applying, setApplying] = useState(false);
+  const [applyError, setApplyError] = useState("");
   const [selectedRecipes, setSelectedRecipes] = useState<ReadonlySet<ProductionTestRecipeId>>(
     () => new Set<ProductionTestRecipeId>(["inbound_leads"])
   );
@@ -154,6 +155,10 @@ function useOperationalControlsPanel(tab: PanelTab, onUndoClosed: () => void) {
   );
 
   const stageControl = (control: OperationalControlRow, state: PersistedControlState) => {
+    if (applying || !targetIdentity) {
+      return;
+    }
+    setApplyError("");
     setStaged((current) => {
       const next = new Map(current);
       let currentState: PersistedControlState = "default";
@@ -174,6 +179,7 @@ function useOperationalControlsPanel(tab: PanelTab, onUndoClosed: () => void) {
 
   const applyReviewedChanges = async () => {
     if (
+      applying ||
       reason.trim().length === 0 ||
       stagedRows.length === 0 ||
       !targetIdentity ||
@@ -182,6 +188,7 @@ function useOperationalControlsPanel(tab: PanelTab, onUndoClosed: () => void) {
       return;
     }
     setApplying(true);
+    setApplyError("");
     try {
       const restorationAfterMs = restorationDelayMsFor(restoration);
       const result = await applyChangeSet({
@@ -239,7 +246,7 @@ function useOperationalControlsPanel(tab: PanelTab, onUndoClosed: () => void) {
       setRestoration("none");
       setReviewing(false);
     } catch (error) {
-      toast.error(
+      setApplyError(
         formatConvexError(error, "Could not apply the reviewed change set. Refresh and try again.")
       );
     }
@@ -328,6 +335,7 @@ function useOperationalControlsPanel(tab: PanelTab, onUndoClosed: () => void) {
 
   return {
     activeTestRuns,
+    applyError,
     applying,
     applyReviewedChanges,
     applyUndo,
@@ -387,6 +395,7 @@ export function OperationalControlsPanel() {
   const undoTriggerRef = useRef<HTMLButtonElement | null>(null);
   const focusUndoTrigger = () => queueMicrotask(() => undoTriggerRef.current?.focus());
   const panel = useOperationalControlsPanel(tab, focusUndoTrigger);
+  const controlsDisabled = panel.applying || !panel.targetIdentity;
   const closeUndoReview = () => {
     panel.setUndoTarget(null);
     focusUndoTrigger();
@@ -419,6 +428,7 @@ export function OperationalControlsPanel() {
         {panel.staged.size > 0 ? (
           <button
             className="portal-primary-btn min-h-11"
+            disabled={controlsDisabled}
             onClick={() => {
               setTab("controls");
               panel.startReviewing();
@@ -432,141 +442,132 @@ export function OperationalControlsPanel() {
 
       <OperationalTargetBanner identity={panel.targetIdentity} />
 
-      <div
-        aria-label="Feature control views"
-        className="my-5 flex flex-wrap gap-1 rounded-full bg-brand-light p-1"
-        role="tablist"
+      <PortalTabs
+        ariaLabel="Feature control views"
+        className="mt-5"
+        items={PANEL_TABS.map((entry) => ({ ...entry, disabled: panel.applying }))}
+        onValueChange={(value) => {
+          const selected = PANEL_TABS.find((entry) => entry.id === value);
+          if (selected) {
+            setTab(selected.id);
+          }
+        }}
+        panelClassName="mt-5"
+        selectionMode="manual"
+        value={tab}
       >
-        {PANEL_TABS.map((entry) => {
-          const selected = tab === entry.id;
-          return (
-            <button
-              aria-controls={`operational-panel-${entry.id}`}
-              aria-selected={selected}
-              className={cn(
-                "min-h-11 rounded-full px-4 font-semibold text-sm focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2",
-                selected
-                  ? "bg-white text-brand-dark shadow-sm"
-                  : "text-brand-muted hover:text-brand-dark"
-              )}
-              id={`operational-tab-${entry.id}`}
-              key={entry.id}
-              onClick={() => setTab(entry.id)}
-              role="tab"
-              type="button"
-            >
-              {entry.label}
-            </button>
-          );
-        })}
-      </div>
-
-      <div
-        aria-labelledby={`operational-tab-${tab}`}
-        className="space-y-6"
-        id={`operational-panel-${tab}`}
-        role="tabpanel"
-      >
-        {tab === "controls" ? (
-          <>
-            <OperationalControlCatalog
-              controlLabels={panel.controlLabels}
-              controls={panel.visibleControls}
-              filter={panel.filter}
-              onFilterChange={panel.setFilter}
-              onSearchChange={panel.setSearch}
-              onStage={panel.stageControl}
-              search={panel.search}
-              staged={panel.staged}
-            />
-            {panel.reviewing && panel.stagedRows.length > 0 && panel.targetIdentity ? (
-              <ChangeSetReviewPanel
-                allControls={panel.controls}
-                changes={panel.stagedRows}
+        <div className="space-y-6">
+          {tab === "controls" ? (
+            <>
+              <OperationalControlCatalog
                 controlLabels={panel.controlLabels}
-                identity={panel.targetIdentity}
-                onApply={panel.applyReviewedChanges}
-                onCancel={() => panel.setReviewing(false)}
-                onReasonChange={panel.setReason}
-                onRestorationChange={panel.setRestoration}
-                pending={panel.applying}
-                preview={panel.cutoverPreview}
-                reason={panel.reason}
-                restoration={panel.restoration}
+                controls={panel.visibleControls}
+                disabled={controlsDisabled}
+                filter={panel.filter}
+                onFilterChange={panel.setFilter}
+                onSearchChange={panel.setSearch}
+                onStage={panel.stageControl}
+                search={panel.search}
+                staged={panel.staged}
               />
-            ) : null}
-            <LatestChangeReceipt
-              changeSet={
-                panel.latestAppliedReceipt
-                  ? (panel.changeSets.results.find(
-                      (changeSet) => changeSet._id === panel.latestAppliedReceipt?._id
-                    ) ?? panel.latestAppliedReceipt)
-                  : panel.changeSets.results[0]
-              }
-              controlLabels={panel.controlLabels}
-            />
-          </>
-        ) : null}
-        {tab === "tests" ? (
-          <ProductionTestLab
-            activeRuns={panel.activeTestRuns ?? []}
-            canLoadMore={canLoadMore(panel.testRuns.status)}
-            history={panel.testRuns.results}
-            latestResults={panel.latestResults}
-            note={panel.testNote}
-            onLoadMore={() => panel.testRuns.loadMore(HISTORY_PAGE_SIZE)}
-            onNoteChange={panel.setTestNote}
-            onResume={panel.resumeTestRun}
-            onRun={panel.runSelectedRecipes}
-            onToggle={panel.toggleRecipe}
-            pending={panel.runningTests}
-            recipes={panel.recipes}
-            selected={panel.selectedRecipes}
-          />
-        ) : null}
-        {tab === "health" ? (
-          <>
-            <OperationalRuntimeHealth
-              health={panel.runtimeHealth}
-              onNavigate={setTab}
-              onRefresh={panel.refreshRuntimeHealth}
-            />
-            <AuthenticationEmailHealth health={panel.authEmailHealth} />
-          </>
-        ) : null}
-        {tab === "activity" ? (
-          <>
-            <OperationalActivity
-              audits={panel.audits.results}
-              canLoadMoreAudits={canLoadMore(panel.audits.status)}
-              canLoadMoreChanges={canLoadMore(panel.changeSets.status)}
-              canLoadMoreReceipts={canLoadMore(panel.receipts.status)}
-              changeSets={panel.changeSets.results}
-              controlLabels={panel.controlLabels}
-              onLoadMoreAudits={() => panel.audits.loadMore(HISTORY_PAGE_SIZE)}
-              onLoadMoreChanges={() => panel.changeSets.loadMore(HISTORY_PAGE_SIZE)}
-              onLoadMoreReceipts={() => panel.receipts.loadMore(HISTORY_PAGE_SIZE)}
-              onRequestUndo={(changeSet, trigger) => {
-                undoTriggerRef.current = trigger;
-                panel.setUndoTarget(changeSet);
-                panel.setUndoReason("");
-              }}
-              receipts={panel.receipts.results}
-            />
-            {panel.undoTarget ? (
-              <UndoReviewPanel
-                changeSet={panel.undoTarget}
+              {panel.reviewing && panel.stagedRows.length > 0 && panel.targetIdentity ? (
+                <ChangeSetReviewPanel
+                  allControls={panel.controls}
+                  changes={panel.stagedRows}
+                  controlLabels={panel.controlLabels}
+                  identity={panel.targetIdentity}
+                  onApply={panel.applyReviewedChanges}
+                  onCancel={() => panel.setReviewing(false)}
+                  onReasonChange={panel.setReason}
+                  onRestorationChange={panel.setRestoration}
+                  pending={panel.applying}
+                  preview={panel.cutoverPreview}
+                  reason={panel.reason}
+                  restoration={panel.restoration}
+                />
+              ) : null}
+              {panel.applyError ? (
+                <p
+                  className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-900 text-sm"
+                  role="alert"
+                >
+                  Changes were not applied. {panel.applyError}
+                </p>
+              ) : null}
+              <LatestChangeReceipt
+                changeSet={
+                  panel.latestAppliedReceipt
+                    ? (panel.changeSets.results.find(
+                        (changeSet) => changeSet._id === panel.latestAppliedReceipt?._id
+                      ) ?? panel.latestAppliedReceipt)
+                    : panel.changeSets.results[0]
+                }
                 controlLabels={panel.controlLabels}
-                onCancel={closeUndoReview}
-                onConfirm={panel.applyUndo}
-                onReasonChange={panel.setUndoReason}
-                pending={panel.undoPending}
-                reason={panel.undoReason}
               />
-            ) : null}
-          </>
-        ) : null}
-      </div>
+            </>
+          ) : null}
+          {tab === "tests" ? (
+            <ProductionTestLab
+              activeRuns={panel.activeTestRuns ?? []}
+              canLoadMore={canLoadMore(panel.testRuns.status)}
+              history={panel.testRuns.results}
+              identity={panel.targetIdentity}
+              latestResults={panel.latestResults}
+              note={panel.testNote}
+              onLoadMore={() => panel.testRuns.loadMore(HISTORY_PAGE_SIZE)}
+              onNoteChange={panel.setTestNote}
+              onResume={panel.resumeTestRun}
+              onRun={panel.runSelectedRecipes}
+              onToggle={panel.toggleRecipe}
+              pending={panel.runningTests}
+              recipes={panel.recipes}
+              selected={panel.selectedRecipes}
+            />
+          ) : null}
+          {tab === "health" ? (
+            <>
+              <OperationalRuntimeHealth
+                health={panel.runtimeHealth}
+                onNavigate={setTab}
+                onRefresh={panel.refreshRuntimeHealth}
+              />
+              <AuthenticationEmailHealth health={panel.authEmailHealth} />
+            </>
+          ) : null}
+          {tab === "activity" ? (
+            <>
+              <OperationalActivity
+                audits={panel.audits.results}
+                canLoadMoreAudits={canLoadMore(panel.audits.status)}
+                canLoadMoreChanges={canLoadMore(panel.changeSets.status)}
+                canLoadMoreReceipts={canLoadMore(panel.receipts.status)}
+                changeSets={panel.changeSets.results}
+                controlLabels={panel.controlLabels}
+                onLoadMoreAudits={() => panel.audits.loadMore(HISTORY_PAGE_SIZE)}
+                onLoadMoreChanges={() => panel.changeSets.loadMore(HISTORY_PAGE_SIZE)}
+                onLoadMoreReceipts={() => panel.receipts.loadMore(HISTORY_PAGE_SIZE)}
+                onRequestUndo={(changeSet, trigger) => {
+                  undoTriggerRef.current = trigger;
+                  panel.setUndoTarget(changeSet);
+                  panel.setUndoReason("");
+                }}
+                receipts={panel.receipts.results}
+              />
+              {panel.undoTarget ? (
+                <UndoReviewPanel
+                  changeSet={panel.undoTarget}
+                  controlLabels={panel.controlLabels}
+                  onCancel={closeUndoReview}
+                  onConfirm={panel.applyUndo}
+                  onReasonChange={panel.setUndoReason}
+                  pending={panel.undoPending}
+                  reason={panel.undoReason}
+                />
+              ) : null}
+            </>
+          ) : null}
+        </div>
+      </PortalTabs>
     </section>
   );
 }

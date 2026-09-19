@@ -109,7 +109,7 @@ export function desktopActionColumnClass(
   }
   return surface === "header"
     ? "sticky right-0 z-20 min-w-48 bg-brand-light shadow-[-12px_0_16px_-16px_rgba(16,42,131,0.35)]"
-    : "sticky right-0 z-10 min-w-48 bg-white shadow-[-12px_0_16px_-16px_rgba(16,42,131,0.35)] group-hover:bg-[#fbfcff] group-data-[attention=warning]:bg-amber-50/90 group-data-[attention=danger]:bg-red-50/90 group-data-[attention=info]:bg-blue-50/70";
+    : "sticky right-0 z-10 min-w-48 bg-white shadow-[-12px_0_16px_-16px_rgba(16,42,131,0.35)] group-hover:bg-[#fbfcff] group-data-[selected=true]:bg-blue-50 group-data-[attention=warning]:bg-amber-50 group-data-[attention=danger]:bg-red-50 group-data-[attention=info]:bg-blue-50";
 }
 
 export function desktopPinnedColumnClass(
@@ -132,5 +132,5 @@ export function desktopPinnedColumnClass(
   }
   return surface === "header"
     ? "sticky left-0 z-20 min-w-32 bg-brand-light shadow-[12px_0_16px_-16px_rgba(16,42,131,0.35)]"
-    : "sticky left-0 z-10 min-w-32 bg-white shadow-[12px_0_16px_-16px_rgba(16,42,131,0.35)] group-hover:bg-[#fbfcff] group-data-[attention=warning]:bg-amber-50/90 group-data-[attention=danger]:bg-red-50/90 group-data-[attention=info]:bg-blue-50/70";
+    : "sticky left-0 z-10 min-w-32 bg-white shadow-[12px_0_16px_-16px_rgba(16,42,131,0.35)] group-hover:bg-[#fbfcff] group-data-[selected=true]:bg-blue-50 group-data-[attention=warning]:bg-amber-50 group-data-[attention=danger]:bg-red-50 group-data-[attention=info]:bg-blue-50";
 }

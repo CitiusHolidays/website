@@ -1,8 +1,13 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
-import { act } from "react";
+import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { EmailDeliveryStatusRegion } from "./ActivityView";
+import { EmailDeliveryStatusRegion as EmailDeliveryContent } from "./ActivityView";
+
+function EmailDeliveryStatusRegion(props) {
+  const [filter, setFilter] = useState("all");
+  return <EmailDeliveryContent {...props} filter={filter} onFilterChange={setFilter} />;
+}
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>");
 
@@ -47,7 +52,7 @@ describe("Activity email delivery visibility", () => {
     expect(mounted.container.textContent).toContain("4 sent");
     expect(mounted.container.textContent).toContain("8 total");
     expect(mounted.container.textContent).toContain("2 retrying");
-    expect(mounted.container.textContent).toContain("1 exhausted");
+    expect(mounted.container.textContent).toContain("1 failed after retries");
     expect(mounted.container.textContent).not.toContain("@");
     expect(mounted.container.querySelector("a")?.getAttribute("href")).toBe(
       "/portal/queries?open=query&id=query_1"
@@ -80,7 +85,7 @@ describe("Activity email delivery visibility", () => {
         ]}
       />
     );
-    expect(mounted.container.textContent).toContain("Counts shown are partial");
+    expect(mounted.container.textContent).toContain("Counts shown are incomplete");
     expect(mounted.container.textContent).toContain("501 currently counted");
     expect(mounted.container.textContent).not.toContain("501 total");
     await act(async () => mounted.root.unmount());
@@ -88,7 +93,9 @@ describe("Activity email delivery visibility", () => {
 
   test("Does not claim an empty inbox while authorization coverage is partial", async () => {
     const mounted = await render(<EmailDeliveryStatusRegion coverage="partial" summaries={[]} />);
-    expect(mounted.container.textContent).toContain("bounded, incomplete view");
+    expect(mounted.container.textContent).toContain(
+      "More records may be available as totals update"
+    );
     expect(mounted.container.textContent).not.toContain("No email delivery events yet");
     await act(async () => mounted.root.unmount());
   });
@@ -165,11 +172,11 @@ describe("Activity email delivery visibility", () => {
         triage={triage}
       />
     );
-    expect(mounted.container.textContent).toContain("Privacy-safe event triage");
+    expect(mounted.container.textContent).toContain("Delivery details");
     expect(mounted.container.textContent).toContain("preview-email-health");
-    expect(mounted.container.textContent).toContain("attempts 1–4");
+    expect(mounted.container.textContent).toContain("attempts 1 to 4");
     expect(mounted.container.textContent).toContain("provider unavailable");
-    expect(mounted.container.textContent).toContain("Cause coverage is partial");
+    expect(mounted.container.textContent).toContain("These counts may be incomplete");
     expect(mounted.container.textContent).not.toContain("private.person@example.com");
     const retryButton = [...mounted.container.querySelectorAll("button")].find((button) =>
       button.textContent?.includes("Retry failed recipients once")
@@ -182,7 +189,7 @@ describe("Activity email delivery visibility", () => {
     await act(async () => retryingFilter.click());
     expect(mounted.container.textContent).toContain("Retrying event");
     expect(mounted.container.textContent).not.toContain("Failed event");
-    expect(mounted.container.textContent).not.toContain("1 exhausted");
+    expect(mounted.container.textContent).not.toContain("1 failed after retries");
     await act(async () => mounted.root.unmount());
   });
 });

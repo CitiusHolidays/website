@@ -2,8 +2,9 @@
 
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { ControlledDialog, ControlledDialogTitle } from "@/components/ui/application-dialog";
+import { getPublicGalleryDescription } from "@/data/publicGalleryDescriptions";
 import { cn } from "@/lib/utils";
 import {
   ArrowLeftIcon,
@@ -14,6 +15,7 @@ import {
 
 const EMPTY_IMAGES = [];
 const MODAL_IMAGE_WIDTH = 1600;
+const GALLERY_PAGE_SIZE = 12;
 
 function isSanityImage(src) {
   return src.startsWith("https://cdn.sanity.io/");
@@ -45,7 +47,7 @@ function imageIdentity(item) {
 }
 
 function imageLabel(item, index) {
-  return item.alt?.trim() || `Gallery image ${index + 1}`;
+  return getPublicGalleryDescription(item) || `Gallery image ${index + 1}`;
 }
 
 function tilePreview(index) {
@@ -110,6 +112,8 @@ function imageClassName(isLoaded) {
 }
 
 export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
+  const [visibleCount, setVisibleCount] = useState(GALLERY_PAGE_SIZE);
+  const gridRef = useRef(null);
   const [{ selectedIndex, direction, previewSrc }, setGallery] = useState({
     direction: 0,
     previewSrc: null,
@@ -127,6 +131,15 @@ export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
   const selectedIdentity = imageIdentity(selectedImage);
   const [loadedIdentity, setLoadedIdentity] = useState(null);
 
+  useLayoutEffect(() => {
+    if (visibleCount > GALLERY_PAGE_SIZE) {
+      gridRef.current
+        ?.querySelector(`[data-gallery-index="${visibleCount - GALLERY_PAGE_SIZE}"]`)
+        ?.focus({ preventScroll: true });
+    }
+  }, [visibleCount]);
+
+  const loadMore = () => setVisibleCount((count) => count + GALLERY_PAGE_SIZE);
   const close = () => setGallery((current) => ({ ...current, selectedIndex: null }));
   const handleNext = () => setGallery((current) => moveGallery(current, 1, images.length));
   const handlePrev = () => setGallery((current) => moveGallery(current, -1, images.length));
@@ -159,13 +172,14 @@ export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
       <m.div
         className={cn("grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3", className)}
         initial="hidden"
+        ref={gridRef}
         variants={{
           show: { transition: { staggerChildren: shouldReduceMotion ? 0 : 0.07 } },
         }}
         viewport={{ amount: 0.1, once: true }}
         whileInView="show"
       >
-        {images.map((item, index) => {
+        {images.slice(0, visibleCount).map((item, index) => {
           const identity = imageIdentity(item);
           const label = imageLabel(item, index);
           return (
@@ -181,7 +195,7 @@ export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
               type="button"
             >
               <Image
-                alt={item.alt || ""}
+                alt={getPublicGalleryDescription(item)}
                 className="object-cover transition-transform duration-300 fine-hover:group-hover:scale-105 motion-reduce:transform-none"
                 fetchPriority="low"
                 fill
@@ -194,6 +208,23 @@ export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
           );
         })}
       </m.div>
+
+      {images.length > 0 ? (
+        <div className="mt-8 text-center">
+          <p className="text-public-muted text-sm" role="status">
+            Showing {Math.min(visibleCount, images.length)} of {images.length} photos
+          </p>
+          {visibleCount < images.length ? (
+            <button
+              className="mt-4 inline-flex min-h-11 items-center rounded-full border border-public-blue px-6 py-2 font-semibold text-public-blue hover:bg-public-blue hover:text-white focus-visible:outline-2 focus-visible:outline-public-orange-ink focus-visible:outline-offset-4"
+              onClick={loadMore}
+              type="button"
+            >
+              Load more photos
+            </button>
+          ) : null}
+        </div>
+      ) : null}
 
       <ControlledDialog
         backdropClassName="material-structural material-public-night fixed inset-0 bg-public-night/95 backdrop-blur-sm"
@@ -221,7 +252,7 @@ export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
                   {String(selectedIndex + 1).padStart(2, "0")} /{" "}
                   {String(images.length).padStart(2, "0")}
                 </p>
-                <p className="mt-1 max-w-2xl truncate text-sm text-white/85 sm:text-base">
+                <p className="mt-1 max-w-2xl text-pretty text-sm text-white/85 sm:text-base">
                   {imageLabel(selectedImage, selectedIndex)}
                 </p>
               </div>
@@ -286,7 +317,7 @@ export default function GalleryGrid({ images = EMPTY_IMAGES, className }) {
                       <div className="absolute inset-x-0 top-0 h-px animate-pulse bg-gradient-to-r from-transparent via-public-lime to-transparent motion-reduce:animate-none" />
                     </div>
                     <Image
-                      alt={selectedImage.alt || ""}
+                      alt={getPublicGalleryDescription(selectedImage)}
                       className={imageClassName(loadedIdentity === selectedIdentity)}
                       fetchPriority="high"
                       fill

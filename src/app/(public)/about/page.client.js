@@ -27,7 +27,7 @@ const teamMembers = [
   },
   {
     // position: "Director",
-    bio: "With over 28 years in hospitality, Olyvia Basuray is the only Director at Citius Holidays with a core background in hotels and guest services. She has led the company's South India expansion — recruiting regional teams, building supplier relationships, and setting service standards for both corporate and leisure programmes.",
+    bio: "With over 28 years in hospitality, Olyvia Basuray is the only Director at Citius Holidays with a core background in hotels and guest services. She has led the company's South India expansion by recruiting regional teams, building supplier relationships, and setting service standards for both corporate and leisure programmes.",
     image: olyvia,
     name: "Olyvia Basuray",
     quote: "Becoming number one is easier than remaining number one.",
@@ -35,7 +35,7 @@ const teamMembers = [
   },
   {
     // position: "Director",
-    bio: "Based in Kolkata, Rosy Mitra joined Citius Holidays's leadership team in 2023 and leads growth in mass travel and the cement industry segment. With over two decades in service delivery, marketing, and talent acquisition — including nearly 20 years as Head Recruiter at Altius (now Avanade) — she brings operational depth and people-focused leadership to the company's regional expansion.",
+    bio: "Based in Kolkata, Rosy Mitra joined Citius Holidays's leadership team in 2023 and leads growth in mass travel and the cement industry segment. With over two decades in service delivery, marketing, and talent acquisition. She spent nearly 20 years as Head Recruiter at Altius (now Avanade).",
     image: rosy,
     name: "Rosy Mitra",
   },
@@ -87,7 +87,7 @@ export default function AboutPage() {
           <h2 className="mb-4 font-heading font-semibold text-3xl text-public-blue">Our Team</h2>
           <p className="mx-auto mb-12 max-w-3xl text-public-muted">
             Our team handles MICE programmes, corporate travel, and leisure routes across India and
-            abroad — with offices in Delhi, Kolkata, and Bangalore.
+            abroad, with offices in Mumbai, Kolkata, and Bengaluru.
           </p>
         </div>
       </section>
@@ -120,7 +120,7 @@ export default function AboutPage() {
                 </div>
               </div>
 
-              <h2 className="mb-2 font-bold font-heading text-2xl text-brand-dark md:text-3xl">
+              <h2 className="mb-2 font-bold text-2xl text-brand-dark md:text-3xl">
                 In Loving Memory of Shri Arpan Mitra
               </h2>
 
@@ -148,8 +148,8 @@ export default function AboutPage() {
                 </p>
 
                 <p className="text-brand-dark leading-relaxed">
-                  He may be gone, but his influence continues — in the programmes we plan, the
-                  culture he built, and the standards he set.
+                  He may be gone, but his influence continues in the programmes we plan, the culture
+                  he built, and the standards he set.
                 </p>
               </div>
 
@@ -210,12 +210,10 @@ export default function AboutPage() {
                   <PlaneTakeoffIcon className="size-3" />
                 </span>
                 <div className="rounded-xl border border-brand-border bg-white/60 p-6 shadow-sm transition-shadow duration-150 ease-out group-hover:shadow-lg">
-                  <h3 className="mb-2 font-heading font-semibold text-2xl text-brand-dark">
-                    Our Goal
-                  </h3>
+                  <h3 className="mb-2 font-semibold text-2xl text-brand-dark">Our Goal</h3>
                   <p className="text-brand-muted leading-relaxed">
-                    To strengthen the MICE travel ecosystem through reliable programmes, long-term
-                    partnerships, and practical delivery on every trip we plan.
+                    To organise meetings and group travel through reliable programmes, long-term
+                    partnerships, and careful planning on every trip.
                   </p>
                 </div>
               </m.li>
@@ -225,12 +223,10 @@ export default function AboutPage() {
                   <Telescope className="size-3" />
                 </span>
                 <div className="rounded-xl border border-brand-border bg-white/60 p-6 shadow-sm transition-shadow duration-150 ease-out group-hover:shadow-lg">
-                  <h3 className="mb-2 font-heading font-semibold text-2xl text-brand-dark">
-                    Our Vision
-                  </h3>
+                  <h3 className="mb-2 font-semibold text-2xl text-brand-dark">Our Vision</h3>
                   <p className="text-brand-muted leading-relaxed">
-                    To be a trusted name in MICE travel — known for consistent delivery, clear
-                    communication, and programmes that work for clients and partners alike.
+                    To earn repeat business through reliable trips and clear communication with
+                    clients and partners.
                   </p>
                 </div>
               </m.li>
@@ -240,9 +236,7 @@ export default function AboutPage() {
                   <Sparkle className="size-3" />
                 </span>
                 <div className="rounded-xl border border-brand-border bg-white/60 p-6 shadow-sm transition-shadow duration-150 ease-out group-hover:shadow-lg">
-                  <h3 className="mb-2 font-heading font-semibold text-2xl text-brand-dark">
-                    Our Mission
-                  </h3>
+                  <h3 className="mb-2 font-semibold text-2xl text-brand-dark">Our Mission</h3>
                   <p className="text-brand-muted leading-relaxed">
                     At Citius Holidays, we plan MICE programmes that combine creative itinerary
                     design with reliable logistics. We help organisations mark milestones, run

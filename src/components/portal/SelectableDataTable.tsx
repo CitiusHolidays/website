@@ -590,8 +590,9 @@ export function SelectableDataTable<Row extends PortalDataRow>({
               return (
                 <tr
                   aria-label={attention?.label}
-                  className={`group transition-colors hover:bg-citius-blue/[0.04] ${toneClass}`}
+                  className={`group transition-colors hover:bg-citius-blue/[0.04] data-[selected=true]:bg-blue-50 ${toneClass}`}
                   data-attention={tone || undefined}
+                  data-selected={selectedIds.has(String(row.id)) || undefined}
                   key={row.id}
                 >
                   {selectable ? (

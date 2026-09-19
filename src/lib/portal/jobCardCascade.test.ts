@@ -20,49 +20,8 @@ interface Tables {
 }
 
 function makeCtx(initialTables: Tables) {
-  const sourceTables: Tables = {
-    crmCodeSequences: [
-      {
-        _id: "crmCodeSequences_jobCards",
-        key: "jobCards:JC",
-        lastAllocated: 105,
-        legacyRowsScanned: 1,
-        seededAt: 1,
-        updatedAt: 1,
-      },
-      {
-        _id: "crmCodeSequences_approvalRequests",
-        key: "approvalRequests:APR",
-        lastAllocated: 1,
-        legacyRowsScanned: 1,
-        seededAt: 1,
-        updatedAt: 1,
-      },
-    ],
-    crmCodeSequenceTrust: [
-      {
-        _id: "crmCodeSequenceTrust_jobCards",
-        activatedAt: 1,
-        key: "jobCards:JC",
-        lastAllocated: 105,
-        reconciliationRequired: false,
-        updatedAt: 1,
-        version: "crm-code-sequence-seed-v1",
-      },
-      {
-        _id: "crmCodeSequenceTrust_approvalRequests",
-        activatedAt: 1,
-        key: "approvalRequests:APR",
-        lastAllocated: 1,
-        reconciliationRequired: false,
-        updatedAt: 1,
-        version: "crm-code-sequence-seed-v1",
-      },
-    ],
-    ...initialTables,
-  };
   const tables = Object.fromEntries(
-    Object.entries(sourceTables).map(([table, rows]) => [table, [...rows]])
+    Object.entries(initialTables).map(([table, rows]) => [table, [...rows]])
   );
   const deletedStorageIds: string[] = [];
   const takeCalls: Array<{ count: number; tableName: string }> = [];
@@ -229,29 +188,29 @@ function makeCtx(initialTables: Tables) {
 }
 
 describe("DeleteJobCardCascade", () => {
-  test("fails before operation creation while canonical file custody remains", async () => {
+  test("Deletes the source immediately after handing its files to recovery", async () => {
     const jobCardId = "job_with_file";
     const { ctx, tables } = makeCtx({
-      commercialFiles: [
-        {
-          _id: "commercial_file_1",
-          sourceId: jobCardId,
-          sourceType: "jobCard",
-        },
-      ],
+      commercialFiles: [{ _id: "commercial_file_1", sourceId: jobCardId, sourceType: "jobCard" }],
       jobCards: [{ _id: jobCardId }],
     });
+    const recoveryCalls: RuntimeObject[] = [];
+    ctx.runMutation = (_reference, args) => {
+      expect(tables.jobCards).toEqual([{ _id: jobCardId }]);
+      recoveryCalls.push(args);
+      return Promise.resolve(undefined);
+    };
 
-    await expect(
-      deleteJobCardCascade(fromAny<never, unknown>(ctx), fromAny<never, unknown>(jobCardId), {
-        initiatedBy: "auth_accounts",
-        jobCode: "JC-FILE-AA",
-      })
-    ).rejects.toThrow(
-      "This record still owns Commercial Files. Delete them in Commercial Files, then retry after the 14-day recovery window ends."
-    );
-    expect(tables.jobCards).toEqual([{ _id: jobCardId }]);
-    expect(tables.jobCardDeletionOperations).toBeUndefined();
+    await deleteJobCardCascade(fromAny<never, unknown>(ctx), fromAny<never, unknown>(jobCardId), {
+      initiatedBy: "auth_accounts",
+      jobCode: "JC-FILE-AA",
+    });
+
+    expect(recoveryCalls).toEqual([{ sourceId: jobCardId, sourceType: "jobCard" }]);
+    expect(tables.jobCards).toEqual([]);
+    expect(tables.jobCardDeletionOperations).toEqual([
+      expect.objectContaining({ jobCode: "JC-FILE-AA", status: "complete" }),
+    ]);
   });
 
   test("Removes all job-card descendants, linked expense approvals, and stored files", async () => {

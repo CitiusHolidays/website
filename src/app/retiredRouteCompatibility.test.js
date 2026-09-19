@@ -1,6 +1,4 @@
 import { describe, expect, test } from "bun:test";
-import VendorAuthPage from "./(auth)/auth/vendor/page";
-import VendorPage from "./(authenticated)/vendor/page";
 import ChallengesPage from "./(public)/sacred-bharat/challenges/page";
 import GroupPage from "./(public)/sacred-bharat/groups/[groupId]/page";
 import LeaderboardPage from "./(public)/sacred-bharat/leaderboard/page";
@@ -22,10 +20,5 @@ describe("Retired route compatibility", () => {
     for (const page of [ChallengesPage, GroupPage, LeaderboardPage, TrailPage, YatriPage]) {
       expectRedirect(page, "/sacred-bharat");
     }
-  });
-
-  test("keeps both Vendor inbound links but routes them to truthful contact", () => {
-    expectRedirect(VendorAuthPage, "/contact");
-    expectRedirect(VendorPage, "/contact");
   });
 });

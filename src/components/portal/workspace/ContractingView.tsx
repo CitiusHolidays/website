@@ -100,7 +100,7 @@ function ContractingActions({
   };
 
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap gap-2">
       <button className="portal-small-btn" onClick={handleFiles} type="button">
         Files
       </button>
@@ -152,7 +152,7 @@ function ContractingMobileFiles({
   );
 }
 
-function ContractingMobileCard({
+function ContractingMobileDetails({
   getFinalizedPdfUrl,
   getQueryAttachmentUrl,
   row,
@@ -164,21 +164,11 @@ function ContractingMobileCard({
   visibleColumnIds: ReadonlySet<string>;
 }) {
   return (
-    <div className="space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="font-bold text-[length:var(--portal-label-size)] text-citius-blue uppercase tracking-[0.12em]">
-            {row.queryCode}
-          </div>
-          <PortalTooltip content={row.clientName}>
-            <div className="mt-1 truncate font-heading font-semibold text-base text-brand-dark">
-              {row.clientName}
-            </div>
-          </PortalTooltip>
-        </div>
-        <StatusBadge domain="queryContracting" status={row.contractingStatus} />
-      </div>
-      <div className="grid grid-cols-2 gap-3 border-brand-border/70 border-t pt-3 text-sm">
+    <details>
+      <summary className="min-h-11 cursor-pointer content-center rounded-lg px-1 font-medium text-citius-blue text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2">
+        Contracting details
+      </summary>
+      <div className="grid grid-cols-2 gap-3 pt-3 text-sm">
         {visibleColumnIds.has("received") ? (
           <div>
             <span className="text-brand-muted text-xs">Received</span>
@@ -251,7 +241,49 @@ function ContractingMobileCard({
         row={row}
         visible={visibleColumnIds.has("files")}
       />
+    </details>
+  );
+}
+
+function ContractingMobileCard({
+  getFinalizedPdfUrl,
+  getQueryAttachmentUrl,
+  row,
+  visibleColumnIds,
+}: {
+  getFinalizedPdfUrl: ContractingViewProps["getFinalizedPdfUrl"];
+  getQueryAttachmentUrl: ContractingViewProps["getQueryAttachmentUrl"];
+  row: PortalContractingQueryRow;
+  visibleColumnIds: ReadonlySet<string>;
+}) {
+  const attention = contractingRowAttention(row);
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="min-w-0">
+          <div className="font-semibold text-citius-blue text-sm">{row.queryCode}</div>
+          <PortalTooltip content={row.clientName}>
+            <div className="mt-1 break-words font-heading font-semibold text-base text-brand-dark">
+              {row.clientName}
+            </div>
+          </PortalTooltip>
+        </div>
+        <StatusBadge domain="queryContracting" status={row.contractingStatus} />
+      </div>
+      <p className="text-brand-muted text-sm">
+        {row.destination || "Destination TBD"} · {row.contractingOwnerName || "SPOC unassigned"}
+      </p>
+      <p className="text-brand-muted text-xs">
+        Received {formatDate(row.submittedToContractingAt || row.createdAt)}
+      </p>
+      {attention ? <p className="font-medium text-brand-dark text-sm">{attention.label}</p> : null}
       <ContractingJobCardHandoff row={row} />
+      <ContractingMobileDetails
+        getFinalizedPdfUrl={getFinalizedPdfUrl}
+        getQueryAttachmentUrl={getQueryAttachmentUrl}
+        row={row}
+        visibleColumnIds={visibleColumnIds}
+      />
     </div>
   );
 }
@@ -308,6 +340,152 @@ export function ContractingView({
 
   return (
     <div className="space-y-5">
+      <section aria-label="Contracting work">
+        <SelectableDataTable<PortalContractingQueryRow>
+          columns={[
+            {
+              id: "query",
+              kind: "identity",
+              label: "Query",
+              render: (row: PortalContractingQueryRow) => (
+                <span className="font-heading font-semibold text-citius-blue">{row.queryCode}</span>
+              ),
+              sortValue: (row: PortalContractingQueryRow) => row.queryCode,
+            },
+            {
+              id: "client",
+              label: "Client",
+              render: (row: PortalContractingQueryRow) => strong(row.clientName),
+              sortValue: (row: PortalContractingQueryRow) => row.clientName,
+            },
+            {
+              hideable: true,
+              id: "received",
+              label: "Received",
+              render: (row: PortalContractingQueryRow) => (
+                <span className="text-brand-muted text-xs">
+                  {formatDate(row.submittedToContractingAt || row.createdAt)}
+                </span>
+              ),
+              sortValue: (row: PortalContractingQueryRow) =>
+                row.submittedToContractingAt || row.createdAt,
+            },
+            {
+              hideable: true,
+              id: "confirmed",
+              label: "Confirmed",
+              render: (row: PortalContractingQueryRow) => (
+                <span className="text-brand-muted text-xs">{formatDate(row.confirmedAt)}</span>
+              ),
+              sortValue: (row: PortalContractingQueryRow) => row.confirmedAt,
+            },
+            {
+              hideable: true,
+              id: "sales-spoc",
+              label: "Sales SPOC",
+              render: (row: PortalContractingQueryRow) => row.salesOwnerName || "-",
+              sortValue: (row: PortalContractingQueryRow) => row.salesOwnerName || "",
+            },
+            {
+              id: "contracting-spoc",
+              label: "Contracting SPOC",
+              render: (row: PortalContractingQueryRow) => row.contractingOwnerName || "Unassigned",
+              sortValue: (row: PortalContractingQueryRow) => row.contractingOwnerName || "",
+            },
+            {
+              hideable: true,
+              id: "ticketing-scope",
+              label: "Ticketing Scope",
+              render: (row: PortalContractingQueryRow) => row.ticketingScope || "-",
+            },
+            {
+              hideable: true,
+              id: "travel-in-series",
+              label: "Travel in Series",
+              render: (row: PortalContractingQueryRow) => (row.travelInBatches ? "Yes" : "No"),
+            },
+            {
+              hideable: true,
+              id: "batch-details",
+              label: "Series Details",
+              render: (row: PortalContractingQueryRow) =>
+                row.travelInBatches ? row.batchingNotes || "-" : "-",
+            },
+            {
+              hideable: true,
+              id: "notes",
+              label: "Notes",
+              render: (row: PortalContractingQueryRow) => notesPreview(row.notes),
+            },
+            {
+              hideable: true,
+              id: "files",
+              label: "Files",
+              render: (row: PortalContractingQueryRow) => (
+                <QueryFilesSummary
+                  attachments={row.attachments || []}
+                  getFinalizedPdfUrl={getFinalizedPdfUrl}
+                  getQueryAttachmentUrl={getQueryAttachmentUrl}
+                  proposalDocument={row.proposalDocument}
+                />
+              ),
+            },
+            {
+              id: "status",
+              kind: "status",
+              label: "Status",
+              render: (row: PortalContractingQueryRow) => (
+                <div className="space-y-2">
+                  <StatusBadge domain="queryContracting" status={row.contractingStatus} />
+                  <ContractingJobCardHandoff row={row} />
+                </div>
+              ),
+              sortValue: (row: PortalContractingQueryRow) => row.contractingStatus || "",
+            },
+            {
+              align: "right",
+              hideable: true,
+              id: "proposal-cost",
+              label: "Proposal Cost",
+              render: (row: PortalContractingQueryRow) => (
+                <ContractingProposalCost openModal={openModal} row={row} />
+              ),
+            },
+            {
+              align: "right",
+              hideable: true,
+              id: "approx-margin",
+              label: "Approx. Margin",
+              render: approximateMarginLabel,
+            },
+            {
+              cellClassName: "min-w-56",
+              headerClassName: "min-w-56",
+              id: "action",
+              kind: "action",
+              label: "Action",
+              render: (row: PortalContractingQueryRow) => (
+                <ContractingActions
+                  access={access}
+                  canAssign={canAssign}
+                  deleteItem={deleteItem}
+                  has={has}
+                  openModal={openModal}
+                  removeQuery={removeQuery}
+                  row={row}
+                />
+              ),
+            },
+          ]}
+          empty="No contracting queries yet."
+          filtersActive={filtersActive}
+          layoutKey="contracting:queries"
+          mobileCardRender={renderContractingMobileCard}
+          rowAttention={contractingRowAttention}
+          rows={rows}
+          tableClassName="min-w-[78rem]"
+        />
+      </section>
       {canAssign ? (
         <Panel title="Contracting team">
           <SelectableDataTable<PortalContractingTeamRow>
@@ -317,8 +495,8 @@ export function ContractingView({
               { id: "location", label: "Location", render: (row) => row.location },
               {
                 id: "active-queries",
-                label: "Active queries",
-                render: (row) => row.activeQueries,
+                label: "Active loaded queries",
+                render: (row) => (loading ? "Loading…" : row.activeQueries),
               },
             ]}
             compact
@@ -327,150 +505,6 @@ export function ContractingView({
           />
         </Panel>
       ) : null}
-      <SelectableDataTable<PortalContractingQueryRow>
-        columns={[
-          {
-            id: "query",
-            kind: "identity",
-            label: "Query",
-            render: (row: PortalContractingQueryRow) => (
-              <span className="font-heading font-semibold text-citius-blue">{row.queryCode}</span>
-            ),
-            sortValue: (row: PortalContractingQueryRow) => row.queryCode,
-          },
-          {
-            id: "client",
-            label: "Client",
-            render: (row: PortalContractingQueryRow) => strong(row.clientName),
-            sortValue: (row: PortalContractingQueryRow) => row.clientName,
-          },
-          {
-            hideable: true,
-            id: "received",
-            label: "Received",
-            render: (row: PortalContractingQueryRow) => (
-              <span className="text-brand-muted text-xs">
-                {formatDate(row.submittedToContractingAt || row.createdAt)}
-              </span>
-            ),
-            sortValue: (row: PortalContractingQueryRow) =>
-              row.submittedToContractingAt || row.createdAt,
-          },
-          {
-            hideable: true,
-            id: "confirmed",
-            label: "Confirmed",
-            render: (row: PortalContractingQueryRow) => (
-              <span className="text-brand-muted text-xs">{formatDate(row.confirmedAt)}</span>
-            ),
-            sortValue: (row: PortalContractingQueryRow) => row.confirmedAt,
-          },
-          {
-            hideable: true,
-            id: "sales-spoc",
-            label: "Sales SPOC",
-            render: (row: PortalContractingQueryRow) => row.salesOwnerName || "-",
-            sortValue: (row: PortalContractingQueryRow) => row.salesOwnerName || "",
-          },
-          {
-            id: "contracting-spoc",
-            label: "Contracting SPOC",
-            render: (row: PortalContractingQueryRow) => row.contractingOwnerName || "Unassigned",
-            sortValue: (row: PortalContractingQueryRow) => row.contractingOwnerName || "",
-          },
-          {
-            hideable: true,
-            id: "ticketing-scope",
-            label: "Ticketing Scope",
-            render: (row: PortalContractingQueryRow) => row.ticketingScope || "-",
-          },
-          {
-            hideable: true,
-            id: "travel-in-series",
-            label: "Travel in Series",
-            render: (row: PortalContractingQueryRow) => (row.travelInBatches ? "Yes" : "No"),
-          },
-          {
-            hideable: true,
-            id: "batch-details",
-            label: "Series Details",
-            render: (row: PortalContractingQueryRow) =>
-              row.travelInBatches ? row.batchingNotes || "-" : "-",
-          },
-          {
-            hideable: true,
-            id: "notes",
-            label: "Notes",
-            render: (row: PortalContractingQueryRow) => notesPreview(row.notes),
-          },
-          {
-            hideable: true,
-            id: "files",
-            label: "Files",
-            render: (row: PortalContractingQueryRow) => (
-              <QueryFilesSummary
-                attachments={row.attachments || []}
-                getFinalizedPdfUrl={getFinalizedPdfUrl}
-                getQueryAttachmentUrl={getQueryAttachmentUrl}
-                proposalDocument={row.proposalDocument}
-              />
-            ),
-          },
-          {
-            id: "status",
-            kind: "status",
-            label: "Status",
-            render: (row: PortalContractingQueryRow) => (
-              <div className="space-y-2">
-                <StatusBadge domain="queryContracting" status={row.contractingStatus} />
-                <ContractingJobCardHandoff row={row} />
-              </div>
-            ),
-            sortValue: (row: PortalContractingQueryRow) => row.contractingStatus || "",
-          },
-          {
-            align: "right",
-            hideable: true,
-            id: "proposal-cost",
-            label: "Proposal Cost",
-            render: (row: PortalContractingQueryRow) => (
-              <ContractingProposalCost openModal={openModal} row={row} />
-            ),
-          },
-          {
-            align: "right",
-            hideable: true,
-            id: "approx-margin",
-            label: "Approx. Margin",
-            render: approximateMarginLabel,
-          },
-          {
-            cellClassName: "min-w-56",
-            headerClassName: "min-w-56",
-            id: "action",
-            kind: "action",
-            label: "Action",
-            render: (row: PortalContractingQueryRow) => (
-              <ContractingActions
-                access={access}
-                canAssign={canAssign}
-                deleteItem={deleteItem}
-                has={has}
-                openModal={openModal}
-                removeQuery={removeQuery}
-                row={row}
-              />
-            ),
-          },
-        ]}
-        empty="No contracting queries yet."
-        filtersActive={filtersActive}
-        layoutKey="contracting:queries"
-        mobileCardRender={renderContractingMobileCard}
-        rowAttention={contractingRowAttention}
-        rows={rows}
-        tableClassName="min-w-[78rem]"
-      />
     </div>
   );
 }

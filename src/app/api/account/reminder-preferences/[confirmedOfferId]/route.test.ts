@@ -1,8 +1,10 @@
-import { beforeEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, spyOn, test } from "bun:test";
+import { ConvexError } from "convex/values";
 import { isJsonObject, type JsonValue } from "@/lib/jsonValue";
 
 let authToken: string | null = "account-token";
-let mutationFailure = false;
+let mutationFailure: Error | null = null;
+let errorLog: ReturnType<typeof spyOn>;
 const mutationCalls: Array<{ args: unknown; options: unknown }> = [];
 const PRIVATE_ERROR_PATTERN = /private-customer|database token|example\.com/i;
 
@@ -10,7 +12,7 @@ mock.module("@/lib/auth-server", () => ({
   fetchAuthMutation: (_mutation: JsonValue, args: JsonValue, options: JsonValue) => {
     mutationCalls.push({ args, options });
     if (mutationFailure) {
-      throw new Error("database token private-customer@example.com");
+      throw mutationFailure;
     }
     const milestones = isJsonObject(args) ? args.milestones : undefined;
     return {
@@ -39,10 +41,13 @@ function request(body: JsonValue, confirmedOfferId = "confirmedOffers_1") {
 }
 
 beforeEach(() => {
+  errorLog = spyOn(console, "error").mockImplementation(() => undefined);
   authToken = "account-token";
-  mutationFailure = false;
+  mutationFailure = null;
   mutationCalls.length = 0;
 });
+
+afterEach(() => errorLog.mockRestore());
 
 describe("Account journey reminder preference route", () => {
   test("requires Account authentication before any write", async () => {
@@ -115,13 +120,28 @@ describe("Account journey reminder preference route", () => {
     });
   });
 
+  test.each([
+    ["UNAUTHORIZED", 401],
+    ["Journey not found", 404],
+    ["VERIFIED_PHONE_REQUIRED", 409],
+  ] as const)("classifies expected %s denials as %i", async (code, status) => {
+    mutationFailure = new ConvexError(code);
+    const response = await request({ milestones: ["arrival_pack_ready"] });
+    expect(response.status).toBe(status);
+    expect(errorLog).not.toHaveBeenCalled();
+  });
+
   test("keeps backend and recipient details out of errors", async () => {
-    mutationFailure = true;
+    mutationFailure = new Error("database token private-customer@example.com");
 
     const response = await request({ milestones: ["arrival_pack_ready"] });
     const body = await response.json();
 
-    expect(response.status).toBe(400);
+    expect(response.status).toBe(500);
+    expect(errorLog).toHaveBeenCalledWith(
+      expect.stringContaining('"errorCategory":"account_service_failure"')
+    );
+    expect(response.headers.get("x-request-id")).toBeTruthy();
     expect(body).toEqual({
       error: "Reminder choices could not be saved. Please try again.",
     });

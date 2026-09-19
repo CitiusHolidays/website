@@ -10,7 +10,7 @@ import {
   RotateCcw,
   ShieldCheck,
 } from "lucide-react";
-import { type ChangeEvent, useState } from "react";
+import { type ChangeEvent, useId, useState } from "react";
 import { PortalSearchField } from "@/components/portal/PortalSearchField";
 import { cn } from "@/lib/utils";
 import type {
@@ -162,18 +162,21 @@ export function OperationalTargetBanner({
 function ControlSwitch({
   checked,
   disabled,
+  describedBy,
   label,
   onChange,
 }: {
   checked: boolean;
   disabled: boolean;
+  describedBy: string;
   label: string;
   onChange: () => void;
 }) {
   return (
     <button
       aria-checked={checked}
-      aria-label={(checked ? "Pause " : "Make available ") + label}
+      aria-describedby={describedBy}
+      aria-label={`${label} availability`}
       className={cn(
         "relative h-11 w-14 shrink-0 rounded-full focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2",
         disabled && "cursor-not-allowed opacity-45"
@@ -201,10 +204,7 @@ function ControlSwitch({
   );
 }
 
-function statusChip(control: OperationalControlRow, staged?: PersistedControlState) {
-  if (staged) {
-    return { label: `Staged: ${stateLabel(staged)}`, tone: "bg-citius-blue/10 text-citius-blue" };
-  }
+function statusChip(control: OperationalControlRow) {
   if (control.blockedBy.length > 0) {
     return { label: "Blocked by another control", tone: "bg-amber-100 text-amber-900" };
   }
@@ -219,18 +219,22 @@ function statusChip(control: OperationalControlRow, staged?: PersistedControlSta
 
 function OperationalControlRowItem({
   control,
+  disabled,
   labelsByKey,
   onStage,
   staged,
 }: {
   control: OperationalControlRow;
+  disabled: boolean;
   labelsByKey: ReadonlyMap<OperationalControlKey, string>;
   onStage: (control: OperationalControlRow, state: PersistedControlState) => void;
   staged?: PersistedControlState;
 }) {
-  const configured = staged ?? persistedStateForConfiguredState(control.configuredState);
+  const stateId = useId();
+  const current = persistedStateForConfiguredState(control.configuredState);
+  const configured = staged ?? current;
   const checked = configured !== "disabled";
-  const chip = statusChip(control, staged);
+  const chip = statusChip(control);
   const toggle = () => onStage(control, checked ? "disabled" : "enabled");
   const normal = () => onStage(control, "default");
   return (
@@ -243,9 +247,21 @@ function OperationalControlRowItem({
           </span>
         </div>
         <p className="mt-1 text-brand-muted text-sm">{control.description}</p>
+        <div className="mt-2 space-y-1 text-brand-muted text-xs" id={stateId}>
+          <p>
+            Current: {stateLabel(current)}. Effective:{" "}
+            {control.effectiveEnabled ? "Available" : "Unavailable"}.
+          </p>
+          <p aria-live="polite" className="text-citius-blue">
+            {staged ? `Proposed: ${stateLabel(staged)}. Not applied yet.` : null}
+          </p>
+          {control.expiresAt === undefined ? null : (
+            <p>Automatic restoration: {formatTimestamp(control.expiresAt)}.</p>
+          )}
+        </div>
         {control.blockedBy.length > 0 ? (
           <p className="mt-1 text-amber-900 text-xs">
-            Configured as {stateLabel(configured)}, but unavailable until{" "}
+            Configured as {stateLabel(current)}, but unavailable until{" "}
             {control.blockedBy.map((key) => labelsByKey.get(key) ?? key).join(", ")} is available.
           </p>
         ) : null}
@@ -269,7 +285,7 @@ function OperationalControlRowItem({
       <div className="flex items-center justify-end gap-2">
         <button
           className="portal-small-btn inline-flex min-h-11 items-center gap-1.5"
-          disabled={configured === "default"}
+          disabled={disabled || configured === "default"}
           onClick={normal}
           type="button"
         >
@@ -278,7 +294,8 @@ function OperationalControlRowItem({
         </button>
         <ControlSwitch
           checked={checked}
-          disabled={control.availability !== "available"}
+          describedBy={stateId}
+          disabled={disabled || control.availability !== "available"}
           label={control.label}
           onChange={toggle}
         />
@@ -290,6 +307,7 @@ function OperationalControlRowItem({
 export function OperationalControlCatalog({
   controlLabels,
   controls,
+  disabled = false,
   filter,
   onFilterChange,
   onSearchChange,
@@ -299,6 +317,7 @@ export function OperationalControlCatalog({
 }: {
   controlLabels: ReadonlyMap<OperationalControlKey, string>;
   controls: OperationalControlRow[];
+  disabled?: boolean;
   filter: ControlStatusFilter;
   onFilterChange: (value: ControlStatusFilter) => void;
   onSearchChange: (value: string) => void;
@@ -349,6 +368,7 @@ export function OperationalControlCatalog({
               {rows.map((control) => (
                 <OperationalControlRowItem
                   control={control}
+                  disabled={disabled}
                   key={control.key}
                   labelsByKey={controlLabels}
                   onStage={onStage}
@@ -551,6 +571,7 @@ export function ChangeSetReviewPanel({
           <span className="font-semibold">Why are you making this change?</span>
           <textarea
             className="portal-input mt-2 min-h-28 w-full resize-y"
+            disabled={pending}
             onChange={(event) => onReasonChange(event.target.value)}
             placeholder="Required. Add the operational context someone will need later."
             value={reason}
@@ -560,6 +581,7 @@ export function ChangeSetReviewPanel({
           <span className="font-semibold">Restore the previous state</span>
           <select
             className="portal-input mt-2 min-h-11 w-full"
+            disabled={pending}
             onChange={(event) => {
               if (isRestorationChoice(event.target.value)) {
                 onRestorationChange(event.target.value);
@@ -621,9 +643,20 @@ export function LatestChangeReceipt({
     return null;
   }
   return (
-    <section className="rounded-xl border border-emerald-300 bg-emerald-50 p-4" role="status">
+    <section
+      className={cn(
+        "rounded-xl border p-4",
+        changeSet.status === "restoration_failed"
+          ? "border-amber-300 bg-amber-50"
+          : "border-emerald-300 bg-emerald-50"
+      )}
+    >
       <div className="flex items-start gap-3">
-        <Check aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-emerald-800" />
+        {changeSet.status === "restoration_failed" ? (
+          <CircleAlert aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-amber-900" />
+        ) : (
+          <Check aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-emerald-800" />
+        )}
         <div className="min-w-0">
           <h3 className="font-heading font-semibold text-brand-dark text-lg">
             Most recent operational result
@@ -710,6 +743,7 @@ export function ProductionTestLab({
   activeRuns,
   canLoadMore,
   history,
+  identity,
   latestResults,
   note,
   onLoadMore,
@@ -724,6 +758,7 @@ export function ProductionTestLab({
   activeRuns: ProductionTestRun[];
   canLoadMore: boolean;
   history: ProductionTestRun[];
+  identity?: OperationalTargetIdentity;
   latestResults: ProductionTestResult[] | null;
   note: string;
   onLoadMore: () => void;
@@ -737,7 +772,7 @@ export function ProductionTestLab({
 }) {
   const [testSearch, setTestSearch] = useState("");
   const recipesLoading = recipes === undefined;
-  const controlsLocked = pending || activeRuns.length > 0 || recipesLoading;
+  const controlsLocked = pending || activeRuns.length > 0 || recipesLoading || !identity;
   let runButtonLabel = `Run ${selected.size} selected ${selected.size === 1 ? "check" : "checks"}`;
   if (pending) {
     runButtonLabel = "Running checks…";
@@ -782,7 +817,7 @@ export function ProductionTestLab({
             {activeRuns.map((run) => (
               <button
                 className="portal-primary-btn min-h-11"
-                disabled={pending}
+                disabled={pending || !identity}
                 key={run._id}
                 onClick={() => onResume(run._id)}
                 type="button"
@@ -798,7 +833,9 @@ export function ProductionTestLab({
           <FlaskConical aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-citius-blue" />
           <div>
             <h3 className="font-heading font-semibold text-brand-dark text-lg">
-              Production Test Lab
+              {identity
+                ? `${identity.targetEnvironment[0]?.toUpperCase()}${identity.targetEnvironment.slice(1)} Test Lab`
+                : "Test Lab"}
             </h3>
             <p className="mt-1 max-w-3xl text-brand-muted text-sm">
               Check major feature contracts without sending email, creating leads or bookings,
@@ -817,7 +854,7 @@ export function ProductionTestLab({
           ) : null}
           {recipes?.length === 0 ? (
             <p className="rounded-lg border border-brand-border bg-white/70 p-4 text-brand-muted text-sm">
-              No Production Test Lab checks are available for this source revision.
+              No Test Lab checks are available for this source revision.
             </p>
           ) : null}
           {majorRecipes.length > 0 ? (

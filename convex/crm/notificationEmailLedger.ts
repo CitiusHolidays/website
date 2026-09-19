@@ -802,6 +802,7 @@ export const listDeliverySummary = query({
 interface TriageRow {
   attempts: number;
   failureCode?: string;
+  resendSourceUpdatedAt?: number;
   status: DeliveryStatus;
 }
 
@@ -839,7 +840,8 @@ export function notificationEmailTriage(rows: TriageRow[]) {
       if (
         (row.status === "exhausted" || row.status === "skipped") &&
         RETRYABLE_RESEND_FAILURES.has(code) &&
-        row.attempts < MAX_RESEND_TOTAL_ATTEMPTS
+        row.attempts < MAX_RESEND_TOTAL_ATTEMPTS &&
+        row.resendSourceUpdatedAt === undefined
       ) {
         resendEligible += 1;
       }
@@ -1047,12 +1049,15 @@ export const requestDeliveryResend = mutation({
             (delivery.status === "exhausted" || delivery.status === "skipped") &&
             RETRYABLE_RESEND_FAILURES.has(safeNotificationEmailFailureCode(delivery.failureCode))
           ) ||
-          delivery.attempts >= MAX_RESEND_TOTAL_ATTEMPTS
+          delivery.attempts >= MAX_RESEND_TOTAL_ATTEMPTS ||
+          (delivery.resendSourceUpdatedAt !== undefined &&
+            delivery.resendSourceUpdatedAt !== args.expectedUpdatedAt)
         ) {
           return null;
         }
         return {
           attempts: Math.max(delivery.attempts, RESEND_DELIVERY_MAX_ATTEMPTS),
+          deliveryId: delivery._id,
           recipient,
           recipientHash: delivery.recipientHash,
         };
@@ -1093,6 +1098,15 @@ export const requestDeliveryResend = mutation({
       });
       return { queuedRecipientCount: effect.receipt.recipientCount ?? 0, replayed: true };
     }
+    // Reserve every recipient in the scheduling transaction. Provider callbacks
+    // can advance the event revision before the worker reaches later recipients.
+    await Promise.all(
+      recipients.map(({ deliveryId }) =>
+        ctx.db.patch("notificationEmailDeliveries", deliveryId, {
+          resendSourceUpdatedAt: args.expectedUpdatedAt,
+        })
+      )
+    );
     await ctx.scheduler.runAfter(0, internal.crm.notificationEmails.sendNotificationEmail, {
       attemptOffsets: recipients.map(({ attempts, recipientHash }) => ({
         attempts,

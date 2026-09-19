@@ -55,12 +55,15 @@ export function BookingTab({ options, trailSlug }) {
           <>
             <span className="mb-2 flex items-center gap-2 font-heading text-citius-blue text-lg">
               {opt.label}
-              <ExternalLink className="size-4 opacity-0 transition-opacity group-hover:opacity-60" />
+              {isExternal ? (
+                <ExternalLink aria-hidden className="size-4 shrink-0" />
+              ) : (
+                <ArrowRight aria-hidden className="size-4 shrink-0" />
+              )}
             </span>
             {opt.note ? (
               <p className="text-brand-muted text-sm leading-relaxed">{opt.note}</p>
             ) : null}
-            <span className="mt-4 font-medium text-public-orange-ink text-sm">Continue →</span>
           </>
         );
         if (isExternal) {

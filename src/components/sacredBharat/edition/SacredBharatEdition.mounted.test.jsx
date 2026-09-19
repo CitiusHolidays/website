@@ -143,6 +143,12 @@ function questionImage(container, question) {
   );
 }
 
+function disclosureWithText(container, text) {
+  return [...container.querySelectorAll("details")].find((details) =>
+    details.querySelector("summary")?.textContent?.includes(text)
+  );
+}
+
 async function answerQuestion(container, question, nextLabel) {
   const answer = question.choices.find((choice) => choice.id === question.answer)?.label;
   expect(question.clueAlt).not.toMatch(ANSWER_BEARING_CLUE_TERMS);
@@ -208,11 +214,23 @@ describe("Mounted Sacred Bharat edition flow", () => {
 
     expect(container.textContent).toContain("5/5");
     expect(container.textContent).toContain("Every detail");
+    expect(document.activeElement).toBe(container.querySelector("h1"));
+    const storyOptions = disclosureWithText(container, "Story preview and treatment");
+    const recapDisclosure = disclosureWithText(container, "Your edition recap");
+    expect(storyOptions?.open).toBe(false);
+    expect(recapDisclosure?.open).toBe(false);
+    for (const label of ["Invite a friend", "Download", "Copy link"]) {
+      expect(buttonWithText(container, label)?.closest("details")).toBeNull();
+    }
+    await act(async () => recapDisclosure?.querySelector("summary")?.click());
+    expect(recapDisclosure?.open).toBe(true);
     const recap = container.querySelector('section[aria-labelledby="sacred-result-recap"]');
     expect(recap?.querySelectorAll("li")).toHaveLength(5);
     expect(recap?.textContent).toContain("Recognised: Varanasi, Uttar Pradesh");
     expect(recap?.textContent).toContain("Recognised: Sri Harmandir Sahib, Amritsar");
     expect(recap?.textContent).toContain("24 carved wheels");
+    await act(async () => storyOptions?.querySelector("summary")?.click());
+    expect(storyOptions?.open).toBe(true);
     expect(container.textContent).toContain("Choose your Story treatment");
     expect(container.textContent).toContain("Midnight archive");
     expect(container.textContent).toContain("Temple red");
@@ -221,6 +239,41 @@ describe("Mounted Sacred Bharat edition flow", () => {
     expect(container.querySelector('a[href="/pilgrimage"]')?.textContent).toContain(
       "Explore pilgrimage routes"
     );
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("reveals a wrong answer without advancing and retains the result recap", async () => {
+    const { container, root } = await mountEdition();
+    const [question] = SACRED_BHARAT_EDITION_001.questions;
+    const wrongChoice = question.choices.find((choice) => choice.id !== question.answer);
+    expect(buttonWithText(container, "Next detail")).toBeUndefined();
+    expect(container.querySelector(`a[href="${question.credit.source}"]`)?.textContent).toContain(
+      `${question.credit.author} · ${question.credit.license}`
+    );
+
+    await act(async () => buttonWithText(container, wrongChoice.label)?.click());
+
+    expect(container.querySelector("h1")?.textContent).toBe(question.prompt);
+    expect(container.querySelector("h2")?.textContent).toBe(question.reveal);
+    expect(container.textContent).toContain("Revealed");
+    expect(container.textContent).toContain(question.fact);
+    expect(container.querySelector(`a[href="${question.factSource}"]`)).not.toBeNull();
+    expect(buttonWithText(container, wrongChoice.label)?.disabled).toBe(true);
+    expect(recordedEventCount("question_answered")).toBe(1);
+    expect(recordedEventCount("edition_completed")).toBe(0);
+
+    await act(async () => buttonWithText(container, "Next detail")?.click());
+    await completeEdition(container, SACRED_BHARAT_EDITION_001, 1);
+
+    expect(container.querySelector("h1")?.textContent).toBe("4/5");
+    const recap = disclosureWithText(container, "Your edition recap");
+    await act(async () => recap?.querySelector("summary")?.click());
+    expect(recap?.textContent).toContain(`Revealed: ${question.reveal}`);
+    expect(recap?.querySelectorAll("li")).toHaveLength(5);
+    expect(recordedEventCount("question_answered")).toBe(5);
+    expect(recordedEventCount("edition_completed")).toBe(1);
 
     await act(async () => root.unmount());
     container.remove();
@@ -268,6 +321,11 @@ describe("Mounted Sacred Bharat edition flow", () => {
     const { container, root } = await mountEdition();
     await completeEdition(container);
 
+    await act(async () =>
+      disclosureWithText(container, "Story preview and treatment")
+        ?.querySelector("summary")
+        ?.click()
+    );
     await act(async () => buttonWithText(container, "Temple red")?.click());
     const shareCard = deferred();
     createStoryCardBlob.mockImplementationOnce(() => shareCard.promise);
@@ -351,6 +409,11 @@ describe("Mounted Sacred Bharat edition flow", () => {
     expect(status?.textContent).toBe("Sharing failed. Try Copy link or Download instead.");
     expect(status?.textContent).not.toContain("canvas failed");
     expect(shareButton?.disabled).toBe(false);
+    expect(container.querySelector("h1")?.textContent).toBe("5/5");
+    expect(
+      disclosureWithText(container, "Your edition recap")?.querySelectorAll("li")
+    ).toHaveLength(5);
+    expect(buttonWithText(container, "Download")?.disabled).toBe(false);
     expect(recordedEventCount("share_clicked")).toBe(0);
 
     const copyButton = buttonWithText(container, "Copy link");

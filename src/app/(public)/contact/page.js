@@ -1,15 +1,7 @@
 import { Suspense } from "react";
 import PublicRouteLoadingShell from "@/components/layout/PublicRouteLoadingShell";
 import { resolvePilgrimageTrailContactContext } from "@/data/trails";
-import {
-  createWebsiteSourceContext,
-  websiteSourceContextInput,
-} from "@/lib/contact/websiteSourceContext";
-import {
-  getContactIntentBriefPrefill,
-  getContactIntentPrefill,
-  resolveContactIntent,
-} from "@/lib/public/contactIntent";
+import { getContactIntentPrefill, resolveContactIntent } from "@/lib/public/contactIntent";
 import ContactPageClient from "./page.client";
 
 export const generateMetadata = () => ({
@@ -25,12 +17,8 @@ async function ContactPageContent({ searchParams }) {
     contactIntent === "pilgrimage-callback" || contactIntent === "pilgrimage-enquiry"
       ? resolvePilgrimageTrailContactContext(query?.trail)
       : null;
-  const sourceContext = createWebsiteSourceContext(contactIntent, pilgrimageTrail);
   const initialValues = {
     ...getContactIntentPrefill(contactIntent, pilgrimageTrail),
-    brief: getContactIntentBriefPrefill(contactIntent, pilgrimageTrail),
-    sourceLabel: sourceContext?.label,
-    websiteSourceContext: websiteSourceContextInput(sourceContext),
   };
 
   return (
@@ -46,7 +34,7 @@ export default function ContactPage({ searchParams }) {
     <Suspense
       fallback={
         <PublicRouteLoadingShell
-          description="Tell us your dates, group size, and destination. A Citius specialist will respond within two business days."
+          description="Tell us your dates, group size, and destination. Our team will contact you to discuss your plans."
           title="Get in Touch"
         />
       }

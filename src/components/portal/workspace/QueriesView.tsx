@@ -296,16 +296,14 @@ function QueryMobileCard({
   const attention = getQueryAttentionLabel(row);
   const batchNotes = (row.batchingNotes || "").trim();
   return (
-    <article className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
+    <article className="space-y-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="font-bold text-[length:var(--portal-label-size)] text-citius-blue uppercase tracking-[0.12em]">
-            {row.queryCode}
-          </div>
-          <h3 className="mt-1 truncate font-heading font-semibold text-brand-dark text-lg">
+          <div className="font-semibold text-citius-blue text-sm">{row.queryCode}</div>
+          <h3 className="mt-1 break-words font-heading font-semibold text-brand-dark text-lg">
             {row.clientName}
           </h3>
-          <div className="mt-1 truncate text-brand-muted text-sm">
+          <div className="mt-1 break-words text-brand-muted text-sm">
             {row.destination || "Destination TBD"}
           </div>
         </div>
@@ -317,12 +315,18 @@ function QueryMobileCard({
       </div>
       {attention ? (
         <div className={`rounded-xl border px-3 py-2.5 ${queryAttentionClass(attention)}`}>
-          <div className="font-bold text-[length:var(--portal-label-size)] uppercase tracking-[0.12em]">
-            Attention
-          </div>
-          <div className="mt-0.5 font-medium text-sm">{attention}</div>
+          <div className="font-medium text-sm">{attention}</div>
         </div>
       ) : null}
+      <div className="text-brand-muted text-sm">{queryTravelWindow(row)}</div>
+      <LifecycleDates
+        compact
+        items={[
+          row.confirmedAt
+            ? { label: "Confirmed", value: row.confirmedAt }
+            : { label: "Created", value: row.createdAt },
+        ]}
+      />
       <QueryActions
         access={access}
         deleteItem={deleteItem}
@@ -334,69 +338,70 @@ function QueryMobileCard({
         submitToContracting={submitToContracting}
       />
       <JobCardHandoff row={row} />
-      <div className="grid grid-cols-2 gap-3 border-brand-border/70 border-t pt-3 text-sm">
-        <div className="col-span-2">
-          <span className="text-brand-muted text-xs">Travel</span>
-          <div className="font-medium text-brand-dark">{queryTravelWindow(row)}</div>
+      <details>
+        <summary className="min-h-11 cursor-pointer content-center rounded-lg px-1 font-medium text-citius-blue text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2">
+          Query details
+        </summary>
+        <div className="grid grid-cols-2 gap-3 pt-3 text-sm">
+          {visibleColumnIds.has("pax-budget") ? (
+            <>
+              <div>
+                <span className="text-brand-muted text-xs">Travellers</span>
+                <div className="font-medium text-brand-dark">{row.paxCount} pax</div>
+              </div>
+              <div>
+                <span className="text-brand-muted text-xs">Budget per Person</span>
+                <div className="font-medium text-brand-dark">{money(row.budgetAmount)}</div>
+              </div>
+            </>
+          ) : null}
+          {visibleColumnIds.has("sales-ticketing") ? (
+            <>
+              <div>
+                <span className="text-brand-muted text-xs">Sales</span>
+                <div className="font-medium text-brand-dark">
+                  {row.salesOwnerName || "Unassigned"}
+                </div>
+              </div>
+              <div>
+                <span className="text-brand-muted text-xs">Ticketing</span>
+                <div className="font-medium text-brand-dark">
+                  {row.ticketingScope || "Scope pending"}
+                </div>
+              </div>
+            </>
+          ) : null}
+          {row.travelInBatches ? (
+            <div className="col-span-2">
+              <span className="text-brand-muted text-xs">Travel in Series</span>
+              <div className="font-medium text-brand-dark">
+                Yes{batchNotes ? ` · ${batchNotes}` : ""}
+              </div>
+            </div>
+          ) : null}
         </div>
-        {visibleColumnIds.has("pax-budget") ? (
-          <>
-            <div>
-              <span className="text-brand-muted text-xs">Travellers</span>
-              <div className="font-medium text-brand-dark">{row.paxCount} pax</div>
-            </div>
-            <div>
-              <span className="text-brand-muted text-xs">Budget per Person</span>
-              <div className="font-medium text-brand-dark">{money(row.budgetAmount)}</div>
-            </div>
-          </>
+        {visibleColumnIds.has("files") ? (
+          <QueryFiles
+            getFinalizedPdfUrl={getFinalizedPdfUrl}
+            getQueryAttachmentUrl={getQueryAttachmentUrl}
+            has={has}
+            openModal={openModal}
+            row={row}
+          />
         ) : null}
-        {visibleColumnIds.has("sales-ticketing") ? (
-          <>
-            <div>
-              <span className="text-brand-muted text-xs">Sales</span>
-              <div className="font-medium text-brand-dark">
-                {row.salesOwnerName || "Unassigned"}
-              </div>
-            </div>
-            <div>
-              <span className="text-brand-muted text-xs">Ticketing</span>
-              <div className="font-medium text-brand-dark">
-                {row.ticketingScope || "Scope pending"}
-              </div>
-            </div>
-          </>
-        ) : null}
-        {row.travelInBatches ? (
-          <div className="col-span-2">
-            <span className="text-brand-muted text-xs">Travel in Series</span>
-            <div className="font-medium text-brand-dark">
-              Yes{batchNotes ? ` · ${batchNotes}` : ""}
-            </div>
-          </div>
-        ) : null}
-      </div>
-      {visibleColumnIds.has("files") ? (
-        <QueryFiles
-          getFinalizedPdfUrl={getFinalizedPdfUrl}
-          getQueryAttachmentUrl={getQueryAttachmentUrl}
-          has={has}
-          openModal={openModal}
-          row={row}
+        <LifecycleDates
+          compact
+          items={[
+            { label: "Created", value: row.createdAt },
+            ...(visibleColumnIds.has("lifecycle")
+              ? [
+                  { label: "Submitted", value: row.submittedToContractingAt },
+                  { label: "Confirmed", value: row.confirmedAt },
+                ]
+              : []),
+          ]}
         />
-      ) : null}
-      <LifecycleDates
-        compact
-        items={[
-          { label: "Created", value: row.createdAt },
-          ...(visibleColumnIds.has("lifecycle")
-            ? [
-                { label: "Submitted", value: row.submittedToContractingAt },
-                { label: "Confirmed", value: row.confirmedAt },
-              ]
-            : []),
-        ]}
-      />
+      </details>
     </article>
   );
 }
@@ -569,13 +574,21 @@ export function QueriesView({
             id: "files",
             label: "Files",
             render: (row: PortalQueryRow) => (
-              <QueryFiles
-                getFinalizedPdfUrl={getFinalizedPdfUrl}
-                getQueryAttachmentUrl={getQueryAttachmentUrl}
-                has={has}
-                openModal={openModal}
-                row={row}
-              />
+              <details>
+                <summary
+                  aria-label={`Review files for ${row.queryCode}`}
+                  className="min-h-11 cursor-pointer content-center rounded-lg px-1 font-medium text-citius-blue text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
+                >
+                  Review files
+                </summary>
+                <QueryFiles
+                  getFinalizedPdfUrl={getFinalizedPdfUrl}
+                  getQueryAttachmentUrl={getQueryAttachmentUrl}
+                  has={has}
+                  openModal={openModal}
+                  row={row}
+                />
+              </details>
             ),
           },
           {

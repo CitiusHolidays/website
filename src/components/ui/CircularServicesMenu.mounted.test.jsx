@@ -85,7 +85,7 @@ describe("Mounted Circular Services geometry", () => {
     await act(async () => container.querySelector("button").click());
     await act(async () => new Promise((resolve) => setTimeout(resolve, 50)));
 
-    expect(container.textContent).toContain("MICE");
+    expect(container.querySelector('[aria-live="polite"]').textContent).toContain("Meetings");
     expect(animationFrames).toBeLessThanOrEqual(8);
     await act(async () => root.unmount());
     container.remove();

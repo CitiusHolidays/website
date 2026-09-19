@@ -34,7 +34,10 @@ export function getPublishedPilgrimageRouteFitOptions() {
       {
         contactHref: getPilgrimageTrailContactHref("enquiry", trail.slug),
         detailHref: `/pilgrimage/${trail.slug}`,
+        difficulty: trail.quickFacts.difficulty,
         duration: trail.quickFacts.duration,
+        groupSize: trail.quickFacts.groupSize,
+        maxAltitude: trail.quickFacts.maxAltitude,
         route: trail.quickFacts.route,
         slug: trail.slug,
         title: trail.title,

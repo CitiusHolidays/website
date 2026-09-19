@@ -79,15 +79,11 @@ describe("CreateInitialModalForm", () => {
           clientName: "Acme",
           confirmedOffer: {
             airfarePerPax: 20_000,
-            clientName: "Acme Snapshot",
             confirmedPax: 18,
             destination: "Baku",
-            id: "confirmed_offer_1",
             landCostPerPax: 45_000,
             profitPerPax: 12_000,
             proposalId: "proposal_old",
-            proposalQueryHandoffId: "handoff_1",
-            proposalRevision: 2,
             sellingPricePerPax: 80_000,
             travelEndDate: "2026-10-08",
             travelStartDate: "2026-10-02",
@@ -107,17 +103,10 @@ describe("CreateInitialModalForm", () => {
     });
 
     expect(form).toMatchObject({
-      _openingSourceConfirmedPax: "18",
-      _openingSourceDestination: "Baku",
-      _openingSourceTravelEndDate: "2026-10-08",
-      _openingSourceTravelStartDate: "2026-10-02",
-      clientName: "Acme Snapshot",
-      confirmedOfferId: "confirmed_offer_1",
+      clientName: "Acme",
       confirmedPax: "18",
       destination: "Baku",
       proposalId: "proposal_old",
-      proposalQueryHandoffId: "handoff_1",
-      proposalRevision: 2,
       queryId: "query_1",
       sellingPricePerPax: "80000",
       travelEndDate: "2026-10-08",
@@ -179,28 +168,18 @@ describe("JobCardProposalLinkPatch", () => {
   test("Hydrates immutable Confirmed Offer values when focused query detail arrives", () => {
     expect(
       jobCardProposalLinkPatch({
-        form: {
-          _confirmedOfferQueryId: "query_previous",
-          confirmedPax: "2",
-          openingConfirmedPaxReason: "Reason for the previous Query",
-          queryId: "query_1",
-          sellingPricePerPax: "",
-        },
+        form: { confirmedPax: "2", queryId: "query_1", sellingPricePerPax: "" },
         modal: "jobCard",
         proposals,
         queries: [
           {
             confirmedOffer: {
               airfarePerPax: 20_000,
-              clientName: "Acme Snapshot",
               confirmedPax: 18,
               destination: "Baku",
-              id: "confirmed_offer_1",
               landCostPerPax: 45_000,
               profitPerPax: 12_000,
               proposalId: "proposal_old",
-              proposalQueryHandoffId: "handoff_1",
-              proposalRevision: 2,
               sellingPricePerPax: 80_000,
               travelEndDate: "2026-10-08",
               travelStartDate: "2026-10-02",
@@ -213,20 +192,8 @@ describe("JobCardProposalLinkPatch", () => {
     ).toMatchObject({
       _confirmedOfferQueryId: "query_1",
       _confirmedOfferState: "ready",
-      _openingSourceConfirmedPax: "18",
-      _openingSourceDestination: "Baku",
-      _openingSourceTravelEndDate: "2026-10-08",
-      _openingSourceTravelStartDate: "2026-10-02",
-      clientName: "Acme Snapshot",
-      confirmedOfferId: "confirmed_offer_1",
       confirmedPax: "18",
-      openingConfirmedPaxReason: "",
-      openingDestinationReason: "",
-      openingTravelEndDateReason: "",
-      openingTravelStartDateReason: "",
       proposalId: "proposal_old",
-      proposalQueryHandoffId: "handoff_1",
-      proposalRevision: 2,
       sellingPricePerPax: "80000",
     });
   });
@@ -260,14 +227,7 @@ describe("JobCardProposalLinkPatch", () => {
         modal: "jobCard",
         queries: [
           {
-            confirmedOffer: {
-              clientName: "Acme Snapshot",
-              confirmedPax: 18,
-              id: "confirmed_offer_1",
-              proposalId: "proposal_old",
-              proposalQueryHandoffId: "handoff_1",
-              proposalRevision: 2,
-            },
+            confirmedOffer: { confirmedPax: 18, proposalId: "proposal_old" },
             id: "query_1",
           },
         ],

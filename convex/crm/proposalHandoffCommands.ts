@@ -1,11 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
-import {
-  digestCommandPayload,
-  resolveCommandReceipt,
-  storeCommandReceipt,
-} from "./commandReceipts";
+import { resolveCommandReceipt, storeCommandReceipt } from "./commandReceipts";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import type { PortalAccess } from "./lib";
 import {
@@ -20,7 +16,6 @@ import {
 } from "./lib";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import type { BellNotificationTargets } from "./lib/notifications";
-import { openRevisionRequestForPair, resolveRevisionRequestWithHandoff } from "./proposalLifecycle";
 import { linkedQueriesForProposal } from "./proposalRelations";
 import { enqueueQueryCommercialProjections } from "./queryCommercialProjection";
 
@@ -144,8 +139,8 @@ async function assertFreshHandoff(
   if (target.proposalRevision !== handoff.currentRevision) {
     throw new ConvexError("Proposal revision is out of date. Refresh and try again.");
   }
-  if (["Order Confirmed", "Order Lost"].includes(handoff.query.salesStatus)) {
-    throw new ConvexError("This Query already has a terminal Sales Decision");
+  if (["Accepted", "Rejected"].includes(handoff.proposal.status)) {
+    throw new ConvexError("This Proposal can no longer be handed to Sales");
   }
   assertProposalPricingComplete(handoff.proposal);
   const existingHandoff = await ctx.db
@@ -221,20 +216,15 @@ export async function handleSendProposalToSales(
   const freshHandoff = { currentRevision, link, proposal, query };
   await options.beforeFreshHandoff?.(freshHandoff);
   await assertFreshHandoff(ctx, target, freshHandoff);
-  if (!access.staffId) {
-    throw new ConvexError("A stable Staff identity is required for Proposal handoff");
-  }
-  const openRevisionRequest = await openRevisionRequestForPair(
-    ctx,
-    target.proposalId,
-    target.queryId
-  );
 
   const now = Date.now();
-  const commercialSnapshot = {
+  const handoffId = await insertWithE2eOwnership(ctx, "proposalQueryHandoffs", {
     airfarePerPax: proposal.airfarePerPax ?? 0,
     clientName: proposal.clientName,
+    commandId: args.commandId,
     costPrice: proposal.costPrice ?? 0,
+    handedOffAt: now,
+    handedOffBy: access.authUserId ?? access.email ?? "unknown",
     itinerarySummary: proposal.itinerarySummary ?? "",
     landCostPerPax: proposal.landCostPerPax ?? 0,
     proposalCode: proposal.proposalCode,
@@ -244,25 +234,7 @@ export async function handleSendProposalToSales(
     sellingPrice: proposal.sellingPrice ?? 0,
     taxRate: proposal.taxRate,
     visaCostPerPax: proposal.visaCostPerPax ?? 0,
-  };
-  const commercialDigest = await digestCommandPayload(commercialSnapshot);
-  const handoffId = await insertWithE2eOwnership(ctx, "proposalQueryHandoffs", {
-    ...commercialSnapshot,
-    commandId: args.commandId,
-    commercialDigest,
-    handedOffAt: now,
-    handedOffBy: access.authUserId ?? access.email ?? "unknown",
-    handedOffByName: access.name,
-    handedOffByStaffId: access.staffId,
   });
-  await resolveRevisionRequestWithHandoff(
-    ctx,
-    access,
-    openRevisionRequest,
-    handoffId,
-    currentRevision,
-    now
-  );
   await Promise.all([
     patchWithE2eOwnership(ctx, "proposalQueryLinks", link._id, {
       handedOffAt: now,
@@ -271,6 +243,7 @@ export async function handleSendProposalToSales(
     }),
     patchWithE2eOwnership(ctx, "proposals", target.proposalId, {
       sentToSalesAt: now,
+      status: "Sent",
       ...editorPatch(access, now),
     }),
     patchWithE2eOwnership(ctx, "queries", target.queryId, {

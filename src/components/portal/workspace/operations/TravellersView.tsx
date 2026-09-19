@@ -7,6 +7,7 @@ import {
   getPassportExpiryInfo,
   passportExpiryTone,
 } from "@/lib/portal/passportExpiry";
+import { LoadingPanel } from "../portalAdminHelpers";
 import type { TravellersViewProps } from "../portalViewTypes";
 
 type TravellerRow = TravellersViewProps["rows"][number];
@@ -40,7 +41,7 @@ function TravellerMobileCard({
     { id: "passport", label: "Passport", value: row.passportStatus || "Pending" },
     { id: "ticket", label: "Ticket", value: row.ticketStatus || "-" },
     { id: "tm-call", label: "TM Call", value: row.callingStatus || "-" },
-  ].filter((detail) => visibleColumnIds.has(detail.id));
+  ].filter((detail) => visibleColumnIds.has(detail.id) && detail.value !== "-");
   return (
     <div className="space-y-1">
       <div className="font-semibold text-brand-dark">{row.fullName}</div>
@@ -122,7 +123,6 @@ export function TravellersView({
   countRows,
   jobCards,
   jobCardFilter,
-  setJobCardFilter,
   openModal,
   has,
   deleteItem,
@@ -130,6 +130,7 @@ export function TravellersView({
   removeTraveller,
   removeManyTravellers,
   filtersActive = false,
+  loading = false,
 }: TravellersViewProps) {
   const canManage = has(P.MANAGE_TRAVELLERS);
   const handleBulkDelete = async (ids: string[]) => {
@@ -138,14 +139,11 @@ export function TravellersView({
     }));
     return true;
   };
+  if (loading) {
+    return <LoadingPanel />;
+  }
   return (
     <div className="space-y-4">
-      <TravellerCountView
-        jobCardFilter={jobCardFilter}
-        jobCards={jobCards}
-        rows={countRows}
-        setJobCardFilter={setJobCardFilter}
-      />
       <SelectableDataTable
         columns={[
           {
@@ -271,6 +269,7 @@ export function TravellersView({
         rows={rows}
         selectable={canManage}
       />
+      <TravellerCountView jobCardFilter={jobCardFilter} jobCards={jobCards} rows={countRows} />
     </div>
   );
 }

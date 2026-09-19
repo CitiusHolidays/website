@@ -84,8 +84,8 @@ describe("Staff role/action/view discovery inventory", () => {
 
   test("registers every planned action and current profile across all route families", () => {
     expect(portalE2eDiscoverySummary()).toEqual({
-      actions: { registered: 15, total: 15 },
-      cells: { registered: 22, total: 44 },
+      actions: { registered: 17, total: 17 },
+      cells: { registered: 27, total: 49 },
       roles: { registered: 12, total: 12 },
       views: { registered: 11, total: 26 },
     });
@@ -96,24 +96,24 @@ describe("Staff role/action/view discovery inventory", () => {
 
   test("counts only selected passing titles as executed interaction evidence", () => {
     expect(portalE2eExecutionSummary([])).toEqual({
-      actions: { executed: 0, total: 15 },
-      cells: { executed: 0, total: 22 },
+      actions: { executed: 0, total: 17 },
+      cells: { executed: 0, total: 27 },
       roles: { executed: 0, total: 12 },
       views: { executed: 0, total: 11 },
     });
     expect(
       portalE2eExecutionSummary(["[crm-critical-09] Operations creates and edits traveller"])
     ).toEqual({
-      actions: { executed: 2, total: 15 },
-      cells: { executed: 2, total: 22 },
+      actions: { executed: 2, total: 17 },
+      cells: { executed: 2, total: 27 },
       roles: { executed: 1, total: 12 },
       views: { executed: 1, total: 11 },
     });
     expect(
       portalE2eExecutionSummary(PORTAL_E2E_COVERED_CELLS.map((cell) => cell.testTitle))
     ).toEqual({
-      actions: { executed: 15, total: 15 },
-      cells: { executed: 22, total: 22 },
+      actions: { executed: 17, total: 17 },
+      cells: { executed: 27, total: 27 },
       roles: { executed: 12, total: 12 },
       views: { executed: 11, total: 11 },
     });

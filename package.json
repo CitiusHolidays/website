@@ -46,6 +46,7 @@
     "performance:backend:collect": "bun config/release/collect-staff-workspace-backend-cost.ts",
     "performance:backend:ingest": "bun config/release/ingest-staff-workspace-backend-cost.ts",
     "performance:check": "bun config/release/check-performance-budgets.ts",
+    "performance:preview:local": "bun config/release/document-preview-performance.ts",
     "performance:public:collect": "bun scripts/public-runtime-performance.ts",
     "performance:staff:collect": "bun config/e2e/run-authenticated-performance.ts",
     "precommit:check": "git diff --cached --check && bunx --no-install lint-staged",

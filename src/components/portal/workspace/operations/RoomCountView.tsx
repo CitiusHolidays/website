@@ -10,13 +10,11 @@ import type {
 } from "../portalViewTypes";
 import { strong } from "../portalWorkspaceListHelpers";
 import { Badge, DashboardSectionHeading, Panel } from "../portalWorkspaceListUi";
-import { JobCardFilterPanel } from "./JobCardFilterPanel";
 
 export interface RoomCountViewProps {
   jobCardFilter: string;
   jobCards: PortalJobCardOption[];
   pagination?: PortalPaginationSlice;
-  setJobCardFilter: (value: string) => void;
   summary?: PortalRoomCountSummary;
 }
 
@@ -32,75 +30,72 @@ type JobRoomBreakdownRow = NonNullable<PortalRoomCountSummary["jobBreakdown"]>[n
   roomBreakdown: string;
 };
 
+function buildJobRoomBreakdownRows(summary: PortalRoomCountSummary): JobRoomBreakdownRow[] {
+  return (summary.jobBreakdown || []).map((row) => ({
+    ...row,
+    estimatedRooms: row.roomTypes.reduce(
+      (sum, roomType) => sum + estimateRoomCount(roomType.roomType, roomType.assignments),
+      0
+    ),
+    roomBreakdown:
+      row.roomTypes.map((roomType) => `${roomType.roomType}: ${roomType.assignments}`).join(", ") ||
+      "-",
+  }));
+}
+
 export function RoomCountView({
   summary,
   jobCards,
   jobCardFilter,
   pagination,
-  setJobCardFilter,
 }: RoomCountViewProps) {
+  if (
+    summary?.complete !== true ||
+    summary.roomTypes === undefined ||
+    summary.totalAssignments === undefined
+  ) {
+    return (
+      <Panel title="Room Count">
+        <p className="text-brand-muted text-sm" role="status">
+          Room counts are not ready yet.
+        </p>
+      </Panel>
+    );
+  }
   const selectedJob = jobCards.find((job) => job.id === jobCardFilter);
-  const roomTypeRows: RoomTypeCountRow[] = (summary?.roomTypes || []).map((row) => ({
+  const roomTypeRows: RoomTypeCountRow[] = summary.roomTypes.map((row) => ({
     ...row,
     estimatedRooms: estimateRoomCount(row.roomType, row.assignments),
     id: row.roomType,
   }));
-  const totalAssignments = summary?.totalAssignments ?? 0;
+  const { totalAssignments } = summary;
   const totalEstimatedRooms = roomTypeRows.reduce((sum, row) => sum + row.estimatedRooms, 0);
-  const jobBreakdownRows: JobRoomBreakdownRow[] = jobCardFilter
-    ? []
-    : (summary?.jobBreakdown || []).map((row) => ({
-        ...row,
-        estimatedRooms: row.roomTypes.reduce(
-          (sum, roomType) => sum + estimateRoomCount(roomType.roomType, roomType.assignments),
-          0
-        ),
-        roomBreakdown:
-          row.roomTypes
-            .map((roomType) => `${roomType.roomType}: ${roomType.assignments}`)
-            .join(", ") || "-",
-      }));
+  const jobBreakdownRows = jobCardFilter ? [] : buildJobRoomBreakdownRows(summary);
 
   return (
-    <Panel subtitle="Filter by Job Card and review rooming counts by room type." title="Room Count">
-      <JobCardFilterPanel
-        ariaLabel="Filter room count by job card"
-        jobCardFilter={jobCardFilter}
-        jobCards={jobCards}
-        setJobCardFilter={setJobCardFilter}
-      >
-        <div className="grid grid-cols-2 gap-2 sm:min-w-64">
-          <div className="rounded-lg border border-brand-border bg-white px-3 py-2">
-            <p className="font-semibold text-brand-muted text-xs">Rooming rows</p>
-            <p className="font-heading font-semibold text-brand-dark text-xl tabular-nums">
-              {totalAssignments}
-            </p>
-          </div>
-          <div className="rounded-lg border border-brand-border bg-white px-3 py-2">
-            <p className="font-semibold text-brand-muted text-xs">Est. rooms</p>
-            <p className="font-heading font-semibold text-brand-dark text-xl tabular-nums">
-              {totalEstimatedRooms}
-            </p>
-          </div>
+    <Panel
+      subtitle="Counts use the selected Job Card and period. Search and room filters apply to Rooming assignments."
+      title="Room Count"
+    >
+      <dl className="mb-4 flex flex-wrap gap-x-6 gap-y-2 text-sm">
+        <div className="flex gap-2">
+          <dt className="text-brand-muted">
+            {summary.scope === "visible-job-page" ? "Loaded Job Card rooming rows" : "Rooming rows"}
+          </dt>
+          <dd className="font-semibold tabular-nums">{totalAssignments}</dd>
         </div>
-      </JobCardFilterPanel>
-
-      {summary?.complete ? null : (
-        <div
-          className="mb-4 rounded-xl border border-brand-border bg-brand-light/50 px-4 py-3 text-brand-muted text-sm"
-          role="status"
-        >
-          Room Count aggregates are preparing. Counts will appear after the bounded reconciliation
-          finishes.
+        <div className="flex gap-2">
+          <dt className="text-brand-muted">Estimated rooms</dt>
+          <dd className="font-semibold tabular-nums">{totalEstimatedRooms}</dd>
         </div>
-      )}
+      </dl>
 
       {!jobCardFilter && summary?.breakdownComplete === false ? (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-950 text-sm">
           <span>
             {summary.scope === "all-visible"
-              ? "Totals cover all records available to your role; the Job Card Breakdown is limited to the bounded loaded set."
-              : "Counts and the Job Card Breakdown currently cover the bounded loaded Job Card set available to you."}
+              ? "Totals cover all records available to your role. The breakdown shows only loaded Job Cards."
+              : "Counts and the breakdown include only loaded Job Cards available to you."}
           </span>
           {pagination?.canLoadMore ? (
             <Button
@@ -177,7 +172,7 @@ export function RoomCountView({
                 {
                   id: "room-types",
                   label: "Room Types",
-                  render: (row: JobRoomBreakdownRow) => row.roomBreakdown || "-",
+                  render: (row: JobRoomBreakdownRow) => row.roomBreakdown,
                 },
               ]}
               compact

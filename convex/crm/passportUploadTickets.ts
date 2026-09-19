@@ -4,6 +4,7 @@ import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { internalMutation, internalQuery } from "../_generated/server";
 import { createActivity, PERMISSIONS, requireStaff } from "./lib";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { loadPassportMetadata, savePassportMetadataWithinTransaction } from "./passport";
 import { queueEncryptedCleanupRetry, queuePlaintextCleanupRetry } from "./passportCleanupRetry";
 import {
@@ -129,24 +130,29 @@ export const create = internalMutation({
     const now = Date.now();
     const expiresAt = now + PASSPORT_UPLOAD_TICKET_TTL_MS;
     const recoveryWindowEndsAt = now + PASSPORT_UPLOAD_RECOVERY_WINDOW_MS;
-    const ticketId = await ctx.db.insert("passportUploadTickets", {
-      actorId,
-      cleanupAttempts: 0,
-      createdAt: now,
-      expectedContentDigest: args.expectedContentDigest,
-      expectedFileSize: args.expectedFileSize,
-      expectedMimeType: args.expectedMimeType,
-      expiresAt,
-      purpose: "passport_scan",
-      recoveryMatchCount: 0,
-      recoveryResidualCount: 0,
-      recoveryWindowEndsAt,
-      status: "issued",
-      targetJobCardId: traveller.jobCardId,
-      targetTravellerId: travellerId,
-      tokenDigest: args.tokenDigest,
-      updatedAt: now,
-    });
+    const ticketId = await insertWithE2eOwnership(
+      ctx,
+      "passportUploadTickets",
+      {
+        actorId,
+        cleanupAttempts: 0,
+        createdAt: now,
+        expectedContentDigest: args.expectedContentDigest,
+        expectedFileSize: args.expectedFileSize,
+        expectedMimeType: args.expectedMimeType,
+        expiresAt,
+        purpose: "passport_scan",
+        recoveryMatchCount: 0,
+        recoveryResidualCount: 0,
+        recoveryWindowEndsAt,
+        status: "issued",
+        targetJobCardId: traveller.jobCardId,
+        targetTravellerId: travellerId,
+        tokenDigest: args.tokenDigest,
+        updatedAt: now,
+      },
+      access
+    );
     await ctx.scheduler.runAfter(
       PASSPORT_UPLOAD_RECOVERY_WINDOW_MS,
       internal.crm.passportUploadTickets.recoverUnclaimedUpload,
@@ -260,16 +266,22 @@ export const claim = internalMutation({
       throw new ConvexError("Passport upload storage is already owned");
     }
     const claimExpiresAt = now + PASSPORT_UPLOAD_CLAIM_LEASE_MS;
-    await ctx.db.patch("passportUploadTickets", ticket._id, {
-      claimExpiresAt,
-      claimedAt: now,
-      claimedStorageId: args.storageId,
-      cleanupAfter: claimExpiresAt,
-      cleanupOwner: args.cleanupOwner,
-      recoveryCompletedAt: now,
-      status: "claimed",
-      updatedAt: now,
-    });
+    await patchWithE2eOwnership(
+      ctx,
+      "passportUploadTickets",
+      ticket._id,
+      {
+        claimExpiresAt,
+        claimedAt: now,
+        claimedStorageId: args.storageId,
+        cleanupAfter: claimExpiresAt,
+        cleanupOwner: args.cleanupOwner,
+        recoveryCompletedAt: now,
+        status: "claimed",
+        updatedAt: now,
+      },
+      { source: { documentId: String(ticket._id), tableName: "passportUploadTickets" } }
+    );
     await ctx.scheduler.runAfter(
       PASSPORT_UPLOAD_CLAIM_LEASE_MS,
       internal.crm.passportUploadTickets.cleanup,
@@ -299,21 +311,26 @@ export const reserveEncryptedCleanup = internalMutation({
       return denyInvalidTicket();
     }
     const recoveryWindowEndsAt = now + PASSPORT_UPLOAD_CLAIM_LEASE_MS;
-    const cleanupRecordId = await ctx.db.insert("passportUploadCleanupRecords", {
-      attempts: 0,
-      cleanupAfter: recoveryWindowEndsAt,
-      cleanupOwner: args.cleanupOwner,
-      createdAt: now,
-      expectedContentDigest: args.expectedContentDigest,
-      expectedFileSize: args.expectedFileSize,
-      kind: "encrypted_candidate",
-      recoveryMatchCount: 0,
-      recoveryResidualCount: 0,
-      recoveryWindowEndsAt,
-      status: "reserved",
-      ticketId: ticket._id,
-      updatedAt: now,
-    });
+    const cleanupRecordId = await insertWithE2eOwnership(
+      ctx,
+      "passportUploadCleanupRecords",
+      {
+        attempts: 0,
+        cleanupAfter: recoveryWindowEndsAt,
+        cleanupOwner: args.cleanupOwner,
+        createdAt: now,
+        expectedContentDigest: args.expectedContentDigest,
+        expectedFileSize: args.expectedFileSize,
+        kind: "encrypted_candidate",
+        recoveryMatchCount: 0,
+        recoveryResidualCount: 0,
+        recoveryWindowEndsAt,
+        status: "reserved",
+        ticketId: ticket._id,
+        updatedAt: now,
+      },
+      { source: { documentId: String(ticket._id), tableName: "passportUploadTickets" } }
+    );
     await ctx.scheduler.runAfter(
       recoveryWindowEndsAt - now,
       internal.crm.passportUploadTickets.recoverEncryptedCleanup,
@@ -370,12 +387,18 @@ export const bindEncryptedCleanup = internalMutation({
     if (existing) {
       throw new ConvexError("Encrypted passport storage is already cleanup-owned");
     }
-    await ctx.db.patch("passportUploadCleanupRecords", record._id, {
-      recoveryCompletedAt: now,
-      status: "leased",
-      storageId: args.storageId,
-      updatedAt: now,
-    });
+    await patchWithE2eOwnership(
+      ctx,
+      "passportUploadCleanupRecords",
+      record._id,
+      {
+        recoveryCompletedAt: now,
+        status: "leased",
+        storageId: args.storageId,
+        updatedAt: now,
+      },
+      { source: { documentId: String(record._id), tableName: "passportUploadCleanupRecords" } }
+    );
     await ctx.scheduler.runAfter(
       Math.max(record.recoveryWindowEndsAt - now, 0),
       internal.crm.passportUploadTickets.cleanupEncrypted,
@@ -452,38 +475,60 @@ export const promote = internalMutation({
       storageId: args.encryptedStorageId,
       travellerId,
     });
-    await ctx.db.patch("passportUploadCleanupRecords", cleanupRecord._id, {
-      cleanupAfter: undefined,
-      releasedAt: now,
-      status: "released",
-      updatedAt: now,
-    });
-    if (displacedStorageId && displacedStorageId !== args.encryptedStorageId) {
-      const displacedCleanupRecordId = await ctx.db.insert("passportUploadCleanupRecords", {
-        attempts: 0,
-        cleanupAfter: now,
-        cleanupOwner: args.cleanupOwner,
-        createdAt: now,
-        kind: "displaced_encrypted",
-        status: "pending",
-        storageId: displacedStorageId,
-        ticketId: ticket._id,
+    await patchWithE2eOwnership(
+      ctx,
+      "passportUploadCleanupRecords",
+      cleanupRecord._id,
+      {
+        cleanupAfter: undefined,
+        releasedAt: now,
+        status: "released",
         updatedAt: now,
-      });
+      },
+      {
+        source: {
+          documentId: String(cleanupRecord._id),
+          tableName: "passportUploadCleanupRecords",
+        },
+      }
+    );
+    if (displacedStorageId && displacedStorageId !== args.encryptedStorageId) {
+      const displacedCleanupRecordId = await insertWithE2eOwnership(
+        ctx,
+        "passportUploadCleanupRecords",
+        {
+          attempts: 0,
+          cleanupAfter: now,
+          cleanupOwner: args.cleanupOwner,
+          createdAt: now,
+          kind: "displaced_encrypted",
+          status: "pending",
+          storageId: displacedStorageId,
+          ticketId: ticket._id,
+          updatedAt: now,
+        },
+        { source: { documentId: String(ticket._id), tableName: "passportUploadTickets" } }
+      );
       await ctx.scheduler.runAfter(0, internal.crm.passportUploadTickets.cleanupEncrypted, {
         cleanupRecordId: displacedCleanupRecordId,
       });
     }
-    await ctx.db.patch("passportUploadTickets", ticket._id, {
-      cleanupAfter: now,
-      contentDigest: args.contentDigest,
-      mimeType: args.mimeType,
-      promotedAt: now,
-      promotedStorageId: args.encryptedStorageId,
-      status: "promoted",
-      updatedAt: now,
-      validatedAt: now,
-    });
+    await patchWithE2eOwnership(
+      ctx,
+      "passportUploadTickets",
+      ticket._id,
+      {
+        cleanupAfter: now,
+        contentDigest: args.contentDigest,
+        mimeType: args.mimeType,
+        promotedAt: now,
+        promotedStorageId: args.encryptedStorageId,
+        status: "promoted",
+        updatedAt: now,
+        validatedAt: now,
+      },
+      { source: { documentId: String(ticket._id), tableName: "passportUploadTickets" } }
+    );
     await createActivity(ctx, access, {
       action: "passport_upload_promoted",
       entityId: String(ticket._id),

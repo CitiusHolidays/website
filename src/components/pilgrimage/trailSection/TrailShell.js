@@ -27,73 +27,12 @@ import {
 } from "./TrailDetailsTabs";
 import { BlogsTab, BookingTab, GalleryTab, MediaTab, ReviewsTab } from "./TrailMediaTabs";
 
-export function TrailHeader({ trail, title, subtitle, tagline, positioning, isComingSoon }) {
-  return (
-    <>
-      <div className="mb-10 text-center md:mb-16">
-        <m.div
-          initial={{ opacity: 0, y: 30 }}
-          viewport={{ once: true }}
-          whileInView={{ opacity: 1, y: 0 }}
-        >
-          <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
-            {isComingSoon ? (
-              <span className="inline-block rounded-full border border-amber-200 bg-amber-100 px-3 py-1.5 font-medium text-amber-900 text-xs uppercase tracking-wider">
-                Coming soon
-              </span>
-            ) : null}
-            {tagline ? (
-              <span className="inline-block rounded-full bg-public-orange-ink/10 px-3 py-1.5 font-medium text-public-orange-ink text-xs uppercase tracking-wider">
-                {tagline}
-              </span>
-            ) : null}
-          </div>
-          <h2 className="mb-3 font-heading text-2xl text-citius-blue leading-tight md:mb-4 md:text-4xl lg:text-5xl">
-            {title}
-          </h2>
-          <p className="mx-auto max-w-2xl font-sans text-brand-muted text-lg italic leading-relaxed md:text-xl">
-            {subtitle}
-          </p>
-          {positioning ? (
-            <p className="mx-auto mt-3 max-w-xl font-sans text-brand-muted/80 text-sm md:text-base">
-              {positioning}
-            </p>
-          ) : null}
-          <div className="mx-auto mt-6 h-1 w-12 rounded-full bg-citius-orange md:mt-8 md:w-16" />
-        </m.div>
-      </div>
-
-      {trail.quickFacts ? (
-        <m.div
-          className="mb-10 flex flex-wrap justify-center gap-3 md:mb-14 md:gap-6"
-          initial={{ opacity: 0, y: 20 }}
-          viewport={{ once: true }}
-          whileInView={{ opacity: 1, y: 0 }}
-        >
-          {Object.entries(trail.quickFacts).map(([key, value]) => (
-            <div
-              className="rounded-xl border border-brand-light bg-white px-4 py-2.5 shadow-sm"
-              key={key}
-            >
-              <span className="block text-[10px] text-brand-muted uppercase tracking-wider md:text-xs">
-                {key.replace(/([A-Z])/g, " $1").trim()}
-              </span>
-              <span className="font-heading font-medium text-citius-blue text-sm md:text-base">
-                {value}
-              </span>
-            </div>
-          ))}
-        </m.div>
-      ) : null}
-    </>
-  );
-}
-
-function TrailTab({ activeTab, setActiveTab, tab }) {
+function TrailTab({ activeTab, setActiveTab, tab, trailSlug }) {
   const handleClick = () => setActiveTab(tab.id);
   return (
     <TabButton
       active={activeTab === tab.id}
+      contentId={`trail-${trailSlug}-content`}
       icon={tab.icon}
       label={tab.label}
       onClick={handleClick}
@@ -101,32 +40,39 @@ function TrailTab({ activeTab, setActiveTab, tab }) {
   );
 }
 
-export function TrailTabs({ activeTab, setActiveTab, flags }) {
+export function TrailTabs({ activeTab, setActiveTab, flags, trailSlug }) {
   const tabs = [
     { icon: Star, id: "overview", label: "Overview", show: true },
     { icon: Camera, id: "gallery", label: "Gallery", show: flags.hasGallery },
     { icon: Sparkles, id: "highlights", label: "Highlights", show: flags.hasHighlights },
     { icon: MapIcon, id: "itinerary", label: "Itinerary", show: flags.hasItinerary },
-    { icon: FileText, id: "details", label: "Package details", show: flags.hasPackageDetails },
-    { icon: Info, id: "info", label: "Important Info", show: flags.hasInfo },
-    { icon: MessageSquare, id: "booking", label: "Booking", show: flags.hasBooking },
+    { icon: FileText, id: "details", label: "Package", show: flags.hasPackageDetails },
+    { icon: Info, id: "info", label: "Conditions", show: flags.hasInfo },
+    { icon: MessageSquare, id: "booking", label: "Enquiry", show: flags.hasBooking },
     { icon: Quote, id: "reviews", label: "Reviews", show: flags.hasReviews },
-    { icon: Video, id: "media", label: "Video / AR", show: flags.hasMedia },
+    { icon: Video, id: "media", label: "Media", show: flags.hasMedia },
     { icon: BookOpen, id: "blogs", label: "Blogs", show: flags.hasBlogs },
   ];
 
   return (
-    <div className="mb-8 flex flex-wrap justify-center gap-2 md:mb-12 md:gap-3">
+    <fieldset className="m-0 mb-6 flex min-w-0 flex-wrap gap-2 border-0 p-0 md:mb-8">
+      <legend className="sr-only">Programme sections</legend>
       {tabs.reduce((items, tab) => {
         if (!tab.show) {
           return items;
         }
         items.push(
-          <TrailTab activeTab={activeTab} key={tab.id} setActiveTab={setActiveTab} tab={tab} />
+          <TrailTab
+            activeTab={activeTab}
+            key={tab.id}
+            setActiveTab={setActiveTab}
+            tab={tab}
+            trailSlug={trailSlug}
+          />
         );
         return items;
       }, [])}
-    </div>
+    </fieldset>
   );
 }
 
@@ -154,6 +100,7 @@ function OverviewTab({ overview, trail }) {
             {overview.title}
           </h3>
           <div className="space-y-3 font-sans text-base text-brand-muted leading-relaxed md:space-y-4 md:text-lg">
+            {trail.status === "published" && trail.positioning ? <p>{trail.positioning}</p> : null}
             {(overview.intro || []).map((paragraph) => (
               <p key={paragraph}>{paragraph}</p>
             ))}
@@ -221,9 +168,10 @@ export function TrailTabContent({ activeTab, trail, relatedBlogPosts, flags, rev
   } = trail;
 
   return (
-    <div className="relative min-h-[400px] overflow-hidden rounded-2xl border border-brand-light bg-white p-5 shadow-brand-dark/5 shadow-xl md:rounded-3xl md:p-10 lg:p-14">
-      <div className="pointer-events-none absolute top-0 right-0 h-48 w-48 translate-x-1/2 -translate-y-1/2 rounded-full bg-citius-orange/5 blur-3xl md:h-64 md:w-64" />
-
+    <div
+      className="relative min-w-0 rounded-2xl border border-brand-light bg-public-surface p-4 md:p-8"
+      id={`trail-${trail.slug}-content`}
+    >
       <AnimatePresence mode="wait">
         {activeTab === "overview" && <OverviewTab overview={overview} trail={trail} />}
         {activeTab === "highlights" && highlights && <HighlightsTab highlights={highlights} />}
@@ -266,14 +214,14 @@ export function TrailCta({ status, trailSlug }) {
           </h3>
           <p className="mx-auto mb-6 max-w-xl font-sans text-base text-white/60 md:text-lg">
             {isComingSoon
-              ? "The programme is still being prepared. Share your interest or ask about the details currently under review."
+              ? "Share your interest and the questions you would like to discuss."
               : "Ask a pilgrimage specialist about the published programme details and the next planning steps."}
           </p>
           <Link
             className="inline-flex items-center gap-2 rounded-full bg-citius-orange px-8 py-3.5 font-heading text-brand-dark text-sm tracking-wider shadow-citius-orange/20 shadow-xl transition-[translate,box-shadow,filter] duration-300 fine-hover:hover:-translate-y-0.5 hover:shadow-citius-orange/40 hover:brightness-110 active:translate-y-0 md:px-10 md:py-4"
             href={getPilgrimageTrailContactHref(isComingSoon ? "enquiry" : "callback", trailSlug)}
           >
-            {isComingSoon ? "Register interest" : "Request a callback"}
+            {isComingSoon ? "Enquire" : "Request a callback"}
             <ArrowRight className="size-4" />
           </Link>
         </div>

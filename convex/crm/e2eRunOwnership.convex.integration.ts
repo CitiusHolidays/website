@@ -1,5 +1,4 @@
 import aggregateTest from "@convex-dev/aggregate/test";
-import { fromAny } from "@total-typescript/shoehorn";
 import { makeFunctionReference } from "convex/server";
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -8,7 +7,6 @@ import type { Id } from "../_generated/dataModel";
 import { sacredBharatLeaderboardRanks } from "../lib/sacredBharatLeaderboardRank";
 import schema from "../schema";
 import { modules } from "../test.setup";
-import { nextCode } from "./lib/codes";
 import { insertWithE2eOwnership } from "./lib/e2eOwnership";
 
 const ACTOR = "auth_e2e_ownership";
@@ -198,103 +196,6 @@ describe("durable E2E run ownership", () => {
       expect(expenses[0]?.category).toBe("Unrelated");
       expect(await ctx.db.query("activityLogs").collect()).toHaveLength(0);
       expect(await ctx.db.query("e2eOwnedRecords").collect()).toHaveLength(0);
-    });
-  });
-
-  test("keeps global CRM code advances durable across interleaved E2E cleanup", async () => {
-    const t = createHarness();
-    await t.run(async (ctx) => {
-      await seedActorIdentityLink(ctx);
-      await ctx.db.insert("staffUsers", {
-        active: true,
-        authUserId: ACTOR,
-        createdAt: 1,
-        email: "ownership@citius-e2e.test",
-        emailNormalized: "ownership@citius-e2e.test",
-        name: "Ownership Sales Fixture",
-        roles: ["Sales"],
-        updatedAt: 1,
-      });
-    });
-
-    const initialCode = await t.run(async (ctx) => nextCode(fromAny(ctx), "queries", "Q"));
-    expect(initialCode).toBe("Q-0001");
-    await t.mutation(beginRun, {
-      authUserIds: [ACTOR],
-      runId: RUN_ID,
-      targetId: "development-integration",
-    });
-    const asSales = t.withIdentity({
-      email: "ownership@citius-e2e.test",
-      issuer: "https://auth.citius.test",
-      subject: ACTOR,
-      tokenIdentifier: `https://auth.citius.test|${ACTOR}`,
-    });
-    const e2eAllocation = await asSales.mutation(api.crm.queries.create, {
-      clientName: "Owned sequence fixture",
-      paxCount: 1,
-      queryType: "FIT",
-      travelType: "Domestic Travel",
-    });
-    expect(e2eAllocation.queryCode).toBe("Q-0002");
-
-    const normalDuringRun = await t.run(async (ctx) => nextCode(fromAny(ctx), "queries", "Q"));
-    expect(normalDuringRun).toBe("Q-0003");
-    await t.run(async (ctx) => {
-      const sequence = await ctx.db
-        .query("crmCodeSequences")
-        .withIndex("by_key", (q) => q.eq("key", "queries:Q"))
-        .unique();
-      expect(sequence?.lastAllocated).toBe(3);
-      expect(await ctx.db.query("crmCodeSequenceTrust").unique()).toMatchObject({
-        lastAllocated: 3,
-        reconciliationRequired: false,
-      });
-    });
-
-    let cleanup = await t.mutation(cleanupPage, {
-      pageSize: 50,
-      runId: RUN_ID,
-      targetId: "development-integration",
-    });
-    while (!cleanup.complete) {
-      cleanup = await t.mutation(cleanupPage, {
-        pageSize: 50,
-        runId: RUN_ID,
-        targetId: "development-integration",
-      });
-    }
-
-    await t.run(async (ctx) => {
-      const sequence = await ctx.db
-        .query("crmCodeSequences")
-        .withIndex("by_key", (q) => q.eq("key", "queries:Q"))
-        .unique();
-      expect(sequence?.lastAllocated).toBe(3);
-      expect(await ctx.db.query("crmCodeSequenceTrust").unique()).toMatchObject({
-        lastAllocated: 3,
-        reconciliationRequired: false,
-      });
-      expect(await ctx.db.get("queries", e2eAllocation.id)).toBeNull();
-    });
-
-    const laterNormalCodes = await Promise.all(
-      Array.from({ length: 2 }, () => t.run(async (ctx) => nextCode(fromAny(ctx), "queries", "Q")))
-    );
-    expect([...laterNormalCodes].sort()).toEqual(["Q-0004", "Q-0005"]);
-    expect(
-      new Set([initialCode, e2eAllocation.queryCode, normalDuringRun, ...laterNormalCodes]).size
-    ).toBe(5);
-    await t.run(async (ctx) => {
-      const sequence = await ctx.db
-        .query("crmCodeSequences")
-        .withIndex("by_key", (q) => q.eq("key", "queries:Q"))
-        .unique();
-      expect(sequence?.lastAllocated).toBe(5);
-      expect(await ctx.db.query("crmCodeSequenceTrust").unique()).toMatchObject({
-        lastAllocated: 5,
-        reconciliationRequired: false,
-      });
     });
   });
 

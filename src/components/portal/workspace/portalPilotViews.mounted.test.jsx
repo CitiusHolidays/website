@@ -66,6 +66,9 @@ async function mount(element) {
   await act(async () => root.render(<PortalToastProvider>{element}</PortalToastProvider>));
   return {
     container,
+    rerender: async (next) => {
+      await act(async () => root.render(<PortalToastProvider>{next}</PortalToastProvider>));
+    },
     unmount: async () => {
       await act(async () => root.unmount());
       container.remove();
@@ -75,6 +78,13 @@ async function mount(element) {
 
 async function settle() {
   await act(async () => new Promise((resolve) => setTimeout(resolve, 30)));
+}
+
+async function setDisclosure(details, open) {
+  await act(() => {
+    details.open = open;
+    details.dispatchEvent(new dom.window.Event("toggle"));
+  });
 }
 
 const noopMutation = async () => undefined;
@@ -123,6 +133,15 @@ describe("Mounted portal pilot views", () => {
     expect(view.container.textContent).toContain("Acme Group");
     expect(view.container.textContent).toContain("proposal-doc.pdf");
     expect(view.container.textContent).toContain("Add file");
+    const mobile = view.container.querySelector(".md\\:hidden");
+    const queryDetails = mobile.querySelector("details");
+    expect(queryDetails.open).toBe(false);
+    expect(queryDetails.textContent).toContain("proposal-doc.pdf");
+    expect(
+      [...mobile.querySelectorAll("div")].some((node) => node.textContent === "Attention")
+    ).toBe(false);
+    await setDisclosure(queryDetails, true);
+    expect(queryDetails.open).toBe(true);
     const submit = [...view.container.querySelectorAll("button")].find(
       (button) => button.textContent === "Submit to Contracting"
     );
@@ -243,7 +262,7 @@ describe("Mounted portal pilot views", () => {
       );
       if (!toggle) {
         const columnsTrigger = [...view.container.querySelectorAll("button")].find(
-          (button) => button.textContent.trim() === "Columns"
+          (button) => button.textContent.trim() === "Table options"
         );
         await act(() => {
           columnsTrigger.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
@@ -263,6 +282,70 @@ describe("Mounted portal pilot views", () => {
     expect(mobileCard.textContent).not.toContain("Sales SPOC");
     expect(mobileCard.textContent).not.toContain("Approx. Margin");
 
+    await view.unmount();
+  });
+
+  test("Contracting work precedes its roster and loading does not claim zero active work", async () => {
+    const view = await mount(
+      <ContractingView
+        access={{ roles: ["Contracting Head"] }}
+        canAssign
+        deleteItem={noopMutation}
+        getFinalizedPdfUrl={noopUrl}
+        getQueryAttachmentUrl={noopUrl}
+        has={denyPermission}
+        loading
+        openModal={noop}
+        removeQuery={noopMutation}
+        rows={[]}
+        team={[{ id: "staff-1", name: "Contracting Head", roles: ["Contracting Head"] }]}
+      />
+    );
+    const queue = view.container.querySelector('[aria-label="Contracting work"]');
+    const rosterHeading = [...view.container.querySelectorAll("h2")].find(
+      (heading) => heading.textContent === "Contracting team"
+    );
+    expect(queue.compareDocumentPosition(rosterHeading)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(view.container.textContent).toContain("Active loaded queries");
+    expect(view.container.textContent).toContain("Loading…");
+    expect(
+      [...view.container.querySelectorAll("td")].some((cell) => cell.textContent === "0")
+    ).toBe(false);
+    await view.unmount();
+  });
+
+  test("Confirmed Contracting work retains its Job Card without an obsolete Sales decision prompt", async () => {
+    const view = await mount(
+      <ContractingView
+        access={{ roles: ["Contracting"] }}
+        canAssign={false}
+        deleteItem={noopMutation}
+        has={denyPermission}
+        openModal={noop}
+        removeQuery={noopMutation}
+        rows={[
+          {
+            clientName: "Acme Group",
+            contractingOwnerName: "Cora Contracting",
+            contractingStatus: "Order Confirmed",
+            id: "query-1",
+            jobCardCode: "JC-0001-NS",
+            jobCardId: "job-1",
+            proposalPreview: { status: "Sent" },
+            queryCode: "Q-0001",
+            salesStatus: "Order Confirmed",
+            ticketingScope: "Not required",
+          },
+        ]}
+        team={[]}
+      />
+    );
+    const mobileCard = view.container.querySelector(".md\\:hidden");
+    expect(mobileCard.textContent).toContain("Order Confirmed");
+    expect(
+      mobileCard.querySelector('a[href="/portal/job-cards?open=jobCard&id=job-1"]').textContent
+    ).toBe("JC-0001-NS");
+    expect(view.container.textContent).not.toContain("awaiting Sales Decision");
     await view.unmount();
   });
 
@@ -313,11 +396,17 @@ describe("Mounted portal pilot views", () => {
     expect(view.container.textContent).toContain("P-0001");
     expect(view.container.textContent).toContain("With Sales");
     expect(view.container.textContent).toContain("acme-final.pdf");
-    expect(view.container.textContent).toContain("MICE Proposal Doc draft");
+    expect(view.container.textContent).not.toContain("MICE Proposal Doc draft");
     expect(view.container.textContent).not.toContain("Upload PDF");
     const mobileCard = view.container.querySelector(".md\\:hidden");
-    expect(mobileCard.textContent).toContain("Land/Pax");
-    expect(mobileCard.textContent).toContain("Tax");
+    expect(mobileCard.textContent).not.toContain("Land/Pax");
+    expect(mobileCard.textContent).not.toContain("Tax");
+    const record = mobileCard.querySelector('details[name="proposal-record"]');
+    expect(record.open).toBe(false);
+    await setDisclosure(record, true);
+    expect(record.textContent).toContain("P-0001 · revision 1");
+    expect(record.textContent).not.toContain("MICE Proposal Doc draft");
+    expect(record.textContent).toContain("acme-final.pdf");
 
     const toggleColumn = async (label) => {
       let toggle = [...document.querySelectorAll('[role="menuitemcheckbox"]')].find((button) =>
@@ -325,7 +414,7 @@ describe("Mounted portal pilot views", () => {
       );
       if (!toggle) {
         const columnsTrigger = [...view.container.querySelectorAll("button")].find(
-          (button) => button.textContent.trim() === "Columns"
+          (button) => button.textContent.trim() === "Table options"
         );
         await act(() => {
           columnsTrigger.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, button: 0 }));
@@ -342,8 +431,11 @@ describe("Mounted portal pilot views", () => {
     };
     await toggleColumn("Land/Pax");
     await toggleColumn("Tax");
-    expect(mobileCard.textContent).not.toContain("Land/Pax");
-    expect(mobileCard.textContent).not.toContain("Tax");
+    const headers = [...view.container.querySelectorAll("th")].map((cell) => cell.textContent);
+    expect(headers).not.toContain("Land/Pax");
+    expect(headers).not.toContain("Tax");
+    expect(record.textContent).toContain("Land/Pax");
+    expect(record.textContent).toContain("Tax");
 
     await view.unmount();
   });
@@ -351,7 +443,8 @@ describe("Mounted portal pilot views", () => {
   test("Proposals sends one explicit Proposal, Query, and revision target", async () => {
     const calls = [];
     const sendProposalToSales = async (args) => calls.push(args);
-    const view = await mount(
+    let proposalRevision = 4;
+    const render = () => (
       <ProposalsView
         deleteItem={noopMutation}
         getFinalizedPdfUrl={noopUrl}
@@ -366,7 +459,7 @@ describe("Mounted portal pilot views", () => {
             createdAt: "2026-07-14",
             id: "proposal-1",
             proposalCode: "P-0001",
-            proposalRevision: 4,
+            proposalRevision,
             query: { id: "query-1", queryCode: "Q-0001" },
             queryId: "query-1",
             queryPreview: [
@@ -386,12 +479,29 @@ describe("Mounted portal pilot views", () => {
       />
     );
 
+    const view = await mount(render());
+    const record = view.container.querySelector('details[name="proposal-record"]');
+    expect(view.container.textContent).not.toContain("Send to Sales");
+    await setDisclosure(record, true);
     const button = [...view.container.querySelectorAll("button")].find((candidate) =>
-      candidate.textContent?.includes("Review & handoff revision 4")
+      candidate.textContent?.includes("Send to Sales")
     );
     expect(button).toBeDefined();
     await act(async () => button?.click());
     expect(calls).toEqual([{ proposalId: "proposal-1", proposalRevision: 4, queryId: "query-1" }]);
+    await setDisclosure(record, false);
+    proposalRevision = 5;
+    await view.rerender(render());
+    await setDisclosure(record, true);
+    const latest = [...record.querySelectorAll("button")].find((candidate) =>
+      candidate.textContent?.includes("Send to Sales")
+    );
+    await act(async () => latest.click());
+    expect(calls.at(-1)).toEqual({
+      proposalId: "proposal-1",
+      proposalRevision: 5,
+      queryId: "query-1",
+    });
 
     await view.unmount();
   });

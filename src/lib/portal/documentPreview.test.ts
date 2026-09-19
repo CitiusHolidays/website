@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   classifyDocumentPreview,
+  documentPreviewNavigation,
   documentPreviewRolloutAllows,
   fileNameFromContentDisposition,
   isSensitivePortalFileUrl,
@@ -43,7 +44,9 @@ describe("Document preview routing policy", () => {
   });
 
   test("Identifies one-file sensitive routes and safely reads response filenames", () => {
-    expect(isSensitivePortalFileUrl("/api/portal/files/passport/traveller-1")).toBe(true);
+    for (const source of ["passport", "visa", "expense"]) {
+      expect(isSensitivePortalFileUrl(`/api/portal/files/${source}/file-1`)).toBe(true);
+    }
     expect(isSensitivePortalFileUrl("/api/portal/files/commercial/file-1")).toBe(false);
     expect(
       fileNameFromContentDisposition(
@@ -51,6 +54,58 @@ describe("Document preview routing policy", () => {
       )
     ).toBe("Sacred Bharat Offer.pdf");
     expect(fileNameFromContentDisposition(null)).toBeNull();
+  });
+
+  test("Allows file navigation only inside the active commercial result set", () => {
+    const sourceUrl = "/api/portal/files/commercial/file-1";
+    const navigation = {
+      currentIndex: 0,
+      items: [{ sourceUrl }, { sourceUrl: "/api/portal/files/commercial/file-2" }],
+    };
+    expect(documentPreviewNavigation({ navigation, sourceUrl })).toBe(navigation);
+    for (const source of ["passport", "visa", "expense", "finance", "hr", "unknown"]) {
+      const restricted = `/api/portal/files/${source}/file-2`;
+      const mixed = { currentIndex: 0, items: [{ sourceUrl }, { sourceUrl: restricted }] };
+      expect(documentPreviewNavigation({ navigation: mixed, sourceUrl })).toBeNull();
+      expect(documentPreviewNavigation({ navigation: mixed, sourceUrl: restricted })).toBeNull();
+    }
+    for (const currentIndex of [-1, 0.5, 2]) {
+      expect(
+        documentPreviewNavigation({ navigation: { ...navigation, currentIndex }, sourceUrl })
+      ).toBeNull();
+    }
+    expect(
+      documentPreviewNavigation({ navigation, sourceUrl: "/api/portal/files/commercial/other" })
+    ).toBeNull();
+    expect(
+      documentPreviewNavigation({
+        navigation: {
+          currentIndex: 0,
+          items: [{ sourceUrl }, { sourceUrl: "https://example.test/file" }],
+        },
+        sourceUrl,
+      })
+    ).toBeNull();
+  });
+
+  test("Keeps Job Card Query, Proposal, and Proposal Doc aliases in the same validated commercial list", () => {
+    const items = [
+      "query/attachment-1",
+      "proposal/attachment-2",
+      "proposal-finalized/proposal-1",
+    ].map((source) => ({ sourceUrl: `/api/portal/files/${source}` }));
+    for (const [currentIndex, item] of items.entries()) {
+      const navigation = { currentIndex, items };
+      expect(documentPreviewNavigation({ ...item, navigation })).toBe(navigation);
+      expect(documentPreviewRolloutAllows(item)).toBe(true);
+    }
+    for (const invalid of ["query/", "proposal/file/extra", "query/../../expense/file"]) {
+      const navigation = {
+        currentIndex: 0,
+        items: [...items, { sourceUrl: `/api/portal/files/${invalid}` }],
+      };
+      expect(documentPreviewNavigation({ ...items[0], navigation })).toBeNull();
+    }
   });
 
   test("Opens an eligible PDF in the viewer by default instead of navigating to Download", () => {
