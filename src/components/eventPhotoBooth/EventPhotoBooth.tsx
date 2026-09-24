@@ -213,7 +213,7 @@ function useVisitorBooth(state: BoothParticipantState | undefined) {
   }, [ready, editor.busy, editor.rendering]);
 
   const showProgress = editor.busy || editor.rendering;
-  let status = ready ? copy.ready : "";
+  let status = "";
   if (editor.phase) {
     status = copy[editor.phase];
   }
@@ -317,9 +317,8 @@ export function EventPhotoBoothView({ state }: { state: BoothParticipantState | 
       <div className={styles.content}>
         <div className={styles.intro}>
           <h1 ref={view.pageHeading} tabIndex={-1}>
-            {copy.title} <em>{copy.titleAccent}</em>
+            {copy.title}
           </h1>
-          <p>{copy.intro}</p>
         </div>
         {state ? null : (
           <p className={styles.notice} role="status">
@@ -377,7 +376,7 @@ function SceneChoices({ view }: { view: VisitorView }) {
   } = view;
   return (
     <fieldset className={styles.sceneChoices} disabled={!canParticipate}>
-      <legend className={styles.sectionTitle}>{copy.chooseScene}</legend>
+      <legend className="sr-only">{copy.chooseScene}</legend>
       <div className={styles.switches}>
         {(["travel", "pilgrimage"] as const).map((value) => (
           <button
@@ -463,7 +462,6 @@ function PhotoControls({ view }: { view: VisitorView }) {
         >
           {view.ready ? copy.photoOptions : copy.addPhoto}
         </summary>
-        <p className={styles.help}>{copy.photoIntro}</p>
         <input
           accept={PHOTO_ACCEPT}
           aria-describedby="booth-photo-help"
@@ -512,12 +510,9 @@ function PhotoControls({ view }: { view: VisitorView }) {
             {copy.camera}
           </button>
         </div>
-        <details className={styles.tips}>
-          <summary>{copy.photoTips}</summary>
-          <p className={styles.help} id="booth-photo-help">
-            {copy.photoHelp}
-          </p>
-        </details>
+        <p className={styles.help} id="booth-photo-help">
+          {copy.photoHelp}
+        </p>
         {editor.sourceUrl ? (
           <div className={styles.source}>
             <Image alt={copy.sourceAlt} height={72} src={editor.sourceUrl} unoptimized width={72} />
@@ -528,7 +523,7 @@ function PhotoControls({ view }: { view: VisitorView }) {
         )}
 
         <fieldset className={styles.mode} disabled={!canParticipate}>
-          <legend className="sr-only">{copy.addPhoto}</legend>
+          <legend className="sr-only">{copy.photoStyle}</legend>
           <div className={styles.switches}>
             <button
               aria-pressed={mode === "cutout"}
@@ -545,11 +540,12 @@ function PhotoControls({ view }: { view: VisitorView }) {
               {copy.frame}
             </button>
           </div>
-          <p className={styles.help}>{mode === "cutout" ? copy.cutoutHelp : copy.frameHelp}</p>
         </fieldset>
         {mode === "cutout" ? (
           <>
-            {editor.cutout ? null : <p className={styles.help}>{copy.firstLoad}</p>}
+            {editor.hasPhoto && !editor.cutout ? (
+              <p className={styles.help}>{copy.firstLoad}</p>
+            ) : null}
             <button
               className={styles.primary}
               disabled={!(canParticipate && editor.hasPhoto) || editor.busy}
@@ -577,23 +573,14 @@ function PhotoPreview({ view }: { view: VisitorView }) {
     ready,
     scene,
     language,
-    status,
     editor,
   } = view;
   const displayedFormat = editor.showLivePreview ? editor.previewFormat : (ready?.format ?? format);
   return (
     <section aria-labelledby="booth-preview-title" className={styles.previewSection}>
-      <div className={styles.previewHeader}>
-        <h2
-          className={styles.sectionTitle}
-          id="booth-preview-title"
-          ref={previewHeading}
-          tabIndex={-1}
-        >
-          {copy.preview}
-        </h2>
-        <p className={styles.help}>{copy.previewHelp}</p>
-      </div>
+      <h2 className="sr-only" id="booth-preview-title" ref={previewHeading} tabIndex={-1}>
+        {copy.preview}
+      </h2>
       <fieldset className={styles.switches} disabled={!canParticipate}>
         <legend className="sr-only">{copy.format}</legend>
         {(["portrait", "story"] as const).map((value) => (
@@ -632,19 +619,13 @@ function PhotoPreview({ view }: { view: VisitorView }) {
           />
         ) : null}
         {!(ready || editor.showLivePreview) && scene ? (
-          <>
-            <Image
-              alt={scene.title[language]}
-              fill
-              sizes="(max-width: 700px) 90vw, 420px"
-              src={scene.artworkUrl}
-              unoptimized
-            />
-            <div className={styles.previewMessage}>
-              <strong>{showProgress ? status : copy.emptyPreview}</strong>
-              <p>{showProgress ? copy.privacy : copy.emptyPreviewHelp}</p>
-            </div>
-          </>
+          <Image
+            alt={scene.title[language]}
+            fill
+            sizes="(max-width: 700px) 90vw, 420px"
+            src={scene.artworkUrl}
+            unoptimized
+          />
         ) : null}
       </div>
     </section>
@@ -674,7 +655,7 @@ function PhotoOutputControls({ view }: { view: VisitorView }) {
     <section aria-label={copy.adjust} className={styles.outputControls}>
       {mode === "cutout" && editor.cutout ? (
         <fieldset className={styles.adjustments} disabled={!canParticipate}>
-          <legend>{copy.adjust}</legend>
+          <legend className="sr-only">{copy.adjust}</legend>
           {(
             [
               { key: "x", label: copy.horizontal, max: 0.65, min: -0.65 },
@@ -737,10 +718,6 @@ function PhotoOutputControls({ view }: { view: VisitorView }) {
           {sharing ? copy.sharing : copy.share}
         </button>
       </div>
-      <details className={styles.tips}>
-        <summary>{copy.shareTips}</summary>
-        <p className={styles.help}>{copy.shareHelp}</p>
-      </details>
       <p aria-live="polite" className={styles.status} role="status">
         {shareStatus ? copy[shareStatus] : ""}
       </p>
@@ -793,7 +770,6 @@ function PhotoOutputControls({ view }: { view: VisitorView }) {
           >
             {copy.plan}
           </a>
-          <p className={styles.help}>{copy.enquiryHelp}</p>
         </div>
       ) : null}
     </section>

@@ -94,7 +94,7 @@ async function selectPhoto(container) {
 }
 
 async function createFrame(container) {
-  await act(() => button(container, "Whole-photo frame").click());
+  await act(() => button(container, "Keep original photo").click());
   await selectPhoto(container);
   await settle();
   expect(button(container, "Download photo").disabled).toBe(false);
@@ -141,7 +141,7 @@ describe("Photo Booth participant access and bilingual choices", () => {
     await act(() => button(container, "हिन्दी").click());
     expect(container.querySelector('[lang="hi"]')).not.toBeNull();
     expect(container.textContent).toContain("काशी");
-    expect(container.textContent).toContain("पूरी तस्वीर का फ़्रेम");
+    expect(container.textContent).toContain("पूरी तस्वीर रखें");
     await act(() => root.unmount());
     expect(requests).toHaveLength(1);
     expect(requests[0].url).toBe("/api/event-photo-booth/events");
