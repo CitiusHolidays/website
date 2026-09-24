@@ -13,6 +13,9 @@ import type {
 } from "@/lib/eventPhotoBooth/contracts";
 import { BOOTH_METRICS, BOOTH_SCENE_KEYS } from "@/lib/eventPhotoBooth/contracts";
 
+import { loadSourcePhoto, releaseBoothPhoto } from "@/lib/eventPhotoBooth/imageEngine";
+import { EventPhotoBoothPreview } from "./EventPhotoBoothPreview";
+
 const INPUT =
   "min-h-11 w-full rounded-lg border border-brand-border bg-white px-3 py-2 text-brand-dark text-sm focus-visible:outline-2 focus-visible:outline-citius-blue";
 const PANEL = "rounded-xl border border-brand-border bg-white p-4 sm:p-6";
@@ -41,7 +44,7 @@ export interface EventPhotoBoothEditorProps {
   }) => Promise<{ artwork: BoothArtwork; artworkUrl: string }>;
 }
 
-function errorMessage(error: unknown) {
+function errorMessage(error: Error) {
   if (error instanceof Error && error.message.includes("REVISION_CONFLICT")) {
     return "Another event manager changed the scenes. Your edits are kept here. Load the latest saved draft before saving again.";
   }
@@ -51,31 +54,17 @@ function errorMessage(error: unknown) {
 }
 
 async function prepareArtwork(file: File): Promise<ArrayBuffer> {
-  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 20_000_000) {
-    throw new Error("Choose a JPEG, PNG or WebP artwork file up to 20 MB.");
-  }
-  const bitmap = await createImageBitmap(file);
+  const photo = await loadSourcePhoto(file);
   try {
-    const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-    const context = canvas.getContext("2d");
-    if (!context) {
-      throw new Error("Artwork preparation is unavailable in this browser.");
-    }
-    context.fillStyle = "#ffffff";
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", 0.8)
+      photo.canvas.toBlob(resolve, "image/jpeg", 0.8)
     );
     if (blob && blob.size <= 900_000) {
       return blob.arrayBuffer();
     }
     throw new Error("This artwork is too large after resizing. Choose a smaller image.");
   } finally {
-    bitmap.close();
+    releaseBoothPhoto(photo);
   }
 }
 
@@ -274,7 +263,7 @@ function StaffAssignments({
   );
 }
 
-export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
+function useBoothEditor(props: EventPhotoBoothEditorProps) {
   const { state } = props;
   const [draft, setDraft] = useState({
     dirty: false,
@@ -312,18 +301,12 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
     return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
   }, [draft.dirty]);
 
-  const run = async (operation: () => Promise<void>) => {
+  const beginChange = () => {
     setBusy(true);
     setError("");
     setMessage("");
-    try {
-      await operation();
-    } catch (failure) {
-      setError(errorMessage(failure));
-    } finally {
-      setBusy(false);
-    }
   };
+  const reportFailure = (failure: Error) => setError(errorMessage(failure));
   const update = (scene: BoothScene) =>
     setDraft((previous) => ({
       ...previous,
@@ -360,7 +343,7 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
     setError("");
     setMessage("Latest saved draft loaded.");
   };
-  const save = (event: FormEvent<HTMLFormElement>) => {
+  const save = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const invalidScene = draft.scenes.find(
       (scene) => !(scene.title.en.trim() && scene.title.hi.trim())
@@ -370,23 +353,39 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
       setError("Every scene needs an English and Hindi destination name.");
       return;
     }
-    run(async () => {
+    beginChange();
+    try {
       const revision = await props.saveDraftScenes({
         expectedRevision: draft.revision,
         scenes: draft.scenes.map(({ artworkUrl: _url, ...scene }) => scene),
       });
       setDraft({ ...draft, dirty: false, revision });
       setMessage("Draft saved. Publish when both formats are ready.");
-    });
+    } catch (failure) {
+      reportFailure(
+        failure instanceof Error
+          ? failure
+          : new Error("The draft could not be saved. Your edits are kept; try again.")
+      );
+    }
+    setBusy(false);
   };
-  const publish = () =>
-    run(async () => {
+  const publish = async () => {
+    beginChange();
+    try {
       const revision = await props.publishScenes({ expectedRevision: draft.revision });
       setDraft({ ...draft, dirty: false, revision });
       setMessage("Scenes published for visitors.");
-    });
-  const toggleAvailability = () =>
-    run(async () => {
+    } catch (failure) {
+      reportFailure(
+        failure instanceof Error ? failure : new Error("Publishing failed. Try again.")
+      );
+    }
+    setBusy(false);
+  };
+  const toggleAvailability = async () => {
+    beginChange();
+    try {
       const availability = state.availability === "open" ? "closed" : "open";
       await props.setAvailability({ availability });
       setMessage(
@@ -394,28 +393,100 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
           ? "The event is open to anyone with its link."
           : "The event is closed to visitors."
       );
-    });
-  const upload = (event: ChangeEvent<HTMLInputElement>) => {
+    } catch (failure) {
+      reportFailure(
+        failure instanceof Error
+          ? failure
+          : new Error("Availability could not be changed. Try again.")
+      );
+    }
+    setBusy(false);
+  };
+  const upload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!(file && selected)) {
       return;
     }
-    run(async () => {
+    beginChange();
+    try {
       const result = await props.uploadArtwork({ bytes: await prepareArtwork(file) });
       update({ ...selected, ...result });
       setMessage("Artwork uploaded to this draft. Save and publish to show it to visitors.");
-    });
+    } catch (failure) {
+      reportFailure(
+        failure instanceof Error ? failure : new Error("Artwork could not be uploaded. Try again.")
+      );
+    }
+    setBusy(false);
   };
-  const assign = (person: BoothStaffOption) =>
-    run(async () => {
+  const assign = async (person: BoothStaffOption) => {
+    beginChange();
+    try {
       await props.setStaffAssignment({ assigned: !person.assigned, staffId: person.id });
       setMessage(
         person.assigned
           ? `Event access removed for ${person.name}.`
           : `Event access assigned to ${person.name}.`
       );
-    });
+    } catch (failure) {
+      reportFailure(
+        failure instanceof Error
+          ? failure
+          : new Error("Staff access could not be changed. Try again.")
+      );
+    }
+    setBusy(false);
+  };
+
+  return {
+    addScene,
+    assign,
+    busy,
+    conflict,
+    draft,
+    draftStatus,
+    error,
+    index,
+    loadLatest,
+    moveDown,
+    moveUp,
+    publish,
+    save,
+    selected,
+    selectScene,
+    statusMessage,
+    toggleAvailability,
+    unpublished,
+    update,
+    upload,
+  };
+}
+
+export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
+  const { state } = props;
+  const {
+    draft,
+    selected,
+    index,
+    conflict,
+    statusMessage,
+    unpublished,
+    draftStatus,
+    busy,
+    error,
+    update,
+    selectScene,
+    addScene,
+    moveUp,
+    moveDown,
+    loadLatest,
+    save,
+    publish,
+    toggleAvailability,
+    upload,
+    assign,
+  } = useBoothEditor(props);
 
   return (
     <div className="space-y-5 text-brand-dark">
@@ -538,7 +609,7 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
                   type="file"
                 />
                 <span className="block text-brand-muted text-xs">
-                  JPEG, PNG or WebP, up to 20 MB. Artwork is resized before uploading. Use
+                  JPEG, PNG or WebP, up to 12 MB. Artwork is resized before uploading. Use
                   destination scenery without participant photos.
                 </span>
               </label>
@@ -575,6 +646,7 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
             </Button>
           ) : null}
         </div>
+        {selected ? <EventPhotoBoothPreview scene={selected} /> : null}
       </form>
       <section className={PANEL}>
         <h2 className="font-semibold text-lg">Aggregate usage</h2>

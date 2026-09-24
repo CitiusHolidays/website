@@ -90,7 +90,7 @@ async function enterEnglishName(container: HTMLElement, name: string) {
   if (!input) {
     throw new Error("Missing English destination field");
   }
-  await act(async () => {
+  await act(() => {
     Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value")?.set?.call(
       input,
       name
@@ -103,13 +103,13 @@ describe("Event Photo Booth staff editor", () => {
     const saves: { expectedRevision: number; scenes: BoothSceneDraft[] }[] = [];
     const publishes: number[] = [];
     const view = await mount({
-      publishScenes: async ({ expectedRevision }) => {
+      publishScenes: ({ expectedRevision }) => {
         publishes.push(expectedRevision);
-        return 2;
+        return Promise.resolve(2);
       },
-      saveDraftScenes: async (args) => {
+      saveDraftScenes: (args) => {
         saves.push(args);
-        return 1;
+        return Promise.resolve(1);
       },
     });
     try {
@@ -130,9 +130,7 @@ describe("Event Photo Booth staff editor", () => {
   });
   test("keeps edits after revision conflict and only discards them on explicit reload", async () => {
     const view = await mount({
-      saveDraftScenes: async () => {
-        throw new Error("REVISION_CONFLICT");
-      },
+      saveDraftScenes: () => Promise.reject(new Error("REVISION_CONFLICT")),
     });
     try {
       await enterEnglishName(view.container, "My unsaved Paris");
@@ -156,9 +154,9 @@ describe("Event Photo Booth staff editor", () => {
   test("opens and closes manually and excludes assignment controls for event operators", async () => {
     const availability: string[] = [];
     const view = await mount({
-      setAvailability: async (args) => {
+      setAvailability: (args) => {
         availability.push(args.availability);
-        return null;
+        return Promise.resolve(null);
       },
     });
     try {
@@ -188,9 +186,9 @@ describe("Event Photo Booth staff editor", () => {
       { active: false, assigned: true, id: "revokable", name: "Former Operator", roles: ["Sales"] },
     ];
     const view = await mount({
-      setStaffAssignment: async (args) => {
+      setStaffAssignment: (args) => {
         calls.push(args);
-        return null;
+        return Promise.resolve(null);
       },
       staff,
       state: management(true),
@@ -212,9 +210,9 @@ describe("Event Photo Booth staff editor", () => {
   test("reorders and hides scenes without publishing them", async () => {
     const saves: BoothSceneDraft[][] = [];
     const view = await mount({
-      saveDraftScenes: async ({ scenes }) => {
+      saveDraftScenes: ({ scenes }) => {
         saves.push(scenes);
-        return 1;
+        return Promise.resolve(1);
       },
     });
     try {

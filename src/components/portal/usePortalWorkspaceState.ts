@@ -891,7 +891,11 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
   };
 
   let gate = "denied";
-  if (access === undefined || !(isAuthenticated || serverAccess?.allowed)) {
+  if (
+    access === undefined ||
+    !(isAuthenticated || serverAccess?.allowed) ||
+    (view === "event-photo-booth" && serverAccess?.eventPhotoBooth === undefined)
+  ) {
     gate = "loading";
   } else if (allowed) {
     gate = "ready";
