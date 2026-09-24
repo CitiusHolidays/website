@@ -459,6 +459,12 @@ export const PORTAL_NAV_GROUPS = [
     items: [
       { href: "/portal/team", label: "Team Directory", page: "team", permission: P.VIEW_TEAM },
       {
+        href: "/portal/event-photo-booth",
+        label: "Event Photo Booth",
+        page: "event-photo-booth",
+        permission: "event-photo-booth",
+      },
+      {
         href: "/portal/employees-on-leave",
         label: "Employees on Leave",
         page: "employees-on-leave",

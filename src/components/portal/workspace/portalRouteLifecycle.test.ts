@@ -15,7 +15,7 @@ describe("Portal route lifecycle manifest", () => {
     expect(families).toEqual(
       new Set(["administration", "core", "inbound", "operations", "pilot", "ticketing"])
     );
-    expect(Object.keys(PORTAL_ROUTES)).toHaveLength(25);
+    expect(Object.keys(PORTAL_ROUTES)).toHaveLength(26);
 
     for (const route of Object.values(PORTAL_ROUTES)) {
       expect(route.component).toBeTruthy();
@@ -115,4 +115,20 @@ describe("Portal route lifecycle manifest", () => {
       ].sort()
     ).toEqual(["approvals", "dashboard", "expenses", "jobCards", "pnrs", "tickets", "travellers"]);
   });
+});
+
+test("Event management requires a resolved capability and closes on live revocation", () => {
+  const access = { allowed: true, permissions: [], roles: ["Admin"] };
+  const options = { access, has: () => true, view: "event-photo-booth" };
+  const capability = {
+    canManage: true,
+    canManageAssignments: true,
+    canParticipateWhenClosed: true,
+  };
+  expect(canAccessPortalRoute(options)).toBe(false);
+  expect(canAccessPortalRoute({ ...options, eventPhotoBooth: capability })).toBe(true);
+  expect(
+    canAccessPortalRoute({ ...options, eventPhotoBooth: { ...capability, canManage: false } })
+  ).toBe(false);
+  expect(getPortalDataDependencies({ view: "event-photo-booth" }).size).toBe(0);
 });

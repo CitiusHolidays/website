@@ -1,3 +1,4 @@
+import type { BoothAccess } from "@/lib/eventPhotoBooth/contracts";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { canAccessPipeline } from "@/lib/portal/permissions";
 import type { PortalPermission } from "@/lib/portal/workspaceContract";
@@ -76,7 +77,7 @@ export interface PortalRouteDefinition {
   dependencies: readonly PortalDataDependency[];
   family: PortalRouteFamily;
   paginationKey?: PortalPaginationKey;
-  permission: PortalPermission;
+  permission: PortalPermission | "event-photo-booth";
   subtitle: string;
   title: string;
 }
@@ -142,6 +143,14 @@ export const PORTAL_ROUTES = {
     permission: P.VIEW_LEAVE,
     subtitle: "Review leave requests, approvals, and team availability.",
     title: "Employees on Leave",
+  },
+  "event-photo-booth": {
+    component: "EventPhotoBoothView",
+    dependencies: [],
+    family: "administration",
+    permission: "event-photo-booth",
+    subtitle: "Manage event availability, destination scenes and aggregate usage.",
+    title: "Event Photo Booth",
   },
   expenses: {
     component: "ExpensesView",
@@ -344,14 +353,19 @@ export function getPortalRouteDataDependencies(view: string) {
 
 export function canAccessPortalRoute({
   access,
+  eventPhotoBooth,
   has,
   view,
 }: {
   access: Parameters<typeof canAccessPipeline>[0] | null | undefined;
+  eventPhotoBooth?: BoothAccess;
   has: (permission: string) => boolean;
   view: string;
 }): boolean {
   const route = getPortalRouteDefinition(view);
+  if (view === "event-photo-booth") {
+    return Boolean(access?.allowed && eventPhotoBooth?.canManage);
+  }
   return Boolean(
     access?.allowed &&
       (resolvePortalViewId(view) === "pipeline" ? canAccessPipeline(access) : has(route.permission))

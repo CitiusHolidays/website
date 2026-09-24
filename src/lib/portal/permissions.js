@@ -55,7 +55,10 @@ export function canAccessInboundLeads(access) {
   return Boolean(access?.roles?.some((role) => INBOUND_LEAD_ROLES.has(role)));
 }
 
-function navItemAllowed(access, item) {
+function navItemAllowed(access, item, eventPhotoBooth) {
+  if (item.page === "event-photo-booth") {
+    return Boolean(access?.allowed && eventPhotoBooth?.canManage);
+  }
   if (item.page === "inbound-leads") {
     return canAccessInboundLeads(access);
   }
@@ -65,14 +68,19 @@ function navItemAllowed(access, item) {
   return hasPermission(access, item.permission);
 }
 
-export function getAccessibleNavGroups(access) {
+/** @param {import("../eventPhotoBooth/contracts").BoothAccess | undefined} [eventPhotoBooth] */
+export function getAccessibleNavGroups(access, eventPhotoBooth) {
   return PORTAL_NAV_GROUPS.flatMap((group) => {
-    const items = group.items.filter((item) => navItemAllowed(access, item));
+    const items = group.items.filter((item) => navItemAllowed(access, item, eventPhotoBooth));
     return items.length > 0 ? [{ ...group, items }] : [];
   });
 }
 
-export function canAccessPage(access, page) {
+/** @param {import("../eventPhotoBooth/contracts").BoothAccess | undefined} [eventPhotoBooth] */
+export function canAccessPage(access, page, eventPhotoBooth) {
+  if (page === "event-photo-booth") {
+    return Boolean(access?.allowed && eventPhotoBooth?.canManage);
+  }
   if (page === "inbound-leads") {
     return canAccessInboundLeads(access);
   }
