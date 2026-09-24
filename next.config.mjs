@@ -36,6 +36,16 @@ const nextConfig = {
   // Security headers
   async headers() {
     return [
+      {
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+        source: "/photo-booth/vendor/:path*",
+      },
+      {
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" },
+        ],
+        source: "/images/event-photo-booth/:path*",
+      },
       // Authenticated and session-aware routes must never be stored by a CDN
       // or replayed across users. Keep this explicit even when Cache Components
       // is enabled; request-time rendering and response caching are separate

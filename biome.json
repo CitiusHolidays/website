@@ -33,7 +33,8 @@
       "!citius-blog/.next",
       "!diagrams/*.svg",
       "!tools/biome/anti-slop",
-      "!tools"
+      "!tools",
+      "!public/photo-booth/vendor"
     ]
   },
   "formatter": {

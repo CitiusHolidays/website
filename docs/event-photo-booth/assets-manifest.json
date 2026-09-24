@@ -1,0 +1,77 @@
+[
+  {
+    "path": "public/images/event-photo-booth/paris.webp",
+    "bytes": 181242,
+    "sha256": "e533a13e44f30015d86a265a455deef062dd70d054d3cfa29cbe72563f0336ac"
+  },
+  {
+    "path": "public/images/event-photo-booth/bali.webp",
+    "bytes": 378860,
+    "sha256": "08f40e0511a5424a2fe4c01278cb62f2bc0a478709aedd3cbef2d275f782b6e0"
+  },
+  {
+    "path": "public/images/event-photo-booth/dubai.webp",
+    "bytes": 233964,
+    "sha256": "de31540defd4e1fa03837829284d01b04360df7fbe9f5e3ffa99141ef4d873cc"
+  },
+  {
+    "path": "public/images/event-photo-booth/kashi.webp",
+    "bytes": 236092,
+    "sha256": "e979585d1334054004dab47ca7550459e7ff4e9c3a50110efd290f024af32f4c"
+  },
+  {
+    "path": "public/images/event-photo-booth/ayodhya.webp",
+    "bytes": 191408,
+    "sha256": "749474b2fc26c298ff173f4dec54537b3ed63709b5344499615e3c8bd1d8bdec"
+  },
+  {
+    "path": "public/images/event-photo-booth/kedarnath.webp",
+    "bytes": 389994,
+    "sha256": "b40f212086817d178d7fc49c5ac48cc818e5f68455a5b61c3d70cd86b5c0b002"
+  },
+  {
+    "path": "public/photo-booth/vendor/mediapipe-1.0.1/vision_bundle.mjs",
+    "bytes": 155439,
+    "sha256": "d885630c297c0b20b1fe86096cb06291c4c8080876f27852e724f24ac603713f"
+  },
+  {
+    "path": "public/photo-booth/vendor/mediapipe-1.0.1/wasm/vision_wasm_module_internal.js",
+    "bytes": 323415,
+    "sha256": "da8934057f147b622e82cfb4c0dbd85461c598e268588b5a8ba9ca963a8ff82d"
+  },
+  {
+    "path": "public/photo-booth/vendor/mediapipe-1.0.1/wasm/vision_wasm_module_internal.wasm",
+    "bytes": 11756972,
+    "sha256": "2dabd8e23c60984628beb7bb338764c81a08e6837145273f59578684b5d53c1b"
+  },
+  {
+    "path": "public/photo-booth/vendor/selfie-multiclass-256-v1.tflite",
+    "bytes": 16371837,
+    "sha256": "c6748b1253a99067ef71f7e26ca71096cd449baefa8f101900ea23016507e0e0"
+  },
+  {
+    "path": "public/photo-booth/vendor/model-card.pdf",
+    "bytes": 1378158,
+    "sha256": "59372fce0666d4c75b3877540fa77f80ac4b2a0f75e914711417f85fc490a9e6"
+  },
+  {
+    "path": "public/photo-booth/vendor/LICENSE",
+    "bytes": 12331,
+    "sha256": "8707eef0533987efc5b155d64761eeb6e20793f50b9bd1a68dad1cf4719d0ed8"
+  },
+  {
+    "path": "public/images/event-photo-booth/citius-logo.webp",
+    "bytes": 51106,
+    "sha256": "75c3cccaf80129947dccdb1026580cf9b60cdcffbae2c530a45af291cb3ec2f3"
+  },
+  {
+    "path": "scripts/fixtures/event-photo-booth/solo.jpg",
+    "bytes": 279465,
+    "sha256": "142783a838c7a9b902954ce3879493435ec23c0a5af35e5c76613db1998ac448"
+  },
+  {
+    "path": "scripts/fixtures/event-photo-booth/group.jpg",
+    "bytes": 389649,
+    "sha256": "ffc372de77c3f76903b7e2a7c78c1fe5ff7ff11878f08c51a71769bd9fa6b7bc"
+  }
+]
