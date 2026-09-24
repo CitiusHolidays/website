@@ -73,5 +73,65 @@
     "path": "scripts/fixtures/event-photo-booth/group.jpg",
     "bytes": 389649,
     "sha256": "ffc372de77c3f76903b7e2a7c78c1fe5ff7ff11878f08c51a71769bd9fa6b7bc"
+  },
+  {
+    "path": "public/images/event-photo-booth/paris-192.webp",
+    "bytes": 6124,
+    "sha256": "f10f312017f88cd64a30a1efd9eb706282a14d64787f925d26ecbd666077b502"
+  },
+  {
+    "path": "public/images/event-photo-booth/paris-384.webp",
+    "bytes": 20954,
+    "sha256": "db5a6f9559db0f1ecf3a9a5f45696ffa966eca4d4894a119bab31f01a32644c4"
+  },
+  {
+    "path": "public/images/event-photo-booth/bali-192.webp",
+    "bytes": 13530,
+    "sha256": "80d03a930b68f5b778b50f0f2a93030bb0a78f3a09ed4bef79b4ea477f710f3d"
+  },
+  {
+    "path": "public/images/event-photo-booth/bali-384.webp",
+    "bytes": 48708,
+    "sha256": "4fcba905db41a05a25b51c3bf2acdd7c102c5841981d216a3f2969fe558f8da5"
+  },
+  {
+    "path": "public/images/event-photo-booth/dubai-192.webp",
+    "bytes": 7048,
+    "sha256": "6af0ede90774359e54faf40a286651a09d383389d8723b5c3818cc486f5ced2f"
+  },
+  {
+    "path": "public/images/event-photo-booth/dubai-384.webp",
+    "bytes": 24678,
+    "sha256": "e135a17b3aa8607a14396e65edfddeebb407c98ebc8db00faffbfc840c5506cd"
+  },
+  {
+    "path": "public/images/event-photo-booth/kashi-192.webp",
+    "bytes": 8018,
+    "sha256": "75919198649bb61b031cf32ba0e7fa4ce99a1afbc0d9b52d846ac531131178a2"
+  },
+  {
+    "path": "public/images/event-photo-booth/kashi-384.webp",
+    "bytes": 28548,
+    "sha256": "18b6c98db85ba7b1cd539117b6edf3af2a84e4fe4c338d5ccd260d9ab88db25c"
+  },
+  {
+    "path": "public/images/event-photo-booth/ayodhya-192.webp",
+    "bytes": 7918,
+    "sha256": "567f9db067bd7a5d645441d182869de9916a1d8500647722fad25c039a702880"
+  },
+  {
+    "path": "public/images/event-photo-booth/ayodhya-384.webp",
+    "bytes": 25498,
+    "sha256": "52140dd9e9b7b66e5de24e403ab59f83c1fa75520df4d906208e4a4b61babfdc"
+  },
+  {
+    "path": "public/images/event-photo-booth/kedarnath-192.webp",
+    "bytes": 11476,
+    "sha256": "ade1faec29a789a21f1d3a8f13ab09d4374b700670e0b8dce4548408d10f4836"
+  },
+  {
+    "path": "public/images/event-photo-booth/kedarnath-384.webp",
+    "bytes": 44182,
+    "sha256": "f84422503fd4ee5771e08e1d49a55d53b10091e0c9b10ad8dd20b39ec522ae5c"
   }
 ]

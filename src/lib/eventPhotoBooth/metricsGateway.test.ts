@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
+import type { api } from "@convex/_generated/api";
 import { fromPartial } from "@total-typescript/shoehorn";
 import type { FunctionArgs } from "convex/server";
 import { ConvexError } from "convex/values";
 import type { JsonObject } from "../jsonValue";
-import type { boothApi } from "./api";
 import { handleBoothMetrics } from "./metricsGateway";
 
 type Options = NonNullable<Parameters<typeof handleBoothMetrics>[1]>;
@@ -60,7 +60,7 @@ describe("photo-booth metrics gateway", () => {
     const send = fromPartial<Options["send"]>(
       (
         _ref: Parameters<NonNullable<Options["send"]>>[0],
-        args: FunctionArgs<typeof boothApi.recordMetricGateway>,
+        args: FunctionArgs<typeof api.eventPhotoBooth.recordMetricGateway>,
         transport: { token?: string }
       ) => {
         received = args;

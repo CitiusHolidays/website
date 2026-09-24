@@ -19,8 +19,9 @@ service fee, persistent participant storage or server photo upload is used.
   A generation ID prevents stale results from replacing a newer selection.
 - Call `releaseBoothPhoto` on each original/cutout when replaced or when leaving the editor. Do not
   release an original until its pending processing has been aborted. No object URLs are retained.
-- `loadBoothArtwork(url)` and `loadBoothLogo()` load cross-origin-safe raster layers. Reuse the loaded
-  images; they contain no visitor data. Staff previews can render artwork and text without a photo.
+- `loadBoothArtwork(url, signal?)` and `loadBoothLogo()` load cross-origin-safe raster layers. Reuse the loaded
+  images; they contain no visitor data. Cancelling preparation aborts unfinished image loads and
+  rejects late completions. Staff previews can render artwork and text without a photo.
 - `renderBoothPhoto` synchronously produces the full-size canvas used for both preview and export.
   Pass artwork and logo images, localized `title`/`caption`, language `en`/`hi`, format
   `portrait`/`story`, explicit mode `cutout`/`frame`, and the relevant local photo. An optional canvas
@@ -104,3 +105,13 @@ persistent-profile run validates HTTP cache reuse without a service worker or Ca
 The verification server uses uncompressed loopback transport and the same immutable header policy;
 this is not hosted CDN compression, phone performance or weak-network proof. Real iPhone/Android,
 Safari, native-share behavior, children and representative real-family photos remain release checks.
+
+### Scene-card delivery
+
+Bundled scene cards use precomputed 192px/384px WebP variants through native `picture`/`srcset`;
+export composition retains the original artwork. The six 192px thumbnails total 54,114 bytes;
+the six 384px variants total 192,568 bytes. The variants use Sharp 0.35.4 at quality 78,
+without cropping, and are included in the asset hash manifest. They incur no runtime image
+optimization. Staff-uploaded public artwork cards use the existing Next image optimizer/cache,
+restricted to HTTPS `*.convex.cloud/api/storage/**` with no query string. Hosting optimization
+and bandwidth quotas still apply. Participant source/result blobs remain unoptimized and local.

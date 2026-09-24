@@ -1,7 +1,7 @@
 "use client";
 
+import { api } from "@convex/_generated/api";
 import { useAction, useMutation } from "convex/react";
-import { boothApi } from "@/lib/eventPhotoBooth/api";
 import {
   useTrackedPaginatedQuery as usePaginatedQuery,
   useTrackedQuery as useQuery,
@@ -15,17 +15,17 @@ export function EventPhotoBoothView({
   allowed: boolean;
   canFetch: boolean;
 }) {
-  const state = useQuery(boothApi.getManagementState, allowed && canFetch ? {} : "skip");
+  const state = useQuery(api.eventPhotoBooth.getManagementState, allowed && canFetch ? {} : "skip");
   const staff = usePaginatedQuery(
-    boothApi.listAssignableStaff,
+    api.eventPhotoBooth.listAssignableStaff,
     allowed && canFetch && state?.canManageAssignments ? {} : "skip",
     { initialNumItems: 25 }
   );
-  const saveDraftScenes = useMutation(boothApi.saveDraftScenes);
-  const publishScenes = useMutation(boothApi.publishScenes);
-  const setAvailability = useMutation(boothApi.setAvailability);
-  const setStaffAssignment = useMutation(boothApi.setStaffAssignment);
-  const uploadArtwork = useAction(boothApi.uploadArtwork);
+  const saveDraftScenes = useMutation(api.eventPhotoBooth.saveDraftScenes);
+  const publishScenes = useMutation(api.eventPhotoBooth.publishScenes);
+  const setAvailability = useMutation(api.eventPhotoBooth.setAvailability);
+  const setStaffAssignment = useMutation(api.eventPhotoBooth.setStaffAssignment);
+  const uploadArtwork = useAction(api.eventPhotoBoothArtwork.uploadArtwork);
   const loadMoreStaff = () => staff.loadMore(25);
 
   if (!(allowed && canFetch)) {

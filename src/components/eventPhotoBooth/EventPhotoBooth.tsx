@@ -1,5 +1,6 @@
 "use client";
 
+import { api } from "@convex/_generated/api";
 import { useQuery } from "convex/react";
 import { Camera, Check, Download, ImagePlus, RotateCcw, Share2 } from "lucide-react";
 import Image from "next/image";
@@ -9,12 +10,12 @@ import {
   ControlledAlertDialogDescription,
   ControlledAlertDialogTitle,
 } from "@/components/ui/application-dialog";
-import { boothApi } from "@/lib/eventPhotoBooth/api";
-import type {
-  BoothCategory,
-  BoothLanguage,
-  BoothParticipantState,
-  BoothScene,
+import {
+  BOOTH_THUMBNAIL_URLS,
+  type BoothCategory,
+  type BoothLanguage,
+  type BoothParticipantState,
+  type BoothScene,
 } from "@/lib/eventPhotoBooth/contracts";
 import {
   type BoothFormat,
@@ -30,7 +31,7 @@ import styles from "./EventPhotoBooth.module.css";
 import { useBoothEditor } from "./useBoothEditor";
 
 export default function EventPhotoBooth() {
-  const state = useQuery(boothApi.getParticipantState, {});
+  const state = useQuery(api.eventPhotoBooth.getParticipantState, {});
   return <EventPhotoBoothView state={state} />;
 }
 
@@ -404,13 +405,26 @@ function SceneChoices({ view }: { view: VisitorView }) {
               type="button"
             >
               <span className={styles.thumbnail}>
-                <Image
-                  alt=""
-                  fill
-                  sizes="(max-width: 700px) 30vw, 150px"
-                  src={item.artworkUrl}
-                  unoptimized
-                />
+                <picture>
+                  {item.artwork.kind === "bundled" ? (
+                    <source
+                      sizes="(max-width: 700px) 30vw, 150px"
+                      srcSet={`${BOOTH_THUMBNAIL_URLS[item.artwork.key].small} 192w, ${BOOTH_THUMBNAIL_URLS[item.artwork.key].large} 384w`}
+                      type="image/webp"
+                    />
+                  ) : null}
+                  <Image
+                    alt=""
+                    fill
+                    sizes="(max-width: 700px) 30vw, 150px"
+                    src={
+                      item.artwork.kind === "bundled"
+                        ? BOOTH_THUMBNAIL_URLS[item.artwork.key].large
+                        : item.artworkUrl
+                    }
+                    unoptimized={item.artwork.kind === "bundled"}
+                  />
+                </picture>
               </span>
               <span>
                 {item.title[language]}
@@ -537,6 +551,16 @@ function PhotoControls({ view }: { view: VisitorView }) {
           {copy.cancel}
         </button>
       ) : null}
+      {editor.phase === "cancelled" && (mode === "frame" || editor.cutout) ? (
+        <button
+          className={styles.secondary}
+          disabled={!canParticipate}
+          onClick={editor.retryPreview}
+          type="button"
+        >
+          {copy.retryPreview}
+        </button>
+      ) : null}
       {editor.error ? (
         <div className={styles.error} role="alert">
           <p>{copy[editor.error]}</p>
@@ -601,7 +625,7 @@ function PhotoPreview({ view }: { view: VisitorView }) {
         <legend className="sr-only">{copy.format}</legend>
         {(["portrait", "story"] as const).map((value) => (
           <button
-            aria-pressed={displayedFormat === value}
+            aria-pressed={format === value}
             key={value}
             onClick={() => {
               setFormat(value);
@@ -613,6 +637,11 @@ function PhotoPreview({ view }: { view: VisitorView }) {
           </button>
         ))}
       </fieldset>
+      {ready && editor.previousResult ? (
+        <p className={styles.notice} role="status">
+          {copy.previousResult}: {ready.title[language]} · {copy[ready.format]}
+        </p>
+      ) : null}
       <div
         aria-busy={showProgress}
         className={styles.preview}
@@ -684,18 +713,13 @@ function PhotoPreview({ view }: { view: VisitorView }) {
         </fieldset>
       ) : null}
       <div className={styles.actions}>
-        <button
-          className={styles.primary}
-          disabled={!ready || editor.rendering}
-          onClick={download}
-          type="button"
-        >
+        <button className={styles.primary} disabled={!ready} onClick={download} type="button">
           <Download aria-hidden size={18} />
           {copy.save}
         </button>
         <button
           className={styles.secondary}
-          disabled={!ready || editor.rendering || sharing}
+          disabled={!ready || sharing}
           onClick={share}
           type="button"
         >

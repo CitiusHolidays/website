@@ -14,6 +14,7 @@ interface PreparedPhoto {
   format: BoothFormat;
   key: string;
   sceneId: string;
+  title: BoothScene["title"];
   url: string;
 }
 interface EditorResources {
@@ -47,6 +48,7 @@ export function useBoothEditor(options: EditorOptions) {
   const engine = useRef<Engine | null>(null);
   const processor = useRef<ReturnType<Engine["createCutoutProcessor"]> | null>(null);
   const operation = useRef<AbortController | null>(null);
+  const renderOperation = useRef<AbortController | null>(null);
   const resources = useRef<EditorResources>({
     cutout: null,
     photo: null,
@@ -54,7 +56,7 @@ export function useBoothEditor(options: EditorOptions) {
     sourceUrl: "",
   });
   const completedCreation = useRef(new Set<string>());
-  const artworkCache = useRef(new Map<string, Promise<HTMLImageElement>>());
+  const artworkCache = useRef(new Map<string, HTMLImageElement>());
   const active = useRef(canParticipate);
   active.current = canParticipate;
   const renderKey = JSON.stringify([
@@ -66,11 +68,14 @@ export function useBoothEditor(options: EditorOptions) {
     transform,
     renderRetry,
   ]);
-  const busy = phase === "loading" || phase === "preparing" || phase === "processing";
+  const busy = rendering || phase === "loading" || phase === "preparing" || phase === "processing";
 
   const cancel = useCallback(() => {
     operation.current?.abort();
     operation.current = null;
+    renderOperation.current?.abort();
+    setRendering(false);
+    setError(null);
     setPhase("cancelled");
   }, []);
 
@@ -78,6 +83,8 @@ export function useBoothEditor(options: EditorOptions) {
     if (!canParticipate) {
       operation.current?.abort();
       operation.current = null;
+      renderOperation.current?.abort();
+      setRendering(false);
       setPhase(null);
     }
   }, [canParticipate]);
@@ -85,6 +92,7 @@ export function useBoothEditor(options: EditorOptions) {
   useEffect(
     () => () => {
       operation.current?.abort();
+      renderOperation.current?.abort();
       processor.current?.dispose();
       engine.current?.releaseBoothPhoto(resources.current.photo);
       engine.current?.releaseBoothPhoto(resources.current.cutout);
@@ -99,6 +107,8 @@ export function useBoothEditor(options: EditorOptions) {
       return;
     }
     operation.current?.abort();
+    renderOperation.current?.abort();
+    setRendering(false);
     const controller = new AbortController();
     operation.current = controller;
     setError(null);
@@ -140,6 +150,8 @@ export function useBoothEditor(options: EditorOptions) {
       return;
     }
     operation.current?.abort();
+    renderOperation.current?.abort();
+    setRendering(false);
     const controller = new AbortController();
     operation.current = controller;
     setError(null);
@@ -179,25 +191,29 @@ export function useBoothEditor(options: EditorOptions) {
   }
 
   useEffect(() => {
-    if (!(canParticipate && scene && photo && engine.current) || (mode === "cutout" && !cutout)) {
+    if (
+      !(canParticipate && scene && photo && engine.current) ||
+      operation.current ||
+      (mode === "cutout" && !cutout)
+    ) {
       setRendering(false);
       return;
     }
     const renderer = engine.current;
     const selectedScene = scene;
-    function cachedArtwork(url: string) {
+    const controller = new AbortController();
+    renderOperation.current = controller;
+    async function cachedArtwork(url: string) {
       const existing = artworkCache.current.get(url);
       if (existing) {
         return existing;
       }
-      const loading = renderer.loadBoothArtwork(url).catch((failure: Error) => {
-        artworkCache.current.delete(url);
-        throw failure;
-      });
-      artworkCache.current.set(url, loading);
-      return loading;
+      const artwork = await renderer.loadBoothArtwork(url, controller.signal);
+      if (!controller.signal.aborted) {
+        artworkCache.current.set(url, artwork);
+      }
+      return artwork;
     }
-    let cancelled = false;
     setRendering(true);
     setError((value) => (value === "renderError" ? null : value));
     async function prepare() {
@@ -208,7 +224,7 @@ export function useBoothEditor(options: EditorOptions) {
           cachedArtwork("/images/event-photo-booth/citius-logo.webp"),
           document.fonts.ready,
         ]);
-        if (cancelled) {
+        if (controller.signal.aborted) {
           return;
         }
         const canvas = renderer.renderBoothPhoto({
@@ -226,7 +242,7 @@ export function useBoothEditor(options: EditorOptions) {
         const blob = await exportBoothPhoto(canvas);
         canvas.width = 0;
         canvas.height = 0;
-        if (cancelled) {
+        if (controller.signal.aborted) {
           return;
         }
         const file = new File([blob], `citius-${selectedScene.id}-${format}.png`, {
@@ -241,6 +257,7 @@ export function useBoothEditor(options: EditorOptions) {
           format,
           key: renderKey,
           sceneId: selectedScene.id,
+          title: selectedScene.title,
           url,
         });
         setPhase((current) => (current === "cancelled" ? null : current));
@@ -252,7 +269,7 @@ export function useBoothEditor(options: EditorOptions) {
           metrics.record("creation_completed", selectedScene.id);
         }
       } catch {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setError("renderError");
           setRendering(false);
         }
@@ -261,7 +278,10 @@ export function useBoothEditor(options: EditorOptions) {
     // A short debounce avoids encoding a full PNG on every slider input.
     const timer = setTimeout(prepare, 120);
     return () => {
-      cancelled = true;
+      controller.abort();
+      if (renderOperation.current === controller) {
+        renderOperation.current = null;
+      }
       clearTimeout(timer);
     };
   }, [
@@ -280,6 +300,9 @@ export function useBoothEditor(options: EditorOptions) {
 
   function reset() {
     operation.current?.abort();
+    operation.current = null;
+    renderOperation.current?.abort();
+    setRendering(false);
     processor.current?.dispose();
     processor.current = null;
     engine.current?.releaseBoothPhoto(resources.current.photo);
@@ -296,18 +319,19 @@ export function useBoothEditor(options: EditorOptions) {
     setError(null);
   }
 
-  const currentReady = !canParticipate || ready?.key === renderKey ? ready : null;
+  const previousResult = Boolean(ready && ready.key !== renderKey);
   return {
     busy,
     cancel,
     createCutout,
     cutout,
-    dirty: Boolean(photo && (!currentReady || currentReady.file !== savedFile)),
+    dirty: Boolean(photo && (!ready || previousResult || ready.file !== savedFile)),
     error,
     hasPhoto: Boolean(photo),
     markSaved: (file: File) => setSavedFile(file),
     phase,
-    ready: currentReady,
+    previousResult,
+    ready,
     rendering,
     reset,
     retryPreview: () => setRenderRetry((value) => value + 1),

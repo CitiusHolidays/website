@@ -9,6 +9,7 @@ const app = defineApp({
     E2E_PROVISIONING_TARGET: v.optional(v.string()),
     E2E_SEED_SECRET: v.optional(v.string()),
     E2E_TARGET_ID: v.optional(v.string()),
+    EVENT_PHOTO_BOOTH_GATEWAY_SECRET: v.optional(v.string()),
     OPERATIONAL_CONTROL_SOURCE_REVISION: v.optional(v.string()),
     OPERATIONAL_CONTROL_TARGET_ID: v.optional(v.string()),
     VERCEL_ENV: v.optional(v.string()),

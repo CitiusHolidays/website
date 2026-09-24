@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import type { Id } from "@convex/_generated/dataModel";
 import { JSDOM } from "jsdom";
 import { act } from "react";
 import {
@@ -175,15 +176,30 @@ describe("Event Photo Booth staff editor", () => {
   test("allows authorized assignment changes and never grants inactive staff new access", async () => {
     const calls: { staffId: string; assigned: boolean }[] = [];
     const staff = [
-      { active: true, assigned: false, id: "active", name: "Active Operator", roles: ["Sales"] },
+      {
+        active: true,
+        assigned: false,
+        // SAFETY: Controlled staff DTO IDs stay inside this editor fixture; no backend call is made.
+        id: "active" as Id<"staffUsers">,
+        name: "Active Operator",
+        roles: ["Sales"],
+      },
       {
         active: false,
         assigned: false,
-        id: "inactive",
+        // SAFETY: Controlled staff DTO IDs stay inside this editor fixture; no backend call is made.
+        id: "inactive" as Id<"staffUsers">,
         name: "Inactive Operator",
         roles: ["Sales"],
       },
-      { active: false, assigned: true, id: "revokable", name: "Former Operator", roles: ["Sales"] },
+      {
+        active: false,
+        assigned: true,
+        // SAFETY: Controlled staff DTO IDs stay inside this editor fixture; no backend call is made.
+        id: "revokable" as Id<"staffUsers">,
+        name: "Former Operator",
+        roles: ["Sales"],
+      },
     ];
     const view = await mount({
       setStaffAssignment: (args) => {
