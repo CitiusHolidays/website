@@ -275,10 +275,10 @@ function TemplateChooser({
           type="button"
           variant="primary"
         >
-          {adding ? "Add selected scene" : "Apply template"}
+          {adding ? "Add selected destination" : "Apply template"}
         </Button>
         <Button
-          aria-label={adding ? "Cancel adding scene" : "Cancel template change"}
+          aria-label={adding ? "Cancel adding destination" : "Cancel template change"}
           className="min-h-11"
           onClick={cancel}
           type="button"
@@ -287,6 +287,245 @@ function TemplateChooser({
           Cancel
         </Button>
       </div>
+    </div>
+  );
+}
+
+interface NewDestination {
+  category: BoothScene["category"];
+  file: File;
+  title: BoothScene["title"];
+}
+
+function NewDestinationForm({
+  create,
+  cancel,
+}: {
+  create: (destination: NewDestination) => Promise<string | null>;
+  cancel: () => void;
+}) {
+  const english = useRef<HTMLInputElement>(null);
+  const hindi = useRef<HTMLInputElement>(null);
+  const background = useRef<HTMLInputElement>(null);
+  const category = useRef<HTMLSelectElement>(null);
+  const confirmButton = useRef<HTMLButtonElement>(null);
+  const confirming = useRef(false);
+  const [error, setError] = useState("");
+  const [hasEdits, setHasEdits] = useState(false);
+  useEffect(() => english.current?.focus(), []);
+  useEffect(() => {
+    if (error) {
+      confirmButton.current?.focus();
+    }
+  }, [error]);
+  useEffect(() => {
+    if (!hasEdits) {
+      return;
+    }
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [hasEdits]);
+  const change = () => {
+    english.current?.setCustomValidity("");
+    hindi.current?.setCustomValidity("");
+    setHasEdits(
+      Boolean(
+        english.current?.value ||
+          hindi.current?.value ||
+          background.current?.files?.length ||
+          category.current?.value === "pilgrimage"
+      )
+    );
+  };
+  const confirm = async () => {
+    const en = english.current;
+    const hi = hindi.current;
+    const image = background.current;
+    if (confirming.current || !en || !hi || !image) {
+      return;
+    }
+    en.setCustomValidity(en.value.trim() ? "" : "Enter the English destination name.");
+    hi.setCustomValidity(hi.value.trim() ? "" : "Enter the Hindi destination name.");
+    if (!(en.reportValidity() && hi.reportValidity() && image.reportValidity())) {
+      return;
+    }
+    const file = image.files?.[0];
+    if (!file) {
+      return;
+    }
+    confirming.current = true;
+    setError("");
+    const failure = await create({
+      category: category.current?.value === "pilgrimage" ? "pilgrimage" : "travel",
+      file,
+      title: { en: en.value.trim(), hi: hi.value.trim() },
+    });
+    confirming.current = false;
+    if (failure) {
+      setError(failure);
+    }
+  };
+  return (
+    <fieldset
+      className="space-y-3 rounded-lg border border-brand-border bg-brand-light p-4"
+      onChange={change}
+    >
+      <legend className="sr-only">Create a new destination</legend>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="space-y-1 text-sm">
+          English destination
+          <input className={INPUT} maxLength={80} ref={english} required />
+        </label>
+        <label className="space-y-1 text-sm">
+          Hindi destination
+          <input className={INPUT} lang="hi" maxLength={80} ref={hindi} required />
+        </label>
+      </div>
+      <label className="block space-y-1 text-sm">
+        Category
+        <select aria-label="Category" className={INPUT} defaultValue="travel" ref={category}>
+          <option value="travel">Travel</option>
+          <option value="pilgrimage">Pilgrimage</option>
+        </select>
+      </label>
+      <label className="block space-y-1 text-sm">
+        Destination background
+        <input
+          accept="image/jpeg,image/png,image/webp"
+          aria-label="Destination background"
+          className={`${INPUT} block file:mr-3 file:min-h-11 file:rounded-md file:border-0 file:bg-white file:px-3`}
+          ref={background}
+          required
+          type="file"
+        />
+        <span className="block text-brand-muted text-xs">
+          JPEG, PNG or WebP, up to 12 MB. Scenery only.
+        </span>
+      </label>
+      {error ? (
+        <p className="text-red-800 text-sm" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          className="min-h-11"
+          onClick={confirm}
+          ref={confirmButton}
+          type="button"
+          variant="primary"
+        >
+          Add new destination
+        </Button>
+        <Button
+          aria-label="Cancel adding destination"
+          className="min-h-11"
+          onClick={cancel}
+          type="button"
+          variant="bare"
+        >
+          Cancel
+        </Button>
+      </div>
+    </fieldset>
+  );
+}
+
+function AddDestinationChooser({
+  apply,
+  create,
+  cancel,
+}: {
+  apply: (preset: BoothSceneDraft) => void;
+  create: (destination: NewDestination) => Promise<string | null>;
+  cancel: () => void;
+}) {
+  const [mode, setMode] = useState<"template" | "custom" | null>(null);
+  const firstChoice = useRef<HTMLButtonElement>(null);
+  useEffect(() => firstChoice.current?.focus(), []);
+  return (
+    <div className="space-y-3">
+      {mode ? null : (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            className="min-h-11"
+            onClick={() => setMode("template")}
+            ref={firstChoice}
+            type="button"
+            variant="outline"
+          >
+            Use a template
+          </Button>
+          <Button
+            className="min-h-11"
+            onClick={() => setMode("custom")}
+            type="button"
+            variant="outline"
+          >
+            Create a new destination
+          </Button>
+        </div>
+      )}
+      {mode === "template" ? <TemplateChooser adding apply={apply} cancel={cancel} /> : null}
+      {mode === "custom" ? <NewDestinationForm cancel={cancel} create={create} /> : null}
+      {mode ? null : (
+        <Button
+          aria-label="Cancel adding destination"
+          className="min-h-11"
+          onClick={cancel}
+          type="button"
+          variant="bare"
+        >
+          Cancel
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function SceneNavigation({
+  disabled,
+  index,
+  next,
+  previous,
+  total,
+}: {
+  disabled: boolean;
+  index: number;
+  next: () => void;
+  previous: () => void;
+  total: number;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <Button
+        aria-label="Previous scene"
+        className="min-h-11 px-2!"
+        disabled={index <= 0 || disabled}
+        onClick={previous}
+        type="button"
+        variant="outline"
+      >
+        Previous
+      </Button>
+      <span
+        aria-live="polite"
+        className="whitespace-nowrap px-1 text-brand-muted text-sm tabular-nums"
+      >
+        <span className="sr-only">Scene </span>
+        {index + 1} of {total}
+      </span>
+      <Button
+        aria-label="Next scene"
+        className="min-h-11 px-2!"
+        disabled={index < 0 || index >= total - 1 || disabled}
+        onClick={next}
+        type="button"
+        variant="outline"
+      >
+        Next
+      </Button>
     </div>
   );
 }
@@ -434,13 +673,12 @@ function useBoothEditor(props: EventPhotoBoothEditorProps) {
       scenes: previous.scenes.map((item) => (item.id === scene.id ? scene : item)),
     }));
   const selectScene = (event: ChangeEvent<HTMLSelectElement>) => setSelectedId(event.target.value);
-  const addScene = (preset: BoothSceneDraft) => {
-    if (preset.artwork.kind !== "bundled" || draft.scenes.length >= 24) {
-      return;
+  const addScene = (content: Omit<BoothScene, "id">) => {
+    if (draft.scenes.length >= 24) {
+      return false;
     }
     const scene: BoothScene = {
-      ...preset,
-      artworkUrl: BOOTH_ARTWORK_URLS[preset.artwork.key],
+      ...content,
       id: `scene-${crypto.randomUUID().slice(0, 8)}`,
     };
     setDraft((previous) =>
@@ -450,6 +688,29 @@ function useBoothEditor(props: EventPhotoBoothEditorProps) {
     );
     setSelectedId(scene.id);
     setMessage(`${scene.title.en} added to the draft.`);
+    return true;
+  };
+  const createDestination = async ({ title, category, file }: NewDestination) => {
+    if (busy || draft.scenes.length >= 24) {
+      return "The draft already has 24 scenes.";
+    }
+    if (!(title.en.trim() && title.hi.trim())) {
+      return "Enter both destination names.";
+    }
+    beginChange("uploading");
+    try {
+      const result = await props.uploadArtwork({ bytes: await prepareArtwork(file) });
+      if (!addScene({ ...result, caption: { en: "", hi: "" }, category, title, visible: true })) {
+        return "The draft already has 24 scenes.";
+      }
+      return null;
+    } catch (failure) {
+      return errorMessage(
+        failure instanceof Error ? failure : new Error("Background upload failed. Try again.")
+      );
+    } finally {
+      setBusy(false);
+    }
   };
   const applyTemplate = (preset: BoothSceneDraft) => {
     if (!selected || preset.artwork.kind !== "bundled") {
@@ -604,6 +865,7 @@ function useBoothEditor(props: EventPhotoBoothEditorProps) {
     assign,
     busy: Boolean(busy),
     conflict,
+    createDestination,
     draft,
     draftStatus,
     error,
@@ -640,6 +902,7 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
     selectScene,
     addScene,
     applyTemplate,
+    createDestination,
     moveScene,
     previousScene,
     nextScene,
@@ -655,19 +918,42 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
   const addButton = useRef<HTMLButtonElement>(null);
   const sceneSelect = useRef<HTMLSelectElement>(null);
   const templateButton = useRef<HTMLButtonElement>(null);
+  const returnFocus = useRef<"add" | "scene" | "template" | null>(null);
+  useEffect(() => {
+    if (templateAction !== null) {
+      return;
+    }
+    const targets = {
+      add: addButton.current,
+      scene: sceneSelect.current,
+      template: templateButton.current,
+    };
+    const target = returnFocus.current ? targets[returnFocus.current] : null;
+    (target?.disabled ? sceneSelect.current : target)?.focus();
+    returnFocus.current = null;
+  }, [templateAction]);
   const closeTemplates = () => {
+    returnFocus.current = templateAction === "add" ? "add" : "template";
     setTemplateAction(null);
-    (templateAction === "add" ? addButton : templateButton).current?.focus();
   };
   const confirmTemplate = (preset: BoothSceneDraft) => {
-    if (templateAction === "add") {
-      addScene(preset);
+    if (templateAction === "add" && preset.artwork.kind === "bundled") {
+      addScene({ ...preset, artworkUrl: BOOTH_ARTWORK_URLS[preset.artwork.key] });
     } else {
       applyTemplate(preset);
     }
+    returnFocus.current = templateAction === "add" ? "scene" : "template";
     setTemplateAction(null);
-    (templateAction === "add" ? sceneSelect : templateButton).current?.focus();
   };
+  const confirmNewDestination = async (destination: NewDestination) => {
+    const failure = await createDestination(destination);
+    if (!failure) {
+      returnFocus.current = "scene";
+      setTemplateAction(null);
+    }
+    return failure;
+  };
+  const editingScene = selected && templateAction !== "add";
   const browse = (change: () => void) => {
     setTemplateAction(null);
     change();
@@ -747,6 +1033,7 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
               <select
                 aria-label="Edit scene"
                 className={INPUT}
+                disabled={templateAction === "add"}
                 onChange={(event) => browse(() => selectScene(event))}
                 ref={sceneSelect}
                 value={selected?.id ?? ""}
@@ -768,50 +1055,27 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
               type="button"
               variant="outline"
             >
-              Add scene
+              Add destination
             </Button>
           </div>
           {draft.scenes.length >= 24 ? (
             <p className="text-brand-muted text-sm">24-scene limit reached.</p>
           ) : null}
-          <div className="flex items-center gap-1">
-            <Button
-              aria-label="Previous scene"
-              className="min-h-11 px-2!"
-              disabled={index <= 0}
-              onClick={() => browse(previousScene)}
-              type="button"
-              variant="outline"
-            >
-              Previous
-            </Button>
-            <span
-              aria-live="polite"
-              className="whitespace-nowrap px-1 text-brand-muted text-sm tabular-nums"
-            >
-              <span className="sr-only">Scene </span>
-              {index + 1} of {draft.scenes.length}
-            </span>
-            <Button
-              aria-label="Next scene"
-              className="min-h-11 px-2!"
-              disabled={index < 0 || index >= draft.scenes.length - 1}
-              onClick={() => browse(nextScene)}
-              type="button"
-              variant="outline"
-            >
-              Next
-            </Button>
-          </div>
+          <SceneNavigation
+            disabled={templateAction === "add"}
+            index={index}
+            next={() => browse(nextScene)}
+            previous={() => browse(previousScene)}
+            total={draft.scenes.length}
+          />
           {templateAction === "add" ? (
-            <TemplateChooser
-              adding
+            <AddDestinationChooser
               apply={confirmTemplate}
               cancel={closeTemplates}
-              key={`add-${selected?.id}-${draft.revision}`}
+              create={confirmNewDestination}
             />
           ) : null}
-          {selected ? (
+          {editingScene ? (
             <>
               <div className="flex flex-col items-start gap-4 border-brand-border border-t pt-4 sm:flex-row">
                 <figure className="space-y-2">
@@ -900,7 +1164,7 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
           {draft.dirty || conflict ? (
             <Button
               className="min-h-11"
-              disabled={busy}
+              disabled={busy || templateAction === "add"}
               onClick={() => browse(loadLatest)}
               type="button"
               variant="bare"
@@ -909,7 +1173,7 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
             </Button>
           ) : null}
         </div>
-        {selected ? <EventPhotoBoothPreview scene={selected} /> : null}
+        {editingScene ? <EventPhotoBoothPreview scene={selected} /> : null}
       </form>
       <section className={PANEL}>
         <h2 className="font-semibold text-lg">Event totals</h2>

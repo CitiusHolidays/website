@@ -117,12 +117,195 @@ async function applyTemplate(view: Awaited<ReturnType<typeof mount>>, templateId
   await choose(view.container, "Destination template", templateId);
   await act(async () => view.button("Apply template").click());
 }
+async function enterHindiName(container: HTMLElement, name: string) {
+  const input = container.querySelector<HTMLInputElement>('input[lang="hi"][maxlength="80"]');
+  if (!input) {
+    throw new Error("Missing Hindi destination field");
+  }
+  await act(() => {
+    Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value")?.set?.call(
+      input,
+      name
+    );
+    input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+  });
+}
+async function customForm(view: Awaited<ReturnType<typeof mount>>) {
+  await act(async () => view.button("Add destination").click());
+  await act(async () => view.button("Create a new destination").click());
+}
+async function stageBackground(container: HTMLElement) {
+  const input = container.querySelector<HTMLInputElement>(
+    'input[aria-label="Destination background"]'
+  );
+  if (!input) {
+    throw new Error("Missing destination background");
+  }
+  const file = new File(["image"], "background.jpg", { type: "image/jpeg" });
+  Object.defineProperty(input, "files", { configurable: true, value: [file] });
+  // jsdom does not populate the native file selection behind its validity API.
+  spyOn(input, "reportValidity").mockImplementation(() => Boolean(input.files?.length));
+  await act(async () => input.dispatchEvent(new dom.window.Event("change", { bubbles: true })));
+  return { file, input };
+}
+async function preparedBackground() {
+  const engine = await import("@/lib/eventPhotoBooth/imageEngine");
+  const canvas = document.createElement("canvas");
+  canvas.toBlob = (callback) => callback(new Blob(["prepared image"], { type: "image/jpeg" }));
+  return spyOn(engine, "loadSourcePhoto").mockResolvedValue({ canvas, height: 100, width: 100 });
+}
 function destinationFields(container: HTMLElement) {
   return [...container.querySelectorAll<HTMLInputElement>("input[maxlength]")].map(
     (input) => input.value
   );
 }
 describe("Event Photo Booth staff editor", () => {
+  test("custom creation validates required fields and cancels without any upload or draft change", async () => {
+    let uploads = 0;
+    const view = await mount({
+      uploadArtwork: () => {
+        uploads += 1;
+        throw new Error("Unexpected upload");
+      },
+    });
+    try {
+      await customForm(view);
+      expect(destinationFields(view.container)).toEqual(["", ""]);
+      expect(view.container.querySelector("img")).toBeNull();
+      expect(view.button("Next scene").disabled).toBe(true);
+      expect(view.container.textContent).not.toContain("Use a template");
+      await act(async () => view.button("Add new destination").click());
+      expect(uploads).toBe(0);
+      await enterEnglishName(view.container, "Hampi");
+      await act(async () => view.button("Add new destination").click());
+      expect(uploads).toBe(0);
+      await enterHindiName(view.container, "हम्पी");
+      await act(async () => view.button("Add new destination").click());
+      expect(uploads).toBe(0);
+      await stageBackground(view.container);
+      const warning = new dom.window.Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(warning);
+      expect(warning.defaultPrevented).toBe(true);
+      await act(async () => view.button("Cancel adding destination").click());
+      expect(document.activeElement).toBe(view.button("Add destination"));
+      expect(destinationFields(view.container)[0]).toBe("Paris");
+      expect(view.button("Save draft").disabled).toBe(true);
+      expect(uploads).toBe(0);
+      const clean = new dom.window.Event("beforeunload", { cancelable: true });
+      window.dispatchEvent(clean);
+      expect(clean.defaultPrevented).toBe(false);
+    } finally {
+      await view.unmount();
+    }
+  });
+  test("custom upload failure preserves names and file for retry, then appends only the confirmed destination", async () => {
+    const prepare = await preparedBackground();
+    let uploads = 0;
+    const saves: { expectedRevision: number; scenes: BoothSceneDraft[] }[] = [];
+    const view = await mount({
+      saveDraftScenes: (args) => {
+        saves.push(args);
+        return Promise.resolve(5);
+      },
+      uploadArtwork: () => {
+        uploads += 1;
+        if (uploads === 1) {
+          return Promise.reject(new Error("Upload failed. Try again."));
+        }
+        // SAFETY: Local editor fixture ID never reaches a backend.
+        return Promise.resolve({
+          artwork: { id: "custom" as Id<"eventPhotoBoothArtwork">, kind: "upload" },
+          artworkUrl: "/custom.webp",
+        });
+      },
+    });
+    try {
+      await customForm(view);
+      await enterEnglishName(view.container, "Hampi");
+      await enterHindiName(view.container, "हम्पी");
+      await choose(view.container, "Category", "pilgrimage");
+      const { input, file } = await stageBackground(view.container);
+      const confirm = view.button("Add new destination");
+      await act(async () => {
+        confirm.click();
+        confirm.click();
+        await Promise.resolve();
+      });
+      expect(uploads).toBe(1);
+      expect(view.container.querySelector('[role="alert"]')?.textContent).toBe(
+        "Upload failed. Try again."
+      );
+      expect(destinationFields(view.container)).toEqual(["Hampi", "हम्पी"]);
+      expect(input.files?.[0]).toBe(file);
+      expect(document.activeElement).toBe(confirm);
+      const state = management();
+      state.draftScenes[0] = { ...state.draftScenes[0], title: { en: "Remote Paris", hi: "पेरिस" } };
+      await view.rerender({ state: { ...state, revision: 4 } });
+      expect(destinationFields(view.container)).toEqual(["Hampi", "हम्पी"]);
+      expect(input.files?.[0]).toBe(file);
+      await act(async () => view.button("Add new destination").click());
+      expect(uploads).toBe(2);
+      expect(destinationFields(view.container)).toEqual(["Hampi", "हम्पी", "", ""]);
+      expect(view.container.textContent).toContain("Scene 7 of 7");
+      expect(document.activeElement).toBe(
+        view.container.querySelector('select[aria-label="Edit scene"]')
+      );
+      expect(saves).toHaveLength(0);
+      await act(async () => view.button("Save draft").click());
+      expect(saves[0].expectedRevision).toBe(4);
+      expect(saves[0].scenes[0].title.en).toBe("Remote Paris");
+      expect(saves[0].scenes[6]).toMatchObject({
+        artwork: { id: "custom", kind: "upload" },
+        caption: { en: "", hi: "" },
+        category: "pilgrimage",
+        title: { en: "Hampi", hi: "हम्पी" },
+        visible: true,
+      });
+      expect(saves[0].scenes[6].id).toStartWith("scene-");
+    } finally {
+      prepare.mockRestore();
+      await view.unmount();
+    }
+  });
+  test("a concurrent revision during custom creation stays blocked by the existing conflict protection", async () => {
+    const prepare = await preparedBackground();
+    let finish:
+      | ((result: Awaited<ReturnType<EventPhotoBoothEditorProps["uploadArtwork"]>>) => void)
+      | undefined;
+    const view = await mount({
+      uploadArtwork: () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    });
+    try {
+      await customForm(view);
+      await enterEnglishName(view.container, "Hampi");
+      await enterHindiName(view.container, "हम्पी");
+      await stageBackground(view.container);
+      await act(async () => view.button("Add new destination").click());
+      expect(view.container.textContent).toContain("Uploading background…");
+      const state = management();
+      state.draftScenes[0] = { ...state.draftScenes[0], title: { en: "Remote Paris", hi: "पेरिस" } };
+      await view.rerender({ state: { ...state, revision: 1 } });
+      // SAFETY: Local editor fixture ID never reaches a backend.
+      await act(async () =>
+        finish?.({
+          artwork: { id: "custom" as Id<"eventPhotoBoothArtwork">, kind: "upload" },
+          artworkUrl: "/custom.webp",
+        })
+      );
+      expect(view.container.textContent).toContain("A newer draft is available");
+      expect(view.button("Save draft").disabled).toBe(true);
+      expect(destinationFields(view.container)[0]).toBe("Hampi");
+      await act(async () => view.button("Discard edits and reload").click());
+      expect(destinationFields(view.container)[0]).toBe("Remote Paris");
+      expect(view.container.textContent).toContain("Scene 1 of 6");
+    } finally {
+      prepare.mockRestore();
+      await view.unmount();
+    }
+  });
   test("browses scenes without changing order or dirty state, including hidden scenes", async () => {
     const state = management();
     state.draftScenes[1] = { ...state.draftScenes[1], visible: false };
@@ -169,8 +352,9 @@ describe("Event Photo Booth staff editor", () => {
       },
     });
     try {
-      await act(async () => view.button("Add scene").click());
-      expect(view.button("Add selected scene").disabled).toBe(true);
+      await act(async () => view.button("Add destination").click());
+      await act(async () => view.button("Use a template").click());
+      expect(view.button("Add selected destination").disabled).toBe(true);
       await choose(view.container, "Destination template", "kashi");
       const select = view.container.querySelector('select[aria-label="Destination template"]');
       const enter = new dom.window.KeyboardEvent("keydown", {
@@ -183,11 +367,12 @@ describe("Event Photo Booth staff editor", () => {
       const submit = new dom.window.Event("submit", { bubbles: true, cancelable: true });
       await act(() => view.container.querySelector("form")?.dispatchEvent(submit));
       expect(submit.defaultPrevented).toBe(true);
-      expect(destinationFields(view.container)[0]).toBe("Paris");
+      expect(destinationFields(view.container)).toEqual([]);
+      expect(view.button("Next scene").disabled).toBe(true);
       expect(view.button("Save draft").disabled).toBe(true);
       expect(view.container.textContent).toContain("Scene 1 of 6");
-      await act(async () => view.button("Cancel adding scene").click());
-      expect(document.activeElement).toBe(view.button("Add scene"));
+      await act(async () => view.button("Cancel adding destination").click());
+      expect(document.activeElement).toBe(view.button("Add destination"));
       await act(async () => view.button("Choose destination template").click());
       await choose(view.container, "Destination template", "bali");
       expect(destinationFields(view.container)[0]).toBe("Paris");
@@ -212,16 +397,17 @@ describe("Event Photo Booth staff editor", () => {
     state.publishedScenes = state.draftScenes;
     const view = await mount({ state });
     try {
-      await act(async () => view.button("Add scene").click());
+      await act(async () => view.button("Add destination").click());
+      await act(async () => view.button("Use a template").click());
       await choose(view.container, "Destination template", "ayodhya");
-      const confirm = view.button("Add selected scene");
+      const confirm = view.button("Add selected destination");
       await act(() => {
         confirm.click();
         confirm.click();
       });
       expect(view.container.textContent).toContain("Scene 24 of 24");
       expect(destinationFields(view.container)[0]).toBe("Ayodhya");
-      expect(view.button("Add scene").disabled).toBe(true);
+      expect(view.button("Add destination").disabled).toBe(true);
       expect(view.button("Next scene").disabled).toBe(true);
       expect(view.container.textContent).toContain("24-scene limit reached.");
       expect(document.activeElement).toBe(
@@ -444,9 +630,10 @@ describe("Event Photo Booth staff editor", () => {
     });
     try {
       expect(destinationFields(view.container)[0]).toBe("Kashi");
-      await act(async () => view.button("Add scene").click());
+      await act(async () => view.button("Add destination").click());
+      await act(async () => view.button("Use a template").click());
       await choose(view.container, "Destination template", "kedarnath");
-      await act(async () => view.button("Add selected scene").click());
+      await act(async () => view.button("Add selected destination").click());
       expect(destinationFields(view.container)).toEqual([
         "Kedarnath",
         "केदारनाथ",
