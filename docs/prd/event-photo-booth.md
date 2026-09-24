@@ -1,6 +1,7 @@
 # Citius Event Photo Booth
 
-Status: approved for implementation, including the Admin/Director availability exception.
+Status: implemented on the feature branch in [PR #292](https://github.com/CitiusHolidays/website/pull/292),
+pending review and deployment. Includes the Admin/Director availability exception.
 This document records product intent. It is not evidence that
 the feature works. GitHub Issues remain canonical for implementation specifications and status.
 Canonical implementation specification: [#286](https://github.com/CitiusHolidays/website/issues/286).
@@ -60,17 +61,19 @@ Use the existing Staff Workspace baseline, with a dedicated event-management cap
 | Bali | Ayodhya |
 | Dubai | Kedarnath |
 
-Six generated backdrop drafts are saved locally under `.scratch/selfie-point/assets/`. They use
-existing public-site imagery as visual context, with open foreground placement areas and editable
-branding/text kept separate from scenery. They are not final approved campaign artwork or finished
+Six generated backdrop drafts ship under `public/images/event-photo-booth/`; their full-resolution
+masters are preserved locally under `.scratch/selfie-point/assets/`. They use existing public-site
+imagery as visual context, with open foreground placement areas and editable branding/text kept
+separate from scenery. [Engine and asset provenance](../event-photo-booth/image-engine.md) records
+model licences, exact hashes and output dimensions. They are not final approved campaign artwork or finished
 exports. Visual treatment, cultural/place accuracy and both crop/composition formats still need review.
 
 ## Processing, privacy and measurement
 
-Browser/device processing is the default. Temporary hosted processing is only a candidate if photo
-testing demonstrates that local processing is insufficient and quality, cost and deletion terms are
-verified. No provider or paid plan is selected. Do not silently turn a browser-first promise into
-routine external uploads.
+Photo decoding, person segmentation and export run in the browser. The implementation uses a
+self-hosted Apache-2.0 model and runtime with no photo-processing API or paid fallback. Temporary
+hosted processing would be a separate future change only if photo testing demonstrates a need and
+quality, cost and deletion terms are verified. Do not silently introduce external photo uploads.
 
 Cost target: ideally free to run, with zero per-photo processing fees. Use browser inference/export,
 cache the model and artwork, and minimize backend requests and storage. Do not add a paid service or
@@ -91,10 +94,16 @@ See the [glossary](../event-photo-booth/CONTEXT.md) and
 - Browser cutout quality and practical group-size limits require real solo/couple/family test photos,
   including hair, overlapping people, glasses, children, busy backgrounds and low light.
 - Prove performance on representative iPhone/Android devices and weak mobile data, including the
-  initial model download. Check package/model licensing before selecting a local implementation.
-- Verify file input, camera/gallery behavior, processing progress/cancel/retry, invalid input,
-  unsupported devices, bilingual layout, accessible controls, privacy and both export formats.
-- Verify staff authorization and assignment boundaries, safe scene publication, manual closure,
-  metrics semantics and the explicit enquiry handoff without disturbing existing staff workflows.
-- Final asset/visual approval, canonical implementation tickets, local checks, any hosted proof and
-  target-specific deployment authority remain separate steps. Nothing has been deployed.
+  initial 28,607,663-byte raw model/runtime download. Licences and hashes are checked in; hosted
+  transfer compression, cache behavior and bandwidth consumption still require target-specific proof.
+- Local component/engine browser checks cover real inference, both exports, cancellation/retry,
+  failed model download with explicit frame recovery, English/Hindi, keyboard controls, 320px/390px,
+  20px root text, dark preference and reduced motion. They use controlled DTOs and synthetic adults;
+  they do not prove physical camera/gallery behavior or native installed-app sharing.
+- Schema-backed tests cover staff authorization/assignment boundaries, safe publication, closure,
+  metrics and artwork isolation. Verify the authenticated journeys and consented enquiry on the
+  named deployment before opening an event; source tests do not establish hosted authorization.
+- Provisioning the server-only metrics secret, Convex Sharp loading, full Next integration and
+  updated Staff Workspace performance evidence require separately authorized target-specific work.
+- Final asset/visual approval, local checks, Git publication, hosted proof and deployment authority
+  remain separate states. This document does not establish a deployment.

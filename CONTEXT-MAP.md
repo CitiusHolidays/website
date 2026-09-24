@@ -9,7 +9,7 @@ relationships only; source modules and deployment topology belong in the
 | Citius Connect CRM | [Citius CRM context](CONTEXT.md) | Staff operate Queries, Proposals, Confirmed Offers, Job Cards, and delivery records. Staff identity and permissions remain internal. |
 | Customer Travel Account | [Customer Travel Account context](docs/customer-account/CONTEXT.md) | Account Holders see only journeys granted by explicit entitlements. Account identity grants no Staff Workspace authority. |
 | Sacred Bharat | [Sacred Bharat context](docs/sacred-bharat/CONTEXT.md) | Guests and signed-in Yatris record Darshans, Soul Score, trails, and planning intent. Yatri identity and progress are not CRM staff state. |
-| Event Photo Booth (planned) | [Event Photo Booth context](docs/event-photo-booth/CONTEXT.md) | Event Participants create and share photos while Event Availability is Open. Participation grants no account or staff authority and does not imply a travel enquiry or permission to reuse photos for marketing. |
+| Event Photo Booth | [Event Photo Booth context](docs/event-photo-booth/CONTEXT.md) | Event Participants create and share photos while Event Availability is Open. Participation grants no account or staff authority and does not imply a travel enquiry or permission to reuse photos for marketing. |
 
 ## Relationships
 

@@ -34,6 +34,11 @@ const ROUTE_DEFINITIONS = {
     methods: ["GET"],
     responseMode: "json",
   },
+  "/api/event-photo-booth/events": {
+    family: "engagement",
+    methods: ["POST"],
+    responseMode: "json",
+  },
   "/api/inbound-intents": {
     family: "inbound",
     methods: ["POST"],

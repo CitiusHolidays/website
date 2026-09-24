@@ -142,10 +142,14 @@ export function useBoothEditor(options: EditorOptions) {
     operation.current?.abort();
     const controller = new AbortController();
     operation.current = controller;
-    processor.current ??= engine.current.createCutoutProcessor();
     setError(null);
     setPhase("preparing");
     try {
+      const { createCutoutProcessor } = await import("@/lib/eventPhotoBooth/imageEngine");
+      if (controller.signal.aborted) {
+        return;
+      }
+      processor.current ??= createCutoutProcessor();
       const next = await processor.current.segment(photo, {
         onProgress: (value) => {
           if (!controller.signal.aborted) {
@@ -198,7 +202,8 @@ export function useBoothEditor(options: EditorOptions) {
     setError((value) => (value === "renderError" ? null : value));
     async function prepare() {
       try {
-        const [artwork, logo] = await Promise.all([
+        const [{ exportBoothPhoto }, artwork, logo] = await Promise.all([
+          import("@/lib/eventPhotoBooth/imageEngine"),
           cachedArtwork(selectedScene.artworkUrl),
           cachedArtwork("/images/event-photo-booth/citius-logo.webp"),
           document.fonts.ready,
@@ -218,7 +223,7 @@ export function useBoothEditor(options: EditorOptions) {
           title: selectedScene.title[language],
           transform,
         });
-        const blob = await renderer.exportBoothPhoto(canvas);
+        const blob = await exportBoothPhoto(canvas);
         canvas.width = 0;
         canvas.height = 0;
         if (cancelled) {

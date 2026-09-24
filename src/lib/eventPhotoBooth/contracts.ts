@@ -16,6 +16,14 @@ export const BOOTH_SCENE_KEYS = [
   "kedarnath",
 ] as const;
 export type BoothSceneKey = (typeof BOOTH_SCENE_KEYS)[number];
+export const BOOTH_ARTWORK_URLS = {
+  ayodhya: "/images/event-photo-booth/ayodhya.webp",
+  bali: "/images/event-photo-booth/bali.webp",
+  dubai: "/images/event-photo-booth/dubai.webp",
+  kashi: "/images/event-photo-booth/kashi.webp",
+  kedarnath: "/images/event-photo-booth/kedarnath.webp",
+  paris: "/images/event-photo-booth/paris.webp",
+} satisfies Record<BoothSceneKey, string>;
 export type BoothArtwork =
   | { kind: "bundled"; key: BoothSceneKey }
   | { kind: "upload"; id: Id<"eventPhotoBoothArtwork"> };
