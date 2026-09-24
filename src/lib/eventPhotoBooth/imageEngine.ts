@@ -8,6 +8,7 @@ import {
   EXPORT_DIMENSIONS,
   type ImageBounds,
   maskBounds,
+  PHOTO_ACCEPT,
   placeCutout,
 } from "./imageGeometry";
 
@@ -40,7 +41,6 @@ interface PendingCutout {
 }
 
 export const MAX_PHOTO_BYTES = 12 * 1024 * 1024;
-export const PHOTO_ACCEPT = "image/jpeg,image/png,image/webp";
 
 function contextFor(canvas: HTMLCanvasElement) {
   const context = canvas.getContext("2d");

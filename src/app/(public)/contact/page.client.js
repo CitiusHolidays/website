@@ -9,8 +9,8 @@ import { getContactIntentPrefill } from "@/lib/public/contactIntent";
 
 const offices = getPublicOffices("contact");
 
-export default function ContactPage({ contactIntent = null }) {
-  const initialValues = getContactIntentPrefill(contactIntent);
+export default function ContactPage({ contactIntent = null, destination = "" }) {
+  const initialValues = getContactIntentPrefill(contactIntent, destination);
 
   return (
     <>

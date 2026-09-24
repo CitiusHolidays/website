@@ -1,3 +1,4 @@
+export const PHOTO_ACCEPT = "image/jpeg,image/png,image/webp";
 export type BoothFormat = "portrait" | "story";
 export interface BoothTransform {
   scale: number;
