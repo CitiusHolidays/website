@@ -62,8 +62,8 @@ function PreviewCanvases({ scene, language }: { scene: BoothScene; language: Boo
           Preparing both previews…
         </p>
       )}
-      <div className="mt-3 grid items-start gap-4 sm:grid-cols-2">
-        <figure>
+      <div className="mt-3 grid max-w-xl items-start gap-4 sm:grid-cols-2">
+        <figure className="max-w-64">
           <canvas
             aria-label={`${scene.title[language]} 4:5 portrait preview`}
             className="h-auto w-full rounded-lg border border-brand-border"
@@ -75,7 +75,7 @@ function PreviewCanvases({ scene, language }: { scene: BoothScene; language: Boo
             4:5 portrait · 1080 × 1350
           </figcaption>
         </figure>
-        <figure>
+        <figure className="max-w-64">
           <canvas
             aria-label={`${scene.title[language]} 9:16 Story preview`}
             className="h-auto w-full rounded-lg border border-brand-border"
@@ -131,10 +131,6 @@ export function EventPhotoBoothPreview({ scene }: { scene: BoothScene }) {
               Reload previews
             </Button>
           </div>
-          <p className="text-brand-muted text-sm">
-            Scene artwork and branding, using the visitor export renderer. No participant photo is
-            loaded.
-          </p>
           <PreviewCanvases key={previewKey} language={language} scene={scene} />
         </div>
       ) : null}

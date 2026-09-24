@@ -279,7 +279,14 @@ export function useBoothEditor(options: EditorOptions) {
         if (controller.signal.aborted) {
           return;
         }
-        const file = new File([blob], `citius-${selectedScene.id}-${format}.png`, {
+        const destinationName =
+          selectedScene.title.en
+            .normalize("NFKD")
+            .replace(/\p{M}/gu, "")
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-|-$/g, "") || "destination";
+        const file = new File([blob], `citius-${destinationName}-${format}.png`, {
           type: "image/png",
         });
         const url = URL.createObjectURL(file);

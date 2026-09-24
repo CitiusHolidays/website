@@ -158,6 +158,17 @@ test("Live placement defers export; failed or cancelled replacements retain the 
   expect(current().previousResult).toBe(false);
   expect(current().ready?.file).not.toBe(original?.file);
 
+  // Renaming a published scene changes the export name, not its stable metrics identity.
+  options.scene = { ...scenes[3], id: "paris" };
+  await act(() => root.render(<Harness />));
+  await settle();
+  expect(current().ready?.file.name).toBe("citius-kashi-story.png");
+  expect(current().ready?.sceneId).toBe("paris");
+  options.scene = { ...options.scene, title: { en: "../../", hi: "काशी" } };
+  await act(() => root.render(<Harness />));
+  await settle();
+  expect(current().ready?.file.name).toBe("citius-destination-story.png");
+
   holdArtwork = true;
   options.scene = scenes[5];
   await act(() => root.render(<Harness />));

@@ -2,7 +2,7 @@
 
 import type { Id } from "@convex/_generated/dataModel";
 
-import { ArrowDown, ArrowUp, Plus } from "lucide-react";
+import { ArrowDown, ArrowUp } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useEffect, useState } from "react";
 import { Button } from "@/components/ui/application-button";
 import type {
@@ -16,11 +16,12 @@ import type {
 import {
   BOOTH_ARTWORK_URLS,
   BOOTH_METRICS,
-  BOOTH_SCENE_KEYS,
+  DEFAULT_BOOTH_SCENES,
 } from "@/lib/eventPhotoBooth/contracts";
 
 import { loadSourcePhoto, releaseBoothPhoto } from "@/lib/eventPhotoBooth/imageEngine";
 import { EventPhotoBoothPreview } from "./EventPhotoBoothPreview";
+import { formatConvexError } from "./portalWorkspaceListHelpers";
 
 const INPUT =
   "min-h-11 w-full rounded-lg border border-brand-border bg-white px-3 py-2 text-brand-dark text-sm focus-visible:outline-2 focus-visible:outline-citius-blue";
@@ -28,7 +29,7 @@ const PANEL = "rounded-xl border border-brand-border bg-white p-4 sm:p-6";
 const METRIC_LABELS = {
   creation_completed: "Photos created",
   download_action: "Download actions",
-  enquiry_entry: "Enquiry entries",
+  enquiry_entry: "Enquiry clicks",
   share_attempt: "Share attempts",
   visit: "Visits",
 } as const;
@@ -51,12 +52,25 @@ export interface EventPhotoBoothEditorProps {
 }
 
 function errorMessage(error: Error) {
-  if (error instanceof Error && error.message.includes("REVISION_CONFLICT")) {
-    return "Another event manager changed the scenes. Your edits are kept here. Load the latest saved draft before saving again.";
-  }
-  return error instanceof Error
-    ? error.message
-    : "The change could not be saved. Your edits are kept; try again.";
+  const message = formatConvexError(
+    error,
+    "The change could not be saved. Your edits are kept; try again."
+  );
+  const messages = {
+    ARTWORK_TOO_LARGE: "Choose a smaller background image.",
+    ARTWORK_UNAVAILABLE: "A background is unavailable. Replace it, then save and publish again.",
+    CONFIG_UNAVAILABLE: "The booth settings are unavailable. Reload and try again.",
+    FORBIDDEN: "Your event access has changed. Ask an Admin or Director to check it.",
+    INVALID_ARTWORK: "Choose a valid JPEG, PNG or WebP background.",
+    INVALID_SCENE_ID: "A scene could not be saved. Reload the latest draft and add it again.",
+    INVALID_SCENE_TEXT: "Check each scene's English and Hindi names and captions before saving.",
+    INVALID_SCENES: "Keep between 1 and 24 scenes in the draft.",
+    INVALID_STAFF: "This staff member is unavailable. Reload the staff list and try again.",
+    NO_VISIBLE_SCENES: "Show at least one scene and publish it before opening the booth.",
+    REVISION_CONFLICT:
+      "Another event manager changed the scenes. Your edits are kept here. Load the latest saved draft before saving again.",
+  };
+  return Object.entries(messages).find(([code]) => code === message)?.[1] ?? message;
 }
 
 async function prepareArtwork(file: File): Promise<ArrayBuffer> {
@@ -93,21 +107,58 @@ function SceneFields({
     update({ ...scene, caption: { ...scene.caption, en: event.target.value } });
   const changeHindiCaption = (event: ChangeEvent<HTMLInputElement>) =>
     update({ ...scene, caption: { ...scene.caption, hi: event.target.value } });
-  const changeBundledArtwork = (event: ChangeEvent<HTMLSelectElement>) => {
-    const key = BOOTH_SCENE_KEYS.find((candidate) => candidate === event.target.value);
-    if (key) {
-      update({
-        ...scene,
-        artwork: { key, kind: "bundled" },
-        artworkUrl: BOOTH_ARTWORK_URLS[key],
-      });
+  const changeDestination = (event: ChangeEvent<HTMLSelectElement>) => {
+    const preset = DEFAULT_BOOTH_SCENES.find((candidate) => candidate.id === event.target.value);
+    if (preset?.artwork.kind !== "bundled") {
+      return;
     }
+    const text = (field: "title" | "caption", language: "en" | "hi") =>
+      !scene[field][language].trim() ||
+      DEFAULT_BOOTH_SCENES.some(
+        (candidate) => candidate[field][language] === scene[field][language]
+      )
+        ? preset[field][language]
+        : scene[field][language];
+    update({
+      ...scene,
+      artwork: preset.artwork,
+      artworkUrl: BOOTH_ARTWORK_URLS[preset.artwork.key],
+      caption: { en: text("caption", "en"), hi: text("caption", "hi") },
+      category: preset.category,
+      title: { en: text("title", "en"), hi: text("title", "hi") },
+    });
   };
   return (
     <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+      <label className="space-y-1 text-sm sm:col-span-2">
+        Change destination
+        <select
+          aria-label="Change destination"
+          className={INPUT}
+          onChange={changeDestination}
+          value=""
+        >
+          <option disabled value="">
+            Choose destination…
+          </option>
+          {DEFAULT_BOOTH_SCENES.map((preset) => (
+            <option key={preset.id} value={preset.id}>
+              {preset.title.en}
+            </option>
+          ))}
+        </select>
+        <span className="block text-brand-muted text-xs">
+          Sets the background, category and default text. Keeps your custom text.
+        </span>
+      </label>
       <label className="space-y-1 text-sm">
         Category
-        <select className={INPUT} onChange={changeCategory} value={scene.category}>
+        <select
+          aria-label="Category"
+          className={INPUT}
+          onChange={changeCategory}
+          value={scene.category}
+        >
           <option value="travel">Travel</option>
           <option value="pilgrimage">Pilgrimage</option>
         </select>
@@ -119,7 +170,7 @@ function SceneFields({
           onChange={changeVisibility}
           type="checkbox"
         />
-        Visible to visitors after publishing
+        Show to visitors
       </label>
       <label className="space-y-1 text-sm">
         English destination
@@ -161,23 +212,6 @@ function SceneFields({
           value={scene.caption.hi}
         />
       </label>
-      <label className="space-y-1 text-sm sm:col-span-2">
-        Artwork
-        <select
-          className={INPUT}
-          onChange={changeBundledArtwork}
-          value={scene.artwork.kind === "bundled" ? scene.artwork.key : "uploaded"}
-        >
-          {scene.artwork.kind === "upload" ? (
-            <option value="uploaded">Uploaded artwork</option>
-          ) : null}
-          {BOOTH_SCENE_KEYS.map((key) => (
-            <option key={key} value={key}>
-              {key.charAt(0).toUpperCase() + key.slice(1)}
-            </option>
-          ))}
-        </select>
-      </label>
     </div>
   );
 }
@@ -203,16 +237,19 @@ function StaffAssignment({
         </p>
       </div>
       {privileged ? (
-        <span className="text-brand-muted text-sm">Access through role</span>
+        <span className="text-brand-muted text-sm">Automatic access</span>
       ) : (
         <Button
+          aria-label={
+            person.assigned ? `Remove access for ${person.name}` : `Give access to ${person.name}`
+          }
           className="min-h-11"
           disabled={busy || !(person.active || person.assigned)}
           onClick={toggle}
           type="button"
           variant="outline"
         >
-          {person.assigned ? `Remove access for ${person.name}` : `Assign ${person.name}`}
+          {person.assigned ? "Remove access" : "Give access"}
         </Button>
       )}
     </li>
@@ -235,8 +272,7 @@ function StaffAssignments({
         <section className={PANEL}>
           <h2 className="font-semibold text-lg">Event staff access</h2>
           <p className="mt-1 text-brand-muted text-sm">
-            Assigned staff can manage and publish this event. Only Admins and Directors can change
-            these assignments.
+            Assigned staff can edit and publish scenes, and open or close the booth.
           </p>
           {staffStatus === "LoadingFirstPage" ? (
             <p className="mt-3" role="status">
@@ -320,19 +356,19 @@ function useBoothEditor(props: EventPhotoBoothEditorProps) {
       scenes: previous.scenes.map((item) => (item.id === scene.id ? scene : item)),
     }));
   const selectScene = (event: ChangeEvent<HTMLSelectElement>) => setSelectedId(event.target.value);
-  const addScene = () => {
+  const addScene = (event: ChangeEvent<HTMLSelectElement>) => {
+    const preset = DEFAULT_BOOTH_SCENES.find((candidate) => candidate.id === event.target.value);
+    if (preset?.artwork.kind !== "bundled") {
+      return;
+    }
     const scene: BoothScene = {
-      artwork: { key: "paris", kind: "bundled" },
-      artworkUrl: BOOTH_ARTWORK_URLS.paris,
-      caption: { en: "", hi: "" },
-      category: "travel",
+      ...preset,
+      artworkUrl: BOOTH_ARTWORK_URLS[preset.artwork.key],
       id: `scene-${crypto.randomUUID().slice(0, 8)}`,
-      title: { en: "", hi: "" },
-      visible: true,
     };
     setDraft((previous) => ({ ...previous, dirty: true, scenes: [...previous.scenes, scene] }));
     setSelectedId(scene.id);
-    setMessage("New scene added. Enter its English and Hindi destination names.");
+    setMessage(`${scene.title.en} added to the draft.`);
   };
   const moveScene = (direction: number) => {
     if (index < 0 || index + direction < 0 || index + direction >= draft.scenes.length) {
@@ -366,7 +402,7 @@ function useBoothEditor(props: EventPhotoBoothEditorProps) {
         scenes: draft.scenes.map(({ artworkUrl: _url, ...scene }) => scene),
       });
       setDraft({ ...draft, dirty: false, revision });
-      setMessage("Draft saved. Publish when both formats are ready.");
+      setMessage("Draft saved. Publish to update the visitor page.");
     } catch (failure) {
       reportFailure(
         failure instanceof Error
@@ -418,7 +454,7 @@ function useBoothEditor(props: EventPhotoBoothEditorProps) {
     try {
       const result = await props.uploadArtwork({ bytes: await prepareArtwork(file) });
       update({ ...selected, ...result });
-      setMessage("Artwork uploaded to this draft. Save and publish to show it to visitors.");
+      setMessage("Background uploaded. Save and publish to show it to visitors.");
     } catch (failure) {
       reportFailure(
         failure instanceof Error ? failure : new Error("Artwork could not be uploaded. Try again.")
@@ -500,10 +536,6 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h2 className="font-semibold text-xl">Event Photo Booth</h2>
-            <p className="mt-1 max-w-2xl text-brand-muted text-sm">
-              Open or close the booth, edit scenes and check event totals. Participant photos never
-              appear here.
-            </p>
           </div>
           <a
             className="flex min-h-11 items-center rounded-lg px-3 font-medium text-citius-blue text-sm underline underline-offset-4"
@@ -511,7 +543,7 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
             rel="noopener"
             target="_blank"
           >
-            Open participant page<span className="sr-only"> in a new tab</span>
+            View booth<span className="sr-only"> in a new tab</span>
           </a>
         </div>
         <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -525,13 +557,14 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
             type="button"
             variant="outline"
           >
-            {state.availability === "open" ? "Close event" : "Open event"}
+            {state.availability === "open" ? "Close booth" : "Open booth"}
           </Button>
         </div>
-        <p className="mt-2 text-brand-muted text-sm">
-          Admins and Directors can use the participant page while closed. Assigned event staff can
-          manage it here in either state.
-        </p>
+        {state.availability === "closed" ? (
+          <p className="mt-2 text-brand-muted text-sm">
+            Admins and Directors can try the booth while closed.
+          </p>
+        ) : null}
       </section>
       {error ? (
         <p
@@ -549,10 +582,6 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
           <h2 className="font-semibold text-lg">Destination scenes</h2>
           <span className="text-brand-muted text-sm">{draftStatus}</span>
         </div>
-        <p className="mt-1 text-brand-muted text-sm">
-          Changes stay in draft until you publish. Check the English and Hindi previews in both
-          formats.
-        </p>
         {conflict ? (
           <p className="mt-3 text-amber-800 text-sm" role="alert">
             A newer draft is available. Your unsaved edits are still here.
@@ -562,8 +591,13 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
           <legend className="sr-only">Edit destination scene</legend>
           <div className="flex flex-wrap items-end gap-2">
             <label className="min-w-0 flex-1 basis-56 space-y-1 text-sm">
-              Scene
-              <select className={INPUT} onChange={selectScene} value={selected?.id ?? ""}>
+              Edit scene
+              <select
+                aria-label="Edit scene"
+                className={INPUT}
+                onChange={selectScene}
+                value={selected?.id ?? ""}
+              >
                 {draft.scenes.map((scene, position) => (
                   <option key={scene.id} value={scene.id}>
                     {position + 1}. {scene.title.en || "New scene"}
@@ -572,16 +606,25 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
                 ))}
               </select>
             </label>
-            <Button
-              className="min-h-11"
-              disabled={draft.scenes.length >= 24}
-              onClick={addScene}
-              type="button"
-              variant="outline"
-            >
-              <Plus aria-hidden="true" size={16} />
-              Add scene
-            </Button>
+            <label className="min-w-0 space-y-1 text-sm">
+              Add destination
+              <select
+                aria-label="Add destination"
+                className={INPUT}
+                disabled={draft.scenes.length >= 24}
+                onChange={addScene}
+                value=""
+              >
+                <option disabled value="">
+                  Choose destination…
+                </option>
+                {DEFAULT_BOOTH_SCENES.map((preset) => (
+                  <option key={preset.id} value={preset.id}>
+                    {preset.title.en}
+                  </option>
+                ))}
+              </select>
+            </label>
             <Button
               aria-label="Move scene up"
               className="min-h-11 min-w-11"
@@ -606,19 +649,25 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
           {selected ? (
             <>
               <SceneFields scene={selected} update={update} />
-              <label className="block space-y-1 text-sm">
-                Upload scene artwork
-                <input
-                  accept="image/jpeg,image/png,image/webp"
-                  className={`${INPUT} block file:mr-3 file:min-h-11 file:rounded-md file:border-0 file:bg-brand-light file:px-3`}
-                  onChange={upload}
-                  type="file"
-                />
-                <span className="block text-brand-muted text-xs">
-                  JPEG, PNG or WebP, up to 12 MB. Artwork is resized before uploading. Use
-                  destination scenery without participant photos.
-                </span>
-              </label>
+              <details>
+                <summary className="min-h-11 cursor-pointer py-3 text-sm">
+                  Use a custom background
+                </summary>
+                <label className="block space-y-1 text-sm">
+                  Replace background
+                  <input
+                    accept="image/jpeg,image/png,image/webp"
+                    aria-label="Replace background"
+                    className={`${INPUT} block file:mr-3 file:min-h-11 file:rounded-md file:border-0 file:bg-brand-light file:px-3`}
+                    onChange={upload}
+                    type="file"
+                  />
+                  <span className="block text-brand-muted text-xs">
+                    JPEG, PNG or WebP, up to 12 MB. Scenery only, no participant photos. Destination
+                    text stays unchanged.
+                  </span>
+                </label>
+              </details>
             </>
           ) : null}
         </fieldset>
@@ -648,17 +697,16 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
               type="button"
               variant="bare"
             >
-              Discard my edits and load latest
+              Discard edits and reload
             </Button>
           ) : null}
         </div>
         {selected ? <EventPhotoBoothPreview scene={selected} /> : null}
       </form>
       <section className={PANEL}>
-        <h2 className="font-semibold text-lg">Aggregate usage</h2>
+        <h2 className="font-semibold text-lg">Event totals</h2>
         <p className="mt-1 text-brand-muted text-sm">
-          Counts show actions taken in the booth. They do not identify unique visitors or confirm
-          that a file was saved or posted online.
+          Action counts, not unique visitors or confirmed saves and shares.
         </p>
         <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
           {BOOTH_METRICS.map((key) => (
