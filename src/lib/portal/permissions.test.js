@@ -257,3 +257,29 @@ describe("Portal permissions", () => {
     });
   }
 });
+
+describe("Event Photo Booth dedicated access", () => {
+  test("navigation and route access follow the live capability, never broad role permissions", () => {
+    for (const roles of [["Admin"], ["Directors"], ["Director Cement"], ["Sales"]]) {
+      const access = { allowed: true, permissions: getPermissionsForRoles(roles), roles };
+      const allowed = {
+        canManage: true,
+        canManageAssignments: false,
+        canParticipateWhenClosed: false,
+      };
+      const denied = { ...allowed, canManage: false };
+      const pages = (capability) =>
+        getAccessibleNavGroups(access, capability).flatMap((group) =>
+          group.items.map((item) => item.page)
+        );
+      expect(pages(undefined)).not.toContain("event-photo-booth");
+      expect(pages(denied)).not.toContain("event-photo-booth");
+      expect(pages(allowed)).toContain("event-photo-booth");
+      expect(canAccessPage(access, "event-photo-booth", allowed)).toBe(true);
+      expect(canAccessPage(access, "event-photo-booth", denied)).toBe(false);
+      expect(canAccessPage({ ...access, allowed: false }, "event-photo-booth", allowed)).toBe(
+        false
+      );
+    }
+  });
+});

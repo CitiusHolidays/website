@@ -36,6 +36,16 @@ const nextConfig = {
   // Security headers
   async headers() {
     return [
+      {
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+        source: "/photo-booth/vendor/:path*",
+      },
+      {
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" },
+        ],
+        source: "/images/event-photo-booth/:path*",
+      },
       // Authenticated and session-aware routes must never be stored by a CDN
       // or replayed across users. Keep this explicit even when Cache Components
       // is enabled; request-time rendering and response caching are separate
@@ -170,6 +180,13 @@ const nextConfig = {
     // value below — excluding 75 makes the effective default ~85 site-wide.
     qualities: [85, 90, 95, 100],
     remotePatterns: [
+      {
+        // Public staff-uploaded scene artwork only; participant photos remain browser blobs.
+        hostname: "*.convex.cloud",
+        pathname: "/api/storage/**",
+        protocol: "https",
+        search: "",
+      },
       {
         hostname: "cdn.sanity.io",
         protocol: "https",

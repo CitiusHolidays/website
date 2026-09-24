@@ -22,7 +22,7 @@ export const metadata = {
   metadataBase: new URL("https://www.citiusholidays.com"),
   openGraph: {
     description:
-      "MICE, corporate, leisure, and pilgrimage travel planned by Citius Holidays. Offices in Delhi, Kolkata, and Bangalore.",
+      "MICE, corporate, leisure, and pilgrimage travel planned by Citius Holidays. Offices in Mumbai, Kolkata, and Bangalore.",
     images: [
       {
         alt: "Citius Holidays travel across Santorini",
@@ -44,7 +44,7 @@ export const metadata = {
   twitter: {
     card: "summary_large_image",
     description:
-      "MICE, corporate, leisure, and pilgrimage travel planned by Citius Holidays. Offices in Delhi, Kolkata, and Bangalore.",
+      "MICE, corporate, leisure, and pilgrimage travel planned by Citius Holidays. Offices in Mumbai, Kolkata, and Bangalore.",
     images: ["/social/citius-holidays-social-card.jpg"],
     title: "Citius Holidays — MICE, Corporate & Leisure Travel",
   },

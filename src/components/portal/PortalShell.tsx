@@ -404,6 +404,10 @@ export default function PortalShell({ access, user, children }: PortalShellProps
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const sidebarTriggerRef = useRef<HTMLButtonElement>(null);
   const { isAuthenticated } = useConvexAuth();
+  const eventPhotoBooth = useQuery(
+    api.eventPhotoBooth.getMyAccess,
+    isAuthenticated && access.allowed ? {} : "skip"
+  );
   const notificationBellState = useQuery(
     api.crm.activity.notificationBellState,
     isAuthenticated && access.allowed ? { limit: 8 } : "skip"
@@ -415,7 +419,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
   ) as PortalNavShortcuts | undefined;
   const markNotificationRead = useMutation(api.crm.activity.markNotificationRead);
   // SAFETY: getAccessibleNavGroups returns only the portal navigation descriptors consumed by PortalNav.
-  const navGroups = getAccessibleNavGroups(access) as PortalNavGroup[];
+  const navGroups = getAccessibleNavGroups(access, eventPhotoBooth) as PortalNavGroup[];
   // SAFETY: the notificationBellState Convex validator is the source of NotificationItem's fields.
   const notificationRows = (notificationBellState?.notifications ?? []) as NotificationItem[];
   const roles = access.roles ? access.roles.filter(Boolean) : [];
@@ -508,7 +512,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
   );
 
   return (
-    <PortalAccessProvider access={access}>
+    <PortalAccessProvider access={{ ...access, eventPhotoBooth }}>
       <PortalToastProvider>
         <PortalConfirmProvider>
           <PortalChromeProvider navShortcuts={navShortcuts}>

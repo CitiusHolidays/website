@@ -87,7 +87,7 @@ export default function AboutPage() {
           <h2 className="mb-4 font-heading font-semibold text-3xl text-public-blue">Our Team</h2>
           <p className="mx-auto mb-12 max-w-3xl text-public-muted">
             Our team handles MICE programmes, corporate travel, and leisure routes across India and
-            abroad — with offices in Delhi, Kolkata, and Bangalore.
+            abroad — with offices in Mumbai, Kolkata, and Bangalore.
           </p>
         </div>
       </section>

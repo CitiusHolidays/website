@@ -19,6 +19,7 @@ export default defineConfig({
     "convex/_generated/**",
     "convex/betterAuth/_generated/**",
     "tools/oxlint/anti-slop/**",
+    "public/photo-booth/vendor/**",
   ],
   jsPlugins: [{ name: "anti-slop", specifier: "./tools/oxlint/anti-slop/index.ts" }],
   rules: {

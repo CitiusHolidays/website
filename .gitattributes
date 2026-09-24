@@ -1,0 +1,3 @@
+# Keep pinned third-party artifacts byte-identical to the publisher; their hashes are verified.
+public/photo-booth/vendor/** linguist-vendored
+public/photo-booth/vendor/mediapipe-1.0.1/wasm/vision_wasm_module_internal.js -whitespace

@@ -11,6 +11,7 @@ function readPackageJson() {
     dependencies: Record<string, string>;
     devDependencies: Record<string, string>;
     engines?: Record<string, string>;
+    overrides: Record<string, string>;
     packageManager?: string;
     scripts: Record<string, string>;
   }>(JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")));
@@ -26,9 +27,12 @@ function readBlogPackageJson() {
 
 describe("Package and test discovery contract", () => {
   test("Pins stable Next and keeps patched multi-major dependency floors explicit", () => {
-    const { dependencies } = readPackageJson();
+    const { dependencies, devDependencies, overrides } = readPackageJson();
 
-    expect(dependencies.next).toBe("16.3.0");
+    expect(dependencies.next).toBe("16.3.3");
+    expect(devDependencies["@next/playwright"]).toBe(dependencies.next);
+    expect(dependencies.sharp).toBe("0.35.4");
+    expect(overrides.sharp).toBe(dependencies.sharp);
     expect(dependencies.next).not.toContain("preview");
     expect(dependencies["next-sanity"]).toBeUndefined();
     expect(dependencies["@sanity/client"]).toBeDefined();

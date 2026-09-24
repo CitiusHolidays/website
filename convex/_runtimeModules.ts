@@ -1,9 +1,11 @@
 /**
- * Side-effect imports linking every Convex module for static reachability analysis.
+ * Side-effect imports linking isolate-safe Convex modules for static reachability analysis.
+ * Omit "use node" modules: Convex discovers those separately in the Node runtime.
  * Imported from convex/http.ts (Convex deploy entry) — not from the Next.js app graph,
  * because Convex API exports are invoked via generated references, not direct imports.
  */
 import "./auth";
+import "./eventPhotoBooth";
 import "./authEmailDeliveries";
 import "./authEmailDeliveryIntents";
 import "./authSync";

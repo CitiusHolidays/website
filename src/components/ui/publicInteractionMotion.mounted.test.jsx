@@ -5,6 +5,7 @@ import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 const noop = () => undefined;
+const roots = new Set();
 let AnimatedSubmitButton;
 let AuthLoginForm;
 let ChatbotWindow;
@@ -56,7 +57,13 @@ beforeAll(async () => {
   ({ ChatbotWindow } = await import("./ChatbotWindow"));
 });
 
-afterEach(() => {
+afterEach(async () => {
+  await act(() => {
+    for (const root of roots) {
+      root.unmount();
+    }
+  });
+  roots.clear();
   localStorage.clear();
   document.body.replaceChildren();
 });
@@ -66,33 +73,41 @@ async function mount(element) {
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
+  roots.add(root);
   await act(async () => root.render(element));
   return {
     container,
     rerender: async (next) => act(async () => root.render(next)),
-    unmount: async () => act(async () => root.unmount()),
   };
+}
+
+async function waitForControl(selector) {
+  const deadline = performance.now() + 2000;
+  let control = document.body.querySelector(selector);
+  while (!control && performance.now() < deadline) {
+    // biome-ignore lint/performance/noAwaitInLoops: flush the real dialog lifecycle until its accessible control appears.
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+    control = document.body.querySelector(selector);
+  }
+  expect(control).not.toBeNull();
+  return control;
 }
 
 describe("Mounted public interaction states", () => {
   test("Concierge minimize and expand retain accessible state labels", async () => {
     const openerRef = { current: document.createElement("button") };
-    const view = await mount(<ChatbotWindow isOpen onClose={noop} openerRef={openerRef} />);
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 300)));
-
-    const minimize = document.body.querySelector('button[aria-label="Minimize chat"]');
-    expect(minimize).not.toBeNull();
+    await mount(<ChatbotWindow isOpen onClose={noop} openerRef={openerRef} />);
+    const minimize = await waitForControl('button[aria-label="Minimize chat"]');
     await act(async () => minimize.click());
     expect(document.body.querySelector('button[aria-label="Expand chat"]')).not.toBeNull();
-    await view.unmount();
   });
 
   test("Concierge contact expansion keeps the composer and fixed-panel bounds reachable", async () => {
     const openerRef = { current: document.createElement("button") };
-    const view = await mount(<ChatbotWindow isOpen onClose={noop} openerRef={openerRef} />);
-    await act(async () => new Promise((resolve) => setTimeout(resolve, 300)));
-
-    const handoff = document.body.querySelector('button[aria-expanded="false"]:not([aria-label])');
+    await mount(<ChatbotWindow isOpen onClose={noop} openerRef={openerRef} />);
+    const handoff = await waitForControl(
+      '#citius-concierge-dialog button[aria-expanded="false"]:not([aria-label])'
+    );
     await act(async () => handoff.click());
     expect(document.body.querySelector('[data-concierge-handoff-form=""] form')).not.toBeNull();
     expect(document.body.querySelector('textarea[aria-label="Chat message"]')).not.toBeNull();
@@ -101,7 +116,6 @@ describe("Mounted public interaction states", () => {
     expect(panel.className).toContain("safe-area-fixed-panel");
     expect(panel.className).toContain("overflow-hidden");
     expect(panel.className).toContain("h-[min(680px,calc(100dvh-1rem))]");
-    await view.unmount();
   });
 
   test("Password visibility keeps the input type and icon label synchronized", async () => {
@@ -128,7 +142,6 @@ describe("Mounted public interaction states", () => {
     await act(async () => toggle.click());
     expect(view.container.querySelector("#auth-password")?.type).toBe("text");
     expect(view.container.querySelector('button[aria-label="Hide password"]')).not.toBeNull();
-    await view.unmount();
   });
 
   test("Contact submit states retain a visible static label while the icon swaps", async () => {
@@ -139,6 +152,5 @@ describe("Mounted public interaction states", () => {
     expect(view.container.querySelector("svg")).not.toBeNull();
     await view.rerender(<AnimatedSubmitButton isSubmitting={false} state="error" />);
     expect(view.container.textContent).toContain("Try sending again");
-    await view.unmount();
   });
 });

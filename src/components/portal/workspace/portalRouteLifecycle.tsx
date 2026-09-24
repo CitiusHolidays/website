@@ -17,6 +17,7 @@ import {
   ApprovalsView,
   ContractingView,
   DashboardView,
+  EventPhotoBoothView,
   ExpensesView,
   FinanceView,
   HotelRoomingView,
@@ -275,6 +276,10 @@ function selectPortalRouteContent(
       );
     case "InboundLeadsView":
       return <InboundLeadsView allowed={workspace.allowed} canFetch={workspace.canFetch} />;
+    case "EventPhotoBoothView":
+      return (
+        <EventPhotoBoothView allowed={workspace.allowed} canFetch={Boolean(workspace.canFetch)} />
+      );
     case "JobCardsView":
       return (
         <JobCardsView

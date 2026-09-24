@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { boothAvailability, boothCounts, boothScene } from "./lib/eventPhotoBoothValidators";
 import {
   importFailureValidator,
   importRoomSummaryValidator,
@@ -201,6 +202,25 @@ const productionTestRecipeIdValidator = v.union(
 
 // biome-ignore assist/source/useSortedKeys: tables stay grouped by product domain and migration history
 export default defineSchema({
+  eventPhotoBoothConfig: defineTable({
+    availability: boothAvailability,
+    draftScenes: v.array(boothScene),
+    key: v.literal("event"),
+    publishedScenes: v.array(boothScene),
+    revision: v.number(),
+  }).index("by_key", ["key"]),
+  eventPhotoBoothAssignments: defineTable({ staffId: v.id("staffUsers") }).index("by_staffId", [
+    "staffId",
+  ]),
+  eventPhotoBoothArtwork: defineTable({ createdAt: v.number(), storageId: v.id("_storage") }),
+  eventPhotoBoothMetrics: defineTable({ counts: boothCounts, key: v.literal("event") }).index(
+    "by_key",
+    ["key"]
+  ),
+  eventPhotoBoothRateKeys: defineTable({ expiresAt: v.number(), keyHash: v.string() }).index(
+    "by_keyHash",
+    ["keyHash"]
+  ),
   // Transactional auth-email receipts intentionally exclude recipient, token,
   // URL, subject, and body data. The digest is a one-way correlation identity.
   authEmailDeliveries: defineTable({
