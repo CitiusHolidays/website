@@ -47,6 +47,7 @@
     "performance:check": "bun config/release/check-performance-budgets.ts",
     "performance:public:collect": "bun scripts/public-runtime-performance.ts",
     "performance:staff:collect": "bun config/e2e/run-authenticated-performance.ts",
+    "photo-booth:verify": "bun scripts/verify-photo-booth-engine.mjs",
     "precommit:check": "git diff --cached --check && bunx --no-install lint-staged",
     "prepare": "husky",
     "quality:target-neutral": "bun config/release/run-target-neutral-quality.ts",
@@ -128,6 +129,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.5.9",
     "@edge-runtime/vm": "^5.0.0",
+    "@mediapipe/tasks-vision": "1.0.1",
     "@next/playwright": "16.3.0",
     "@oxlint/plugins": "1.78.0",
     "@playwright/test": "^1.62.1",
