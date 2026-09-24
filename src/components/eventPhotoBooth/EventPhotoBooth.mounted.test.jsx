@@ -31,9 +31,25 @@ beforeAll(async () => {
   globalThis.Element = dom.window.Element;
   globalThis.Node = dom.window.Node;
   globalThis.Event = dom.window.Event;
+  globalThis.KeyboardEvent = dom.window.KeyboardEvent;
+  globalThis.MouseEvent = dom.window.MouseEvent;
+  globalThis.MutationObserver = dom.window.MutationObserver;
   globalThis.getComputedStyle = dom.window.getComputedStyle.bind(dom.window);
   globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
   globalThis.cancelAnimationFrame = clearTimeout;
+  dom.window.HTMLElement.prototype.scrollIntoView = () => undefined;
+  Object.defineProperty(document, "fonts", { value: { ready: Promise.resolve() } });
+  mock.module("@/lib/eventPhotoBooth/imageEngine", () => ({
+    exportBoothPhoto: () => Promise.resolve(new Blob(["photo"], { type: "image/png" })),
+    loadBoothArtwork: () => Promise.resolve(document.createElement("img")),
+    loadSourcePhoto: async () => ({
+      canvas: document.createElement("canvas"),
+      height: 400,
+      width: 300,
+    }),
+    releaseBoothPhoto: () => undefined,
+    renderBoothPhoto: ({ canvas }) => canvas,
+  }));
   globalThis.fetch = mock((url, options) => {
     requests.push({ options, url });
     return Promise.resolve(new Response(null, { status: 202 }));
@@ -44,6 +60,7 @@ beforeAll(async () => {
 
 afterAll(() => {
   globalThis.fetch = originalFetch;
+  mock.restore();
   dom.window.close();
 });
 afterEach(() => {
@@ -60,6 +77,35 @@ async function mount(state) {
 }
 function button(container, label) {
   return [...container.querySelectorAll("button")].find((item) => item.textContent === label);
+}
+
+const settle = () =>
+  act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 350));
+  });
+
+async function selectPhoto(container) {
+  const picker = container.querySelector('input[aria-label="Choose a photo"]');
+  Object.defineProperty(picker, "files", {
+    configurable: true,
+    value: [new File(["photo"], "photo.jpg", { type: "image/jpeg" })],
+  });
+  await act(() => picker.dispatchEvent(new Event("change", { bubbles: true })));
+}
+
+async function createFrame(container) {
+  await act(() => button(container, "Whole-photo frame").click());
+  await selectPhoto(container);
+  await settle();
+  expect(button(container, "Download photo").disabled).toBe(false);
+  expect(container.querySelector("details").open).toBe(false);
+}
+
+async function openDiscard(trigger) {
+  trigger.focus();
+  await act(() => trigger.click());
+  await settle();
+  expect(document.body.querySelector('[role="alertdialog"]')).not.toBeNull();
 }
 
 describe("Photo Booth participant access and bilingual choices", () => {
@@ -118,6 +164,60 @@ describe("Photo Booth participant access and bilingual choices", () => {
     );
     expect(container.querySelector('input[type="file"]')).toBeNull();
     expect(container.textContent).toContain("The photo booth is closed");
+    await act(() => root.unmount());
+  });
+
+  test("discard cancellation returns to the opener and confirmed reset focuses the visible photo summary", async () => {
+    const { container, root } = await mount(openState);
+    await createFrame(container);
+    const startOver = button(container, "Start over");
+    await openDiscard(startOver);
+    await act(() => button(document.body, "Cancel").click());
+    await settle();
+    expect(document.activeElement).toBe(startOver);
+
+    await act(() => container.querySelector("summary").click());
+    const choosePhoto = button(container, "Choose a photo");
+    choosePhoto.focus();
+    await selectPhoto(container);
+    await settle();
+    await act(() => button(document.body, "Cancel").click());
+    await settle();
+    expect(document.activeElement).toBe(choosePhoto);
+    expect(container.querySelector("details").open).toBe(true);
+
+    await openDiscard(startOver);
+    await act(() =>
+      document.activeElement.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "Escape" })
+      )
+    );
+    await settle();
+    expect(document.activeElement).toBe(startOver);
+
+    await openDiscard(startOver);
+    await act(() => button(document.body, "Continue without saving").click());
+    await settle();
+    expect(document.activeElement).toBe(container.querySelector("summary"));
+    expect(button(container, "Start over")).toBeUndefined();
+    await act(() => root.unmount());
+  });
+
+  test("discard after event closure focuses the page heading even when confirmed reset removes the editor", async () => {
+    const { container, root } = await mount(openState);
+    await createFrame(container);
+    await openDiscard(button(container, "Start over"));
+    await act(() =>
+      root.render(
+        <EventPhotoBoothView
+          state={{ ...openState, availability: "closed", canParticipate: false, scenes: [] }}
+        />
+      )
+    );
+    await act(() => button(document.body, "Continue without saving").click());
+    await settle();
+    expect(document.activeElement).toBe(container.querySelector("h1"));
+    expect(container.querySelector("summary")).toBeNull();
     await act(() => root.unmount());
   });
 });

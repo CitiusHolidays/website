@@ -45,13 +45,14 @@ function useVisitorBooth(state: BoothParticipantState | undefined) {
   const [transform, setTransform] = useState<BoothTransform>(DEFAULT_TRANSFORM);
   const [shareStatus, setShareStatus] = useState<BoothCopyKey | null>(null);
   const [sharing, setSharing] = useState(false);
+  const [discardConfirmed, setDiscardConfirmed] = useState(false);
   const [pendingDiscard, setPendingDiscard] = useState<(() => void) | null>(null);
   const [metrics] = useState(createBoothMetrics);
   const retainedScene = useRef<BoothScene | undefined>(undefined);
   const visited = useRef(false);
   const picker = useRef<HTMLInputElement>(null);
   const camera = useRef<HTMLInputElement>(null);
-  const chooseButton = useRef<HTMLButtonElement>(null);
+  const photoOptionsSummary = useRef<HTMLElement>(null);
   const pageHeading = useRef<HTMLHeadingElement>(null);
   const focusNextResult = useRef(false);
   const previewHeading = useRef<HTMLHeadingElement>(null);
@@ -157,6 +158,7 @@ function useVisitorBooth(state: BoothParticipantState | undefined) {
 
   function requestDiscard(action: () => void) {
     if (editor.dirty) {
+      setDiscardConfirmed(false);
       setPendingDiscard(() => action);
     } else {
       action();
@@ -169,7 +171,7 @@ function useVisitorBooth(state: BoothParticipantState | undefined) {
       setTransform(DEFAULT_TRANSFORM);
       setShareStatus(null);
       if (canParticipate) {
-        chooseButton.current?.focus();
+        photoOptionsSummary.current?.focus();
       } else {
         pageHeading.current?.focus();
       }
@@ -225,11 +227,11 @@ function useVisitorBooth(state: BoothParticipantState | undefined) {
     canParticipate,
     category,
     changePhoto,
-    chooseButton,
     chooseMode,
     confirmedClosed,
     copy,
     createPhoto,
+    discardConfirmed,
     download,
     editor,
     format,
@@ -238,12 +240,14 @@ function useVisitorBooth(state: BoothParticipantState | undefined) {
     mode,
     pageHeading,
     pendingDiscard,
+    photoOptionsSummary,
     picker,
     previewHeading,
     ready,
     scene,
     sceneId,
     setCategory,
+    setDiscardConfirmed,
     setFormat,
     setLanguage,
     setPendingDiscard,
@@ -444,7 +448,6 @@ function PhotoControls({ view }: { view: VisitorView }) {
     editor,
     mode,
     chooseMode,
-    chooseButton,
     createPhoto,
   } = view;
   return (
@@ -453,7 +456,11 @@ function PhotoControls({ view }: { view: VisitorView }) {
         className={styles.photoOptions}
         open={!view.ready || Boolean(editor.error) || (!editor.cutout && mode === "cutout")}
       >
-        <summary className={styles.sectionTitle} id="booth-photo-title">
+        <summary
+          className={styles.sectionTitle}
+          id="booth-photo-title"
+          ref={view.photoOptionsSummary}
+        >
           {view.ready ? copy.photoOptions : copy.addPhoto}
         </summary>
         <p className={styles.help}>{copy.photoIntro}</p>
@@ -490,7 +497,6 @@ function PhotoControls({ view }: { view: VisitorView }) {
             className={styles.secondary}
             disabled={!canParticipate}
             onClick={() => picker.current?.click()}
-            ref={chooseButton}
             type="button"
           >
             <ImagePlus aria-hidden size={18} />
@@ -795,9 +801,21 @@ function PhotoOutputControls({ view }: { view: VisitorView }) {
 }
 
 function DiscardPhotoDialog({ view }: { view: VisitorView }) {
-  const { pendingDiscard, setPendingDiscard, copy, chooseButton, canParticipate, pageHeading } =
-    view;
+  const {
+    pendingDiscard,
+    setPendingDiscard,
+    discardConfirmed,
+    setDiscardConfirmed,
+    copy,
+    photoOptionsSummary,
+    canParticipate,
+    pageHeading,
+  } = view;
   const cancelButton = useRef<HTMLButtonElement>(null);
+  let finalFocus = discardConfirmed ? photoOptionsSummary : undefined;
+  if (!canParticipate) {
+    finalFocus = pageHeading;
+  }
   return (
     <ControlledAlertDialog
       backdropClassName="absolute inset-0 bg-public-night/60"
@@ -809,7 +827,7 @@ function DiscardPhotoDialog({ view }: { view: VisitorView }) {
       }}
       open={Boolean(pendingDiscard)}
       popupClassName="relative w-full max-w-md rounded-xl bg-public-paper p-6 text-public-ink shadow-xl"
-      popupFinalFocus={canParticipate ? chooseButton : pageHeading}
+      popupFinalFocus={finalFocus}
       triggerless
       viewportClassName="fixed inset-0 z-50 grid place-items-center p-4"
     >
@@ -831,6 +849,7 @@ function DiscardPhotoDialog({ view }: { view: VisitorView }) {
         <button
           className={styles.secondary}
           onClick={() => {
+            setDiscardConfirmed(true);
             setPendingDiscard(null);
             pendingDiscard?.();
           }}

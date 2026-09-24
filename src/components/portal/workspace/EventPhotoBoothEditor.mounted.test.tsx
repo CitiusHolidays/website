@@ -168,7 +168,7 @@ describe("Event Photo Booth staff editor", () => {
       await act(async () => view.button("Close event").click());
       expect(availability).toEqual(["open", "closed"]);
       expect(view.container.textContent).toContain("Share attempts");
-      expect(view.container.textContent).toContain("not unique visitors");
+      expect(view.container.textContent).toContain("They do not identify unique visitors");
     } finally {
       await view.unmount();
     }

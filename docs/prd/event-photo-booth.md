@@ -8,8 +8,8 @@ Canonical implementation specification: [#286](https://github.com/CitiusHolidays
 
 ## Purpose
 
-Give visitors a Citius-branded destination photo they want to share, with an optional travel enquiry
-afterward. A QR code on a physical Selfie Point opens the event-only website experience. Anyone with
+Visitors can create and share a Citius-branded destination photo, then choose whether to make a
+travel enquiry. A QR code on a physical Selfie Point opens the event-only website experience. Anyone with
 the link can participate while it is Open, without login, an event code or a contact form gate.
 
 The experience belongs to the Citius Holidays public website. It does not adopt the reference
@@ -66,7 +66,7 @@ masters are preserved locally under `.scratch/selfie-point/assets/`. They use ex
 imagery as visual context, with open foreground placement areas and editable branding/text kept
 separate from scenery. [Engine and asset provenance](../event-photo-booth/image-engine.md) records
 model licences, exact hashes and output dimensions. They are not final approved campaign artwork or finished
-exports. Visual treatment, cultural/place accuracy and both crop/composition formats still need review.
+exports. Review the artwork for accuracy and check both crops before using it at an event.
 
 ## Processing, privacy and measurement
 
@@ -100,7 +100,7 @@ See the [glossary](../event-photo-booth/CONTEXT.md) and
   failed model download with explicit frame recovery, English/Hindi, keyboard controls, 320px/390px,
   20px root text, dark preference and reduced motion. They use controlled DTOs and synthetic adults;
   they do not prove physical camera/gallery behavior or native installed-app sharing.
-- Schema-backed tests cover staff authorization/assignment boundaries, safe publication, closure,
+- Schema-backed tests cover staff authorization/assignment boundaries, safe publication, Open/Closed,
   metrics and artwork isolation. Verify the authenticated journeys and consented enquiry on the
   named deployment before opening an event; source tests do not establish hosted authorization.
 - Provisioning the server-only metrics secret, Convex Sharp loading, full Next integration and

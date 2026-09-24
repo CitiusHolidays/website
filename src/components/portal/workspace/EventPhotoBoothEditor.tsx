@@ -501,8 +501,8 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
           <div>
             <h2 className="font-semibold text-xl">Event Photo Booth</h2>
             <p className="mt-1 max-w-2xl text-brand-muted text-sm">
-              Manage the QR experience, destination scenes and usage. Participant photos stay out of
-              this workspace.
+              Open or close the booth, edit scenes and check event totals. Participant photos never
+              appear here.
             </p>
           </div>
           <a
@@ -550,12 +550,12 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
           <span className="text-brand-muted text-sm">{draftStatus}</span>
         </div>
         <p className="mt-1 text-brand-muted text-sm">
-          Changes stay in draft until you publish. Review the English and Hindi compositions in both
+          Changes stay in draft until you publish. Check the English and Hindi previews in both
           formats.
         </p>
         {conflict ? (
           <p className="mt-3 text-amber-800 text-sm" role="alert">
-            A newer draft is available. Your unsaved changes are preserved.
+            A newer draft is available. Your unsaved edits are still here.
           </p>
         ) : null}
         <fieldset className="mt-4 min-w-0 space-y-4" disabled={busy}>
@@ -657,8 +657,8 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
       <section className={PANEL}>
         <h2 className="font-semibold text-lg">Aggregate usage</h2>
         <p className="mt-1 text-brand-muted text-sm">
-          Action counts, not unique visitors or confirmed social posts. Download actions do not
-          confirm a file was saved.
+          Counts show actions taken in the booth. They do not identify unique visitors or confirm
+          that a file was saved or posted online.
         </p>
         <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-5">
           {BOOTH_METRICS.map((key) => (
