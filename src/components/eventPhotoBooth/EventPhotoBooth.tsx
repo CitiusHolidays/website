@@ -113,7 +113,7 @@ function useVisitorBooth(state: BoothParticipantState | undefined) {
   }, [editor.dirty]);
 
   async function share() {
-    if (!ready || sharing) {
+    if (!(ready && editor.canExport) || sharing) {
       return;
     }
     const { file } = ready;
@@ -141,7 +141,7 @@ function useVisitorBooth(state: BoothParticipantState | undefined) {
   }
 
   function download() {
-    if (!ready) {
+    if (!(ready && editor.canExport)) {
       return;
     }
     const link = document.createElement("a");
@@ -313,7 +313,7 @@ export function EventPhotoBoothView({ state }: { state: BoothParticipantState | 
       <div className={styles.content}>
         <div className={styles.intro}>
           <h1 ref={view.pageHeading} tabIndex={-1}>
-            {copy.title}
+            {copy.title} <em>{copy.titleAccent}</em>
           </h1>
           <p>{copy.intro}</p>
         </div>
@@ -343,13 +343,10 @@ export function EventPhotoBoothView({ state }: { state: BoothParticipantState | 
 
         {showEditor ? (
           <div className={styles.workspace}>
-            <div className={styles.controls}>
-              <SceneChoices view={view} />
-
-              <PhotoControls view={view} />
-            </div>
-
+            <SceneChoices view={view} />
             <PhotoPreview view={view} />
+            <PhotoControls view={view} />
+            <PhotoOutputControls view={view} />
           </div>
         ) : null}
         <DiscardPhotoDialog view={view} />
@@ -375,7 +372,7 @@ function SceneChoices({ view }: { view: VisitorView }) {
     setShareStatus,
   } = view;
   return (
-    <fieldset disabled={!canParticipate}>
+    <fieldset className={styles.sceneChoices} disabled={!canParticipate}>
       <legend className={styles.sectionTitle}>{copy.chooseScene}</legend>
       <div className={styles.switches}>
         {(["travel", "pilgrimage"] as const).map((value) => (
@@ -447,138 +444,117 @@ function PhotoControls({ view }: { view: VisitorView }) {
     editor,
     mode,
     chooseMode,
-    status,
     chooseButton,
     createPhoto,
   } = view;
   return (
     <section aria-labelledby="booth-photo-title" className={styles.photoSection}>
-      <h2 className={styles.sectionTitle} id="booth-photo-title">
-        {copy.addPhoto}
-      </h2>
-      <p className={styles.help} id="booth-photo-help">
-        {copy.photoHelp}
-      </p>
-      <input
-        accept={PHOTO_ACCEPT}
-        aria-describedby="booth-photo-help"
-        aria-label={copy.choosePhoto}
-        className="sr-only"
-        disabled={!canParticipate}
-        onChange={(event) => {
-          changePhoto(event.target.files?.[0]);
-          event.target.value = "";
-        }}
-        ref={picker}
-        tabIndex={-1}
-        type="file"
-      />
-      <input
-        accept={PHOTO_ACCEPT}
-        aria-label={copy.camera}
-        capture="user"
-        className="sr-only"
-        disabled={!canParticipate}
-        onChange={(event) => {
-          changePhoto(event.target.files?.[0]);
-          event.target.value = "";
-        }}
-        ref={camera}
-        tabIndex={-1}
-        type="file"
-      />
-      <div className={styles.actions}>
-        <button
-          className={styles.secondary}
+      <details
+        className={styles.photoOptions}
+        open={!view.ready || Boolean(editor.error) || (!editor.cutout && mode === "cutout")}
+      >
+        <summary className={styles.sectionTitle} id="booth-photo-title">
+          {view.ready ? copy.photoOptions : copy.addPhoto}
+        </summary>
+        <p className={styles.help}>{copy.photoIntro}</p>
+        <input
+          accept={PHOTO_ACCEPT}
+          aria-describedby="booth-photo-help"
+          aria-label={copy.choosePhoto}
+          className="sr-only"
           disabled={!canParticipate}
-          onClick={() => picker.current?.click()}
-          ref={chooseButton}
-          type="button"
-        >
-          <ImagePlus aria-hidden size={18} />
-          {copy.choosePhoto}
-        </button>
-        <button
-          className={styles.secondary}
+          onChange={(event) => {
+            changePhoto(event.target.files?.[0]);
+            event.target.value = "";
+          }}
+          ref={picker}
+          tabIndex={-1}
+          type="file"
+        />
+        <input
+          accept={PHOTO_ACCEPT}
+          aria-label={copy.camera}
+          capture="user"
+          className="sr-only"
           disabled={!canParticipate}
-          onClick={() => camera.current?.click()}
-          type="button"
-        >
-          <Camera aria-hidden size={18} />
-          {copy.camera}
-        </button>
-      </div>
-      {editor.sourceUrl ? (
-        <div className={styles.source}>
-          <Image alt={copy.sourceAlt} height={72} src={editor.sourceUrl} unoptimized width={72} />
-          <p>{copy.privacy}</p>
+          onChange={(event) => {
+            changePhoto(event.target.files?.[0]);
+            event.target.value = "";
+          }}
+          ref={camera}
+          tabIndex={-1}
+          type="file"
+        />
+        <div className={styles.actions}>
+          <button
+            className={styles.secondary}
+            disabled={!canParticipate}
+            onClick={() => picker.current?.click()}
+            ref={chooseButton}
+            type="button"
+          >
+            <ImagePlus aria-hidden size={18} />
+            {copy.choosePhoto}
+          </button>
+          <button
+            className={styles.secondary}
+            disabled={!canParticipate}
+            onClick={() => camera.current?.click()}
+            type="button"
+          >
+            <Camera aria-hidden size={18} />
+            {copy.camera}
+          </button>
         </div>
-      ) : (
-        <p className={styles.help}>{copy.privacy}</p>
-      )}
+        <details className={styles.tips}>
+          <summary>{copy.photoTips}</summary>
+          <p className={styles.help} id="booth-photo-help">
+            {copy.photoHelp}
+          </p>
+        </details>
+        {editor.sourceUrl ? (
+          <div className={styles.source}>
+            <Image alt={copy.sourceAlt} height={72} src={editor.sourceUrl} unoptimized width={72} />
+            <p>{copy.privacy}</p>
+          </div>
+        ) : (
+          <p className={styles.help}>{copy.privacy}</p>
+        )}
 
-      <fieldset className={styles.mode} disabled={!canParticipate}>
-        <legend className="sr-only">{copy.addPhoto}</legend>
-        <div className={styles.switches}>
-          <button
-            aria-pressed={mode === "cutout"}
-            onClick={() => chooseMode("cutout")}
-            type="button"
-          >
-            {copy.cutout}
-          </button>
-          <button aria-pressed={mode === "frame"} onClick={() => chooseMode("frame")} type="button">
-            {copy.frame}
-          </button>
-        </div>
-        <p className={styles.help}>{mode === "cutout" ? copy.cutoutHelp : copy.frameHelp}</p>
-      </fieldset>
-      {mode === "cutout" ? (
-        <>
-          {editor.cutout ? null : <p className={styles.help}>{copy.firstLoad}</p>}
-          <button
-            className={styles.primary}
-            disabled={!(canParticipate && editor.hasPhoto) || editor.busy}
-            onClick={createPhoto}
-            type="button"
-          >
-            {editor.cutout || editor.error === "cutoutError" ? copy.retryCutout : copy.create}
-          </button>
-        </>
-      ) : null}
-      {editor.busy ? (
-        <button className={styles.secondary} onClick={editor.cancel} type="button">
-          {copy.cancel}
-        </button>
-      ) : null}
-      {editor.phase === "cancelled" && (mode === "frame" || editor.cutout) ? (
-        <button
-          className={styles.secondary}
-          disabled={!canParticipate}
-          onClick={editor.retryPreview}
-          type="button"
-        >
-          {copy.retryPreview}
-        </button>
-      ) : null}
-      {editor.error ? (
-        <div className={styles.error} role="alert">
-          <p>{copy[editor.error]}</p>
-          {editor.error === "renderError" ? (
+        <fieldset className={styles.mode} disabled={!canParticipate}>
+          <legend className="sr-only">{copy.addPhoto}</legend>
+          <div className={styles.switches}>
             <button
-              className={styles.secondary}
-              disabled={!canParticipate}
-              onClick={editor.retryPreview}
+              aria-pressed={mode === "cutout"}
+              onClick={() => chooseMode("cutout")}
               type="button"
             >
-              {copy.retryPreview}
+              {copy.cutout}
             </button>
-          ) : null}
-        </div>
-      ) : null}
-      <p aria-live="polite" className={styles.status} role="status">
-        {status}
-      </p>
+            <button
+              aria-pressed={mode === "frame"}
+              onClick={() => chooseMode("frame")}
+              type="button"
+            >
+              {copy.frame}
+            </button>
+          </div>
+          <p className={styles.help}>{mode === "cutout" ? copy.cutoutHelp : copy.frameHelp}</p>
+        </fieldset>
+        {mode === "cutout" ? (
+          <>
+            {editor.cutout ? null : <p className={styles.help}>{copy.firstLoad}</p>}
+            <button
+              className={styles.primary}
+              disabled={!(canParticipate && editor.hasPhoto) || editor.busy}
+              onClick={createPhoto}
+              type="button"
+            >
+              {editor.cutout || editor.error === "cutoutError" ? copy.retryCutout : copy.create}
+            </button>
+          </>
+        ) : null}
+      </details>
     </section>
   );
 }
@@ -596,18 +572,9 @@ function PhotoPreview({ view }: { view: VisitorView }) {
     scene,
     language,
     status,
-    mode,
     editor,
-    transform,
-    setTransform,
-    download,
-    sharing,
-    share,
-    shareStatus,
-    startOver,
-    metrics,
   } = view;
-  const displayedFormat = ready?.format ?? format;
+  const displayedFormat = editor.showLivePreview ? editor.previewFormat : (ready?.format ?? format);
   return (
     <section aria-labelledby="booth-preview-title" className={styles.previewSection}>
       <div className={styles.previewHeader}>
@@ -637,17 +604,19 @@ function PhotoPreview({ view }: { view: VisitorView }) {
           </button>
         ))}
       </fieldset>
-      {ready && editor.previousResult ? (
-        <p className={styles.notice} role="status">
-          {copy.previousResult}: {ready.title[language]} · {copy[ready.format]}
-        </p>
-      ) : null}
       <div
         aria-busy={showProgress}
         className={styles.preview}
+        data-format={displayedFormat}
         style={{ aspectRatio: displayedFormat === "portrait" ? "4 / 5" : "9 / 16" }}
       >
-        {ready ? (
+        <canvas
+          aria-label={copy.previewAlt}
+          hidden={!editor.showLivePreview}
+          ref={editor.previewCanvas}
+          role="img"
+        />
+        {ready && !editor.showLivePreview ? (
           <Image
             alt={copy.previewAlt}
             fill
@@ -656,7 +625,7 @@ function PhotoPreview({ view }: { view: VisitorView }) {
             unoptimized
           />
         ) : null}
-        {!ready && scene ? (
+        {!(ready || editor.showLivePreview) && scene ? (
           <>
             <Image
               alt={scene.title[language]}
@@ -672,6 +641,31 @@ function PhotoPreview({ view }: { view: VisitorView }) {
           </>
         ) : null}
       </div>
+    </section>
+  );
+}
+
+function PhotoOutputControls({ view }: { view: VisitorView }) {
+  const {
+    copy,
+    canParticipate,
+    mode,
+    editor,
+    transform,
+    setTransform,
+    setShareStatus,
+    ready,
+    language,
+    download,
+    sharing,
+    share,
+    shareStatus,
+    startOver,
+    scene,
+    metrics,
+  } = view;
+  return (
+    <section aria-label={copy.adjust} className={styles.outputControls}>
       {mode === "cutout" && editor.cutout ? (
         <fieldset className={styles.adjustments} disabled={!canParticipate}>
           <legend>{copy.adjust}</legend>
@@ -712,14 +706,24 @@ function PhotoPreview({ view }: { view: VisitorView }) {
           </button>
         </fieldset>
       ) : null}
+      {ready && editor.previousResult && !editor.rendering ? (
+        <p className={styles.notice} role="status">
+          {copy.previousResult}: {ready.title[language]} · {copy[ready.format]}
+        </p>
+      ) : null}
       <div className={styles.actions}>
-        <button className={styles.primary} disabled={!ready} onClick={download} type="button">
+        <button
+          className={styles.primary}
+          disabled={!editor.canExport}
+          onClick={download}
+          type="button"
+        >
           <Download aria-hidden size={18} />
           {copy.save}
         </button>
         <button
           className={styles.secondary}
-          disabled={!ready || sharing}
+          disabled={!editor.canExport || sharing}
           onClick={share}
           type="button"
         >
@@ -727,9 +731,45 @@ function PhotoPreview({ view }: { view: VisitorView }) {
           {sharing ? copy.sharing : copy.share}
         </button>
       </div>
-      <p className={styles.help}>{copy.shareHelp}</p>
+      <details className={styles.tips}>
+        <summary>{copy.shareTips}</summary>
+        <p className={styles.help}>{copy.shareHelp}</p>
+      </details>
       <p aria-live="polite" className={styles.status} role="status">
         {shareStatus ? copy[shareStatus] : ""}
+      </p>
+      {editor.busy ? (
+        <button className={styles.secondary} onClick={editor.cancel} type="button">
+          {copy.cancel}
+        </button>
+      ) : null}
+      {editor.phase === "cancelled" && (mode === "frame" || editor.cutout) ? (
+        <button
+          className={styles.secondary}
+          disabled={!canParticipate}
+          onClick={editor.retryPreview}
+          type="button"
+        >
+          {copy.retryPreview}
+        </button>
+      ) : null}
+      {editor.error ? (
+        <div className={styles.error} role="alert">
+          <p>{copy[editor.error]}</p>
+          {editor.error === "renderError" ? (
+            <button
+              className={styles.secondary}
+              disabled={!canParticipate}
+              onClick={editor.retryPreview}
+              type="button"
+            >
+              {copy.retryPreview}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      <p aria-live="polite" className={styles.status} role="status">
+        {view.status}
       </p>
       {editor.hasPhoto ? (
         <button className={styles.textButton} onClick={startOver} type="button">

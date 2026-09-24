@@ -12,6 +12,8 @@ let failArtwork = false;
 let heldArtwork: ((image: HTMLImageElement) => void) | null = null;
 let holdArtwork = false;
 let renderCount = 0;
+let encodeCount = 0;
+let lastDrawnX = 0;
 const scenes = DEFAULT_BOOTH_SCENES.map((scene) => ({
   ...scene,
   artworkUrl: `/images/event-photo-booth/${scene.id}.webp`,
@@ -20,13 +22,18 @@ const metrics = { flush: () => undefined, record: () => undefined };
 
 beforeAll(async () => {
   Object.assign(globalThis, {
+    cancelAnimationFrame: clearTimeout,
     document: dom.window.document,
     IS_REACT_ACT_ENVIRONMENT: true,
+    requestAnimationFrame: (callback: FrameRequestCallback) => setTimeout(callback, 0),
     window: dom.window,
   });
   Object.defineProperty(document, "fonts", { value: { ready: Promise.resolve() } });
   mock.module("@/lib/eventPhotoBooth/imageEngine", () => ({
-    exportBoothPhoto: async () => new Blob(["ready photo"], { type: "image/png" }),
+    exportBoothPhoto: () => {
+      encodeCount += 1;
+      return Promise.resolve(new Blob([String(lastDrawnX)], { type: "image/png" }));
+    },
     loadBoothArtwork: () => {
       if (failArtwork) {
         return Promise.reject(new Error("Artwork unavailable"));
@@ -45,9 +52,10 @@ beforeAll(async () => {
       width: 300,
     }),
     releaseBoothPhoto: () => undefined,
-    renderBoothPhoto: () => {
+    renderBoothPhoto: (options: { canvas: HTMLCanvasElement; transform: { x: number } }) => {
       renderCount += 1;
-      return document.createElement("canvas");
+      lastDrawnX = options.transform.x;
+      return options.canvas;
     },
   }));
   ({ createRoot } = await import("react-dom/client"));
@@ -59,10 +67,10 @@ afterAll(() => {
 });
 const settle = () =>
   act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 180));
+    await new Promise((resolve) => setTimeout(resolve, 260));
   });
 
-test("Failed and cancelled replacements preserve the original export and reject late artwork", async () => {
+test("Live placement defers export; failed or cancelled replacements retain the last usable file", async () => {
   let editor: ReturnType<typeof useBoothEditor> | undefined;
   function current() {
     if (!editor) {
@@ -81,7 +89,7 @@ test("Failed and cancelled replacements preserve the original export and reject 
   };
   function Harness() {
     editor = useEditor(options);
-    return null;
+    return <canvas ref={editor.previewCanvas} />;
   }
   const root = createRoot(document.createElement("div"));
   await act(() => root.render(<Harness />));
@@ -91,13 +99,34 @@ test("Failed and cancelled replacements preserve the original export and reject 
   expect(original?.destination).toBe("Paris");
   expect(original?.format).toBe("portrait");
 
+  // Rapid placement changes redraw the same canvas without encoding every input.
+  const canvas = current().previewCanvas.current;
+  const initialEncodes = encodeCount;
+  for (let step = 1; step <= 5; step += 1) {
+    options.transform = { ...DEFAULT_TRANSFORM, x: step / 10 };
+    // biome-ignore lint/performance/noAwaitInLoops: exercise successive user input before export settles.
+    await act(() => root.render(<Harness />));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+    expect(current().previewCanvas.current).toBe(canvas);
+    expect(current().canExport).toBe(false);
+    expect(lastDrawnX).toBe(step / 10);
+    expect(encodeCount).toBe(initialEncodes);
+  }
+  await settle();
+  expect(current().canExport).toBe(true);
+  expect(encodeCount).toBe(initialEncodes + 1);
+  expect(await current().ready?.file.text()).toBe("0.5");
+  const adjusted = current().ready;
+
   failArtwork = true;
   options.scene = scenes[3];
   options.format = "story";
   await act(() => root.render(<Harness />));
   await settle();
   expect(current().error).toBe("renderError");
-  expect(current().ready).toBe(original);
+  expect(current().ready).toBe(adjusted);
   expect(current().previousResult).toBe(true);
   expect(current().busy).toBe(false);
 
@@ -113,13 +142,13 @@ test("Failed and cancelled replacements preserve the original export and reject 
   expect(current().busy).toBe(false);
   expect(current().rendering).toBe(false);
   expect(current().phase).toBe("cancelled");
-  expect(current().ready).toBe(original);
+  expect(current().ready).toBe(adjusted);
   expect(current().hasPhoto).toBe(true);
   await act(() => {
     heldArtwork?.(document.createElement("img"));
   });
   expect(renderCount).toBe(beforeCancel);
-  expect(current().ready).toBe(original);
+  expect(current().ready).toBe(adjusted);
 
   holdArtwork = false;
   await act(() => current().retryPreview());
