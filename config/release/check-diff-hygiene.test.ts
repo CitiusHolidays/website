@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import {
   classifyIntegrationUnit,
   forbiddenReason,
+  isReviewedLargeAsset,
   REVIEWED_CONVEX_GENERATED_PATHS,
 } from "./check-diff-hygiene";
 
@@ -218,4 +219,19 @@ describe("Reviewed Convex generated surface", () => {
     expect(forbiddenReason("convex/_generated/components.js")).toContain("generated output");
     expect(forbiddenReason("convex/betterAuth/_generated/api.js")).toContain("generated output");
   });
+});
+
+test("Large booth binaries require their exact reviewed path, size and digest", () => {
+  for (const path of [
+    "public/photo-booth/vendor/mediapipe-1.0.1/wasm/vision_wasm_module_internal.wasm",
+    "public/photo-booth/vendor/selfie-multiclass-256-v1.tflite",
+  ]) {
+    const contents = readFileSync(resolve(import.meta.dir, "../..", path));
+    expect(isReviewedLargeAsset(path, contents)).toBe(true);
+    expect(isReviewedLargeAsset(`${path}.changed`, contents)).toBe(false);
+    expect(isReviewedLargeAsset(path, contents.subarray(1))).toBe(false);
+    const changed = new Uint8Array(contents);
+    changed[0] = (changed[0] + 1) % 256;
+    expect(isReviewedLargeAsset(path, changed)).toBe(false);
+  }
 });

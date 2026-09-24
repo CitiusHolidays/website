@@ -1,9 +1,31 @@
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 
 const ROOT = resolve(import.meta.dir, "../..");
 const MAX_CHANGED_FILE_BYTES = 10 * 1024 * 1024;
+// These exact pinned binaries enable browser-only multi-person segmentation without a paid
+// photo service or build-time remote downloads. Every other file retains the 10 MiB ceiling.
+// A changed vendor version/content requires a fresh explicit review here and in its provenance.
+const REVIEWED_LARGE_ASSETS = [
+  {
+    bytes: 11_756_972,
+    path: "public/photo-booth/vendor/mediapipe-1.0.1/wasm/vision_wasm_module_internal.wasm",
+    sha256: "2dabd8e23c60984628beb7bb338764c81a08e6837145273f59578684b5d53c1b",
+  },
+  {
+    bytes: 16_371_837,
+    path: "public/photo-booth/vendor/selfie-multiclass-256-v1.tflite",
+    sha256: "c6748b1253a99067ef71f7e26ca71096cd449baefa8f101900ea23016507e0e0",
+  },
+];
+export function isReviewedLargeAsset(path: string, contents: Uint8Array) {
+  const asset = REVIEWED_LARGE_ASSETS.find(
+    (entry) => entry.path === path && entry.bytes === contents.length
+  );
+  return Boolean(asset && createHash("sha256").update(contents).digest("hex") === asset.sha256);
+}
 const diffBase = process.env.DIFF_BASE?.trim();
 const ENV_VALUE_FILE_PATTERN = /^\.env\./;
 const AGENT_TOOL_PREFIXES = [".agents/skills/", ".claude/hooks/", ".claude/skills/"] as const;
@@ -200,7 +222,10 @@ function main() {
     const absolutePath = resolve(ROOT, path);
     if (existsSync(absolutePath) && statSync(absolutePath).isFile()) {
       const bytes = statSync(absolutePath).size;
-      if (bytes > MAX_CHANGED_FILE_BYTES) {
+      if (
+        bytes > MAX_CHANGED_FILE_BYTES &&
+        !isReviewedLargeAsset(path, readFileSync(absolutePath))
+      ) {
         failures.push(`${path}: ${bytes} bytes exceeds the 10 MiB changed-file limit`);
       }
     }
