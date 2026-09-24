@@ -151,7 +151,7 @@ export default function HomeMainClient() {
           </h2>
           <p className="mx-auto mt-5 max-w-2xl text-lg text-public-muted leading-8">
             Fifteen years in MICE and corporate travel, 52 active corporate partners, and offices in
-            Delhi, Kolkata, and Bangalore.
+            Mumbai, Kolkata, and Bangalore.
           </p>
         </div>
 
