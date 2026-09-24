@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import type { Id } from "@convex/_generated/dataModel";
 import { ConvexError } from "convex/values";
 import { JSDOM } from "jsdom";
@@ -246,6 +246,54 @@ describe("Event Photo Booth staff editor", () => {
       ).toBe("bali");
       expect(view.container.textContent).toContain("Scene 4 of 5");
     } finally {
+      await view.unmount();
+    }
+  });
+  test("a remote edit during upload retains the starting revision and requires conflict recovery", async () => {
+    const engine = await import("@/lib/eventPhotoBooth/imageEngine");
+    const canvas = document.createElement("canvas");
+    canvas.toBlob = (callback) => callback(new Blob(["prepared image"], { type: "image/jpeg" }));
+    const prepare = spyOn(engine, "loadSourcePhoto").mockResolvedValue({
+      canvas,
+      height: 100,
+      width: 100,
+    });
+    let finishUpload:
+      | ((result: Awaited<ReturnType<EventPhotoBoothEditorProps["uploadArtwork"]>>) => void)
+      | undefined;
+    const view = await mount({
+      uploadArtwork: () =>
+        new Promise((resolve) => {
+          finishUpload = resolve;
+        }),
+    });
+    try {
+      const input = view.container.querySelector<HTMLInputElement>('input[type="file"]');
+      if (!input) {
+        throw new Error("Missing background upload");
+      }
+      Object.defineProperty(input, "files", {
+        value: [new File(["image"], "scene.jpg", { type: "image/jpeg" })],
+      });
+      await act(async () => input.dispatchEvent(new dom.window.Event("change", { bubbles: true })));
+      expect(view.container.textContent).toContain("Uploading background…");
+      const state = management();
+      state.draftScenes[0] = {
+        ...state.draftScenes[0],
+        title: { ...state.draftScenes[0].title, en: "Remote edited Paris" },
+      };
+      await view.rerender({ state: { ...state, revision: 1 } });
+      await act(async () =>
+        finishUpload?.({ artwork: { key: "bali", kind: "bundled" }, artworkUrl: "/bali.webp" })
+      );
+      expect(view.container.textContent).toContain("A newer draft is available");
+      expect(view.button("Save draft").disabled).toBe(true);
+      expect(destinationFields(view.container)[0]).toBe("Paris");
+      await act(async () => view.button("Discard edits and reload").click());
+      expect(destinationFields(view.container)[0]).toBe("Remote edited Paris");
+      expect(view.container.querySelector("img")?.getAttribute("src")).toContain("paris-192.webp");
+    } finally {
+      prepare.mockRestore();
       await view.unmount();
     }
   });

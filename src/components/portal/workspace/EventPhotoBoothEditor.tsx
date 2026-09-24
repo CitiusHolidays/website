@@ -189,6 +189,7 @@ function BackgroundThumbnail({ src, label }: { src: string; label: string }) {
       alt={label}
       className="h-28 w-40 rounded-lg border border-brand-border object-cover"
       height={112}
+      loading="eager"
       onError={() => setFailed(true)}
       src={src}
       unoptimized
@@ -390,7 +391,7 @@ function useBoothEditor(props: EventPhotoBoothEditorProps) {
   const [busy, setBusy] = useState<false | "saving" | "uploading">(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
-  if (state.revision > draft.revision && !draft.dirty) {
+  if (state.revision > draft.revision && !draft.dirty && !busy) {
     setDraft({ dirty: false, revision: state.revision, scenes: state.draftScenes });
   }
   const selected = draft.scenes.find((scene) => scene.id === selectedId) ?? draft.scenes[0];
@@ -773,27 +774,33 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
           {draft.scenes.length >= 24 ? (
             <p className="text-brand-muted text-sm">24-scene limit reached.</p>
           ) : null}
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-1">
             <Button
-              className="min-h-11"
+              aria-label="Previous scene"
+              className="min-h-11 px-2!"
               disabled={index <= 0}
               onClick={() => browse(previousScene)}
               type="button"
               variant="outline"
             >
-              Previous scene
+              Previous
             </Button>
-            <span aria-live="polite" className="text-brand-muted text-sm">
-              Scene {index + 1} of {draft.scenes.length}
+            <span
+              aria-live="polite"
+              className="whitespace-nowrap px-1 text-brand-muted text-sm tabular-nums"
+            >
+              <span className="sr-only">Scene </span>
+              {index + 1} of {draft.scenes.length}
             </span>
             <Button
-              className="min-h-11"
+              aria-label="Next scene"
+              className="min-h-11 px-2!"
               disabled={index < 0 || index >= draft.scenes.length - 1}
               onClick={() => browse(nextScene)}
               type="button"
               variant="outline"
             >
-              Next scene
+              Next
             </Button>
           </div>
           {templateAction === "add" ? (
