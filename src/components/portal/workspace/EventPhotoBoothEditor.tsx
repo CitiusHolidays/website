@@ -698,19 +698,19 @@ function useBoothEditor(props: EventPhotoBoothEditorProps) {
       return "Enter both destination names.";
     }
     beginChange("uploading");
+    let failureMessage: string | null = null;
     try {
       const result = await props.uploadArtwork({ bytes: await prepareArtwork(file) });
       if (!addScene({ ...result, caption: { en: "", hi: "" }, category, title, visible: true })) {
-        return "The draft already has 24 scenes.";
+        failureMessage = "The draft already has 24 scenes.";
       }
-      return null;
     } catch (failure) {
-      return errorMessage(
+      failureMessage = errorMessage(
         failure instanceof Error ? failure : new Error("Background upload failed. Try again.")
       );
-    } finally {
-      setBusy(false);
     }
+    setBusy(false);
+    return failureMessage;
   };
   const applyTemplate = (preset: BoothSceneDraft) => {
     if (!selected || preset.artwork.kind !== "bundled") {
@@ -886,18 +886,15 @@ function useBoothEditor(props: EventPhotoBoothEditorProps) {
   };
 }
 
-export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
-  const { state } = props;
+function SceneEditor({ editor }: { editor: ReturnType<typeof useBoothEditor> }) {
   const {
     draft,
     selected,
     index,
     conflict,
-    statusMessage,
     unpublished,
     draftStatus,
     busy,
-    error,
     update,
     selectScene,
     addScene,
@@ -909,10 +906,8 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
     loadLatest,
     save,
     publish,
-    toggleAvailability,
     upload,
-    assign,
-  } = useBoothEditor(props);
+  } = editor;
 
   const [templateAction, setTemplateAction] = useState<"add" | "replace" | null>(null);
   const addButton = useRef<HTMLButtonElement>(null);
@@ -954,10 +949,196 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
     return failure;
   };
   const editingScene = selected && templateAction !== "add";
-  const browse = (change: () => void) => {
-    setTemplateAction(null);
-    change();
-  };
+
+  return (
+    <form
+      className={PANEL}
+      onSubmit={(event) => {
+        if (templateAction) {
+          event.preventDefault();
+        } else {
+          save(event);
+        }
+      }}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-semibold text-lg">Destination scenes</h2>
+        <span className="text-brand-muted text-sm">{draftStatus}</span>
+      </div>
+      {conflict ? (
+        <p className="mt-3 text-amber-800 text-sm" role="alert">
+          A newer draft is available. Your unsaved edits are still here.
+        </p>
+      ) : null}
+      <fieldset className="mt-4 min-w-0 space-y-4" disabled={busy}>
+        <legend className="sr-only">Edit destination scene</legend>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="min-w-0 flex-1 basis-56 space-y-1 text-sm">
+            Edit scene
+            <select
+              aria-label="Edit scene"
+              className={INPUT}
+              disabled={templateAction === "add"}
+              onChange={(event) => {
+                setTemplateAction(null);
+                selectScene(event);
+              }}
+              ref={sceneSelect}
+              value={selected?.id ?? ""}
+            >
+              {draft.scenes.map((scene, position) => (
+                <option key={scene.id} value={scene.id}>
+                  {position + 1}. {scene.title.en || "New scene"}
+                  {scene.visible ? "" : " (hidden)"}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button
+            aria-expanded={templateAction === "add"}
+            className="min-h-11"
+            disabled={draft.scenes.length >= 24}
+            onClick={() => setTemplateAction("add")}
+            ref={addButton}
+            type="button"
+            variant="outline"
+          >
+            Add destination
+          </Button>
+        </div>
+        {draft.scenes.length >= 24 ? (
+          <p className="text-brand-muted text-sm">24-scene limit reached.</p>
+        ) : null}
+        <SceneNavigation
+          disabled={templateAction === "add"}
+          index={index}
+          next={() => {
+            setTemplateAction(null);
+            nextScene();
+          }}
+          previous={() => {
+            setTemplateAction(null);
+            previousScene();
+          }}
+          total={draft.scenes.length}
+        />
+        {templateAction === "add" ? (
+          <AddDestinationChooser
+            apply={confirmTemplate}
+            cancel={closeTemplates}
+            create={confirmNewDestination}
+          />
+        ) : null}
+        {editingScene ? (
+          <>
+            <div className="flex flex-col items-start gap-4 border-brand-border border-t pt-4 sm:flex-row">
+              <figure className="space-y-2">
+                <BackgroundThumbnail
+                  key={`${selected.id}:${selected.artworkUrl}`}
+                  label={`Current background for ${selected.title.en}`}
+                  src={
+                    selected.artwork.kind === "bundled"
+                      ? BOOTH_THUMBNAIL_URLS[selected.artwork.key].small
+                      : selected.artworkUrl
+                  }
+                />
+                <figcaption className="text-brand-muted text-sm">Current background</figcaption>
+              </figure>
+              <div className="w-full min-w-0 flex-1 space-y-3">
+                <Button
+                  aria-expanded={templateAction === "replace"}
+                  className="min-h-11"
+                  onClick={() => setTemplateAction("replace")}
+                  ref={templateButton}
+                  type="button"
+                  variant="outline"
+                >
+                  Choose destination template
+                </Button>
+                <label className="block space-y-1 text-sm">
+                  Upload replacement background
+                  <input
+                    accept="image/jpeg,image/png,image/webp"
+                    aria-label="Upload replacement background"
+                    className={`${INPUT} block file:mr-3 file:min-h-11 file:rounded-md file:border-0 file:bg-brand-light file:px-3`}
+                    onChange={upload}
+                    type="file"
+                  />
+                  <span className="block text-brand-muted text-xs">
+                    JPEG, PNG or WebP, up to 12 MB. Keeps destination names. Scenery only.
+                  </span>
+                </label>
+              </div>
+            </div>
+            {templateAction === "replace" ? (
+              <TemplateChooser
+                adding={false}
+                apply={confirmTemplate}
+                cancel={closeTemplates}
+                key={`replace-${selected.id}-${draft.revision}`}
+              />
+            ) : null}
+            <SceneFields scene={selected} update={update} />
+            <label className="block max-w-xs space-y-1 text-sm">
+              Display order
+              <select
+                aria-label="Display order"
+                className={INPUT}
+                onChange={moveScene}
+                value={index}
+              >
+                {draft.scenes.map((scene, position) => (
+                  <option key={scene.id} value={position}>
+                    {position + 1} of {draft.scenes.length}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        ) : null}
+      </fieldset>
+      <div className="mt-5 flex flex-wrap gap-2">
+        <Button
+          className="min-h-11"
+          disabled={busy || !draft.dirty || conflict || templateAction !== null}
+          type="submit"
+          variant="primary"
+        >
+          Save draft
+        </Button>
+        <Button
+          className="min-h-11"
+          disabled={busy || draft.dirty || conflict || !unpublished || templateAction !== null}
+          onClick={publish}
+          type="button"
+          variant="outline"
+        >
+          Publish scenes
+        </Button>
+        {draft.dirty || conflict ? (
+          <Button
+            className="min-h-11"
+            disabled={busy || templateAction === "add"}
+            onClick={() => {
+              setTemplateAction(null);
+              loadLatest();
+            }}
+            type="button"
+            variant="bare"
+          >
+            Discard edits and reload
+          </Button>
+        ) : null}
+      </div>
+      {editingScene ? <EventPhotoBoothPreview scene={selected} /> : null}
+    </form>
+  );
+}
+
+export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
+  const { state } = props;
+  const editor = useBoothEditor(props);
+  const { busy, error, statusMessage, toggleAvailability, assign } = editor;
 
   return (
     <div className="space-y-5 text-brand-dark">
@@ -1006,175 +1187,7 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
       <p aria-atomic="true" className="text-brand-muted text-sm" role="status">
         {statusMessage}
       </p>
-      <form
-        className={PANEL}
-        onSubmit={(event) => {
-          if (templateAction) {
-            event.preventDefault();
-          } else {
-            save(event);
-          }
-        }}
-      >
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-semibold text-lg">Destination scenes</h2>
-          <span className="text-brand-muted text-sm">{draftStatus}</span>
-        </div>
-        {conflict ? (
-          <p className="mt-3 text-amber-800 text-sm" role="alert">
-            A newer draft is available. Your unsaved edits are still here.
-          </p>
-        ) : null}
-        <fieldset className="mt-4 min-w-0 space-y-4" disabled={busy}>
-          <legend className="sr-only">Edit destination scene</legend>
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="min-w-0 flex-1 basis-56 space-y-1 text-sm">
-              Edit scene
-              <select
-                aria-label="Edit scene"
-                className={INPUT}
-                disabled={templateAction === "add"}
-                onChange={(event) => browse(() => selectScene(event))}
-                ref={sceneSelect}
-                value={selected?.id ?? ""}
-              >
-                {draft.scenes.map((scene, position) => (
-                  <option key={scene.id} value={scene.id}>
-                    {position + 1}. {scene.title.en || "New scene"}
-                    {scene.visible ? "" : " (hidden)"}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <Button
-              aria-expanded={templateAction === "add"}
-              className="min-h-11"
-              disabled={draft.scenes.length >= 24}
-              onClick={() => setTemplateAction("add")}
-              ref={addButton}
-              type="button"
-              variant="outline"
-            >
-              Add destination
-            </Button>
-          </div>
-          {draft.scenes.length >= 24 ? (
-            <p className="text-brand-muted text-sm">24-scene limit reached.</p>
-          ) : null}
-          <SceneNavigation
-            disabled={templateAction === "add"}
-            index={index}
-            next={() => browse(nextScene)}
-            previous={() => browse(previousScene)}
-            total={draft.scenes.length}
-          />
-          {templateAction === "add" ? (
-            <AddDestinationChooser
-              apply={confirmTemplate}
-              cancel={closeTemplates}
-              create={confirmNewDestination}
-            />
-          ) : null}
-          {editingScene ? (
-            <>
-              <div className="flex flex-col items-start gap-4 border-brand-border border-t pt-4 sm:flex-row">
-                <figure className="space-y-2">
-                  <BackgroundThumbnail
-                    key={`${selected.id}:${selected.artworkUrl}`}
-                    label={`Current background for ${selected.title.en}`}
-                    src={
-                      selected.artwork.kind === "bundled"
-                        ? BOOTH_THUMBNAIL_URLS[selected.artwork.key].small
-                        : selected.artworkUrl
-                    }
-                  />
-                  <figcaption className="text-brand-muted text-sm">Current background</figcaption>
-                </figure>
-                <div className="w-full min-w-0 flex-1 space-y-3">
-                  <Button
-                    aria-expanded={templateAction === "replace"}
-                    className="min-h-11"
-                    onClick={() => setTemplateAction("replace")}
-                    ref={templateButton}
-                    type="button"
-                    variant="outline"
-                  >
-                    Choose destination template
-                  </Button>
-                  <label className="block space-y-1 text-sm">
-                    Upload replacement background
-                    <input
-                      accept="image/jpeg,image/png,image/webp"
-                      aria-label="Upload replacement background"
-                      className={`${INPUT} block file:mr-3 file:min-h-11 file:rounded-md file:border-0 file:bg-brand-light file:px-3`}
-                      onChange={upload}
-                      type="file"
-                    />
-                    <span className="block text-brand-muted text-xs">
-                      JPEG, PNG or WebP, up to 12 MB. Keeps destination names. Scenery only.
-                    </span>
-                  </label>
-                </div>
-              </div>
-              {templateAction === "replace" ? (
-                <TemplateChooser
-                  adding={false}
-                  apply={confirmTemplate}
-                  cancel={closeTemplates}
-                  key={`replace-${selected.id}-${draft.revision}`}
-                />
-              ) : null}
-              <SceneFields scene={selected} update={update} />
-              <label className="block max-w-xs space-y-1 text-sm">
-                Display order
-                <select
-                  aria-label="Display order"
-                  className={INPUT}
-                  onChange={moveScene}
-                  value={index}
-                >
-                  {draft.scenes.map((scene, position) => (
-                    <option key={scene.id} value={position}>
-                      {position + 1} of {draft.scenes.length}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </>
-          ) : null}
-        </fieldset>
-        <div className="mt-5 flex flex-wrap gap-2">
-          <Button
-            className="min-h-11"
-            disabled={busy || !draft.dirty || conflict || templateAction !== null}
-            type="submit"
-            variant="primary"
-          >
-            Save draft
-          </Button>
-          <Button
-            className="min-h-11"
-            disabled={busy || draft.dirty || conflict || !unpublished || templateAction !== null}
-            onClick={publish}
-            type="button"
-            variant="outline"
-          >
-            Publish scenes
-          </Button>
-          {draft.dirty || conflict ? (
-            <Button
-              className="min-h-11"
-              disabled={busy || templateAction === "add"}
-              onClick={() => browse(loadLatest)}
-              type="button"
-              variant="bare"
-            >
-              Discard edits and reload
-            </Button>
-          ) : null}
-        </div>
-        {editingScene ? <EventPhotoBoothPreview scene={selected} /> : null}
-      </form>
+      <SceneEditor editor={editor} />
       <section className={PANEL}>
         <h2 className="font-semibold text-lg">Event totals</h2>
         <p className="mt-1 text-brand-muted text-sm">
