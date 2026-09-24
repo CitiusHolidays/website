@@ -2,8 +2,8 @@
 
 import type { Id } from "@convex/_generated/dataModel";
 
-import { ArrowDown, ArrowUp } from "lucide-react";
-import { type ChangeEvent, type FormEvent, useEffect, useState } from "react";
+import Image from "next/image";
+import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/application-button";
 import type {
   BoothArtwork,
@@ -16,6 +16,7 @@ import type {
 import {
   BOOTH_ARTWORK_URLS,
   BOOTH_METRICS,
+  BOOTH_THUMBNAIL_URLS,
   DEFAULT_BOOTH_SCENES,
 } from "@/lib/eventPhotoBooth/contracts";
 
@@ -107,50 +108,8 @@ function SceneFields({
     update({ ...scene, caption: { ...scene.caption, en: event.target.value } });
   const changeHindiCaption = (event: ChangeEvent<HTMLInputElement>) =>
     update({ ...scene, caption: { ...scene.caption, hi: event.target.value } });
-  const changeDestination = (event: ChangeEvent<HTMLSelectElement>) => {
-    const preset = DEFAULT_BOOTH_SCENES.find((candidate) => candidate.id === event.target.value);
-    if (preset?.artwork.kind !== "bundled") {
-      return;
-    }
-    const text = (field: "title" | "caption", language: "en" | "hi") =>
-      !scene[field][language].trim() ||
-      DEFAULT_BOOTH_SCENES.some(
-        (candidate) => candidate[field][language] === scene[field][language]
-      )
-        ? preset[field][language]
-        : scene[field][language];
-    update({
-      ...scene,
-      artwork: preset.artwork,
-      artworkUrl: BOOTH_ARTWORK_URLS[preset.artwork.key],
-      caption: { en: text("caption", "en"), hi: text("caption", "hi") },
-      category: preset.category,
-      title: { en: text("title", "en"), hi: text("title", "hi") },
-    });
-  };
   return (
     <div className="grid min-w-0 gap-4 sm:grid-cols-2">
-      <label className="space-y-1 text-sm sm:col-span-2">
-        Change destination
-        <select
-          aria-label="Change destination"
-          className={INPUT}
-          onChange={changeDestination}
-          value=""
-        >
-          <option disabled value="">
-            Choose destination…
-          </option>
-          {DEFAULT_BOOTH_SCENES.map((preset) => (
-            <option key={preset.id} value={preset.id}>
-              {preset.title.en}
-            </option>
-          ))}
-        </select>
-        <span className="block text-brand-muted text-xs">
-          Sets the background, category and default text. Keeps your custom text.
-        </span>
-      </label>
       <label className="space-y-1 text-sm">
         Category
         <select
@@ -212,6 +171,121 @@ function SceneFields({
           value={scene.caption.hi}
         />
       </label>
+    </div>
+  );
+}
+
+function BackgroundThumbnail({ src, label }: { src: string; label: string }) {
+  const [failed, setFailed] = useState(false);
+  return failed ? (
+    <p
+      className="flex h-28 w-40 items-center rounded-lg border border-brand-border p-3 text-brand-muted text-sm"
+      role="status"
+    >
+      Background unavailable
+    </p>
+  ) : (
+    <Image
+      alt={label}
+      className="h-28 w-40 rounded-lg border border-brand-border object-cover"
+      height={112}
+      onError={() => setFailed(true)}
+      src={src}
+      unoptimized
+      width={160}
+    />
+  );
+}
+
+function TemplateChooser({
+  adding,
+  apply,
+  cancel,
+}: {
+  adding: boolean;
+  apply: (preset: BoothSceneDraft) => void;
+  cancel: () => void;
+}) {
+  const [templateId, setTemplateId] = useState("");
+  const select = useRef<HTMLSelectElement>(null);
+  const confirmed = useRef(false);
+  const preset = DEFAULT_BOOTH_SCENES.find((scene) => scene.id === templateId);
+  useEffect(() => select.current?.focus(), []);
+  const confirm = () => {
+    if (preset && !confirmed.current) {
+      confirmed.current = true;
+      apply(preset);
+    }
+  };
+  return (
+    <div className="space-y-3 rounded-lg border border-brand-border bg-brand-light p-4">
+      <label className="block space-y-1 text-sm">
+        Destination template
+        <select
+          aria-label="Destination template"
+          className={INPUT}
+          onChange={(event) => setTemplateId(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              cancel();
+            }
+          }}
+          ref={select}
+          value={templateId}
+        >
+          <option disabled value="">
+            Choose a template…
+          </option>
+          {DEFAULT_BOOTH_SCENES.map((scene) => (
+            <option key={scene.id} value={scene.id}>
+              {scene.title.en}
+            </option>
+          ))}
+        </select>
+      </label>
+      {preset?.artwork.kind === "bundled" ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <BackgroundThumbnail
+            key={preset.id}
+            label={`${preset.title.en} template preview`}
+            src={BOOTH_THUMBNAIL_URLS[preset.artwork.key].small}
+          />
+          <div className="text-sm">
+            <p>
+              {preset.title.en} · <span lang="hi">{preset.title.hi}</span>
+            </p>
+            <p className="mt-1 text-brand-muted">
+              {preset.category === "travel" ? "Travel" : "Pilgrimage"}
+            </p>
+          </div>
+        </div>
+      ) : null}
+      {adding ? null : (
+        <p className="text-brand-muted text-xs">
+          Replaces the background and default text. Keeps your custom text.
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          className="min-h-11"
+          disabled={!preset}
+          onClick={confirm}
+          type="button"
+          variant="primary"
+        >
+          {adding ? "Add selected scene" : "Apply template"}
+        </Button>
+        <Button
+          aria-label={adding ? "Cancel adding scene" : "Cancel template change"}
+          className="min-h-11"
+          onClick={cancel}
+          type="button"
+          variant="bare"
+        >
+          Cancel
+        </Button>
+      </div>
     </div>
   );
 }
@@ -313,7 +387,7 @@ function useBoothEditor(props: EventPhotoBoothEditorProps) {
     scenes: state.draftScenes,
   });
   const [selectedId, setSelectedId] = useState(state.draftScenes[0]?.id ?? "");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<false | "saving" | "uploading">(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   if (state.revision > draft.revision && !draft.dirty) {
@@ -322,7 +396,10 @@ function useBoothEditor(props: EventPhotoBoothEditorProps) {
   const selected = draft.scenes.find((scene) => scene.id === selectedId) ?? draft.scenes[0];
   const index = selected ? draft.scenes.indexOf(selected) : -1;
   const conflict = state.revision > draft.revision;
-  const statusMessage = busy ? "Saving change…" : message;
+  let statusMessage = busy ? "Saving change…" : message;
+  if (busy === "uploading") {
+    statusMessage = "Uploading background…";
+  }
   const unpublished =
     JSON.stringify(draft.scenes.map(({ artworkUrl: _url, ...scene }) => scene)) !==
     JSON.stringify(state.publishedScenes.map(({ artworkUrl: _url, ...scene }) => scene));
@@ -343,8 +420,8 @@ function useBoothEditor(props: EventPhotoBoothEditorProps) {
     return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
   }, [draft.dirty]);
 
-  const beginChange = () => {
-    setBusy(true);
+  const beginChange = (operation: "saving" | "uploading" = "saving") => {
+    setBusy(operation);
     setError("");
     setMessage("");
   };
@@ -356,9 +433,8 @@ function useBoothEditor(props: EventPhotoBoothEditorProps) {
       scenes: previous.scenes.map((item) => (item.id === scene.id ? scene : item)),
     }));
   const selectScene = (event: ChangeEvent<HTMLSelectElement>) => setSelectedId(event.target.value);
-  const addScene = (event: ChangeEvent<HTMLSelectElement>) => {
-    const preset = DEFAULT_BOOTH_SCENES.find((candidate) => candidate.id === event.target.value);
-    if (preset?.artwork.kind !== "bundled") {
+  const addScene = (preset: BoothSceneDraft) => {
+    if (preset.artwork.kind !== "bundled" || draft.scenes.length >= 24) {
       return;
     }
     const scene: BoothScene = {
@@ -366,20 +442,60 @@ function useBoothEditor(props: EventPhotoBoothEditorProps) {
       artworkUrl: BOOTH_ARTWORK_URLS[preset.artwork.key],
       id: `scene-${crypto.randomUUID().slice(0, 8)}`,
     };
-    setDraft((previous) => ({ ...previous, dirty: true, scenes: [...previous.scenes, scene] }));
+    setDraft((previous) =>
+      previous.scenes.length >= 24
+        ? previous
+        : { ...previous, dirty: true, scenes: [...previous.scenes, scene] }
+    );
     setSelectedId(scene.id);
     setMessage(`${scene.title.en} added to the draft.`);
   };
-  const moveScene = (direction: number) => {
-    if (index < 0 || index + direction < 0 || index + direction >= draft.scenes.length) {
+  const applyTemplate = (preset: BoothSceneDraft) => {
+    if (!selected || preset.artwork.kind !== "bundled") {
       return;
     }
-    const scenes = [...draft.scenes];
-    [scenes[index], scenes[index + direction]] = [scenes[index + direction], scenes[index]];
+    const text = (field: "title" | "caption", language: "en" | "hi") =>
+      !selected[field][language].trim() ||
+      DEFAULT_BOOTH_SCENES.some(
+        (candidate) => candidate[field][language] === selected[field][language]
+      )
+        ? preset[field][language]
+        : selected[field][language];
+    update({
+      ...selected,
+      artwork: preset.artwork,
+      artworkUrl: BOOTH_ARTWORK_URLS[preset.artwork.key],
+      caption: { en: text("caption", "en"), hi: text("caption", "hi") },
+      category: preset.category,
+      title: { en: text("title", "en"), hi: text("title", "hi") },
+    });
+    setMessage(`${preset.title.en} template applied to this draft.`);
+  };
+  const previousScene = () => {
+    if (index > 0) {
+      setSelectedId(draft.scenes[index - 1].id);
+    }
+  };
+  const nextScene = () => {
+    if (index >= 0 && index < draft.scenes.length - 1) {
+      setSelectedId(draft.scenes[index + 1].id);
+    }
+  };
+  const moveScene = (event: ChangeEvent<HTMLSelectElement>) => {
+    const position = Number(event.target.value);
+    if (
+      !(selected && Number.isInteger(position)) ||
+      position < 0 ||
+      position >= draft.scenes.length ||
+      position === index
+    ) {
+      return;
+    }
+    const scenes = draft.scenes.filter((scene) => scene.id !== selected.id);
+    scenes.splice(position, 0, selected);
+    setSelectedId(selected.id);
     setDraft((previous) => ({ ...previous, dirty: true, scenes }));
   };
-  const moveUp = () => moveScene(-1);
-  const moveDown = () => moveScene(1);
   const loadLatest = () => {
     setDraft({ dirty: false, revision: state.revision, scenes: state.draftScenes });
     setError("");
@@ -450,7 +566,7 @@ function useBoothEditor(props: EventPhotoBoothEditorProps) {
     if (!(file && selected)) {
       return;
     }
-    beginChange();
+    beginChange("uploading");
     try {
       const result = await props.uploadArtwork({ bytes: await prepareArtwork(file) });
       update({ ...selected, ...result });
@@ -483,16 +599,18 @@ function useBoothEditor(props: EventPhotoBoothEditorProps) {
 
   return {
     addScene,
+    applyTemplate,
     assign,
-    busy,
+    busy: Boolean(busy),
     conflict,
     draft,
     draftStatus,
     error,
     index,
     loadLatest,
-    moveDown,
-    moveUp,
+    moveScene,
+    nextScene,
+    previousScene,
     publish,
     save,
     selected,
@@ -520,8 +638,10 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
     update,
     selectScene,
     addScene,
-    moveUp,
-    moveDown,
+    applyTemplate,
+    moveScene,
+    previousScene,
+    nextScene,
     loadLatest,
     save,
     publish,
@@ -529,6 +649,28 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
     upload,
     assign,
   } = useBoothEditor(props);
+
+  const [templateAction, setTemplateAction] = useState<"add" | "replace" | null>(null);
+  const addButton = useRef<HTMLButtonElement>(null);
+  const sceneSelect = useRef<HTMLSelectElement>(null);
+  const templateButton = useRef<HTMLButtonElement>(null);
+  const closeTemplates = () => {
+    setTemplateAction(null);
+    (templateAction === "add" ? addButton : templateButton).current?.focus();
+  };
+  const confirmTemplate = (preset: BoothSceneDraft) => {
+    if (templateAction === "add") {
+      addScene(preset);
+    } else {
+      applyTemplate(preset);
+    }
+    setTemplateAction(null);
+    (templateAction === "add" ? sceneSelect : templateButton).current?.focus();
+  };
+  const browse = (change: () => void) => {
+    setTemplateAction(null);
+    change();
+  };
 
   return (
     <div className="space-y-5 text-brand-dark">
@@ -577,7 +719,16 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
       <p aria-atomic="true" className="text-brand-muted text-sm" role="status">
         {statusMessage}
       </p>
-      <form className={PANEL} onSubmit={save}>
+      <form
+        className={PANEL}
+        onSubmit={(event) => {
+          if (templateAction) {
+            event.preventDefault();
+          } else {
+            save(event);
+          }
+        }}
+      >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="font-semibold text-lg">Destination scenes</h2>
           <span className="text-brand-muted text-sm">{draftStatus}</span>
@@ -595,7 +746,8 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
               <select
                 aria-label="Edit scene"
                 className={INPUT}
-                onChange={selectScene}
+                onChange={(event) => browse(() => selectScene(event))}
+                ref={sceneSelect}
                 value={selected?.id ?? ""}
               >
                 {draft.scenes.map((scene, position) => (
@@ -606,75 +758,124 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
                 ))}
               </select>
             </label>
-            <label className="min-w-0 space-y-1 text-sm">
-              Add destination
-              <select
-                aria-label="Add destination"
-                className={INPUT}
-                disabled={draft.scenes.length >= 24}
-                onChange={addScene}
-                value=""
-              >
-                <option disabled value="">
-                  Choose destination…
-                </option>
-                {DEFAULT_BOOTH_SCENES.map((preset) => (
-                  <option key={preset.id} value={preset.id}>
-                    {preset.title.en}
-                  </option>
-                ))}
-              </select>
-            </label>
             <Button
-              aria-label="Move scene up"
-              className="min-h-11 min-w-11"
-              disabled={index <= 0}
-              onClick={moveUp}
+              aria-expanded={templateAction === "add"}
+              className="min-h-11"
+              disabled={draft.scenes.length >= 24}
+              onClick={() => setTemplateAction("add")}
+              ref={addButton}
               type="button"
               variant="outline"
             >
-              <ArrowUp aria-hidden="true" size={16} />
-            </Button>
-            <Button
-              aria-label="Move scene down"
-              className="min-h-11 min-w-11"
-              disabled={index < 0 || index >= draft.scenes.length - 1}
-              onClick={moveDown}
-              type="button"
-              variant="outline"
-            >
-              <ArrowDown aria-hidden="true" size={16} />
+              Add scene
             </Button>
           </div>
+          {draft.scenes.length >= 24 ? (
+            <p className="text-brand-muted text-sm">24-scene limit reached.</p>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              className="min-h-11"
+              disabled={index <= 0}
+              onClick={() => browse(previousScene)}
+              type="button"
+              variant="outline"
+            >
+              Previous scene
+            </Button>
+            <span aria-live="polite" className="text-brand-muted text-sm">
+              Scene {index + 1} of {draft.scenes.length}
+            </span>
+            <Button
+              className="min-h-11"
+              disabled={index < 0 || index >= draft.scenes.length - 1}
+              onClick={() => browse(nextScene)}
+              type="button"
+              variant="outline"
+            >
+              Next scene
+            </Button>
+          </div>
+          {templateAction === "add" ? (
+            <TemplateChooser
+              adding
+              apply={confirmTemplate}
+              cancel={closeTemplates}
+              key={`add-${selected?.id}-${draft.revision}`}
+            />
+          ) : null}
           {selected ? (
             <>
-              <SceneFields scene={selected} update={update} />
-              <details>
-                <summary className="min-h-11 cursor-pointer py-3 text-sm">
-                  Use a custom background
-                </summary>
-                <label className="block space-y-1 text-sm">
-                  Replace background
-                  <input
-                    accept="image/jpeg,image/png,image/webp"
-                    aria-label="Replace background"
-                    className={`${INPUT} block file:mr-3 file:min-h-11 file:rounded-md file:border-0 file:bg-brand-light file:px-3`}
-                    onChange={upload}
-                    type="file"
+              <div className="flex flex-col items-start gap-4 border-brand-border border-t pt-4 sm:flex-row">
+                <figure className="space-y-2">
+                  <BackgroundThumbnail
+                    key={`${selected.id}:${selected.artworkUrl}`}
+                    label={`Current background for ${selected.title.en}`}
+                    src={
+                      selected.artwork.kind === "bundled"
+                        ? BOOTH_THUMBNAIL_URLS[selected.artwork.key].small
+                        : selected.artworkUrl
+                    }
                   />
-                  <span className="block text-brand-muted text-xs">
-                    JPEG, PNG or WebP, up to 12 MB. Scenery only, no participant photos. Destination
-                    text stays unchanged.
-                  </span>
-                </label>
-              </details>
+                  <figcaption className="text-brand-muted text-sm">Current background</figcaption>
+                </figure>
+                <div className="w-full min-w-0 flex-1 space-y-3">
+                  <Button
+                    aria-expanded={templateAction === "replace"}
+                    className="min-h-11"
+                    onClick={() => setTemplateAction("replace")}
+                    ref={templateButton}
+                    type="button"
+                    variant="outline"
+                  >
+                    Choose destination template
+                  </Button>
+                  <label className="block space-y-1 text-sm">
+                    Upload replacement background
+                    <input
+                      accept="image/jpeg,image/png,image/webp"
+                      aria-label="Upload replacement background"
+                      className={`${INPUT} block file:mr-3 file:min-h-11 file:rounded-md file:border-0 file:bg-brand-light file:px-3`}
+                      onChange={upload}
+                      type="file"
+                    />
+                    <span className="block text-brand-muted text-xs">
+                      JPEG, PNG or WebP, up to 12 MB. Keeps destination names. Scenery only.
+                    </span>
+                  </label>
+                </div>
+              </div>
+              {templateAction === "replace" ? (
+                <TemplateChooser
+                  adding={false}
+                  apply={confirmTemplate}
+                  cancel={closeTemplates}
+                  key={`replace-${selected.id}-${draft.revision}`}
+                />
+              ) : null}
+              <SceneFields scene={selected} update={update} />
+              <label className="block max-w-xs space-y-1 text-sm">
+                Display order
+                <select
+                  aria-label="Display order"
+                  className={INPUT}
+                  onChange={moveScene}
+                  value={index}
+                >
+                  {draft.scenes.map((scene, position) => (
+                    <option key={scene.id} value={position}>
+                      {position + 1} of {draft.scenes.length}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </>
           ) : null}
         </fieldset>
         <div className="mt-5 flex flex-wrap gap-2">
           <Button
             className="min-h-11"
-            disabled={busy || !draft.dirty || conflict}
+            disabled={busy || !draft.dirty || conflict || templateAction !== null}
             type="submit"
             variant="primary"
           >
@@ -682,7 +883,7 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
           </Button>
           <Button
             className="min-h-11"
-            disabled={busy || draft.dirty || conflict || !unpublished}
+            disabled={busy || draft.dirty || conflict || !unpublished || templateAction !== null}
             onClick={publish}
             type="button"
             variant="outline"
@@ -693,7 +894,7 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
             <Button
               className="min-h-11"
               disabled={busy}
-              onClick={loadLatest}
+              onClick={() => browse(loadLatest)}
               type="button"
               variant="bare"
             >

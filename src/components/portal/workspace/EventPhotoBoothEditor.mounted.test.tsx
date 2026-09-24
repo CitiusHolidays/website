@@ -112,12 +112,177 @@ async function choose(container: HTMLElement, label: string, value: string) {
     select.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
   });
 }
+async function applyTemplate(view: Awaited<ReturnType<typeof mount>>, templateId: string) {
+  await act(async () => view.button("Choose destination template").click());
+  await choose(view.container, "Destination template", templateId);
+  await act(async () => view.button("Apply template").click());
+}
 function destinationFields(container: HTMLElement) {
   return [...container.querySelectorAll<HTMLInputElement>("input[maxlength]")].map(
     (input) => input.value
   );
 }
 describe("Event Photo Booth staff editor", () => {
+  test("browses scenes without changing order or dirty state, including hidden scenes", async () => {
+    const state = management();
+    state.draftScenes[1] = { ...state.draftScenes[1], visible: false };
+    state.publishedScenes = state.draftScenes;
+    const saves: BoothSceneDraft[][] = [];
+    const view = await mount({
+      saveDraftScenes: ({ scenes }) => {
+        saves.push(scenes);
+        return Promise.resolve(1);
+      },
+      state,
+    });
+    try {
+      expect(view.button("Previous scene").disabled).toBe(true);
+      await act(async () => view.button("Next scene").click());
+      expect(destinationFields(view.container)[0]).toBe("Bali");
+      expect(view.container.textContent).toContain("Scene 2 of 6");
+      expect(view.button("Save draft").disabled).toBe(true);
+      expect(
+        view.container.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked
+      ).toBe(false);
+      await enterEnglishName(view.container, "Bali evening");
+      await act(async () => view.button("Previous scene").click());
+      expect(destinationFields(view.container)[0]).toBe("Paris");
+      await act(async () => view.button("Next scene").click());
+      expect(destinationFields(view.container)[0]).toBe("Bali evening");
+      await choose(view.container, "Edit scene", "kedarnath");
+      expect(view.button("Next scene").disabled).toBe(true);
+      await act(async () => view.button("Save draft").click());
+      expect(saves[0].map((scene) => scene.id)).toEqual(
+        DEFAULT_BOOTH_SCENES.map((scene) => scene.id)
+      );
+      expect(saves[0][1].title.en).toBe("Bali evening");
+    } finally {
+      await view.unmount();
+    }
+  });
+  test("template browsing, Enter and cancellation cannot add, apply or save scenes", async () => {
+    let saves = 0;
+    const view = await mount({
+      saveDraftScenes: () => {
+        saves += 1;
+        return Promise.resolve(1);
+      },
+    });
+    try {
+      await act(async () => view.button("Add scene").click());
+      expect(view.button("Add selected scene").disabled).toBe(true);
+      await choose(view.container, "Destination template", "kashi");
+      const select = view.container.querySelector('select[aria-label="Destination template"]');
+      const enter = new dom.window.KeyboardEvent("keydown", {
+        bubbles: true,
+        cancelable: true,
+        key: "Enter",
+      });
+      await act(() => select?.dispatchEvent(enter));
+      expect(enter.defaultPrevented).toBe(false);
+      const submit = new dom.window.Event("submit", { bubbles: true, cancelable: true });
+      await act(() => view.container.querySelector("form")?.dispatchEvent(submit));
+      expect(submit.defaultPrevented).toBe(true);
+      expect(destinationFields(view.container)[0]).toBe("Paris");
+      expect(view.button("Save draft").disabled).toBe(true);
+      expect(view.container.textContent).toContain("Scene 1 of 6");
+      await act(async () => view.button("Cancel adding scene").click());
+      expect(document.activeElement).toBe(view.button("Add scene"));
+      await act(async () => view.button("Choose destination template").click());
+      await choose(view.container, "Destination template", "bali");
+      expect(destinationFields(view.container)[0]).toBe("Paris");
+      await act(async () => view.button("Next scene").click());
+      expect(view.container.querySelector('select[aria-label="Destination template"]')).toBeNull();
+      await act(async () => view.button("Choose destination template").click());
+      expect(view.button("Apply template").disabled).toBe(true);
+      await act(async () => view.button("Cancel template change").click());
+      expect(document.activeElement).toBe(view.button("Choose destination template"));
+      expect(view.button("Save draft").disabled).toBe(true);
+      expect(saves).toBe(0);
+    } finally {
+      await view.unmount();
+    }
+  });
+  test("adds exactly one confirmed scene and enforces the 24-scene limit", async () => {
+    const state = management();
+    state.draftScenes = Array.from({ length: 23 }, (_, index) => ({
+      ...state.draftScenes[0],
+      id: `scene-${index}`,
+    }));
+    state.publishedScenes = state.draftScenes;
+    const view = await mount({ state });
+    try {
+      await act(async () => view.button("Add scene").click());
+      await choose(view.container, "Destination template", "ayodhya");
+      const confirm = view.button("Add selected scene");
+      await act(() => {
+        confirm.click();
+        confirm.click();
+      });
+      expect(view.container.textContent).toContain("Scene 24 of 24");
+      expect(destinationFields(view.container)[0]).toBe("Ayodhya");
+      expect(view.button("Add scene").disabled).toBe(true);
+      expect(view.button("Next scene").disabled).toBe(true);
+      expect(view.container.textContent).toContain("24-scene limit reached.");
+      expect(document.activeElement).toBe(
+        view.container.querySelector('select[aria-label="Edit scene"]')
+      );
+    } finally {
+      await view.unmount();
+    }
+  });
+  test("reordering the current server scene preserves selection after the old scene is removed", async () => {
+    const view = await mount();
+    try {
+      const state = management();
+      await view.rerender({
+        state: { ...state, draftScenes: state.draftScenes.slice(1), revision: 3 },
+      });
+      expect(destinationFields(view.container)[0]).toBe("Bali");
+      await choose(view.container, "Display order", "3");
+      expect(destinationFields(view.container)[0]).toBe("Bali");
+      expect(
+        view.container.querySelector<HTMLSelectElement>('select[aria-label="Edit scene"]')?.value
+      ).toBe("bali");
+      expect(view.container.textContent).toContain("Scene 4 of 5");
+    } finally {
+      await view.unmount();
+    }
+  });
+  test("cancelled and invalid background uploads preserve artwork and draft fields", async () => {
+    let uploads = 0;
+    const view = await mount({
+      uploadArtwork: () => {
+        uploads += 1;
+        throw new Error("Unexpected upload");
+      },
+    });
+    try {
+      const input = view.container.querySelector<HTMLInputElement>('input[type="file"]');
+      if (!input) {
+        throw new Error("Missing background upload");
+      }
+      await act(async () => input.dispatchEvent(new dom.window.Event("change", { bubbles: true })));
+      expect(view.button("Save draft").disabled).toBe(true);
+      Object.defineProperty(input, "files", {
+        configurable: true,
+        value: [new File(["not an image"], "bad.txt", { type: "text/plain" })],
+      });
+      await act(async () => input.dispatchEvent(new dom.window.Event("change", { bubbles: true })));
+      expect(view.container.querySelector('[role="alert"]')?.textContent).toContain(
+        "JPG, PNG or WebP"
+      );
+      expect(destinationFields(view.container)[0]).toBe("Paris");
+      expect(
+        view.container.querySelector('img[alt="Current background for Paris"]')?.getAttribute("src")
+      ).toContain("paris-192.webp");
+      expect(view.button("Save draft").disabled).toBe(true);
+      expect(input.value).toBe("");
+      expect(uploads).toBe(0);
+    } finally {
+      await view.unmount();
+    }
+  });
   test("saves draft fields without resolved artwork URLs and requires explicit publish", async () => {
     const saves: { expectedRevision: number; scenes: BoothSceneDraft[] }[] = [];
     const publishes: number[] = [];
@@ -156,7 +321,7 @@ describe("Event Photo Booth staff editor", () => {
       },
     });
     try {
-      await choose(view.container, "Change destination", "kashi");
+      await applyTemplate(view, "kashi");
       expect(destinationFields(view.container)).toEqual([
         "Kashi",
         "काशी",
@@ -188,19 +353,26 @@ describe("Event Photo Booth staff editor", () => {
       artwork: { key: "kashi", kind: "bundled" },
       artworkUrl: "/kashi.webp",
       caption: { en: "Our family trip", hi: "फ्रांस" },
+      visible: false,
     };
     const view = await mount({ state });
     try {
       expect(destinationFields(view.container)[0]).toBe("Paris");
-      await choose(view.container, "Change destination", "kashi");
+      await applyTemplate(view, "kashi");
       expect(destinationFields(view.container)).toEqual([
         "Kashi",
         "काशी",
         "Our family trip",
         "उत्तर प्रदेश, भारत",
       ]);
+      expect(
+        view.container.querySelector<HTMLInputElement>('input[type="checkbox"]')?.checked
+      ).toBe(false);
+      expect(
+        view.container.querySelector<HTMLSelectElement>('select[aria-label="Edit scene"]')?.value
+      ).toBe("paris");
       await enterEnglishName(view.container, "A special destination");
-      await choose(view.container, "Change destination", "ayodhya");
+      await applyTemplate(view, "ayodhya");
       expect(destinationFields(view.container)).toEqual([
         "A special destination",
         "अयोध्या",
@@ -224,7 +396,9 @@ describe("Event Photo Booth staff editor", () => {
     });
     try {
       expect(destinationFields(view.container)[0]).toBe("Kashi");
-      await choose(view.container, "Add destination", "kedarnath");
+      await act(async () => view.button("Add scene").click());
+      await choose(view.container, "Destination template", "kedarnath");
+      await act(async () => view.button("Add selected scene").click());
       expect(destinationFields(view.container)).toEqual([
         "Kedarnath",
         "केदारनाथ",
@@ -398,7 +572,9 @@ describe("Event Photo Booth staff editor", () => {
       },
     });
     try {
-      await act(async () => view.button("Move scene down").click());
+      await choose(view.container, "Display order", "1");
+      expect(destinationFields(view.container)[0]).toBe("Paris");
+      expect(view.container.textContent).toContain("Scene 2 of 6");
       await act(async () =>
         view.container.querySelector<HTMLInputElement>('input[type="checkbox"]')?.click()
       );
