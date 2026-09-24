@@ -43,6 +43,8 @@ export function useBoothEditor(options: EditorOptions) {
   const [phase, setPhase] = useState<BoothCopyKey | null>(null);
   const [error, setError] = useState<BoothCopyKey | null>(null);
   const [rendering, setRendering] = useState(false);
+  const [previewFormat, setPreviewFormat] = useState<BoothFormat | null>(null);
+  const previewCanvas = useRef<HTMLCanvasElement>(null);
   const [renderRetry, setRenderRetry] = useState(0);
   const [savedFile, setSavedFile] = useState<File | null>(null);
   const engine = useRef<Engine | null>(null);
@@ -215,11 +217,13 @@ export function useBoothEditor(options: EditorOptions) {
       return artwork;
     }
     setRendering(true);
+    setPhase((current) => (current === "cancelled" ? null : current));
     setError((value) => (value === "renderError" ? null : value));
+    let frame = 0;
+    let exportTimer: ReturnType<typeof setTimeout>;
     async function prepare() {
       try {
-        const [{ exportBoothPhoto }, artwork, logo] = await Promise.all([
-          import("@/lib/eventPhotoBooth/imageEngine"),
+        const [artwork, logo] = await Promise.all([
           cachedArtwork(selectedScene.artworkUrl),
           cachedArtwork("/images/event-photo-booth/citius-logo.webp"),
           document.fonts.ready,
@@ -227,21 +231,47 @@ export function useBoothEditor(options: EditorOptions) {
         if (controller.signal.aborted) {
           return;
         }
-        const canvas = renderer.renderBoothPhoto({
-          artwork,
-          caption: selectedScene.caption[language],
-          cutout: cutout ?? undefined,
-          format,
-          language,
-          logo,
-          mode,
-          photo: photo ?? undefined,
-          title: selectedScene.title[language],
-          transform,
+        // Keep the canvas and controls mounted. Drawing is cheap; PNG encoding waits
+        // until input settles so native range gestures never wait on a blob round trip.
+        frame = requestAnimationFrame(() => {
+          if (controller.signal.aborted || !previewCanvas.current) {
+            return;
+          }
+          try {
+            const canvas = renderer.renderBoothPhoto({
+              artwork,
+              canvas: previewCanvas.current,
+              caption: selectedScene.caption[language],
+              cutout: cutout ?? undefined,
+              format,
+              language,
+              logo,
+              mode,
+              photo: photo ?? undefined,
+              title: selectedScene.title[language],
+              transform,
+            });
+            setPreviewFormat(format);
+            exportTimer = setTimeout(() => {
+              encode(canvas);
+            }, 200);
+          } catch {
+            failed();
+          }
         });
-        const blob = await exportBoothPhoto(canvas);
-        canvas.width = 0;
-        canvas.height = 0;
+      } catch {
+        failed();
+      }
+    }
+    function failed() {
+      if (!controller.signal.aborted) {
+        setError("renderError");
+        setRendering(false);
+      }
+    }
+    async function encode(canvas: HTMLCanvasElement) {
+      try {
+        const blob = await renderer.exportBoothPhoto(canvas);
         if (controller.signal.aborted) {
           return;
         }
@@ -260,7 +290,6 @@ export function useBoothEditor(options: EditorOptions) {
           title: selectedScene.title,
           url,
         });
-        setPhase((current) => (current === "cancelled" ? null : current));
         setRendering(false);
         // One completion per source photo and chosen mode, not each slider/scene/format repaint.
         const creation = `${photoRevision}:${mode}`;
@@ -269,20 +298,17 @@ export function useBoothEditor(options: EditorOptions) {
           metrics.record("creation_completed", selectedScene.id);
         }
       } catch {
-        if (!controller.signal.aborted) {
-          setError("renderError");
-          setRendering(false);
-        }
+        failed();
       }
     }
-    // A short debounce avoids encoding a full PNG on every slider input.
-    const timer = setTimeout(prepare, 120);
+    prepare();
     return () => {
       controller.abort();
       if (renderOperation.current === controller) {
         renderOperation.current = null;
       }
-      clearTimeout(timer);
+      cancelAnimationFrame(frame);
+      clearTimeout(exportTimer);
     };
   }, [
     canParticipate,
@@ -314,6 +340,7 @@ export function useBoothEditor(options: EditorOptions) {
     setCutout(null);
     setSourceUrl("");
     setReady(null);
+    setPreviewFormat(null);
     setSavedFile(null);
     setPhase(null);
     setError(null);
@@ -323,6 +350,9 @@ export function useBoothEditor(options: EditorOptions) {
   return {
     busy,
     cancel,
+    canExport: Boolean(
+      ready && !rendering && (!previousResult || error || phase === "cancelled" || !canParticipate)
+    ),
     createCutout,
     cutout,
     dirty: Boolean(photo && (!ready || previousResult || ready.file !== savedFile)),
@@ -330,12 +360,15 @@ export function useBoothEditor(options: EditorOptions) {
     hasPhoto: Boolean(photo),
     markSaved: (file: File) => setSavedFile(file),
     phase,
+    previewCanvas,
+    previewFormat,
     previousResult,
     ready,
     rendering,
     reset,
     retryPreview: () => setRenderRetry((value) => value + 1),
     selectPhoto,
+    showLivePreview: Boolean(previewFormat && canParticipate && !error && phase !== "cancelled"),
     sourceUrl,
   };
 }

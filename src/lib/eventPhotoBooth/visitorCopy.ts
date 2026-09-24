@@ -1,7 +1,7 @@
 import type { BoothLanguage } from "./contracts";
 
 const en = {
-  addPhoto: "2. Add your photo",
+  addPhoto: "Add your photo",
   adjust: "Adjust your cutout",
   artworkNote: "Destination scenes are creative illustrations.",
   camera: "Take a photo",
@@ -9,7 +9,7 @@ const en = {
   cancelled: "Cancelled. Your photo is still here.",
   checking: "Checking whether the photo booth is open…",
   choosePhoto: "Choose a photo",
-  chooseScene: "1. Choose your scene",
+  chooseScene: "Choose your scene",
   closed: "The photo booth is closed",
   closedDuring: "The booth has closed. You can still download or share your ready photo.",
   closedHelp:
@@ -40,11 +40,14 @@ const en = {
   noScenes: "New scenes are being prepared. Please try again shortly.",
   photoHelp:
     "Solo, couple or small family. Keep everyone visible. JPG, PNG or WebP, up to 12 MB. Convert HEIC to JPG first.",
+  photoIntro: "Solo, together, or with the whole family.",
+  photoOptions: "Change photo or style",
+  photoTips: "Photo tips & supported files",
   pilgrimage: "Pilgrimage",
   plan: "Plan a trip here",
   portrait: "Post · 4:5",
   preparing: "Preparing the cutout tool…",
-  preview: "3. Make it yours",
+  preview: "Make it yours",
   previewAlt: "Your Citius destination photo preview",
   previewHelp: "Your download will match this preview.",
   previousResult: "Previous ready photo",
@@ -69,6 +72,7 @@ const en = {
   shareHandedOff: "Photo handed to your Share menu. Finish sharing in the app you choose.",
   shareHelp:
     "Choose an app in your phone’s Share menu. To post manually, download the photo and open your app.",
+  shareTips: "Sharing tips",
   shareUnavailable:
     "File sharing isn’t available in this browser. Download your photo, then open the app you want to post to.",
   sharing: "Opening Share…",
@@ -76,7 +80,8 @@ const en = {
   sourceAlt: "Your selected photo, kept only on this device",
   startOver: "Start over",
   story: "Story · 9:16",
-  title: "A photo. A place. Your moment.",
+  title: "A photo. A place.",
+  titleAccent: "Your moment.",
   travel: "Travel",
   unavailable: "We couldn’t check the photo booth. Please try again.",
   unsaved:
@@ -88,7 +93,7 @@ const en = {
 } as const;
 
 const hi = {
-  addPhoto: "2. अपनी तस्वीर जोड़ें",
+  addPhoto: "अपनी तस्वीर जोड़ें",
   adjust: "कटआउट ठीक करें",
   artworkNote: "जगहों के दृश्य कलात्मक चित्रण हैं।",
   camera: "तस्वीर लें",
@@ -96,7 +101,7 @@ const hi = {
   cancelled: "रद्द कर दिया गया। आपकी तस्वीर यहीं है।",
   checking: "फ़ोटो बूथ खुला है या नहीं, जाँच रहे हैं…",
   choosePhoto: "तस्वीर चुनें",
-  chooseScene: "1. अपनी जगह चुनें",
+  chooseScene: "अपनी जगह चुनें",
   closed: "फ़ोटो बूथ बंद है",
   closedDuring: "बूथ बंद हो गया है। तैयार तस्वीर अभी भी डाउनलोड या शेयर कर सकते हैं।",
   closedHelp: "इस पल का हिस्सा बनने के लिए धन्यवाद। Citius Holidays के साथ अपनी अगली यात्रा खोजें।",
@@ -124,11 +129,14 @@ const hi = {
   noScenes: "नई जगहों की तस्वीरें तैयार हो रही हैं। थोड़ी देर बाद फिर कोशिश करें।",
   photoHelp:
     "अकेले, जोड़े या छोटे परिवार की तस्वीर। सभी लोग साफ़ दिखें। JPG, PNG या WebP, अधिकतम 12 MB। HEIC को पहले JPG में बदलें।",
+  photoIntro: "अकेले, जोड़े में या पूरे परिवार के साथ।",
+  photoOptions: "तस्वीर या स्टाइल बदलें",
+  photoTips: "तस्वीर और फ़ाइल के सुझाव",
   pilgrimage: "तीर्थयात्रा",
   plan: "यहाँ की यात्रा प्लान करें",
   portrait: "पोस्ट · 4:5",
   preparing: "कटआउट टूल तैयार हो रहा है…",
-  preview: "3. अपना अंदाज़ दें",
+  preview: "अपना अंदाज़ दें",
   previewAlt: "आपकी Citius तस्वीर का प्रीव्यू",
   previewHelp: "डाउनलोड की गई तस्वीर इसी प्रीव्यू जैसी होगी।",
   previousResult: "पिछली तैयार तस्वीर",
@@ -150,6 +158,7 @@ const hi = {
   shareFailed: "शेयर मेन्यू नहीं खुल सका। तस्वीर डाउनलोड करके गैलरी से शेयर करें।",
   shareHandedOff: "तस्वीर शेयर मेन्यू को दी गई है। चुने हुए ऐप में शेयर करना पूरा करें।",
   shareHelp: "फ़ोन के शेयर मेन्यू में ऐप चुनें। खुद पोस्ट करने के लिए तस्वीर डाउनलोड करके अपना ऐप खोलें।",
+  shareTips: "शेयर करने के सुझाव",
   shareUnavailable:
     "इस ब्राउज़र से फ़ाइल शेयर नहीं हो सकती। तस्वीर डाउनलोड करें, फिर अपने पसंद के ऐप में पोस्ट करें।",
   sharing: "शेयर मेन्यू खुल रहा है…",
@@ -157,7 +166,8 @@ const hi = {
   sourceAlt: "आपकी चुनी हुई तस्वीर, केवल इसी डिवाइस पर",
   startOver: "फिर शुरू करें",
   story: "स्टोरी · 9:16",
-  title: "एक तस्वीर। एक जगह। आपका पल।",
+  title: "एक तस्वीर। एक जगह।",
+  titleAccent: "आपका पल।",
   travel: "घूमने की जगहें",
   unavailable: "फ़ोटो बूथ की स्थिति जाँच नहीं सके। फिर कोशिश करें।",
   unsaved: "पहले तस्वीर सेव या शेयर कर लें। जाने या फिर शुरू करने पर यह तस्वीर हट जाएगी। बिना सेव किए आगे बढ़ें?",
