@@ -238,7 +238,7 @@ export function useBoothEditor(options: EditorOptions) {
           sceneId: selectedScene.id,
           url,
         });
-        setPhase(null);
+        setPhase((current) => (current === "cancelled" ? null : current));
         setRendering(false);
         // One completion per source photo and chosen mode, not each slider/scene/format repaint.
         const creation = `${photoRevision}:${mode}`;
