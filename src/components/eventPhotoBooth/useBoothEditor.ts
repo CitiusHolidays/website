@@ -271,7 +271,11 @@ export function useBoothEditor(options: EditorOptions) {
     }
     async function encode(canvas: HTMLCanvasElement) {
       try {
-        const blob = await renderer.exportBoothPhoto(canvas);
+        const { exportBoothPhoto } = await import("@/lib/eventPhotoBooth/imageEngine");
+        if (controller.signal.aborted) {
+          return;
+        }
+        const blob = await exportBoothPhoto(canvas);
         if (controller.signal.aborted) {
           return;
         }
