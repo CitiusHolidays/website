@@ -17,6 +17,7 @@ mock.module("@convex/_generated/api", () => ({
       },
       navShortcuts: { list: "navShortcuts" },
     },
+    eventPhotoBooth: { getMyAccess: "boothAccess" },
   },
 }));
 
@@ -28,6 +29,9 @@ mock.module("convex/react", () => ({
   },
   usePaginatedQuery: () => ({ results: [], status: "Exhausted" }),
   useQuery: (query) => {
+    if (query === "boothAccess") {
+      return { canManage: false, canManageAssignments: false, canParticipateWhenClosed: false };
+    }
     if (query === "notificationBellState") {
       return {
         coverage: "complete",
