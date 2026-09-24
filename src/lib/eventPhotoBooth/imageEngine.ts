@@ -340,9 +340,7 @@ export function renderBoothPhoto(options: RenderBoothOptions) {
   context.fillText(options.caption, 56, height - 80, width - 112);
   context.font = `400 21px ${body}`;
   context.fillText(
-    options.language === "hi"
-      ? "एक तस्वीर, अनगिनत यात्राएँ · Citius Holidays"
-      : "One photo. A world of journeys. · Citius Holidays",
+    options.language === "hi" ? "Citius Holidays · फ़ोटो बूथ" : "Citius Holidays · Event Photo Booth",
     56,
     height - 36,
     width - 112

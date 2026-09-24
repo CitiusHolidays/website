@@ -115,7 +115,7 @@ export const EMPTY_BOOTH_METRICS = {
 export const DEFAULT_BOOTH_SCENES: BoothSceneDraft[] = [
   {
     artwork: { key: "paris", kind: "bundled" },
-    caption: { en: "A little Paris, a lasting memory", hi: "पेरिस का एहसास, यादें हमेशा साथ" },
+    caption: { en: "France", hi: "फ्रांस" },
     category: "travel",
     id: "paris",
     title: { en: "Paris", hi: "पेरिस" },
@@ -123,7 +123,7 @@ export const DEFAULT_BOOTH_SCENES: BoothSceneDraft[] = [
   },
   {
     artwork: { key: "bali", kind: "bundled" },
-    caption: { en: "Find your island moment", hi: "द्वीप की खूबसूरती में अपना पल खोजें" },
+    caption: { en: "Indonesia", hi: "इंडोनेशिया" },
     category: "travel",
     id: "bali",
     title: { en: "Bali", hi: "बाली" },
@@ -131,7 +131,7 @@ export const DEFAULT_BOOTH_SCENES: BoothSceneDraft[] = [
   },
   {
     artwork: { key: "dubai", kind: "bundled" },
-    caption: { en: "A city of possibilities", hi: "संभावनाओं का शहर" },
+    caption: { en: "United Arab Emirates", hi: "संयुक्त अरब अमीरात" },
     category: "travel",
     id: "dubai",
     title: { en: "Dubai", hi: "दुबई" },
@@ -139,7 +139,7 @@ export const DEFAULT_BOOTH_SCENES: BoothSceneDraft[] = [
   },
   {
     artwork: { key: "kashi", kind: "bundled" },
-    caption: { en: "A journey within", hi: "अंतर्मन की यात्रा" },
+    caption: { en: "Uttar Pradesh, India", hi: "उत्तर प्रदेश, भारत" },
     category: "pilgrimage",
     id: "kashi",
     title: { en: "Kashi", hi: "काशी" },
@@ -147,7 +147,7 @@ export const DEFAULT_BOOTH_SCENES: BoothSceneDraft[] = [
   },
   {
     artwork: { key: "ayodhya", kind: "bundled" },
-    caption: { en: "Faith, people and places", hi: "आस्था, लोग और स्थान" },
+    caption: { en: "Uttar Pradesh, India", hi: "उत्तर प्रदेश, भारत" },
     category: "pilgrimage",
     id: "ayodhya",
     title: { en: "Ayodhya", hi: "अयोध्या" },
@@ -155,7 +155,7 @@ export const DEFAULT_BOOTH_SCENES: BoothSceneDraft[] = [
   },
   {
     artwork: { key: "kedarnath", kind: "bundled" },
-    caption: { en: "Faith beyond the mountains", hi: "पर्वतों के पार आस्था" },
+    caption: { en: "Uttarakhand, India", hi: "उत्तराखंड, भारत" },
     category: "pilgrimage",
     id: "kedarnath",
     title: { en: "Kedarnath", hi: "केदारनाथ" },
