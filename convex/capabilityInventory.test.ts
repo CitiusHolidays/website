@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "6cf073096b94261207c52c79f99f1f24804979ef733b31c418a1f8ea51369998";
+const EXPECTED_CAPABILITY_HASH = "1651978ee23a6bfa2634385bde406899fdbb3a0e2ee1c9ae275f7b750d48af71";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -55,6 +55,7 @@ const SERVER_ONLY_CAPABILITIES = new Set([
   ...PAYMENT_SERVER_ONLY_CAPABILITIES,
   "crm/settings.resolveOperationalControlsForGateway",
   "sacredBharatEditionEvents.recordEdition001EventGateway",
+  "eventPhotoBooth.recordMetricGateway",
 ]);
 
 function classify(module: string, name: string, kind: string): CapabilityClass {
@@ -645,6 +646,49 @@ describe("Convex capability inventory", () => {
       module: "operationalScheduledJobs",
       name: "run",
     });
+  });
+
+  test("Classifies photo booth management, server metrics and private storage helpers", () => {
+    const capabilities = discoverCapabilities();
+    const booth = capabilities.filter(({ module }) => module.startsWith("eventPhotoBooth"));
+    expect(booth).toHaveLength(13);
+    for (const [name, kind] of [
+      ["getMyAccess", "query"],
+      ["getParticipantState", "query"],
+      ["getManagementState", "query"],
+      ["listAssignableStaff", "query"],
+      ["setAvailability", "mutation"],
+      ["saveDraftScenes", "mutation"],
+      ["publishScenes", "mutation"],
+      ["setStaffAssignment", "mutation"],
+    ]) {
+      expect(booth).toContainEqual({
+        classification: "public-product",
+        kind,
+        module: "eventPhotoBooth",
+        name,
+      });
+    }
+    expect(booth).toContainEqual({
+      classification: "public-product",
+      kind: "action",
+      module: "eventPhotoBoothArtwork",
+      name: "uploadArtwork",
+    });
+    expect(booth).toContainEqual({
+      classification: "server-only",
+      kind: "mutation",
+      module: "eventPhotoBooth",
+      name: "recordMetricGateway",
+    });
+    for (const name of ["cleanupRateKey", "registerArtwork", "cleanupArtwork"]) {
+      expect(booth).toContainEqual({
+        classification: "internal",
+        kind: "internalMutation",
+        module: "eventPhotoBooth",
+        name,
+      });
+    }
   });
 
   test("classifies Sacred Bharat Edition events as a server gateway plus exact-Admin metrics", () => {

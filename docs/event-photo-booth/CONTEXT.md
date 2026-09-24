@@ -1,6 +1,6 @@
 # Event Photo Booth
 
-The Event Photo Booth is a planned Citius Holidays experience for event participants to create
+The Event Photo Booth is a Citius Holidays experience for event participants to create
 and share Destination Photos or Framed Photos. It is separate from Sacred Bharat Social Editions, Customer Travel
 Accounts and staff CRM operations.
 

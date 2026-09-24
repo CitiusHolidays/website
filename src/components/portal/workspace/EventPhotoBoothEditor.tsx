@@ -11,7 +11,11 @@ import type {
   BoothSceneDraft,
   BoothStaffOption,
 } from "@/lib/eventPhotoBooth/contracts";
-import { BOOTH_METRICS, BOOTH_SCENE_KEYS } from "@/lib/eventPhotoBooth/contracts";
+import {
+  BOOTH_ARTWORK_URLS,
+  BOOTH_METRICS,
+  BOOTH_SCENE_KEYS,
+} from "@/lib/eventPhotoBooth/contracts";
 
 import { loadSourcePhoto, releaseBoothPhoto } from "@/lib/eventPhotoBooth/imageEngine";
 import { EventPhotoBoothPreview } from "./EventPhotoBoothPreview";
@@ -93,7 +97,7 @@ function SceneFields({
       update({
         ...scene,
         artwork: { key, kind: "bundled" },
-        artworkUrl: `/images/event-photo-booth/${key}.webp`,
+        artworkUrl: BOOTH_ARTWORK_URLS[key],
       });
     }
   };
@@ -317,7 +321,7 @@ function useBoothEditor(props: EventPhotoBoothEditorProps) {
   const addScene = () => {
     const scene: BoothScene = {
       artwork: { key: "paris", kind: "bundled" },
-      artworkUrl: "/images/event-photo-booth/paris.webp",
+      artworkUrl: BOOTH_ARTWORK_URLS.paris,
       caption: { en: "", hi: "" },
       category: "travel",
       id: `scene-${crypto.randomUUID().slice(0, 8)}`,

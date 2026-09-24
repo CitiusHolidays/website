@@ -1,6 +1,6 @@
 # Keep participant photos outside staff event management
 
-The planned [Event Photo Booth](../event-photo-booth/CONTEXT.md) gives staff control over the event
+The [Event Photo Booth](../event-photo-booth/CONTEXT.md) gives staff control over the event
 and its scenes, plus aggregate usage counts, while participant photos remain outside staff and CRM
 records. Participants save or share their results during the current session; Citius provides no
 photo archive, personal result links, staff photo gallery or implicit marketing-reuse permission.

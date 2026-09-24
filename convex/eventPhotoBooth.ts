@@ -2,6 +2,7 @@ import { DAY, MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
 import { makeFunctionReference, paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import {
+  BOOTH_ARTWORK_URLS,
   type BoothSceneDraft,
   DEFAULT_BOOTH_SCENES,
   EMPTY_BOOTH_METRICS,
@@ -75,7 +76,7 @@ async function resolveScenes(ctx: QueryCtx | MutationCtx, scenes: BoothSceneDraf
   return await Promise.all(
     scenes.map(async (scene) => {
       if (scene.artwork.kind === "bundled") {
-        return { ...scene, artworkUrl: `/images/event-photo-booth/${scene.artwork.key}.webp` };
+        return { ...scene, artworkUrl: BOOTH_ARTWORK_URLS[scene.artwork.key] };
       }
       const artwork = await ctx.db.get("eventPhotoBoothArtwork", scene.artwork.id);
       const artworkUrl = artwork ? await ctx.storage.getUrl(artwork.storageId) : null;
