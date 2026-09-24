@@ -1,5 +1,5 @@
 import { DAY, MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
-import { makeFunctionReference, paginationOptsValidator } from "convex/server";
+import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import {
   BOOTH_ARTWORK_URLS,
@@ -8,8 +8,9 @@ import {
   EMPTY_BOOTH_METRICS,
   isBoothMetricBatch,
 } from "../src/lib/eventPhotoBooth/contracts";
-import type { Id } from "./_generated/dataModel";
+import { internal } from "./_generated/api";
 import {
+  env,
   internalMutation,
   type MutationCtx,
   mutation,
@@ -271,23 +272,15 @@ export const listAssignableStaff = query({
       ),
     };
   },
-  returns: v.object({
-    continueCursor: v.string(),
-    isDone: v.boolean(),
-    page: v.array(
-      v.object({
-        active: v.boolean(),
-        assigned: v.boolean(),
-        id: v.id("staffUsers"),
-        name: v.string(),
-        roles: v.array(v.string()),
-      })
-    ),
-    pageStatus: v.optional(
-      v.union(v.literal("SplitRecommended"), v.literal("SplitRequired"), v.null())
-    ),
-    splitCursor: v.optional(v.union(v.string(), v.null())),
-  }),
+  returns: paginationResultValidator(
+    v.object({
+      active: v.boolean(),
+      assigned: v.boolean(),
+      id: v.id("staffUsers"),
+      name: v.string(),
+      roles: v.array(v.string()),
+    })
+  ),
 });
 export const setStaffAssignment = mutation({
   args: { assigned: v.boolean(), staffId: v.id("staffUsers") },
@@ -313,11 +306,6 @@ export const setStaffAssignment = mutation({
   returns: v.null(),
 });
 
-const cleanupRateKeyRef = makeFunctionReference<
-  "mutation",
-  { id: Id<"eventPhotoBoothRateKeys"> },
-  null
->("eventPhotoBooth:cleanupRateKey");
 export const cleanupRateKey = internalMutation({
   args: { id: v.id("eventPhotoBoothRateKeys") },
   handler: async (ctx, args) => {
@@ -326,7 +314,7 @@ export const cleanupRateKey = internalMutation({
       return null;
     }
     if (row.expiresAt > Date.now()) {
-      await ctx.scheduler.runAt(row.expiresAt, cleanupRateKeyRef, args);
+      await ctx.scheduler.runAt(row.expiresAt, internal.eventPhotoBooth.cleanupRateKey, args);
       return null;
     }
     await limiter.reset(ctx, "photoBoothMetrics", { key: row.keyHash });
@@ -344,7 +332,7 @@ export const recordMetricGateway = mutation({
     rateLimitKeyHash: v.string(),
   },
   handler: async (ctx, args) => {
-    const secret = process.env.EVENT_PHOTO_BOOTH_GATEWAY_SECRET?.trim();
+    const secret = env.EVENT_PHOTO_BOOTH_GATEWAY_SECRET?.trim();
     if (!(secret && args.gatewaySecret === secret)) {
       throw new ConvexError("FORBIDDEN");
     }
@@ -374,7 +362,7 @@ export const recordMetricGateway = mutation({
         expiresAt,
         keyHash: args.rateLimitKeyHash,
       });
-      await ctx.scheduler.runAt(expiresAt, cleanupRateKeyRef, { id });
+      await ctx.scheduler.runAt(expiresAt, internal.eventPhotoBooth.cleanupRateKey, { id });
     }
     const existing = await metricsFor(ctx);
     const counts = { ...(existing?.counts ?? EMPTY_BOOTH_METRICS) };
@@ -392,11 +380,6 @@ export const recordMetricGateway = mutation({
   returns: v.null(),
 });
 
-const cleanupArtworkRef = makeFunctionReference<
-  "mutation",
-  { id: Id<"eventPhotoBoothArtwork"> },
-  null
->("eventPhotoBooth:cleanupArtwork");
 export const registerArtwork = internalMutation({
   args: { storageId: v.id("_storage") },
   handler: async (ctx, args) => {
@@ -405,7 +388,7 @@ export const registerArtwork = internalMutation({
       createdAt: Date.now(),
       storageId: args.storageId,
     });
-    await ctx.scheduler.runAfter(DAY, cleanupArtworkRef, { id });
+    await ctx.scheduler.runAfter(DAY, internal.eventPhotoBooth.cleanupArtwork, { id });
     return id;
   },
   returns: v.id("eventPhotoBoothArtwork"),
@@ -444,6 +427,8 @@ async function cleanRemovedArtwork(
     )
   );
   await Promise.all(
-    [...removed].map((id) => ctx.scheduler.runAfter(DAY, cleanupArtworkRef, { id }))
+    [...removed].map((id) =>
+      ctx.scheduler.runAfter(DAY, internal.eventPhotoBooth.cleanupArtwork, { id })
+    )
   );
 }

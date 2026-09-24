@@ -50,7 +50,6 @@ import { buttonVariants } from "@/components/ui/application-button-variants";
 import { Dialog as BaseDialog } from "@/components/ui/foundation/base";
 import { logout } from "@/lib/auth-client";
 import { CITIUS_CONNECT_LOGO_HEIGHT, CITIUS_CONNECT_LOGO_WIDTH } from "@/lib/citiusConnectLogo";
-import { boothApi } from "@/lib/eventPhotoBooth/api";
 import type { JsonObject } from "@/lib/jsonValue";
 import {
   getPortalPerformanceTarget,
@@ -406,7 +405,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
   const sidebarTriggerRef = useRef<HTMLButtonElement>(null);
   const { isAuthenticated } = useConvexAuth();
   const eventPhotoBooth = useQuery(
-    boothApi.getMyAccess,
+    api.eventPhotoBooth.getMyAccess,
     isAuthenticated && access.allowed ? {} : "skip"
   );
   const notificationBellState = useQuery(

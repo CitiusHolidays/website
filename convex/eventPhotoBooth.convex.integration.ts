@@ -4,8 +4,8 @@ import { makeFunctionReference } from "convex/server";
 import { convexTest } from "convex-test";
 import sharp from "sharp";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { boothApi } from "../src/lib/eventPhotoBooth/api";
 import { type BoothSceneDraft, DEFAULT_BOOTH_SCENES } from "../src/lib/eventPhotoBooth/contracts";
+import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { rateLimiterComponent } from "./lib/rateLimiterComponent";
 import schema from "./schema";
@@ -74,18 +74,18 @@ afterEach(() => {
 describe("event photo booth boundaries", () => {
   test("only provisioned active exact Admin/Directors bypass Closed; anonymous reads do not initialize", async () => {
     const { t, admin, director } = await harness();
-    expect(await t.query(boothApi.getParticipantState, {})).toMatchObject({
+    expect(await t.query(api.eventPhotoBooth.getParticipantState, {})).toMatchObject({
       availability: "closed",
       canParticipate: false,
       privilegedAccess: false,
       scenes: [],
     });
     for (const client of [admin, director]) {
-      expect(await client.query(boothApi.getParticipantState, {})).toMatchObject({
+      expect(await client.query(api.eventPhotoBooth.getParticipantState, {})).toMatchObject({
         canParticipate: true,
         privilegedAccess: true,
       });
-      expect(await client.query(boothApi.getMyAccess, {})).toEqual({
+      expect(await client.query(api.eventPhotoBooth.getMyAccess, {})).toEqual({
         canManage: true,
         canManageAssignments: true,
         canParticipateWhenClosed: true,
@@ -93,66 +93,82 @@ describe("event photo booth boundaries", () => {
     }
     for (const role of ["Sales", "Director Cement", "inactive", "customer"]) {
       const client = t.withIdentity({ ...identity(role), email: "Admin@example.test" });
-      expect(await client.query(boothApi.getParticipantState, {})).toMatchObject({
+      expect(await client.query(api.eventPhotoBooth.getParticipantState, {})).toMatchObject({
         canParticipate: false,
         scenes: [],
       });
-      await expect(client.query(boothApi.getManagementState, {})).rejects.toThrow("FORBIDDEN");
+      await expect(client.query(api.eventPhotoBooth.getManagementState, {})).rejects.toThrow(
+        "FORBIDDEN"
+      );
       await expect(
-        client.mutation(boothApi.setAvailability, { availability: "open" })
+        client.mutation(api.eventPhotoBooth.setAvailability, { availability: "open" })
       ).rejects.toThrow("FORBIDDEN");
     }
     expect(await t.run((ctx) => ctx.db.query("eventPhotoBoothConfig").collect())).toEqual([]);
   });
   test("operators can manage Closed but cannot delegate or bypass; revocation is live", async () => {
     const { t, ids, admin, director, operator } = await harness();
-    await director.mutation(boothApi.setStaffAssignment, {
+    await director.mutation(api.eventPhotoBooth.setStaffAssignment, {
       assigned: true,
       staffId: ids.Operations,
     });
-    expect(await operator.query(boothApi.getMyAccess, {})).toEqual({
+    expect(await operator.query(api.eventPhotoBooth.getMyAccess, {})).toEqual({
       canManage: true,
       canManageAssignments: false,
       canParticipateWhenClosed: false,
     });
-    await operator.query(boothApi.getManagementState, {});
-    expect(await operator.query(boothApi.getParticipantState, {})).toMatchObject({
+    await operator.query(api.eventPhotoBooth.getManagementState, {});
+    expect(await operator.query(api.eventPhotoBooth.getParticipantState, {})).toMatchObject({
       canParticipate: false,
     });
     await expect(
-      operator.mutation(boothApi.setStaffAssignment, { assigned: true, staffId: ids.Sales })
+      operator.mutation(api.eventPhotoBooth.setStaffAssignment, {
+        assigned: true,
+        staffId: ids.Sales,
+      })
     ).rejects.toThrow("FORBIDDEN");
     await expect(
-      operator.query(boothApi.listAssignableStaff, {
+      operator.query(api.eventPhotoBooth.listAssignableStaff, {
         paginationOpts: { cursor: null, numItems: 25 },
       })
     ).rejects.toThrow("FORBIDDEN");
-    await operator.mutation(boothApi.setAvailability, { availability: "open" });
-    expect(await t.query(boothApi.getParticipantState, {})).toMatchObject({
+    await operator.mutation(api.eventPhotoBooth.setAvailability, { availability: "open" });
+    expect(await t.query(api.eventPhotoBooth.getParticipantState, {})).toMatchObject({
       canParticipate: true,
       privilegedAccess: false,
     });
-    await admin.mutation(boothApi.setStaffAssignment, { assigned: false, staffId: ids.Operations });
-    await expect(operator.query(boothApi.getManagementState, {})).rejects.toThrow("FORBIDDEN");
+    await admin.mutation(api.eventPhotoBooth.setStaffAssignment, {
+      assigned: false,
+      staffId: ids.Operations,
+    });
+    await expect(operator.query(api.eventPhotoBooth.getManagementState, {})).rejects.toThrow(
+      "FORBIDDEN"
+    );
     await expect(
-      admin.mutation(boothApi.setStaffAssignment, { assigned: true, staffId: ids.inactive })
+      admin.mutation(api.eventPhotoBooth.setStaffAssignment, {
+        assigned: true,
+        staffId: ids.inactive,
+      })
     ).rejects.toThrow("INVALID_STAFF");
   });
   test("publishes atomically, preserves order, hides scenes and rejects stale edits", async () => {
     const { t, admin } = await harness();
-    await admin.mutation(boothApi.setAvailability, { availability: "open" });
+    await admin.mutation(api.eventPhotoBooth.setAvailability, { availability: "open" });
     const draft = scenes().reverse();
     draft[0].title.en = "New Kedarnath";
     draft[1].visible = false;
     expect(
-      await admin.mutation(boothApi.saveDraftScenes, { expectedRevision: 0, scenes: draft })
+      await admin.mutation(api.eventPhotoBooth.saveDraftScenes, {
+        expectedRevision: 0,
+        scenes: draft,
+      })
     ).toBe(1);
-    expect((await t.query(boothApi.getParticipantState, {})).scenes[0].id).toBe("paris");
+    expect((await t.query(api.eventPhotoBooth.getParticipantState, {})).scenes[0].id).toBe("paris");
     await expect(
-      admin.mutation(boothApi.saveDraftScenes, { expectedRevision: 0, scenes: draft })
+      admin.mutation(api.eventPhotoBooth.saveDraftScenes, { expectedRevision: 0, scenes: draft })
     ).rejects.toThrow("REVISION_CONFLICT");
-    await admin.mutation(boothApi.publishScenes, { expectedRevision: 1 });
-    const published = await t.query(boothApi.getParticipantState, {});
+    await admin.mutation(api.eventPhotoBooth.publishScenes, { expectedRevision: 1 });
+    const published = await t.query(api.eventPhotoBooth.getParticipantState, {});
     expect(published.scenes.map((s) => s.id)).toEqual([
       "kedarnath",
       "kashi",
@@ -162,14 +178,17 @@ describe("event photo booth boundaries", () => {
     ]);
     expect(published.scenes[0].title.en).toBe("New Kedarnath");
     const hidden = scenes().map((s) => ({ ...s, visible: false }));
-    await admin.mutation(boothApi.saveDraftScenes, { expectedRevision: 2, scenes: hidden });
-    await expect(admin.mutation(boothApi.publishScenes, { expectedRevision: 3 })).rejects.toThrow(
-      "NO_VISIBLE_SCENES"
-    );
-    await admin.mutation(boothApi.setAvailability, { availability: "closed" });
-    await admin.mutation(boothApi.publishScenes, { expectedRevision: 3 });
+    await admin.mutation(api.eventPhotoBooth.saveDraftScenes, {
+      expectedRevision: 2,
+      scenes: hidden,
+    });
     await expect(
-      admin.mutation(boothApi.setAvailability, { availability: "open" })
+      admin.mutation(api.eventPhotoBooth.publishScenes, { expectedRevision: 3 })
+    ).rejects.toThrow("NO_VISIBLE_SCENES");
+    await admin.mutation(api.eventPhotoBooth.setAvailability, { availability: "closed" });
+    await admin.mutation(api.eventPhotoBooth.publishScenes, { expectedRevision: 3 });
+    await expect(
+      admin.mutation(api.eventPhotoBooth.setAvailability, { availability: "open" })
     ).rejects.toThrow("NO_VISIBLE_SCENES");
   });
   test("bounds scenes and never turns a private storage id into artwork", async () => {
@@ -182,7 +201,10 @@ describe("event photo booth boundaries", () => {
       [{ ...scenes()[0], id: "https://private" }],
     ]) {
       await expect(
-        admin.mutation(boothApi.saveDraftScenes, { expectedRevision: 0, scenes: invalid })
+        admin.mutation(api.eventPhotoBooth.saveDraftScenes, {
+          expectedRevision: 0,
+          scenes: invalid,
+        })
       ).rejects.toThrow();
     }
     const privateId = await t.run((ctx) => ctx.storage.store(new Blob(["private CRM document"])));
@@ -201,40 +223,46 @@ describe("event photo booth boundaries", () => {
   });
   test("validates, re-encodes and owns staff artwork; rejects unauthenticated and malformed uploads", async () => {
     const { t, admin } = await harness();
-    await expect(t.action(boothApi.uploadArtwork, { bytes: new ArrayBuffer(2) })).rejects.toThrow(
-      "FORBIDDEN"
-    );
     await expect(
-      admin.action(boothApi.uploadArtwork, {
+      t.action(api.eventPhotoBoothArtwork.uploadArtwork, { bytes: new ArrayBuffer(2) })
+    ).rejects.toThrow("FORBIDDEN");
+    await expect(
+      admin.action(api.eventPhotoBoothArtwork.uploadArtwork, {
         bytes: new TextEncoder().encode("<svg></svg>").buffer,
       })
     ).rejects.toThrow("INVALID_ARTWORK");
     await expect(
-      admin.action(boothApi.uploadArtwork, { bytes: new ArrayBuffer(900_001) })
+      admin.action(api.eventPhotoBoothArtwork.uploadArtwork, { bytes: new ArrayBuffer(900_001) })
     ).rejects.toThrow("ARTWORK_TOO_LARGE");
     const input = await sharp({ create: { background: "red", channels: 3, height: 20, width: 20 } })
       .png()
       .toBuffer();
-    const uploaded = await admin.action(boothApi.uploadArtwork, {
+    const uploaded = await admin.action(api.eventPhotoBoothArtwork.uploadArtwork, {
       bytes: Uint8Array.from(input).buffer,
     });
     expect(uploaded.artwork.kind).toBe("upload");
     const draft = scenes();
     draft[0].artwork = uploaded.artwork;
-    await admin.mutation(boothApi.saveDraftScenes, { expectedRevision: 0, scenes: draft });
-    const state = await admin.query(boothApi.getManagementState, {});
+    await admin.mutation(api.eventPhotoBooth.saveDraftScenes, {
+      expectedRevision: 0,
+      scenes: draft,
+    });
+    const state = await admin.query(api.eventPhotoBooth.getManagementState, {});
     expect(state.draftScenes[0].artworkUrl).toBe(uploaded.artworkUrl);
     expect(state.publishedScenes[0].artwork.kind).toBe("bundled");
     vi.advanceTimersByTime(DAY + 1);
     await t.finishInProgressScheduledFunctions();
     expect(await t.run((ctx) => ctx.db.query("eventPhotoBoothArtwork").collect())).toHaveLength(1);
-    await admin.mutation(boothApi.publishScenes, { expectedRevision: 1 });
-    await admin.mutation(boothApi.saveDraftScenes, { expectedRevision: 2, scenes: scenes() });
+    await admin.mutation(api.eventPhotoBooth.publishScenes, { expectedRevision: 1 });
+    await admin.mutation(api.eventPhotoBooth.saveDraftScenes, {
+      expectedRevision: 2,
+      scenes: scenes(),
+    });
     vi.advanceTimersByTime(DAY + 1);
     await t.finishInProgressScheduledFunctions();
     // The old published snapshot still owns its artwork until the new snapshot commits.
     expect(await t.run((ctx) => ctx.db.query("eventPhotoBoothArtwork").collect())).toHaveLength(1);
-    await admin.mutation(boothApi.publishScenes, { expectedRevision: 3 });
+    await admin.mutation(api.eventPhotoBooth.publishScenes, { expectedRevision: 3 });
     vi.advanceTimersByTime(DAY + 1);
     await t.finishInProgressScheduledFunctions();
     expect(await t.run((ctx) => ctx.db.query("eventPhotoBoothArtwork").collect())).toEqual([]);
@@ -242,30 +270,36 @@ describe("event photo booth boundaries", () => {
   test("accepts aggregate batches only, protects gateway and Closed actions, and keeps config stable", async () => {
     const { t, admin, operator, ids } = await harness();
     await expect(
-      t.mutation(boothApi.recordMetricGateway, { ...metricArgs(), gatewaySecret: "wrong" })
+      t.mutation(api.eventPhotoBooth.recordMetricGateway, {
+        ...metricArgs(),
+        gatewaySecret: "wrong",
+      })
     ).rejects.toThrow("FORBIDDEN");
-    await t.mutation(boothApi.recordMetricGateway, metricArgs());
+    await t.mutation(api.eventPhotoBooth.recordMetricGateway, metricArgs());
     const creation = {
       ...metricArgs(),
       events: [{ count: 2, event: "creation_completed" as const, sceneId: "paris" }],
     };
-    await expect(t.mutation(boothApi.recordMetricGateway, creation)).rejects.toThrow(
+    await expect(t.mutation(api.eventPhotoBooth.recordMetricGateway, creation)).rejects.toThrow(
       "EVENT_CLOSED"
     );
-    await admin.mutation(boothApi.setStaffAssignment, { assigned: true, staffId: ids.Operations });
-    await expect(operator.mutation(boothApi.recordMetricGateway, creation)).rejects.toThrow(
-      "EVENT_CLOSED"
-    );
-    await admin.mutation(boothApi.recordMetricGateway, creation);
+    await admin.mutation(api.eventPhotoBooth.setStaffAssignment, {
+      assigned: true,
+      staffId: ids.Operations,
+    });
     await expect(
-      admin.mutation(boothApi.recordMetricGateway, {
+      operator.mutation(api.eventPhotoBooth.recordMetricGateway, creation)
+    ).rejects.toThrow("EVENT_CLOSED");
+    await admin.mutation(api.eventPhotoBooth.recordMetricGateway, creation);
+    await expect(
+      admin.mutation(api.eventPhotoBooth.recordMetricGateway, {
         ...creation,
         events: [{ count: 1, event: "creation_completed", sceneId: "not-published" }],
       })
     ).rejects.toThrow("INVALID_SCENE_ID");
     for (const count of [0, 11, 1.5]) {
       await expect(
-        t.mutation(boothApi.recordMetricGateway, {
+        t.mutation(api.eventPhotoBooth.recordMetricGateway, {
           ...metricArgs(),
           events: [{ count, event: "visit" }],
         })
@@ -290,7 +324,7 @@ describe("event photo booth boundaries", () => {
   });
   test("durably rate limits and removes transient abuse keys", async () => {
     const { t } = await harness();
-    await t.mutation(boothApi.recordMetricGateway, metricArgs());
+    await t.mutation(api.eventPhotoBooth.recordMetricGateway, metricArgs());
     const limiter = new RateLimiter(rateLimiterComponent, {
       photoBoothMetrics: { kind: "fixed window", period: 15 * MINUTE, rate: 1200 },
     });
@@ -301,10 +335,12 @@ describe("event photo booth boundaries", () => {
         throws: true,
       })
     );
-    await expect(t.mutation(boothApi.recordMetricGateway, metricArgs())).rejects.toThrow();
+    await expect(
+      t.mutation(api.eventPhotoBooth.recordMetricGateway, metricArgs())
+    ).rejects.toThrow();
     vi.advanceTimersByTime(DAY + 1);
     await t.finishInProgressScheduledFunctions();
     expect(await t.run((ctx) => ctx.db.query("eventPhotoBoothRateKeys").collect())).toEqual([]);
-    await t.mutation(boothApi.recordMetricGateway, metricArgs());
+    await t.mutation(api.eventPhotoBooth.recordMetricGateway, metricArgs());
   });
 });

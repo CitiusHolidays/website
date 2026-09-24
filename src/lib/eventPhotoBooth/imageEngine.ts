@@ -213,13 +213,34 @@ export function createCutoutProcessor() {
   return { dispose: cancel, segment };
 }
 
-export function loadBoothArtwork(url: string): Promise<HTMLImageElement> {
+export function loadBoothArtwork(url: string, signal?: AbortSignal): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
+    function cleanup() {
+      signal?.removeEventListener("abort", abort);
+      image.onload = null;
+      image.onerror = null;
+    }
+    function abort() {
+      cleanup();
+      image.removeAttribute("src");
+      reject(new DOMException("Artwork preparation cancelled.", "AbortError"));
+    }
+    if (signal?.aborted) {
+      abort();
+      return;
+    }
     image.crossOrigin = "anonymous";
     image.decoding = "async";
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("The destination artwork could not be loaded."));
+    image.onload = () => {
+      cleanup();
+      resolve(image);
+    };
+    image.onerror = () => {
+      cleanup();
+      reject(new Error("The destination artwork could not be loaded."));
+    };
+    signal?.addEventListener("abort", abort, { once: true });
     image.src = url;
   });
 }

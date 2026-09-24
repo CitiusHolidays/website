@@ -47,6 +47,7 @@ const en = {
   preview: "3. Make it yours",
   previewAlt: "Your Citius destination photo preview",
   previewHelp: "Your download will match this preview.",
+  previousResult: "Previous ready photo",
   privacy: "Your photo stays on this device. Save it before leaving; there is no photo history.",
   privacyLink: "Policies & privacy",
   privileged:
@@ -130,6 +131,7 @@ const hi = {
   preview: "3. अपना अंदाज़ दें",
   previewAlt: "आपकी Citius तस्वीर का प्रीव्यू",
   previewHelp: "डाउनलोड की गई तस्वीर इसी प्रीव्यू जैसी होगी।",
+  previousResult: "पिछली तैयार तस्वीर",
   privacy: "आपकी तस्वीर इसी डिवाइस पर रहती है। जाने से पहले सेव करें; तस्वीरों का इतिहास नहीं रखा जाता।",
   privacyLink: "नीतियाँ और गोपनीयता",
   privileged: "स्टाफ़ प्रीव्यू: एडमिन या डायरेक्टर होने के कारण आप बूथ बंद होने पर भी तस्वीर बना सकते हैं।",

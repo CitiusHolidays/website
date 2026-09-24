@@ -24,6 +24,32 @@ export const BOOTH_ARTWORK_URLS = {
   kedarnath: "/images/event-photo-booth/kedarnath.webp",
   paris: "/images/event-photo-booth/paris.webp",
 } satisfies Record<BoothSceneKey, string>;
+export const BOOTH_THUMBNAIL_URLS = {
+  ayodhya: {
+    large: "/images/event-photo-booth/ayodhya-384.webp",
+    small: "/images/event-photo-booth/ayodhya-192.webp",
+  },
+  bali: {
+    large: "/images/event-photo-booth/bali-384.webp",
+    small: "/images/event-photo-booth/bali-192.webp",
+  },
+  dubai: {
+    large: "/images/event-photo-booth/dubai-384.webp",
+    small: "/images/event-photo-booth/dubai-192.webp",
+  },
+  kashi: {
+    large: "/images/event-photo-booth/kashi-384.webp",
+    small: "/images/event-photo-booth/kashi-192.webp",
+  },
+  kedarnath: {
+    large: "/images/event-photo-booth/kedarnath-384.webp",
+    small: "/images/event-photo-booth/kedarnath-192.webp",
+  },
+  paris: {
+    large: "/images/event-photo-booth/paris-384.webp",
+    small: "/images/event-photo-booth/paris-192.webp",
+  },
+} satisfies Record<BoothSceneKey, { small: string; large: string }>;
 export type BoothArtwork =
   | { kind: "bundled"; key: BoothSceneKey }
   | { kind: "upload"; id: Id<"eventPhotoBoothArtwork"> };
@@ -75,7 +101,7 @@ export interface BoothManagementState {
 export interface BoothStaffOption {
   active: boolean;
   assigned: boolean;
-  id: string;
+  id: Id<"staffUsers">;
   name: string;
   roles: string[];
 }

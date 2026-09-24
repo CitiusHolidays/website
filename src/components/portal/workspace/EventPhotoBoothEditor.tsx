@@ -1,5 +1,7 @@
 "use client";
 
+import type { Id } from "@convex/_generated/dataModel";
+
 import { ArrowDown, ArrowUp, Plus } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useEffect, useState } from "react";
 import { Button } from "@/components/ui/application-button";
@@ -39,7 +41,7 @@ export interface EventPhotoBoothEditorProps {
     scenes: BoothSceneDraft[];
   }) => Promise<number>;
   setAvailability: (args: { availability: BoothAvailability }) => Promise<null>;
-  setStaffAssignment: (args: { staffId: string; assigned: boolean }) => Promise<null>;
+  setStaffAssignment: (args: { staffId: Id<"staffUsers">; assigned: boolean }) => Promise<null>;
   staff: BoothStaffOption[];
   staffStatus: "LoadingFirstPage" | "CanLoadMore" | "LoadingMore" | "Exhausted";
   state: BoothManagementState;

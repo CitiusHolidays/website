@@ -1,21 +1,15 @@
 "use node";
-import { makeFunctionReference } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import sharp from "sharp";
-import { boothApi } from "../src/lib/eventPhotoBooth/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action } from "./_generated/server";
 import { boothArtwork } from "./lib/eventPhotoBoothValidators";
 
-const registerArtwork = makeFunctionReference<
-  "mutation",
-  { storageId: Id<"_storage"> },
-  Id<"eventPhotoBoothArtwork">
->("eventPhotoBooth:registerArtwork");
 export const uploadArtwork = action({
   args: { bytes: v.bytes() },
   handler: async (ctx, args) => {
-    const access = await ctx.runQuery(boothApi.getMyAccess, {});
+    const access = await ctx.runQuery(api.eventPhotoBooth.getMyAccess, {});
     if (!access.canManage) {
       throw new ConvexError("FORBIDDEN");
     }
@@ -55,7 +49,10 @@ export const uploadArtwork = action({
       new Blob([Uint8Array.from(bytes)], { type: "image/webp" })
     );
     try {
-      const id = await ctx.runMutation(registerArtwork, { storageId });
+      const id: Id<"eventPhotoBoothArtwork"> = await ctx.runMutation(
+        internal.eventPhotoBooth.registerArtwork,
+        { storageId }
+      );
       const artworkUrl = await ctx.storage.getUrl(storageId);
       if (!artworkUrl) {
         throw new ConvexError("ARTWORK_UNAVAILABLE");

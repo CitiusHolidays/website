@@ -226,6 +226,8 @@ import type * as crons from "../crons.js";
 import type * as customerConfirmedTrips from "../customerConfirmedTrips.js";
 import type * as customerJourneyModel from "../customerJourneyModel.js";
 import type * as e2eDeploymentIdentity from "../e2eDeploymentIdentity.js";
+import type * as eventPhotoBooth from "../eventPhotoBooth.js";
+import type * as eventPhotoBoothArtwork from "../eventPhotoBoothArtwork.js";
 import type * as http from "../http.js";
 import type * as lib_aiRateLimit from "../lib/aiRateLimit.js";
 import type * as lib_authEmailDelivery from "../lib/authEmailDelivery.js";
@@ -499,6 +501,8 @@ declare const fullApi: ApiFromModules<{
   customerConfirmedTrips: typeof customerConfirmedTrips;
   customerJourneyModel: typeof customerJourneyModel;
   e2eDeploymentIdentity: typeof e2eDeploymentIdentity;
+  eventPhotoBooth: typeof eventPhotoBooth;
+  eventPhotoBoothArtwork: typeof eventPhotoBoothArtwork;
   http: typeof http;
   "lib/aiRateLimit": typeof lib_aiRateLimit;
   "lib/authEmailDelivery": typeof lib_authEmailDelivery;

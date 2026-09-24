@@ -33,6 +33,7 @@ type Env = {
   readonly E2E_PROVISIONING_TARGET: string | undefined;
   readonly E2E_SEED_SECRET: string | undefined;
   readonly E2E_TARGET_ID: string | undefined;
+  readonly EVENT_PHOTO_BOOTH_GATEWAY_SECRET: string | undefined;
   readonly OPERATIONAL_CONTROL_SOURCE_REVISION: string | undefined;
   readonly OPERATIONAL_CONTROL_TARGET_ID: string | undefined;
   readonly VERCEL_ENV: string | undefined;

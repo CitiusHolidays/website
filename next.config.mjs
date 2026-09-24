@@ -181,6 +181,13 @@ const nextConfig = {
     qualities: [85, 90, 95, 100],
     remotePatterns: [
       {
+        // Public staff-uploaded scene artwork only; participant photos remain browser blobs.
+        hostname: "*.convex.cloud",
+        pathname: "/api/storage/**",
+        protocol: "https",
+        search: "",
+      },
+      {
         hostname: "cdn.sanity.io",
         protocol: "https",
       },

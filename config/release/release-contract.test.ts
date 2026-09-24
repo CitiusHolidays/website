@@ -200,3 +200,20 @@ describe("Release command contract", () => {
     expect(ignoredLines).not.toContain(".claude/hooks/");
   });
 });
+
+test("Uploaded booth cards only optimize public Convex storage URLs", async () => {
+  const { default: nextConfig } = await import("../../next.config.mjs");
+  const { matchRemotePattern } = await import("next/dist/shared/lib/match-remote-pattern");
+  const allowed = (url: string) =>
+    nextConfig.images.remotePatterns.some((pattern) => matchRemotePattern(pattern, new URL(url)));
+  expect(allowed("https://test-deployment.convex.cloud/api/storage/example")).toBe(true);
+  for (const url of [
+    "http://test-deployment.convex.cloud/api/storage/example",
+    "https://test-deployment.convex.cloud/api/query",
+    "https://test-deployment.convex.cloud/api/storage/example?token=private",
+    "https://test-deployment.convex.cloud.attacker.test/api/storage/example",
+    "https://attacker.test/api/storage/example",
+  ]) {
+    expect(allowed(url)).toBe(false);
+  }
+});

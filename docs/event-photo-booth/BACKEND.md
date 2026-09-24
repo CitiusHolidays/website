@@ -5,8 +5,8 @@ can participate and manage in either state; specifically assigned staff can mana
 not inherit participant access. The independent `eventPhotoBooth:getMyAccess` query supplies UI
 capabilities without modifying CRM roles. Only Admins and Directors can assign existing staff.
 
-`src/lib/eventPhotoBooth/api.ts` owns typed function references; `contracts.ts` owns serializable
-DTOs. Published visible scenes alone reach participants. Whole-list draft saves and publication
+Framework-generated `api` and `internal` own typed function references; `contracts.ts` owns
+serializable DTOs. Published visible scenes alone reach participants. Whole-list draft saves and publication
 require the current revision, so a stale editor cannot overwrite another operator's content.
 Scene order is array order; at most 24 scenes contain bounded English/Hindi titles and captions.
 Bundled artwork is restricted to six known keys. Uploaded artwork uses booth-owned record IDs,

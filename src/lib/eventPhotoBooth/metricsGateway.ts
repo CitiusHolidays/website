@@ -1,10 +1,10 @@
 import { createHmac } from "node:crypto";
+import { api } from "@convex/_generated/api";
 import { isRateLimitError } from "@convex-dev/rate-limiter";
 import { fetchMutation } from "convex/nextjs";
 import { fetchConvexTokenFromHeaders } from "@/lib/auth-server";
 import { getClientIp, isAllowedSiteOrigin } from "@/lib/contact/spam-guard";
 import { readJsonBodyWithinLimit } from "@/lib/http/readJsonBody";
-import { boothApi } from "./api";
 import { isBoothMetricBatch } from "./contracts";
 
 function json(
@@ -41,7 +41,7 @@ export async function handleBoothMetrics(
   try {
     const token = await tokenFor(request.headers);
     await send(
-      boothApi.recordMetricGateway,
+      api.eventPhotoBooth.recordMetricGateway,
       { events: payload.events, gatewaySecret, rateLimitKeyHash },
       { token: token ?? undefined, url }
     );
