@@ -1,6 +1,8 @@
 import type { JsonValue } from "@/lib/jsonValue";
+import { isRuntimeString } from "@/lib/runtimeValues";
 export type ContactIntent =
   | "account-deletion"
+  | "event-photo-booth"
   | "mice-proposal"
   | "pilgrimage-callback"
   | "pilgrimage-enquiry";
@@ -19,6 +21,10 @@ const CONTACT_INTENT_PREFILLS = {
       "Please contact me about deleting my Citius account. I understand the team will first confirm any active journeys.",
     subject: "Account deletion request",
   },
+  "event-photo-booth": {
+    message: "I would like to plan a trip after trying the Citius Event Photo Booth.",
+    subject: "Photo Booth travel enquiry",
+  },
   "mice-proposal": {
     message:
       "Please contact me about a proposal for a meeting, incentive, conference, or exhibition programme.",
@@ -35,7 +41,8 @@ const CONTACT_INTENT_PREFILLS = {
 } satisfies Record<ContactIntent, { message: string; subject: string }>;
 
 export function resolveContactIntent(value: JsonValue): ContactIntent | null {
-  return value === "account-deletion" ||
+  return value === "event-photo-booth" ||
+    value === "account-deletion" ||
     value === "mice-proposal" ||
     value === "pilgrimage-callback" ||
     value === "pilgrimage-enquiry"
@@ -43,6 +50,34 @@ export function resolveContactIntent(value: JsonValue): ContactIntent | null {
     : null;
 }
 
-export function getContactIntentPrefill(intent: ContactIntent | null) {
+const DESTINATION_CONTROL_CHARACTERS = /[\p{C}]/u;
+
+export function resolveContactDestination(value: JsonValue): string {
+  if (!isRuntimeString(value)) {
+    return "";
+  }
+  const destination = value.trim();
+  return destination.length <= 80 && !DESTINATION_CONTROL_CHARACTERS.test(destination)
+    ? destination
+    : "";
+}
+
+export function getPhotoBoothContactHref(destination: string): string {
+  const params = new URLSearchParams({
+    destination: resolveContactDestination(destination),
+    intent: "event-photo-booth",
+  });
+  return `/contact?${params}`;
+}
+
+export function getContactIntentPrefill(intent: ContactIntent | null, destination = "") {
+  const place = resolveContactDestination(destination);
+  if (intent === "event-photo-booth" && place) {
+    return {
+      destination: place,
+      message: `I would like to plan a trip to ${place} after trying the Citius Event Photo Booth.`,
+      subject: `Travel enquiry: ${place}`,
+    };
+  }
   return intent ? CONTACT_INTENT_PREFILLS[intent] : { message: "", subject: "" };
 }

@@ -2,8 +2,10 @@ import { describe, expect, test } from "bun:test";
 import {
   ACCOUNT_DELETION_CONTACT_HREF,
   getContactIntentPrefill,
+  getPhotoBoothContactHref,
   MICE_PROPOSAL_CONTACT_HREF,
   PILGRIMAGE_CONTACT_HREFS,
+  resolveContactDestination,
   resolveContactIntent,
 } from "./contactIntent";
 
@@ -50,4 +52,25 @@ describe("Public contact intent", () => {
     expect(callback).not.toEqual(enquiry);
     expect(getContactIntentPrefill(null)).toEqual({ message: "", subject: "" });
   });
+});
+
+test("Photo Booth enquiry carries only a bounded destination into editable consented contact", () => {
+  const href = new URL(
+    getPhotoBoothContactHref("  Kashi & Ayodhya  "),
+    "https://citiusholidays.com"
+  );
+  expect(href.pathname).toBe("/contact");
+  expect(href.searchParams.get("intent")).toBe("event-photo-booth");
+  expect(href.searchParams.get("destination")).toBe("Kashi & Ayodhya");
+  expect([...href.searchParams.keys()].sort()).toEqual(["destination", "intent"]);
+  expect(resolveContactDestination(["Paris"])).toBe("");
+  expect(resolveContactDestination("a".repeat(81))).toBe("");
+  expect(resolveContactDestination("Paris\nBali")).toBe("");
+  expect(resolveContactDestination("काशी")).toBe("काशी");
+  expect(getContactIntentPrefill(resolveContactIntent("event-photo-booth"), "Paris")).toEqual({
+    destination: "Paris",
+    message: "I would like to plan a trip to Paris after trying the Citius Event Photo Booth.",
+    subject: "Travel enquiry: Paris",
+  });
+  expect(getContactIntentPrefill("pilgrimage-enquiry", "Paris")).not.toHaveProperty("destination");
 });

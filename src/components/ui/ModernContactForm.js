@@ -9,6 +9,7 @@ const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
 const EMPTY_FORM_VALUES = {
   company: "",
   consent: false,
+  destination: "",
   email: "",
   message: "",
   name: "",
@@ -120,6 +121,7 @@ function createInitialFormState(initialValues) {
     ...INITIAL_FORM_STATE,
     formValues: {
       ...EMPTY_FORM_VALUES,
+      destination: initialValues?.destination || "",
       message: initialValues?.message || "",
       subject: initialValues?.subject || "",
     },
@@ -254,6 +256,7 @@ function useModernContactForm(initialValues) {
           consent: fields.consent,
           contactEmail: fields.email,
           contactMobile: fields.phone || undefined,
+          destination: fields.destination || undefined,
           formLoadedAt: formLoadedAtRef.current,
           notes: `Subject: ${fields.subject}\n\n${fields.message}`,
           source: "Website",
@@ -359,6 +362,22 @@ export default function ModernContactForm({ initialValues }) {
           />
         </div>
 
+        {initialValues?.destination ? (
+          <div>
+            <label className="mb-2 block text-gray-700 text-sm" htmlFor="destination">
+              Destination
+            </label>
+            <input
+              className="min-h-12 w-full rounded-lg border-2 border-gray-300 bg-white px-4 py-3 text-gray-800 focus:border-orange-500 focus:outline-none"
+              id="destination"
+              maxLength={80}
+              name="destination"
+              onChange={updateFormValue}
+              type="text"
+              value={formValues.destination}
+            />
+          </div>
+        ) : null}
         {INPUT_FIELDS.map((field) => {
           const focused = focusedField === field.name;
           const raised = focused || Boolean(formValues[field.name]);

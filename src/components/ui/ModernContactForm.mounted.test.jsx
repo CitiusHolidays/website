@@ -264,3 +264,63 @@ describe("Mounted contact intent", () => {
     await act(async () => root.unmount());
   });
 });
+
+test("Photo Booth destination stays editable and creates no lead before explicit consented submit", async () => {
+  const calls = [];
+  globalThis.fetch = mock((url, options) => {
+    calls.push({ options, url });
+    return Promise.resolve(Response.json({ accepted: true }, { status: 201 }));
+  });
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  await act(() =>
+    root.render(
+      <ModernContactForm
+        initialValues={{
+          destination: "Paris",
+          message: "Please plan my Paris trip.",
+          subject: "Travel enquiry: Paris",
+        }}
+      />
+    )
+  );
+  expect(container.querySelector('input[name="destination"]').value).toBe("Paris");
+  expect(container.querySelector('input[name="consent"]').checked).toBe(false);
+  expect(calls).toHaveLength(0);
+  await act(() => {
+    setInputValue(container.querySelector('input[name="destination"]'), "Bali");
+    setInputValue(container.querySelector('input[name="name"]'), "A Traveller");
+    setInputValue(container.querySelector('input[name="email"]'), "traveller@example.com");
+  });
+  await act(() =>
+    container
+      .querySelector("form")
+      .dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }))
+  );
+  expect(calls).toHaveLength(0);
+  await act(() => {
+    container.querySelector('input[name="consent"]').click();
+  });
+  await act(async () => {
+    container
+      .querySelector("form")
+      .dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+  });
+  expect(calls).toHaveLength(1);
+  expect(calls[0].url).toBe("/api/inbound-intents");
+  const payload = JSON.parse(calls[0].options.body);
+  expect(payload).toMatchObject({ consent: true, destination: "Bali", source: "Website" });
+  expect(Object.keys(payload).sort()).toEqual([
+    "clientName",
+    "company",
+    "consent",
+    "contactEmail",
+    "destination",
+    "formLoadedAt",
+    "notes",
+    "source",
+  ]);
+  await act(() => root.unmount());
+});

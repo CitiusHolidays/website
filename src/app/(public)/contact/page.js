@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { resolveContactIntent } from "@/lib/public/contactIntent";
+import { resolveContactDestination, resolveContactIntent } from "@/lib/public/contactIntent";
 import ContactPageClient from "./page.client";
 
 export const generateMetadata = () => ({
@@ -12,7 +12,15 @@ async function ContactPageContent({ searchParams }) {
   const query = await searchParams;
   const contactIntent = resolveContactIntent(query?.intent);
 
-  return <ContactPageClient contactIntent={contactIntent} key={contactIntent ?? "general"} />;
+  const destination =
+    contactIntent === "event-photo-booth" ? resolveContactDestination(query?.destination) : "";
+  return (
+    <ContactPageClient
+      contactIntent={contactIntent}
+      destination={destination}
+      key={`${contactIntent ?? "general"}:${destination}`}
+    />
+  );
 }
 
 export default function ContactPage({ searchParams }) {
