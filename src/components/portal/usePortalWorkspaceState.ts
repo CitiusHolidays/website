@@ -275,7 +275,12 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
   const access = liveAccess ?? serverAccess;
   const has = (permission: string) => Boolean(access?.permissions?.includes(permission));
   const meta = getPortalRouteDefinition(view);
-  const allowed = canAccessPortalRoute({ access, has, view });
+  const allowed = canAccessPortalRoute({
+    access,
+    eventPhotoBooth: serverAccess?.eventPhotoBooth,
+    has,
+    view,
+  });
   const canFetch = isAuthenticated && access?.allowed;
   const [referenceNow] = useState(() => Date.now());
 
