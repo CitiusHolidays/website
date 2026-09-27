@@ -38,7 +38,7 @@ export default function EventPhotoBooth() {
 /** The same view consumes live server access and local, target-neutral browser proof. */
 function useVisitorBooth(state: BoothParticipantState | undefined) {
   const [language, setLanguage] = useState<BoothLanguage>("en");
-  const [category, setCategory] = useState<BoothCategory>("travel");
+  const [category, setCategory] = useState<BoothCategory>("pilgrimage");
   const [sceneId, setSceneId] = useState("");
   const [format, setFormat] = useState<BoothFormat>("portrait");
   const [mode, setMode] = useState<"cutout" | "frame">("cutout");
@@ -59,7 +59,10 @@ function useVisitorBooth(state: BoothParticipantState | undefined) {
   const copy = boothCopy(language);
   const canParticipate = state?.canParticipate === true;
   const availableScenes = state?.scenes ?? [];
-  const liveScene = availableScenes.find((item) => item.id === sceneId) ?? availableScenes[0];
+  const liveScene =
+    availableScenes.find((item) => item.id === sceneId) ??
+    availableScenes.find((item) => item.category === category) ??
+    availableScenes[0];
   if (liveScene) {
     retainedScene.current = liveScene;
   }
@@ -378,7 +381,7 @@ function SceneChoices({ view }: { view: VisitorView }) {
     <fieldset className={styles.sceneChoices} disabled={!canParticipate}>
       <legend className="sr-only">{copy.chooseScene}</legend>
       <div className={styles.switches}>
-        {(["travel", "pilgrimage"] as const).map((value) => (
+        {(["pilgrimage", "travel"] as const).map((value) => (
           <button
             aria-pressed={category === value}
             key={value}

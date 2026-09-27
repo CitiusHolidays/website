@@ -242,6 +242,7 @@ import type * as lib_bootstrapAuthority from "../lib/bootstrapAuthority.js";
 import type * as lib_customerIdentityAccess from "../lib/customerIdentityAccess.js";
 import type * as lib_emailConfig from "../lib/emailConfig.js";
 import type * as lib_encryption from "../lib/encryption.js";
+import type * as lib_eventPhotoBoothValidators from "../lib/eventPhotoBoothValidators.js";
 import type * as lib_formatDate from "../lib/formatDate.js";
 import type * as lib_importContractValidators from "../lib/importContractValidators.js";
 import type * as lib_passportPayloadCrypto from "../lib/passportPayloadCrypto.js";
@@ -517,6 +518,7 @@ declare const fullApi: ApiFromModules<{
   "lib/customerIdentityAccess": typeof lib_customerIdentityAccess;
   "lib/emailConfig": typeof lib_emailConfig;
   "lib/encryption": typeof lib_encryption;
+  "lib/eventPhotoBoothValidators": typeof lib_eventPhotoBoothValidators;
   "lib/formatDate": typeof lib_formatDate;
   "lib/importContractValidators": typeof lib_importContractValidators;
   "lib/passportPayloadCrypto": typeof lib_passportPayloadCrypto;

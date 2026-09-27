@@ -128,6 +128,15 @@ describe("Photo Booth participant access and bilingual choices", () => {
 
   test("Open guests choose all six scenes and Hindi with no photo/model network", async () => {
     const { container, root } = await mount(openState);
+    const pilgrimage = button(container, "Pilgrimage");
+    expect(pilgrimage.parentElement.firstElementChild).toBe(pilgrimage);
+    expect(pilgrimage.getAttribute("aria-pressed")).toBe("true");
+    expect(button(container, "Kashi").getAttribute("aria-pressed")).toBe("true");
+    expect(container.querySelector('img[alt="Kashi"]')).not.toBeNull();
+    expect(button(container, "Ayodhya")).toBeDefined();
+    expect(button(container, "Kedarnath")).toBeDefined();
+    await act(() => button(container, "Travel").click());
+    expect(button(container, "Travel").getAttribute("aria-pressed")).toBe("true");
     expect(button(container, "Paris")).toBeDefined();
     expect(button(container, "Bali")).toBeDefined();
     expect(button(container, "Dubai")).toBeDefined();
