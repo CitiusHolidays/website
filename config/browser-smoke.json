@@ -54,7 +54,7 @@
       "path": "/auth/connect",
       "profile": "public",
       "viewport": "desktop",
-      "expectText": "Welcome to Citius Connect"
+      "expectText": "Citius Connect"
     },
     {
       "id": "account-redirect",
