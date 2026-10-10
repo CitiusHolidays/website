@@ -23,24 +23,45 @@ export const JOB_CARD_MODALS = new Set([
  * @typedef {{ id: string, queryId?: string, queryIds?: string[], updatedAt?: string | number | Date }} LinkedProposal
  */
 
+function focusedCreationQuery(queryId, queries, focusedQueryDetail) {
+  if (!focusedQueryDetail) {
+    return queries.find((query) => query.id === queryId);
+  }
+  return focusedQueryDetail.id === queryId && focusedQueryDetail.row?.id === queryId
+    ? focusedQueryDetail.row
+    : undefined;
+}
+
 /**
- * @param {{ form: Record<string, any>, modal: string | null, proposals?: LinkedProposal[], queries?: Record<string, any>[] }} args
+ * @param {{ form: Record<string, any>, modal: string | null, proposals?: LinkedProposal[], queries?: Record<string, any>[], focusedQueryDetail?: { id: string, row?: Record<string, any> | null } | null }} args
  */
-export function jobCardProposalLinkPatch({ form, modal, queries = [] }) {
+export function jobCardProposalLinkPatch({ form, modal, queries = [], focusedQueryDetail }) {
   if (modal !== "jobCard" || form.entityId || !form.queryId) {
     return null;
   }
-  const linkedQuery = queries.find((query) => query.id === form.queryId);
-  if (!linkedQuery) {
+  const linkedQuery = focusedCreationQuery(form.queryId, queries, focusedQueryDetail);
+  if (focusedQueryDetail?.id === form.queryId && focusedQueryDetail.row === null) {
+    return form._confirmedOfferState === "missing"
+      ? null
+      : { _confirmedOfferState: "missing", approxMargin: "", profitPerPax: "", proposalId: "" };
+  }
+  if (!linkedQuery || linkedQuery.confirmedOffer === undefined) {
     return form._confirmedOfferState === "loading" ? null : { _confirmedOfferState: "loading" };
   }
   if (!linkedQuery.confirmedOffer) {
     return form._confirmedOfferState === "missing"
       ? null
-      : { _confirmedOfferState: "missing", proposalId: "" };
+      : { _confirmedOfferState: "missing", approxMargin: "", profitPerPax: "", proposalId: "" };
   }
   if (form._confirmedOfferQueryId === form.queryId) {
-    return null;
+    return form._confirmedOfferState === "ready"
+      ? null
+      : {
+          _confirmedOfferState: "ready",
+          approxMargin: String(linkedQuery.confirmedOffer.approxMargin ?? ""),
+          profitPerPax: String(linkedQuery.confirmedOffer.profitPerPax),
+          proposalId: linkedQuery.confirmedOffer.proposalId,
+        };
   }
   const patch = applyQueryLink(form, linkedQuery);
   patch._confirmedOfferQueryId = form.queryId;

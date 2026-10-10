@@ -310,6 +310,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     focusedJobCard,
     focusedProposal,
     focusedQuery,
+    queryDeepLinkDetail,
     hotels,
     invoices,
     jobCardDeletionOperations,
@@ -533,6 +534,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     setDateRangeWithUrl,
     setJobCardFilterWithUrl,
     setListFilterValue,
+    setQueryHistoryScope,
     setSearchWithUrl,
     showJobCardFilter,
     toggleSavedViewFavorite,
@@ -546,7 +548,6 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     listFilters,
     pathname,
     removeSavedView,
-    router,
     savedViews,
     search,
     searchParams,
@@ -653,6 +654,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     };
   })();
   const jobCardLinkPatch = jobCardProposalLinkPatch({
+    focusedQueryDetail: queryDeepLinkDetail,
     form: focusedDetailForm,
     modal,
     queries: compactRows(queries),
@@ -1025,6 +1027,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     previewPassengerImport,
     proposals,
     queries,
+    queryDeepLinkDetail,
     removeApproval,
     removeExpense,
     removeExpenseProof,
@@ -1076,6 +1079,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     setPendingProposalFiles,
     setPendingQueryFiles,
     setPipelineMode: _setPipelineMode,
+    setQueryHistoryScope,
     setSearchWithUrl,
     showJobCardFilter,
     staff,

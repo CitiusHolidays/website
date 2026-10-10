@@ -155,6 +155,8 @@ function applyQueryLink(form, query, { onlyEmpty = false } = {}) {
   }
 
   const patch = { queryId: query.id };
+  // Only the immutable offer supplies the creation margin, including an explicit zero.
+  patch.approxMargin = String(query.confirmedOffer?.approxMargin ?? "");
   const set = (field, value) => {
     if (value === undefined || value === null || value === "") {
       return;

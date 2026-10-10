@@ -124,7 +124,7 @@ describe("JobCardProposalLinkPatch", () => {
           },
         ],
       })
-    ).toEqual({ _confirmedOfferState: "missing", proposalId: "" });
+    ).toEqual({ _confirmedOfferState: "loading" });
   });
 
   test("Hydrates immutable Confirmed Offer values when focused query detail arrives", () => {
@@ -266,5 +266,46 @@ describe("CreateFocusedEditModalForm", () => {
       entityId: "proposal_many",
       queryIds,
     });
+  });
+});
+
+test("A hydrated creation query recovers its margins after a pending read without replacing editable trip details", () => {
+  const offer = {
+    approxMargin: 25_000,
+    confirmedPax: 10,
+    profitPerPax: 12_000,
+    proposalId: "p1",
+    travelStartDate: "2026-11-02",
+  };
+  let form = {
+    _confirmedOfferQueryId: "q1",
+    _confirmedOfferState: "ready",
+    confirmedPax: "12",
+    queryId: "q1",
+    travelStartDate: "2026-11-05",
+  };
+  form = {
+    ...form,
+    ...jobCardProposalLinkPatch({
+      focusedQueryDetail: { id: "q1", row: undefined },
+      form,
+      modal: "jobCard",
+    }),
+  };
+  expect(form._confirmedOfferState).toBe("loading");
+  form = {
+    ...form,
+    ...jobCardProposalLinkPatch({
+      focusedQueryDetail: { id: "q1", row: { confirmedOffer: offer, id: "q1" } },
+      form,
+      modal: "jobCard",
+    }),
+  };
+  expect(form).toMatchObject({
+    _confirmedOfferState: "ready",
+    approxMargin: "25000",
+    confirmedPax: "12",
+    profitPerPax: "12000",
+    travelStartDate: "2026-11-05",
   });
 });

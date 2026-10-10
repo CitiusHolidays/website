@@ -29,6 +29,7 @@ import { buildQueryStatusAction } from "@/lib/portal/queryStatusAction";
 import type { QueriesViewProps } from "./portalViewTypes";
 import { isQueryConfirmed, money } from "./portalWorkspaceListHelpers";
 import { DeleteButton, QueryFilesSummary, StatusBadge } from "./portalWorkspaceListUi";
+import { QueryHistoryControls } from "./QueryHistoryControls";
 
 type PortalQueryRow = QueriesViewProps["rows"][number];
 
@@ -356,6 +357,8 @@ export function QueriesView({
   getQueryAttachmentUrl,
   getFinalizedPdfUrl,
   loading = false,
+  historyScope = "active",
+  onHistoryScopeChange,
 }: QueriesViewProps) {
   useEffect(() => {
     if (!loading) {
@@ -376,7 +379,7 @@ export function QueriesView({
     />
   );
 
-  return (
+  const table = (
     <SelectableDataTable<PortalQueryRow>
       columns={[
         {
@@ -530,7 +533,7 @@ export function QueriesView({
           ),
         },
       ]}
-      empty="No queries yet."
+      empty={historyScope === "lost" ? "No lost queries." : "No active queries yet."}
       filtersActive={filtersActive}
       mobileCardIncludesActions
       mobileCardRender={renderMobileCard}
@@ -538,5 +541,14 @@ export function QueriesView({
       rows={rows}
       tableClassName="min-w-[68rem]"
     />
+  );
+
+  return (
+    <>
+      <div className="mb-3">
+        <QueryHistoryControls onScopeChange={onHistoryScopeChange} scope={historyScope} />
+      </div>
+      {table}
+    </>
   );
 }

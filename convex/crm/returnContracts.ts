@@ -87,6 +87,7 @@ export const queryDetailRowValidator = v.object({
     v.null(),
     v.object({
       airfarePerPax: v.number(),
+      approxMargin: v.union(v.null(), v.number()),
       confirmedPax: v.number(),
       destination: v.string(),
       landCostPerPax: v.number(),

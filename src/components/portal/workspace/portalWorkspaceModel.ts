@@ -8,6 +8,7 @@ const DEEP_LINK_KEYS = [
   "allowed",
   "canFetch",
   "queries",
+  "queryDeepLinkDetail",
   "proposals",
   "jobCards",
   "tickets",

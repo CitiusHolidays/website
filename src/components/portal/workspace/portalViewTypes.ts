@@ -22,6 +22,7 @@ export interface PortalQueryListRow {
   confirmedAt?: string | null;
   confirmedOffer?: {
     airfarePerPax: number;
+    approxMargin: number | null;
     confirmedPax: number;
     destination: string;
     landCostPerPax: number;
@@ -154,7 +155,9 @@ export interface QueriesViewProps {
   getFinalizedPdfUrl: PortalWorkspaceState["getFinalizedPdfUrl"];
   getQueryAttachmentUrl: PortalWorkspaceState["getQueryAttachmentUrl"];
   has: PortalPermissionChecker;
+  historyScope?: "active" | "lost";
   loading?: boolean;
+  onHistoryScopeChange?: (scope: "active" | "lost") => void;
   openModal: PortalModalOpener;
   removeQuery: PortalWorkspaceState["removeQuery"];
   rows: PortalQueryListRow[];
@@ -169,7 +172,9 @@ export interface ContractingViewProps {
   getFinalizedPdfUrl: PortalWorkspaceState["getFinalizedPdfUrl"];
   getQueryAttachmentUrl: PortalWorkspaceState["getQueryAttachmentUrl"];
   has: PortalPermissionChecker;
+  historyScope?: "active" | "lost";
   loading?: boolean;
+  onHistoryScopeChange?: (scope: "active" | "lost") => void;
   openModal: PortalModalOpener;
   removeQuery: PortalWorkspaceState["removeQuery"];
   rows: PortalQueryListRow[];

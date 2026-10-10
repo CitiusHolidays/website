@@ -22,6 +22,7 @@ import {
   type PortalPerformanceTarget,
   recordPortalNavigationWorkload,
 } from "@/lib/portal/navigationPerformance";
+import { getDeepLinkQueryId } from "@/lib/portal/notificationTargets";
 import { mergeFocusedRow } from "@/lib/portal/paginatedRows";
 import { endOfDateOnly, parseDateOnly } from "@/lib/portal/periodFilter";
 import { canUseTeamPicker } from "@/lib/portal/permissions";
@@ -29,6 +30,7 @@ import {
   getPortalDataDependencies,
   type PortalDataDependency,
 } from "@/lib/portal/portalDataDependencies";
+import { queryHistoryScopeForView } from "@/lib/portal/queryHistory";
 import {
   useTrackedPaginatedQuery as usePaginatedQuery,
   usePortalSubscriptionSummary,
@@ -375,17 +377,27 @@ function useWorkspaceRuntimeState(input: UsePortalWorkspaceDataInput): Workspace
 }
 
 function resolveFocusedQueryId(context: WorkspaceQueryContext) {
-  if (context.deepLinkQueryId) {
-    return context.deepLinkQueryId;
+  const currentCreation = context.modal === "jobCard" && !context.form.entityId;
+  const creationUrlHandled =
+    context.deepLinkOpen === "jobCard" &&
+    !context.deepLinkId &&
+    context.deepLinkQueryId === context.form._creationNotificationQueryId;
+  if (currentCreation && (!context.deepLinkOpen || creationUrlHandled)) {
+    return String(context.form.queryId || "");
   }
-  if (context.deepLinkOpen === "query") {
-    return context.deepLinkId;
+  const deepLinkId = getDeepLinkQueryId({
+    id: context.deepLinkId,
+    open: context.deepLinkOpen,
+    queryId: context.deepLinkQueryId,
+  });
+  if (deepLinkId) {
+    return deepLinkId;
+  }
+  if (currentCreation) {
+    return String(context.form.queryId || "");
   }
   if (context.modal === "query" && context.form.focusedDetailType === "query") {
     return String(context.form.entityId || "");
-  }
-  if (context.modal === "jobCard" && !context.form.entityId) {
-    return String(context.form.queryId || "");
   }
   return null;
 }
@@ -402,6 +414,7 @@ function useQueryWorkspaceData(context: WorkspaceQueryContext) {
     ? {
         ...context.dateBounds,
         contractingStatus: context.listFilters.contractingStatus || undefined,
+        historyScope: queryHistoryScopeForView(context.view, context.listFilters),
         leadStage: context.listFilters.leadStage || undefined,
         queryType: context.listFilters.queryType || undefined,
         salesStatus: context.listFilters.salesStatus || undefined,
@@ -422,7 +435,10 @@ function useQueryWorkspaceData(context: WorkspaceQueryContext) {
   const rows = shouldLoad
     ? mergeFocusedRow(page.status === "LoadingFirstPage" ? undefined : page.results, focused)
     : undefined;
-  return { focused, focusedId, page, pagination, rows, shouldLoad };
+  const queryDeepLinkDetail = focusedId
+    ? { id: focusedId, row: shouldLoad ? focused : null }
+    : null;
+  return { focused, focusedId, page, pagination, queryDeepLinkDetail, rows, shouldLoad };
 }
 
 function resolveFocusedProposalId(context: WorkspaceQueryContext) {
@@ -1464,7 +1480,12 @@ function usePortalWorkspacePerformance(
 export function usePortalWorkspaceData(input: UsePortalWorkspaceDataInput) {
   const context = { ...input, ...useWorkspaceRuntimeState(input) };
   const queryData = useQueryWorkspaceData(context);
-  const { focused: focusedQuery, pagination: queryPagination, rows: queries } = queryData;
+  const {
+    focused: focusedQuery,
+    pagination: queryPagination,
+    queryDeepLinkDetail,
+    rows: queries,
+  } = queryData;
   const proposalData = useProposalWorkspaceData(context, queryData);
   const {
     hydratedFocused: hydratedFocusedProposal,
@@ -1595,6 +1616,7 @@ export function usePortalWorkspaceData(input: UsePortalWorkspaceDataInput) {
     pnrs,
     proposals,
     queries,
+    queryDeepLinkDetail,
     reports,
     roomCountSummary,
     searchPreparing: context.searchPreparing,

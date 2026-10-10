@@ -1,5 +1,6 @@
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
+import { canCreateJobCardFromConfirmedQuery } from "./jobCardNotifications";
 import { canSeeQueryRecord, PERMISSIONS, publicQuery, requireAnyPermission } from "./lib";
 import { assertListSearchReady } from "./listSearch";
 import {
@@ -120,6 +121,7 @@ export async function handleQueryListPage(
     contractingStatus?: string;
     createdAtFrom?: number;
     createdAtTo?: number;
+    historyScope?: "active" | "lost";
     leadStage?: string;
     paginationOpts: { numItems: number; cursor: string | null };
     queryType?: string;
@@ -134,12 +136,22 @@ export async function handleQueryListPage(
   ]);
   const search = args.search?.trim();
   await assertListSearchReady(ctx, "queries", search);
-  const sourceQuery = buildQueryListSource(ctx, args, search);
+  const source = buildQueryListSource(ctx, args, search);
+  const sourceQuery = args.historyScope
+    ? source.filter((q) =>
+        args.historyScope === "lost"
+          ? q.eq(q.field("salesStatus"), "Order Lost")
+          : q.neq(q.field("salesStatus"), "Order Lost")
+      )
+    : source;
   const filteredSource = applyCrmCursorFilters(sourceQuery, {
     createdAtFrom: search ? args.createdAtFrom : undefined,
     createdAtTo: search ? args.createdAtTo : undefined,
     equals: {
-      contractingStatus: args.contractingStatus,
+      contractingStatus:
+        args.historyScope === "lost" && args.contractingStatus === "Order Lost"
+          ? undefined
+          : args.contractingStatus,
       leadStage: args.leadStage,
       queryType: search ? args.queryType : undefined,
       salesStatus: args.salesStatus,
@@ -181,6 +193,11 @@ export async function handleQueryGetListRow(
   const confirmedOffer = row.confirmedOfferId
     ? await ctx.db.get("confirmedOffers", row.confirmedOfferId)
     : null;
+  const canManageJobCards = access.permissions.includes(PERMISSIONS.MANAGE_JOB_CARDS);
+  const creatorStaff =
+    canManageJobCards && access.staffId ? await ctx.db.get("staffUsers", access.staffId) : null;
+  const canReadCreationMargin =
+    canManageJobCards && canCreateJobCardFromConfirmedQuery(access, creatorStaff);
   return {
     ...publicQuery(row),
     attachmentCount: row.attachmentCount ?? row.attachmentPreview?.length ?? 0,
@@ -191,6 +208,7 @@ export async function handleQueryGetListRow(
     confirmedOffer: confirmedOffer
       ? {
           airfarePerPax: confirmedOffer.airfarePerPax,
+          approxMargin: canReadCreationMargin ? (confirmedOffer.approxMargin ?? null) : null,
           confirmedPax: confirmedOffer.confirmedPax,
           destination: confirmedOffer.destination ?? "",
           landCostPerPax: confirmedOffer.landCostPerPax,

@@ -17,6 +17,7 @@ import type {
 } from "./portalViewTypes";
 import { approximateMarginLabel, money, notesPreview, strong } from "./portalWorkspaceListHelpers";
 import { DeleteButton, Panel, QueryFilesSummary, StatusBadge } from "./portalWorkspaceListUi";
+import { QueryHistoryControls } from "./QueryHistoryControls";
 
 type PortalContractingQueryRow = PortalQueryListRow;
 function ContractingJobCardHandoff({ row }: { row: PortalContractingQueryRow }) {
@@ -209,6 +210,8 @@ export function ContractingView({
   removeQuery,
   getFinalizedPdfUrl,
   getQueryAttachmentUrl,
+  historyScope = "active",
+  onHistoryScopeChange,
 }: ContractingViewProps) {
   useEffect(() => {
     if (!loading) {
@@ -233,6 +236,7 @@ export function ContractingView({
 
   return (
     <div className="space-y-5">
+      <QueryHistoryControls onScopeChange={onHistoryScopeChange} scope={historyScope} />
       {canAssign ? (
         <Panel title="Contracting team">
           <SelectableDataTable<PortalContractingTeamRow>
@@ -388,7 +392,7 @@ export function ContractingView({
             ),
           },
         ]}
-        empty="No contracting queries yet."
+        empty={historyScope === "lost" ? "No lost queries." : "No active contracting queries yet."}
         filtersActive={filtersActive}
         mobileCardRender={renderContractingMobileCard}
         rowAttention={contractingRowAttention}
