@@ -1,5 +1,5 @@
 import { anyApi } from "convex/server";
-import { fetchAuthAction } from "@/lib/auth-server";
+import { fetchAuthAction, getToken } from "@/lib/auth-server";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
 import { downloadPortalFile } from "@/lib/portal/file-download";
 import { portalFileErrorResponse, portalFileResponse } from "@/lib/portal/file-response";
@@ -12,9 +12,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ phot
       const { photoId } = await params;
       if (new URL(request.url).searchParams.get("inline") === "1") {
         try {
-          const file = await fetchAuthAction(anyApi.crm.travelerFeedbackActions.getPhotoThumbnail, {
-            photoId,
-          });
+          const token = await getToken();
+          if (!token) {
+            throw new Error("UNAUTHORIZED");
+          }
+          const file = await fetchAuthAction(
+            anyApi.crm.travelerFeedbackActions.getPhotoThumbnail,
+            { photoId },
+            { token }
+          );
           return portalFileResponse(file, { disposition: "inline" });
         } catch (error) {
           const response = portalFileErrorResponse(error);
