@@ -92,12 +92,16 @@ describe("Durable E2E ownership contract", () => {
       expect.arrayContaining([
         "convex/crm/commandReceipts.ts",
         "convex/crm/importProcessor.ts",
+        "convex/crm/externalTourManagerProfiles.ts",
         "convex/crm/passengerImportOperations.ts",
         "convex/crm/passengerImportReceipts.ts",
+        "convex/crm/postTourFeedback.ts",
         "convex/crm/proposalRelations.ts",
         "convex/crm/proposalWriteCommands.ts",
         "convex/crm/queryCreation.ts",
         "convex/crm/ticketCommands.ts",
+        "convex/crm/staffTravel.ts",
+        "convex/crm/travelerFeedback.ts",
       ])
     );
     const unownedInsertOwners = writeOwners.filter((relativePath) => {
@@ -135,6 +139,14 @@ describe("Durable E2E ownership contract", () => {
     expect(ownership).toContain("passengerExportSourceChunks: 100");
     expect(ownership).toContain("passengerImportOperationBatches: 110");
     expect(ownership).toContain("passengerImportOperations: 100");
+    expect(ownership).toContain("postTourFeedback: 90");
+    expect(ownership).toContain("postTourFeedbackPhotos: 100");
+    expect(ownership).toContain("externalTourManagerProfiles: 30");
+    expect(ownership).toContain("staffTravelPlans: 90");
+    expect(ownership).toContain("tourManagerAssignments: 90");
+    expect(ownership).toContain("travelerFeedbackPhotos: 100");
+    expect(ownership).toContain("travelerFeedbackRequests: 90");
+    expect(ownership).toContain("travelerFeedbackResponses: 95");
     expect(ownership).toContain("notificationEmailEventOrigins: 100");
     expect(ownership).toContain("crmImportBatches: 105");
     expect(ownership).toContain("customerJourneyEntitlements: 100");
@@ -178,6 +190,17 @@ describe("Durable E2E ownership contract", () => {
     expect(
       exportOperations.match(/authUserId: operation\.initiatedBy/g)?.length
     ).toBeGreaterThanOrEqual(3);
+  });
+
+  test("Owns feedback and photo writes through the authenticated actor passed by the image action", () => {
+    const feedback = readFileSync(join(ROOT, "convex/crm/postTourFeedback.ts"), "utf8");
+    const actions = readFileSync(join(ROOT, "convex/crm/postTourFeedbackActions.ts"), "utf8");
+    expect(feedback).not.toMatch(RAW_WRITE_PATTERN);
+    expect(feedback).toContain("insertWithE2eOwnership");
+    expect(feedback).toContain("patchWithE2eOwnership");
+    expect(feedback).toContain("{ authUserId: args.actorAuthUserId }");
+    expect(feedback).toContain("args.actorAuthUserId !== access.authUserId");
+    expect(actions).toContain("actorAuthUserId: uploadAccess.authUserId");
   });
 
   test("Registers fail-closed setup, teardown, and interrupted-run cleanup", () => {

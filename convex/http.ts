@@ -8,10 +8,21 @@ import {
 } from "./crm/documentPreviewHttp";
 import { assertE2eTargetIdentity, assertProvidedE2eSecret } from "./crm/lib/e2eAuth";
 import { enforcePortalFileDownloadLimit } from "./crm/lib/portalFileDownloadLimit";
+import { uploadPhoto } from "./crm/postTourFeedbackHttp";
+import {
+  travelerFeedbackForm,
+  travelerFeedbackPhoto,
+  travelerFeedbackSubmit,
+} from "./crm/travelerFeedbackHttp";
 import { CONVEX_E2E_DEPLOYMENT_SOURCE_HASH } from "./e2eDeploymentIdentity";
 import { isRuntimeString } from "./lib/runtimeValues";
 
 const http = httpRouter();
+http.route({ handler: travelerFeedbackForm, method: "POST", path: "/traveler-feedback/form" });
+http.route({ handler: travelerFeedbackSubmit, method: "POST", path: "/traveler-feedback/submit" });
+http.route({ handler: travelerFeedbackPhoto, method: "POST", path: "/traveler-feedback/photo" });
+
+http.route({ handler: uploadPhoto, method: "POST", path: "/post-tour-feedback/photo" });
 
 interface E2eRequestBody {
   runId: string;

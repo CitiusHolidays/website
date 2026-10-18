@@ -112,7 +112,9 @@ export function createOperationsModalCommands(deps) {
       const payload = {
         arrivingEarly: form.arrivingEarly === "Yes",
         biometricAppointmentDate: form.biometricAppointmentDate,
+        contactNo: form.contactNo,
         domesticTravelRequired: form.domesticTravelRequired === "Yes",
+        email: form.email,
         extensionOfTour: form.extensionOfTour === "Yes",
         foodPreference: form.foodPreference,
         fullName: form.fullName,
@@ -121,6 +123,8 @@ export function createOperationsModalCommands(deps) {
         guestCompanions: form.guestCompanions,
         guestType: form.guestType,
         hotelAllocation: form.hotelAllocation,
+        marketingConsent: form.marketingConsent || "not_recorded",
+        marketingConsentNote: form.marketingConsentNote || "",
         passportStatus: form.passportStatus,
         paymentType: form.paymentType,
         roomType: form.roomType,

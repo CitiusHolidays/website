@@ -64,6 +64,11 @@ const ROUTE_DEFINITIONS = {
     methods: ["GET"],
     responseMode: "binary",
   },
+  "/api/portal/files/post-tour/[photoId]": {
+    family: "staff-files",
+    methods: ["GET"],
+    responseMode: "binary",
+  },
   "/api/portal/files/proposal-finalized/[proposalId]": {
     family: "staff-files",
     methods: ["GET"],
@@ -78,6 +83,16 @@ const ROUTE_DEFINITIONS = {
     family: "staff-files",
     methods: ["GET"],
     responseMode: "binary",
+  },
+  "/api/portal/files/traveler-feedback/[photoId]": {
+    family: "staff-files",
+    methods: ["GET"],
+    responseMode: "binary",
+  },
+  "/api/portal/post-tour/photos": {
+    family: "staff-files",
+    methods: ["POST"],
+    responseMode: "json",
   },
   "/api/profile": {
     family: "account",
@@ -98,6 +113,11 @@ const ROUTE_DEFINITIONS = {
     family: "ai",
     methods: ["POST"],
     responseMode: "stream",
+  },
+  "/api/tour-feedback/[operation]": {
+    family: "engagement",
+    methods: ["POST"],
+    responseMode: "json",
   },
   "/api/verify-payment": {
     family: "payments",

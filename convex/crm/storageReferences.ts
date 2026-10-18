@@ -26,6 +26,10 @@ async function hasStorageReference(ctx: QueryCtx, storageId: Id<"_storage">) {
     passengerExport,
     passengerExportSourceChunk,
     documentPreviewArtifact,
+    postTourPhoto,
+    postTourThumbnail,
+    travelerPhoto,
+    travelerThumbnail,
   ] = await Promise.all([
     ctx.db
       .query("commercialFiles")
@@ -67,6 +71,22 @@ async function hasStorageReference(ctx: QueryCtx, storageId: Id<"_storage">) {
       .query("documentPreviewOperations")
       .withIndex("by_artifactStorageId", (q) => q.eq("artifactStorageId", storageId))
       .first(),
+    ctx.db
+      .query("postTourFeedbackPhotos")
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+      .first(),
+    ctx.db
+      .query("postTourFeedbackPhotos")
+      .withIndex("by_thumbnailStorageId", (q) => q.eq("thumbnailStorageId", storageId))
+      .first(),
+    ctx.db
+      .query("travelerFeedbackPhotos")
+      .withIndex("by_storageId", (q) => q.eq("storageId", storageId))
+      .first(),
+    ctx.db
+      .query("travelerFeedbackPhotos")
+      .withIndex("by_thumbnailStorageId", (q) => q.eq("thumbnailStorageId", storageId))
+      .first(),
   ]);
   return Boolean(
     commercial ||
@@ -78,7 +98,11 @@ async function hasStorageReference(ctx: QueryCtx, storageId: Id<"_storage">) {
       proposalPdf ||
       passengerExport ||
       passengerExportSourceChunk ||
-      documentPreviewArtifact
+      documentPreviewArtifact ||
+      postTourPhoto ||
+      postTourThumbnail ||
+      travelerPhoto ||
+      travelerThumbnail
   );
 }
 

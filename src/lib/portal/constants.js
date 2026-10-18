@@ -373,6 +373,11 @@ export const PORTAL_NAV_GROUPS = [
         permission: P.VIEW_JOB_CARDS,
         shortcutKey: "jobCards",
       },
+      {
+        href: "/portal/post-tour-feedback",
+        label: "Post-tour feedback",
+        page: "post-tour-feedback",
+      },
     ],
     label: "Job Cards",
   },
@@ -428,6 +433,12 @@ export const PORTAL_NAV_GROUPS = [
         permission: P.VIEW_OPERATIONS,
       },
       {
+        href: "/portal/external-tour-managers",
+        label: "External tour managers",
+        page: "external-tour-managers",
+        permission: P.VIEW_TOUR_MANAGERS,
+      },
+      {
         href: "/portal/tour-managers",
         label: "Tour Managers",
         page: "tour-managers",
@@ -463,6 +474,11 @@ export const PORTAL_NAV_GROUPS = [
         label: "Event Photo Booth",
         page: "event-photo-booth",
         permission: "event-photo-booth",
+      },
+      {
+        href: "/portal/travel-schedule",
+        label: "Travel schedule",
+        page: "travel-schedule",
       },
       {
         href: "/portal/employees-on-leave",

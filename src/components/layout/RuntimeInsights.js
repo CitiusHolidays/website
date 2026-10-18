@@ -1,6 +1,8 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { usePathname } from "next/navigation";
+import { Suspense } from "react";
 
 const Analytics = dynamic(
   () => import("@vercel/analytics/next").then((module) => module.Analytics),
@@ -12,11 +14,23 @@ const SpeedInsights = dynamic(
   { ssr: false }
 );
 
-export default function RuntimeInsights() {
+function RouteRuntimeInsights() {
+  const pathname = usePathname();
+  if (pathname === "/tour-feedback") {
+    return null;
+  }
   return (
     <>
       <Analytics />
       <SpeedInsights />
     </>
+  );
+}
+
+export default function RuntimeInsights() {
+  return (
+    <Suspense fallback={null}>
+      <RouteRuntimeInsights />
+    </Suspense>
   );
 }

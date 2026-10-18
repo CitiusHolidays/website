@@ -320,7 +320,9 @@ export interface PortalTravellerListRow {
   biometricAppointmentDate?: string;
   callingStatus?: string;
   clientName?: string;
+  contactNo?: string;
   domesticTravelRequired?: boolean;
+  email?: string;
   extensionOfTour?: boolean;
   foodPreference?: string;
   fullName: string;
@@ -332,6 +334,8 @@ export interface PortalTravellerListRow {
   id: Key;
   jobCardId?: string;
   jobCode?: string;
+  marketingConsent?: string;
+  marketingConsentNote?: string;
   notes?: string;
   passportExpiryDate?: string;
   passportStatus?: string;

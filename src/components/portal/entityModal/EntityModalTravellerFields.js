@@ -58,6 +58,48 @@ export function EntityModalTravellerFields({
             options={[{ label: "Select gender…", value: "" }, ...GENDER_OPTIONS]}
             value={form.gender}
           />
+          <fieldset className="col-span-full grid gap-4 rounded-[20px] border border-[#0B1026]/10 bg-[#FDFBF7] p-5 sm:grid-cols-2">
+            <legend className="px-1 font-heading text-base text-brand-dark">Guest contact</legend>
+            <Input
+              autoComplete="tel"
+              formField="contactNo"
+              label="Guest cell number"
+              onChange={updateForm}
+              placeholder="Include country code"
+              type="tel"
+              value={form.contactNo || ""}
+            />
+            <Input
+              autoComplete="email"
+              formField="email"
+              label="Guest email"
+              onChange={updateForm}
+              type="email"
+              value={form.email || ""}
+            />
+            <Select
+              formField="marketingConsent"
+              label="Promotional email permission"
+              onChange={updateForm}
+              options={[
+                { label: "Not recorded", value: "not_recorded" },
+                { label: "Guest explicitly opted in", value: "granted" },
+                { label: "Guest withdrew permission", value: "withdrawn" },
+              ]}
+              value={form.marketingConsent || "not_recorded"}
+            />
+            <Textarea
+              formField="marketingConsentNote"
+              label="Consent evidence or withdrawal note"
+              onChange={updateForm}
+              placeholder="Record how and when the guest gave permission. Required for opt-in."
+              value={form.marketingConsentNote || ""}
+            />
+            <p className="col-span-full font-sans text-brand-muted text-xs">
+              Use these details for thank-you drafts. Promotional emails need separate permission.
+              Saving a contact sends no email.
+            </p>
+          </fieldset>
           <Input
             formField="travelHub"
             label="Travel Hub"

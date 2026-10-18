@@ -182,6 +182,18 @@ export default function JobCardCommandCenter({ jobCardId }) {
         proposal={payload.proposal}
         query={payload.query}
       />
+      <section className="rounded-lg border border-brand-border bg-white p-4">
+        <h2 className="font-heading text-base text-brand-dark">Post-tour feedback</h2>
+        <p className="mt-1 text-brand-muted text-sm">
+          Read team feedback and share comments or photos after the tour.
+        </p>
+        <Link
+          className="mt-2 inline-flex min-h-11 items-center text-citius-blue text-sm underline"
+          href={`/portal/post-tour-feedback?jobCardId=${encodeURIComponent(jobCardId)}`}
+        >
+          Open feedback for {job.jobCode}
+        </Link>
+      </section>
       <JobCardReadinessMap sections={model.readinessSections} />
       <div className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
         <section className="rounded-lg border border-brand-border bg-white">

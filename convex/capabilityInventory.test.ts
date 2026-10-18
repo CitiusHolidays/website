@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "1651978ee23a6bfa2634385bde406899fdbb3a0e2ee1c9ae275f7b750d48af71";
+const EXPECTED_CAPABILITY_HASH = "5e0b037d76ac20ef88174d594341edd2d79e93b62fa3fcf3f863464a99b689fd";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -111,6 +111,138 @@ describe("Convex capability inventory", () => {
     const capabilities = discoverCapabilities();
     expect(capabilities.length).toBeGreaterThan(200);
     expect(capabilityHash(capabilities)).toBe(EXPECTED_CAPABILITY_HASH);
+  });
+
+  test("Classifies the staff travel schedule and external tour-manager directory as staff product capabilities", () => {
+    const capabilities = discoverCapabilities();
+    const travel = capabilities.filter(
+      ({ module }) => module === "crm/staffTravel" || module === "crm/externalTourManagerProfiles"
+    );
+    expect(travel).toHaveLength(14);
+    expect(travel.every(({ classification }) => classification === "public-product")).toBe(true);
+    for (const [module, names] of [
+      ["crm/staffTravel", ["create", "update", "cancel"]],
+      ["crm/externalTourManagerProfiles", ["create", "update"]],
+    ] as const) {
+      for (const name of names) {
+        expect(travel).toContainEqual({
+          classification: "public-product",
+          kind: "mutation",
+          module,
+          name,
+        });
+      }
+    }
+  });
+
+  test("Classifies staff feedback endpoints as product capabilities and storage helpers as internal", () => {
+    const capabilities = discoverCapabilities();
+    const feedback = capabilities.filter(
+      ({ module }) => module === "crm/postTourFeedback" || module === "crm/postTourFeedbackActions"
+    );
+    expect(feedback).toHaveLength(13);
+    for (const [name, kind] of [
+      ["list", "query"],
+      ["listJobs", "query"],
+      ["getJobContext", "query"],
+      ["create", "mutation"],
+      ["update", "mutation"],
+      ["remove", "mutation"],
+      ["removePhoto", "mutation"],
+    ]) {
+      expect(feedback).toContainEqual({
+        classification: "public-product",
+        kind,
+        module: "crm/postTourFeedback",
+        name,
+      });
+    }
+    for (const name of ["getPhotoFile", "getPhotoThumbnail"]) {
+      expect(feedback).toContainEqual({
+        classification: "public-product",
+        kind: "action",
+        module: "crm/postTourFeedbackActions",
+        name,
+      });
+    }
+    for (const [name, kind] of [
+      ["verifyPhotoUpload", "internalQuery"],
+      ["savePhoto", "internalMutation"],
+      ["photoRecord", "internalQuery"],
+    ]) {
+      expect(feedback).toContainEqual({
+        classification: "internal",
+        kind,
+        module: "crm/postTourFeedback",
+        name,
+      });
+    }
+    expect(feedback).toContainEqual({
+      classification: "internal",
+      kind: "internalAction",
+      module: "crm/postTourFeedbackActions",
+      name: "validateAndSavePhoto",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "internal",
+      kind: "internalMutation",
+      module: "crm/rateLimitMaintenance",
+      name: "consumePostTourMediaRead",
+    });
+  });
+
+  test("Classifies scoped traveller feedback functions separately from private storage helpers", () => {
+    const capabilities = discoverCapabilities();
+    const feedback = capabilities.filter(({ module }) => module.startsWith("crm/travelerFeedback"));
+    expect(feedback).toHaveLength(14);
+    for (const name of ["listRequests", "getRequestAccess", "listResponses"]) {
+      expect(feedback).toContainEqual({
+        classification: "public-product",
+        kind: "query",
+        module: "crm/travelerFeedback",
+        name,
+      });
+    }
+    for (const name of ["createRequest", "getPhotoFile", "getPhotoThumbnail"]) {
+      expect(feedback).toContainEqual({
+        classification: "public-product",
+        kind: "action",
+        module: "crm/travelerFeedbackActions",
+        name,
+      });
+    }
+    for (const name of [
+      "issueRequest",
+      "openForm",
+      "submitResponse",
+      "authorizePhoto",
+      "savePhoto",
+    ]) {
+      expect(feedback).toContainEqual({
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/travelerFeedback",
+        name,
+      });
+    }
+    expect(feedback).toContainEqual({
+      classification: "internal",
+      kind: "internalQuery",
+      module: "crm/travelerFeedback",
+      name: "photoRecord",
+    });
+    expect(feedback).toContainEqual({
+      classification: "public-product",
+      kind: "mutation",
+      module: "crm/travelerFeedback",
+      name: "revokeRequest",
+    });
+    expect(feedback).toContainEqual({
+      classification: "internal",
+      kind: "internalAction",
+      module: "crm/travelerFeedbackActions",
+      name: "normalizeAndSavePhoto",
+    });
   });
 
   test("Classifies document preview access as public product and preparation as internal", () => {

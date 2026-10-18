@@ -27,7 +27,11 @@ const roleExpectations = JSON.parse(
 );
 
 function pagesForRoles(roles) {
-  return getAccessibleNavGroups({ permissions: getPermissionsForRoles(roles), roles })
+  return getAccessibleNavGroups({
+    allowed: true,
+    permissions: getPermissionsForRoles(roles),
+    roles,
+  })
     .flatMap((group) => group.items)
     .map((item) => item.page);
 }

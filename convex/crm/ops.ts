@@ -4,6 +4,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
 import type { RuntimeObject } from "../lib/runtimeValues";
+import { getExternalTourManagerProfile } from "./externalTourManagerProfiles";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   assertBulkDeleteMutationBatch,
@@ -19,6 +20,7 @@ import {
   requireHeadOrAdmin,
   requireStaff,
 } from "./lib";
+import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import {
   deletedCountResultValidator,
   hotelIdResultValidator,
@@ -332,6 +334,7 @@ export const listTourManagers = query({
         createdAt: new Date(row.createdAt).toISOString(),
         currentTour: job?.clientName ?? "",
         email: row.email ?? "",
+        externalProfileId: row.externalProfileId ?? null,
         id: row._id,
         jobCardId: row.jobCardId ?? null,
         jobCode: job?.jobCode ?? "",
@@ -352,6 +355,7 @@ export const listTourManagers = query({
 
 interface ResolvedTourManagerIdentity {
   email: string;
+  externalProfileId?: Id<"externalTourManagerProfiles">;
   name: string;
   phone: string;
   staffId: Id<"staffUsers"> | null;
@@ -360,6 +364,7 @@ interface ResolvedTourManagerIdentity {
 interface CreateTourManagerArgs {
   availabilityDate?: string;
   email?: string;
+  externalProfileId?: string;
   jobCardId?: string;
   name: string;
   notes?: string;
@@ -373,6 +378,7 @@ interface UpdateTourManagerArgs {
   availabilityDate?: string;
   callingStatus?: "Done" | "No response" | "Pending";
   email?: string;
+  externalProfileId?: string;
   jobCardId?: string;
   languages?: string[];
   name?: string;
@@ -385,7 +391,23 @@ interface UpdateTourManagerArgs {
   travelBatchId?: string;
 }
 
-async function resolveTourManagerIdentity(ctx: MutationCtx, args: CreateTourManagerArgs) {
+async function resolveTourManagerIdentity(
+  ctx: MutationCtx,
+  args: CreateTourManagerArgs
+): Promise<ResolvedTourManagerIdentity> {
+  if (args.externalProfileId) {
+    if (args.staffId) {
+      throw new ConvexError("Choose either a staff tour manager or an external profile");
+    }
+    const profile = await getExternalTourManagerProfile(ctx, args.externalProfileId, true);
+    return {
+      email: profile.email,
+      externalProfileId: profile._id,
+      name: profile.name,
+      phone: profile.phone,
+      staffId: null,
+    };
+  }
   const fallback: ResolvedTourManagerIdentity = {
     email: args.email?.trim() || "",
     name: args.name.trim(),
@@ -433,6 +455,32 @@ async function resolveTourManagerAssignment(
     jobCardId,
     travelBatch: await getValidatedTravelBatch(ctx, args.travelBatchId, jobCardId),
   };
+}
+
+async function assertUniqueExternalAssignment(
+  ctx: MutationCtx,
+  externalProfileId: Id<"externalTourManagerProfiles"> | undefined,
+  jobCardId: Id<"jobCards"> | null | undefined,
+  travelBatchId: Id<"travelBatches"> | undefined,
+  existingId?: Id<"tourManagerAssignments">
+) {
+  if (!(externalProfileId && jobCardId)) {
+    return;
+  }
+  const matches = await ctx.db
+    .query("tourManagerAssignments")
+    .withIndex("by_externalProfileId_and_jobCardId_and_travelBatchId", (q) =>
+      q
+        .eq("externalProfileId", externalProfileId)
+        .eq("jobCardId", jobCardId)
+        .eq("travelBatchId", travelBatchId)
+    )
+    .take(2);
+  if (matches.some((assignment) => assignment._id !== existingId)) {
+    throw new ConvexError(
+      "This external tour manager is already linked to this Job Card and travel series. Update the existing assignment."
+    );
+  }
 }
 
 async function notifyTourManagerCreated(
@@ -490,32 +538,48 @@ export async function createTourManagerForTest(
   args: CreateTourManagerArgs,
   access: PortalAccess
 ) {
-  const { email, name, phone, staffId } = await resolveTourManagerIdentity(ctx, args);
+  const { email, externalProfileId, name, phone, staffId } = await resolveTourManagerIdentity(
+    ctx,
+    args
+  );
   const { jobCardId, travelBatch } = await resolveTourManagerAssignment(ctx, access, args);
+  await assertUniqueExternalAssignment(ctx, externalProfileId, jobCardId, travelBatch?._id);
   const now = Date.now();
-  const id = await ctx.db.insert("tourManagerAssignments", {
-    availabilityDate: args.availabilityDate || "",
-    callingStatus: "Pending",
-    createdAt: now,
-    createdBy: access.authUserId ?? "unknown",
-    email,
-    jobCardId: jobCardId ?? undefined,
-    languages: [],
-    name,
-    notes: args.notes?.trim() || "",
-    phone,
-    reportingInstructions: args.reportingInstructions?.trim() || "",
-    staffId: staffId ?? undefined,
-    status: jobCardId ? "Assigned" : "Available",
-    travelBatchId: travelBatch?._id,
-    updatedAt: now,
-  });
-  if (jobCardId) {
-    await ctx.db.patch("jobCards", jobCardId, {
-      tourManagerId: id,
-      tourManagerName: name,
+  const id = await insertWithE2eOwnership(
+    ctx,
+    "tourManagerAssignments",
+    {
+      availabilityDate: args.availabilityDate || "",
+      callingStatus: "Pending",
+      createdAt: now,
+      createdBy: access.authUserId ?? "unknown",
+      email,
+      externalProfileId,
+      jobCardId: jobCardId ?? undefined,
+      languages: [],
+      name,
+      notes: args.notes?.trim() || "",
+      phone,
+      reportingInstructions: args.reportingInstructions?.trim() || "",
+      staffId: staffId ?? undefined,
+      status: jobCardId ? "Assigned" : "Available",
+      travelBatchId: travelBatch?._id,
       updatedAt: now,
-    });
+    },
+    { authUserId: access.authUserId }
+  );
+  if (jobCardId) {
+    await patchWithE2eOwnership(
+      ctx,
+      "jobCards",
+      jobCardId,
+      {
+        tourManagerId: id,
+        tourManagerName: name,
+        updatedAt: now,
+      },
+      { authUserId: access.authUserId }
+    );
     await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
   }
   await notifyTourManagerCreated(ctx, {
@@ -534,6 +598,7 @@ export const createTourManager = mutation({
   args: {
     availabilityDate: v.optional(v.string()),
     email: v.optional(v.string()),
+    externalProfileId: v.optional(v.string()),
     jobCardId: v.optional(v.string()),
     name: v.string(),
     notes: v.optional(v.string()),
@@ -637,31 +702,82 @@ function resolveUpdatedTourManagerBatch(
   return null;
 }
 
+async function resolveUpdatedExternalProfile(
+  ctx: MutationCtx,
+  args: UpdateTourManagerArgs,
+  existing: Doc<"tourManagerAssignments">,
+  patch: RuntimeObject,
+  jobCardId: Id<"jobCards"> | undefined,
+  travelBatchId: Id<"travelBatches"> | undefined
+) {
+  if (args.externalProfileId && args.staffId) {
+    throw new ConvexError("Choose either a staff tour manager or an external profile");
+  }
+  let rawId: string | undefined = existing.externalProfileId;
+  if (args.externalProfileId !== undefined) {
+    rawId = args.externalProfileId || undefined;
+  } else if (args.staffId) {
+    rawId = undefined;
+  }
+  if (!rawId) {
+    if (args.externalProfileId !== undefined || args.staffId) {
+      patch.externalProfileId = undefined;
+    }
+    return;
+  }
+  const newlyAssigned =
+    rawId !== existing.externalProfileId ||
+    Boolean(
+      jobCardId && (jobCardId !== existing.jobCardId || travelBatchId !== existing.travelBatchId)
+    ) ||
+    (args.status === "Assigned" && existing.status !== "Assigned");
+  const profile = await getExternalTourManagerProfile(ctx, rawId, newlyAssigned);
+  patch.externalProfileId = profile._id;
+  patch.staffId = undefined;
+  patch.name = profile.name;
+  patch.email = profile.email;
+  patch.phone = profile.phone;
+  return profile._id;
+}
+
 async function syncTourManagerJobLinks(
   ctx: MutationCtx,
   id: Id<"tourManagerAssignments">,
   tourManager: Doc<"tourManagerAssignments">,
   jobCardId: Id<"jobCards"> | undefined,
   name: string,
-  now: number
+  now: number,
+  access: PortalAccess
 ) {
   if (tourManager.jobCardId && tourManager.jobCardId !== jobCardId) {
     const previousJob = await ctx.db.get("jobCards", tourManager.jobCardId);
     if (previousJob?.tourManagerId === id) {
-      await ctx.db.patch("jobCards", tourManager.jobCardId, {
-        tourManagerId: undefined,
-        tourManagerName: "",
-        updatedAt: now,
-      });
+      await patchWithE2eOwnership(
+        ctx,
+        "jobCards",
+        tourManager.jobCardId,
+        {
+          tourManagerId: undefined,
+          tourManagerName: "",
+          updatedAt: now,
+        },
+        { authUserId: access.authUserId }
+      );
       await scheduleCrmMetricSync(ctx, "jobCards", String(tourManager.jobCardId));
     }
   }
   if (jobCardId) {
-    await ctx.db.patch("jobCards", jobCardId, {
-      tourManagerId: id,
-      tourManagerName: name,
-      updatedAt: now,
-    });
+    await patchWithE2eOwnership(
+      ctx,
+      "jobCards",
+      jobCardId,
+      {
+        tourManagerId: id,
+        tourManagerName: name,
+        updatedAt: now,
+      },
+      { authUserId: access.authUserId }
+    );
     await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
   }
 }
@@ -769,7 +885,7 @@ export async function updateTourManagerForTest(
   const now = Date.now();
   const patch: RuntimeObject = { updatedAt: now };
   addTourManagerUpdateFields(patch, args);
-  const staffId = await resolveUpdatedTourManagerStaff(ctx, args, tourManager, patch);
+  let staffId = await resolveUpdatedTourManagerStaff(ctx, args, tourManager, patch);
   const jobCardId = await resolveUpdatedTourManagerJob(ctx, access, args, tourManager, patch);
   const travelBatch = await resolveUpdatedTourManagerBatch(
     ctx,
@@ -780,11 +896,25 @@ export async function updateTourManagerForTest(
   if (args.travelBatchId !== undefined || args.jobCardId !== undefined) {
     patch.travelBatchId = travelBatch?._id;
   }
+  const externalProfileId = await resolveUpdatedExternalProfile(
+    ctx,
+    args,
+    tourManager,
+    patch,
+    jobCardId,
+    travelBatch?._id
+  );
+  if (externalProfileId) {
+    staffId = undefined;
+  }
+  await assertUniqueExternalAssignment(ctx, externalProfileId, jobCardId, travelBatch?._id, id);
 
   const name = String(patch.name ?? tourManager.name).trim();
-  await ctx.db.patch("tourManagerAssignments", id, patch);
+  await patchWithE2eOwnership(ctx, "tourManagerAssignments", id, patch, {
+    authUserId: access.authUserId,
+  });
 
-  await syncTourManagerJobLinks(ctx, id, tourManager, jobCardId, name, now);
+  await syncTourManagerJobLinks(ctx, id, tourManager, jobCardId, name, now, access);
   await notifyTourManagerUpdated(ctx, {
     access,
     args,
@@ -805,6 +935,7 @@ export const updateTourManager = mutation({
       v.union(v.literal("Pending"), v.literal("Done"), v.literal("No response"))
     ),
     email: v.optional(v.string()),
+    externalProfileId: v.optional(v.string()),
     jobCardId: v.optional(v.string()),
     languages: v.optional(v.array(v.string())),
     name: v.optional(v.string()),

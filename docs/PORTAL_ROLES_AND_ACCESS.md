@@ -29,6 +29,14 @@ explicit director override actions described below.
 | Contracting / Operations / Sales Cement | Cement and Cement Bidding work in the matching department. | Base Cement roles receive query-type record scope. |
 | Director Cement | Director overrides for Cement operations. | Uses the restricted director permission set and currently bypasses Cement query-type filtering. |
 
+Post-tour feedback is a staff-wide read exception: active provisioned staff can
+read reports, their photos, and limited JC context. It grants no full JC or
+traveller-contact access. Assigned tour managers create entries; authors retain
+edit/delete access while assigned; Admin and director roles can moderate.
+Guest contacts retain existing traveller permissions and JC scope. See
+[post-tour feedback and guest contacts](POST_TOUR_FEEDBACK.md) for the precise
+upload, privacy, consent and release rules.
+
 ## Permission rules
 
 - `Admin` and `Directors` each receive every current permission.
@@ -104,3 +112,7 @@ Delivery oversight is a separate permission, `view:emailDeliveryStatus`. Departm
 Directors, and Director Cement can see privacy-safe queued/retry/sent/exhausted counts in Activity;
 recipient addresses and provider response bodies are never exposed. Base department roles do not
 inherit this summary surface.
+
+## Travel visibility and traveller feedback
+
+Active staff can view shared travel plans and safe post-tour traveller responses. JC links in travel retain ordinary JC scope. Staff manage their own travel; HR, Operations Head and directors/admins manage others. External tour-manager contacts retain VIEW_TOUR_MANAGERS; Operations Head and directors/admins maintain them. Feedback request creation/revocation requires ordinary JC scope plus an existing management permission. Public feedback links grant submission only, without staff, Account or Journey access. See [Team travel](TEAM_TRAVEL.md) and [Traveller feedback](TRAVELER_FEEDBACK.md).

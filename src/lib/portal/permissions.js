@@ -56,6 +56,9 @@ export function canAccessInboundLeads(access) {
 }
 
 function navItemAllowed(access, item, eventPhotoBooth) {
+  if (item.page === "post-tour-feedback" || item.page === "travel-schedule") {
+    return Boolean(access?.allowed);
+  }
   if (item.page === "event-photo-booth") {
     return Boolean(access?.allowed && eventPhotoBooth?.canManage);
   }
@@ -78,6 +81,9 @@ export function getAccessibleNavGroups(access, eventPhotoBooth) {
 
 /** @param {import("../eventPhotoBooth/contracts").BoothAccess | undefined} [eventPhotoBooth] */
 export function canAccessPage(access, page, eventPhotoBooth) {
+  if (page === "post-tour-feedback" || page === "travel-schedule") {
+    return Boolean(access?.allowed);
+  }
   if (page === "event-photo-booth") {
     return Boolean(access?.allowed && eventPhotoBooth?.canManage);
   }

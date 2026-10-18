@@ -174,6 +174,12 @@ Import behavior:
 
 ## Traveller and passenger data
 
+The traveller editor supports private guest cell numbers and email addresses,
+manual thank-you email drafts, and separately recorded promotional permission.
+The Job Card links to categorized post-tour comments and private photos that
+all active staff can read. Assigned tour managers submit their own entries.
+See [post-tour feedback and guest contacts](POST_TOUR_FEEDBACK.md).
+
 Traveller master and aligned lists filter by Job Card. They are not unscoped all-passenger views.
 
 Traveller master includes gender (`Male` or `Female`) and passport expiry. Passport expiry display should use the same resolved date as exports, with critical/warning countdowns when expiry blocks or nears blocking travel relative to job start.
@@ -301,3 +307,7 @@ Current ordering principles:
 - Confirm dialogs stay above toasts.
 
 The command palette result list scrolls and skips open/close animation. Sidebar shortcut submenus must stay closable even on the active route, and the sidebar must scroll when nav is expanded so the mod-key footer hint never overlaps open menus.
+
+## Travel visibility and traveller feedback
+
+Active staff can view shared travel plans and safe post-tour traveller responses. JC links in travel retain ordinary JC scope. Staff manage their own travel; HR, Operations Head and directors/admins manage others. External tour-manager contacts retain VIEW_TOUR_MANAGERS; Operations Head and directors/admins maintain them. Feedback request creation/revocation requires ordinary JC scope plus an existing management permission. Public feedback links grant submission only, without staff, Account or Journey access. See [Team travel](TEAM_TRAVEL.md) and [Traveller feedback](TRAVELER_FEEDBACK.md).

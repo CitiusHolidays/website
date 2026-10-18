@@ -1,5 +1,6 @@
 import { paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
+import { marketingConsentValidator } from "../lib/guestContacts";
 import { roomTypeValidator } from "../lib/roomTypeValidators";
 
 const isoDateTimeValidator = v.string();
@@ -27,8 +28,10 @@ export const travellerOutputValidator = v.object({
   callingStatus: callingStatusValidator,
   cancellation: v.boolean(),
   clientName: v.string(),
+  contactNo: v.string(),
   createdAt: isoDateTimeValidator,
   domesticTravelRequired: v.boolean(),
+  email: v.string(),
   extensionOfTour: v.boolean(),
   foodPreference: foodPreferenceValidator,
   fullName: v.string(),
@@ -42,6 +45,10 @@ export const travellerOutputValidator = v.object({
   jobCardId: v.id("jobCards"),
   jobCode: v.string(),
   lastMinuteDrop: v.boolean(),
+  marketingConsent: marketingConsentValidator,
+  marketingConsentNote: v.string(),
+  marketingConsentRecordedAt: v.union(v.number(), v.null()),
+  marketingConsentRecordedBy: v.string(),
   passportExpiryDate: v.string(),
   passportStatus: v.string(),
   paymentType: paymentTypeValidator,
@@ -162,6 +169,7 @@ export const tourManagerOutputValidator = v.object({
   createdAt: isoDateTimeValidator,
   currentTour: v.string(),
   email: v.string(),
+  externalProfileId: v.union(v.id("externalTourManagerProfiles"), v.null()),
   id: v.id("tourManagerAssignments"),
   jobCardId: v.union(v.id("jobCards"), v.null()),
   jobCode: v.string(),
