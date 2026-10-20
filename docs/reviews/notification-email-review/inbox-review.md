@@ -52,7 +52,9 @@ The only approved preview manifest binds an older frontend revision and a differ
 
 A stopped loopback backend was also found, but it has no approved local target binding and its data is unclassified. The configured development backend is hosted. The test guard does not permit pairing a loopback frontend with that hosted backend as a local test target. Neither backend was started or modified.
 
-Signed-in acceptance needs a matching, accessible non-production frontend and backend. A supported local route would require separately approved preparation of an isolated loopback backend, deployment of this PR's functions and schema, binding both runtimes to the exact revision, and the designated test-account fixture and cleanup lifecycle. An isolated preview would also need deployment and access approval. Those operations have not been performed. Existing account authorization alone does not establish that production runs this unmerged PR.
+GitHub subsequently reported an automatic Preview deployment for gallery commit `e87c6860fcf10f6470a11c4874a99e507d24fb83`. Its read-only identity endpoint also reached "You Need Access" in the Mac browser. This discovery narrows the next step to approved access to that existing Preview, followed by verification of its frontend revision, backend fingerprint and isolated test-account setup. A new frontend deployment is not established as necessary. Whether backend deployment or fixture setup is needed remains unknown until those identities can be read. No access request or settings change was made.
+
+A supported local alternative would require separately approved preparation of an isolated loopback backend, PR function/schema deployment, exact revision binding, and the designated test-account fixture and cleanup lifecycle. That is a fallback, not a prerequisite established by this review. Existing account authorization alone does not establish that production runs this unmerged PR.
 
 ## Pictures and evidence coverage
 

@@ -108,13 +108,23 @@
     "approvedBindingMatchesCandidate": false,
     "identityNavigationResult": "Read-only frontend identity navigation in the Mac browser reached Vercel You Need Access. Current remote runtime identity remains unverified.",
     "localDiscovery": "Stopped existing loopback backend, no approved local binding, unclassified data. Configured dev backend is hosted; mixed loopback/hosted test pairing is rejected by existing guards.",
-    "requiredNextStep": "Separately approve an isolated local frontend/backend target and PR schema/function deployment plus designated test fixture/cleanup lifecycle, or a matching isolated preview deployment and access. Do not bypass identity or access guards.",
+    "requiredNextStep": "Approve access to the existing automatic current-PR Preview, preserving protection, then read-only verification of its exact frontend/backend identities and existing test-account setup. New deployment or provisioning is not yet established as necessary. A separately approved isolated local backend is an alternative.",
     "credentialsEntered": false,
     "accessRequestSent": false,
     "seedExecuted": false,
     "businessMutationExecuted": false,
     "backendStartedOrModified": false,
-    "productionTested": false
+    "productionTested": false,
+    "existingAutomaticPreview": {
+      "githubDeploymentId": 7213634051,
+      "githubReportedRevision": "e87c6860fcf10f6470a11c4874a99e507d24fb83",
+      "githubEnvironment": "Preview",
+      "githubStatus": "success",
+      "macIdentityNavigation": "You Need Access",
+      "runtimeIdentityVerified": false,
+      "backendIdentityVerified": false,
+      "manualDeploymentPerformed": false
+    }
   },
   "privacy": "Only fictional data and example.invalid identifiers in page crops. Full native screenshots remain ignored because browser chrome may contain private information. Protected-preview screenshot excluded.",
   "cleanup": {
