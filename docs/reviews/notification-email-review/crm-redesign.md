@@ -116,6 +116,8 @@ Dashboard, inbound/event tools and other routes inherit the CRM shell where used
 
 ## Verification and limits
 
+The [current inbox gallery](inbox-review.md) adds desktop and phone pictures from the Mac browser, including Unread/All, the bell and failure states. It also records the existing test-account discovery and the inaccessible, mismatched preview binding. No current signed-in target acceptance is claimed.
+
 [Browser evidence](crm-browser-evidence.json) identifies current image hashes and substitutes. The [loading state](crm/queries-loading-1440.jpg), [empty state](crm/queries-empty-1440.jpg) and failed-save pictures are distinct. Earlier before pictures use the pre-redesign components; some have fewer sample rows than the populated final pictures. Compare composition, not those sample business outcomes.
 
 [Six controlled mutations](crm-mutation-evidence.json) caught stale server acknowledgement, missing real-publisher projection, a moving client snapshot, enabled pending checkboxes, missing Job Card prefill and a lost Proposal revision. Every original file was restored byte-for-byte and its focused suite passed afterward. These are separate from the four earlier U01 to U05 mutations and ordinary passing tests.

@@ -2,8 +2,8 @@
 
 Please review these items before this draft can move forward.
 
-1. Start with the [illustrated site usability review](site-usability.md). U01 to U05 cover Staff lists, Account editing, Contact and Services. Its coverage map records checked, changed, unchanged and limited areas across all 59 routes.
-2. Check that the inbox and emails give staff the information they need.
+1. Start with the [new inbox gallery](inbox-review.md). It shows Unread/All, the bell, phone layouts, empty/loading/error states and staff/Admin examples from the Mac browser. Its signed-in target check explains the current blocker.
+2. Review the [CRM redesign](crm-redesign.md) and [site usability changes](site-usability.md). Their pictures and coverage map distinguish changed, unchanged and limited areas across all 59 routes.
 3. Check each recipient rule below. Every rule has a short ID so you can request a precise change, for example, "R04: also notify the Sales Head."
 4. Check that confirmed decisions D01 to D03 match your instructions. You can request a change using the decision or rule ID.
 
@@ -16,6 +16,10 @@ The site usability pass reuses the existing Staff toolbar and forms. Staff can c
 The bell and Notifications page share the same inbox. Staff choose Unread or All, then open an update to view the work. Temporary email failures recover automatically. Business stages, responsible roles, permissions, approvals, calculations and payments retain their existing meaning.
 
 ## The staff inbox
+
+The [current inbox gallery](inbox-review.md) has refreshed desktop and phone pictures plus the exact limits of the Mac browser checks.
+
+![Current desktop notification inbox](inbox/inbox-unread-desktop.png)
 
 Staff open the bell or Notifications, choose Unread or All, and open an update to view the work. Opening the bell or switching filters does not mark anything read. Opening one update marks only that update read. Later arrivals stay unread.
 
@@ -185,7 +189,7 @@ Controlled source mutations separately remove lease protection, immutable-conten
 
 The final PR records the exact revision, full local gates and hosted result. Target-neutral checks do not prove deployment. Target-aware code generation, schema deployment and authenticated workflow checks remain subject to the repository release process.
 
-Effect remains limited to existing orchestration uses under ADR 0004 and pinned Effect 4.0.0-rc.109. Rat Stack is a version-aware reference. The production-test runner now completes bounded asynchronous cleanup during interruption and catches construction defects. Next.js, Convex, auth, approvals, payments and deployment architecture remain in place.
+Effect remains limited to existing orchestration uses under ADR 0004 and is pinned to 4.0.5. Rat Stack is a version-aware reference. The production-test runner now completes bounded asynchronous cleanup during interruption and catches construction defects. Next.js, Convex, auth, approvals, payments and deployment architecture remain in place.
 
 ### Business sources
 

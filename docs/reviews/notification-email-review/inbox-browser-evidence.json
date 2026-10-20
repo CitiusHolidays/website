@@ -1,0 +1,249 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-10-20",
+  "sourceRevision": "61c5563f95a010e6d02ce99b50985acf7659b77d",
+  "applicationRevision": "59b488628b3ecfd7273924e6ea95afb637038e58",
+  "scope": "Actual current Citius components in the native Helium browser on the user Mac. Local component review only, with synthetic accounts and records. No signed-in, native Next server, deployed backend, destination authorization, provider or production acceptance.",
+  "localOrigin": "http://127.0.0.1:4177",
+  "browser": "Helium on macOS, operated through CUA native controls",
+  "substitutes": [
+    "Sign-in and role identity",
+    "Convex subscriptions and mutations",
+    "Next router, link and image adapter",
+    "Email-status response"
+  ],
+  "sources": [
+    {
+      "path": "src/components/portal/NotificationInbox.tsx",
+      "sha256": "54d07c2bd66edaf06457fb1dc7cd0302d438e2030147ee9ce469392705cd9cb4"
+    },
+    {
+      "path": "src/components/portal/PortalShell.tsx",
+      "sha256": "08b65f395192069f0d83eb1689a6b4e83bca35a1db1af04c4ac813aa02eae6b1"
+    },
+    {
+      "path": "src/components/portal/workspace/admin/ActivityView.tsx",
+      "sha256": "7d07e4d8e7b113d0715c99d9e6847a769dc79bf91f0aaef39f9207156bf41afd"
+    },
+    {
+      "path": "src/components/portal/workspace/PortalWorkspaceHeader.tsx",
+      "sha256": "ff91e4adaff88d4b6933543d85da88ae6d0a7766ad3daca78870a2db505f3ffe"
+    }
+  ],
+  "ignoredLocalFixtureSources": [
+    {
+      "path": ".scratch/notification-overhaul/ui-review/main.tsx",
+      "sha256": "e3db42a7c27e0741f56fd6819f6ebd744351117ee8e795ca64e375c0f7be3b06"
+    },
+    {
+      "path": ".scratch/notification-overhaul/ui-review/runtime.tsx",
+      "sha256": "60b5d0948ddd5b2587c19a65aa4a4e4669cf4168afbbfbca7635eab01a4b2549"
+    },
+    {
+      "path": ".scratch/notification-overhaul/ui-review/navigation.ts",
+      "sha256": "2023d107c5554c64501a0ddaada996ba6fe02b009425a049985b050a1867fca2"
+    },
+    {
+      "path": ".scratch/notification-overhaul/ui-review/api.ts",
+      "sha256": "95dadf7bedbda4680d88a54ec680afa91f519739a410842a18d82c8e8386e279"
+    },
+    {
+      "path": ".scratch/notification-overhaul/ui-review/auth.ts",
+      "sha256": "febecfa1e04a53a1f75666191c0ef04f51442770b88ead3ca9345fb39fd06713"
+    },
+    {
+      "path": ".scratch/notification-overhaul/ui-review/vite.config.mjs",
+      "sha256": "1fc4632ba811a1bac7cc803712393f991c62e017bc3e61108a9f4bb3271e09f1"
+    }
+  ],
+  "observations": [
+    {
+      "case": "All preserves unread",
+      "method": "Native controls and visible review output",
+      "observed": "Unread 2, read actions 0 before and after selecting All; four rows visible."
+    },
+    {
+      "case": "Selected activation",
+      "method": "Native controls and visible review output",
+      "observed": "Only Contracting assignment changed to read; unread 1; read actions 1; requested route /portal/queries?open=query&id=demo-query.",
+      "limit": "Router substitute records the request; destination loading and authorization were not tested."
+    },
+    {
+      "case": "Later arrival",
+      "method": "Visible synthetic Add update control",
+      "observed": "Unread became 2 while read actions stayed 1. Existing item read state remained."
+    },
+    {
+      "case": "Bell consistency",
+      "method": "Native bell control and visible review output",
+      "observed": "Bell and page showed unread 2; opening the bell left read actions at 1."
+    },
+    {
+      "case": "Rejected read",
+      "method": "Native activation with synthetic rejected mutation and supplied existing error banner",
+      "observed": "Both rows remained unread; unread 2.",
+      "limit": "This supplies the error prop. It does not prove a deployed transport generates the banner."
+    },
+    {
+      "case": "State presentation",
+      "method": "Native rendered page and screenshots",
+      "observed": "No history, unread-empty with read history, and loading have distinct presentations."
+    },
+    {
+      "case": "Role presentation",
+      "method": "Native rendered page and screenshots",
+      "observed": "Ordinary Contracting and Ticketing have no delivery panel; Admin has a separate sample accepted/retrying panel.",
+      "limit": "Per-role seeded lists do not prove server recipient separation. Prior registered backend suites provide separate evidence."
+    }
+  ],
+  "signedInAcceptance": {
+    "status": "blocked; not run",
+    "existingDesignatedProfilesFound": true,
+    "existingPasswordSettingsFound": true,
+    "savedRoleSessionFilesFound": true,
+    "secretValuesOrSessionContentsPublished": false,
+    "approvedPreviewRevision": "b3748ae6104d69e463125bcf70ffc37e8736a89d",
+    "approvedPreviewConvexSourceHash": "e8126fb0dcc3d9725e6e765c39b25c021f18dfa327ecbe9e2800dbae25b8fa0a",
+    "candidateConvexSourceHash": "f8c21c3663a1859618e70a2091d97ccb90f28e10cc35175c616b64ad2d2d4c78",
+    "approvedBindingMatchesCandidate": false,
+    "identityNavigationResult": "Read-only frontend identity navigation in the Mac browser reached Vercel You Need Access. Current remote runtime identity remains unverified.",
+    "localDiscovery": "Stopped existing loopback backend, no approved local binding, unclassified data. Configured dev backend is hosted; mixed loopback/hosted test pairing is rejected by existing guards.",
+    "requiredNextStep": "Separately approve an isolated local frontend/backend target and PR schema/function deployment plus designated test fixture/cleanup lifecycle, or a matching isolated preview deployment and access. Do not bypass identity or access guards.",
+    "credentialsEntered": false,
+    "accessRequestSent": false,
+    "seedExecuted": false,
+    "businessMutationExecuted": false,
+    "backendStartedOrModified": false,
+    "productionTested": false
+  },
+  "privacy": "Only fictional data and example.invalid identifiers in page crops. Full native screenshots remain ignored because browser chrome may contain private information. Protected-preview screenshot excluded.",
+  "cleanup": {
+    "taskTabClosed": true,
+    "responsiveToolbarDisabled": true,
+    "devToolsDockRestored": "bottom",
+    "taskServerStopped": true
+  },
+  "images": [
+    {
+      "path": "inbox/inbox-unread-desktop.png",
+      "width": 1595,
+      "height": 544,
+      "sha256": "612cec6bf9f89e1064994bece40ef0416c6491ac9598f896612b1662a5b6708a",
+      "rawScreenshotSha256": "2e7e039fbcf40f6edf53599bc7ea311e3711693bcc8c55f5aa3dbcb3e948808d",
+      "cropPhysicalPixels": [402, 132, 3592, 1220],
+      "queryOrState": "staff",
+      "viewport": "native desktop; page width 1595; full viewport height not recorded",
+      "processing": "Page crop and Lanczos resize only; no generated content or retouching."
+    },
+    {
+      "path": "inbox/inbox-all-desktop.png",
+      "width": 1595,
+      "height": 779,
+      "sha256": "ce5a5a24e3b7c937a5262036bcabf0edf1edcea233262a77a613fd4c825f310d",
+      "rawScreenshotSha256": "79fcbc7d8427bfc01174fe89c361bc201b23c7fdb4ec5fead0d8f75ae043371b",
+      "cropPhysicalPixels": [402, 132, 3592, 1690],
+      "queryOrState": "staff; All selected",
+      "viewport": "native desktop; page width 1595; full viewport height not recorded",
+      "processing": "Page crop and Lanczos resize only; no generated content or retouching."
+    },
+    {
+      "path": "inbox/inbox-admin-desktop.png",
+      "width": 1440,
+      "height": 1100,
+      "sha256": "3a344d7e1684922542b2ae741b633e866c805acffb2990b3b4ec2bff36ffbaeb",
+      "rawScreenshotSha256": "c83e3d5a19a4d203b4d171bc56ba4c9bb8e3e02c47e8c8ebb1cdda3b06bb38ac",
+      "cropPhysicalPixels": [580, 280, 2020, 1380],
+      "queryOrState": "admin",
+      "viewport": "emulated width 1440, automatic height; 50% zoom; visible page crop 1440 by 1100",
+      "processing": "Page crop and Lanczos resize only; no generated content or retouching."
+    },
+    {
+      "path": "inbox/inbox-ticketing-desktop.png",
+      "width": 1440,
+      "height": 1100,
+      "sha256": "c0425e478f09cf38f455bec57e763d4f9c974ed29e2ea34df8e8f939220d85be",
+      "rawScreenshotSha256": "9981f8055354c7dc9c516869e436375ea0ea57bc286352a21c69521c799430f3",
+      "cropPhysicalPixels": [580, 280, 2020, 1380],
+      "queryOrState": "ticket-work",
+      "viewport": "emulated width 1440, automatic height; 50% zoom; visible page crop 1440 by 1100",
+      "processing": "Page crop and Lanczos resize only; no generated content or retouching."
+    },
+    {
+      "path": "inbox/inbox-unread-phone.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "9f36613761bdba953fae3dbb1bcbf874639e93eba685bc27c1f63fab78b94767",
+      "rawScreenshotSha256": "37f9c292f2f1d0da536b8e350c3d51d1cef372e4d73f473741c52fe630ed9448",
+      "cropPhysicalPixels": [910, 280, 1690, 1968],
+      "queryOrState": "staff",
+      "viewport": "emulated 390 by 844; 100% zoom",
+      "processing": "Page crop and Lanczos resize only; no generated content or retouching."
+    },
+    {
+      "path": "inbox/inbox-all-after-one-phone.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "ec42a06e1c120504e99983470b592ec09e3b4b1f85e098f8da03d5e6d279666d",
+      "rawScreenshotSha256": "86d4d56d9f3c69db1a4ac89ade28f3830803aba50cd51c1939dc76cbfc4d8362",
+      "cropPhysicalPixels": [910, 280, 1690, 1968],
+      "queryOrState": "staff; All selected; one update activated",
+      "viewport": "emulated 390 by 844; 100% zoom",
+      "processing": "Page crop and Lanczos resize only; no generated content or retouching."
+    },
+    {
+      "path": "inbox/inbox-bell-phone.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "07f25ba1987b6a1d03a219051c71c632f1f26cf3f0f6663d692dd9c9f4c7652f",
+      "rawScreenshotSha256": "ce72c597bedddd96906956ae6bc5cec858b1b380641a27fada868df75fe32de6",
+      "cropPhysicalPixels": [910, 280, 1690, 1968],
+      "queryOrState": "staff; bell opened",
+      "viewport": "emulated 390 by 844; 100% zoom",
+      "processing": "Page crop and Lanczos resize only; no generated content or retouching."
+    },
+    {
+      "path": "inbox/inbox-empty-phone.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "b5c71c9aa87f28d9b8ea195f23e6acda13a46236a2c8d569044ca4e274687707",
+      "rawScreenshotSha256": "f89262afa1ad06db2e694e5bdb20f9276151c1f77509a3b7a3877d1f13a6cdb1",
+      "cropPhysicalPixels": [910, 280, 1690, 1968],
+      "queryOrState": "staff&empty",
+      "viewport": "emulated 390 by 844; 100% zoom",
+      "processing": "Page crop and Lanczos resize only; no generated content or retouching."
+    },
+    {
+      "path": "inbox/inbox-read-history-phone.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "086ffbdacdaed4020ec8dfd8c1b5c684703b05889c99acb12858c568329b7130",
+      "rawScreenshotSha256": "dd00560cbc09fa49aadfb49380740325ff75144cfe070ac1a75c24f218a916fd",
+      "cropPhysicalPixels": [910, 280, 1690, 1968],
+      "queryOrState": "staff&read-history",
+      "viewport": "emulated 390 by 844; 100% zoom",
+      "processing": "Page crop and Lanczos resize only; no generated content or retouching."
+    },
+    {
+      "path": "inbox/inbox-loading-phone.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "e7cae69598c83721f4c9c0e130e45066111a5d5ea5c96f58eafb380da3e70572",
+      "rawScreenshotSha256": "1a70a8b0213af291b2ad9144fee2d22ba2a2c38408ce114920d1e79b34cab251",
+      "cropPhysicalPixels": [910, 280, 1690, 1968],
+      "queryOrState": "staff&loading",
+      "viewport": "emulated 390 by 844; 100% zoom",
+      "processing": "Page crop and Lanczos resize only; no generated content or retouching."
+    },
+    {
+      "path": "inbox/inbox-error-phone.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "13b7a17cc7598db5311b7f2ec26680d01242f33cc771d2e421409465ae974802",
+      "rawScreenshotSha256": "e3025804bd1f30c65929240d818206d2463c20f2ec916b57e9377787bc4caec1",
+      "cropPhysicalPixels": [910, 280, 1690, 1968],
+      "queryOrState": "staff&error&read-failure; activation attempted",
+      "viewport": "emulated 390 by 844; 100% zoom",
+      "processing": "Page crop and Lanczos resize only; no generated content or retouching."
+    }
+  ]
+}
