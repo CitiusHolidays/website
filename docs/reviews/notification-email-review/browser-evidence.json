@@ -14,10 +14,12 @@
     "unread-empty with read history",
     "loading resolves to actual updates",
     "existing error banner",
-    "real email HTML at desktop/mobile"
+    "real email HTML at desktop/mobile",
+    "ticket attention uses publisher wording",
+    "Head of Ticketing can select themselves in actual assignment fields"
   ],
   "errors": [],
-  "scope": "Working Citius components with sample data, not a live signed-in account. Framework navigation and data transport are mocked. No real email delivery.",
+  "scope": "Working Citius components and actual assignment fields with sample data, not a live signed-in account. Next navigation and Convex transport are mocked. No real email delivery.",
   "baseRevision": "050b337408f5b5d3642adcfebbc291ac0b10ac19",
   "sourceSha256": {
     "src/components/portal/PortalShell.tsx": "69de4469aaa168b2b7578f48b8144666c097bb9caf2e8f850964b4e44fef2f01",
@@ -27,30 +29,42 @@
     "src/app/globals.css": "fb9c3de1161ddd78293b942eef1f2e31a782b26d1c2aa479ed4242ba47a730b6",
     "convex/crm/notificationEmailContent.ts": "63f217c5a4f035e4d9cc6a077d74096c5bcd20a4aff5aa1fc25746fa7c0c30e3",
     "src/app/layout.js": "0398b525d8a5f716c4d0664c92600da54ff0aad5a4460c64d30335577b1a0a96",
-    "convex/crm/queryTeamAssignment.ts": "195efbc25ec9126a7192da2667f54400bd511904e36e6cd707eb37a724f8ecc1",
+    "convex/crm/queryTeamAssignment.ts": "0e1c3518eaa6d59e0a845c08305d426ac076836b78d000b9cd88b3cfdd2badfa",
     "convex/crm/leaveApprovers.ts": "020e3a3165c0d116690bf296587eb5b27d23620a634a23c65050feea474d4b31",
     "convex/crm/ops.ts": "78ca197159d8d83a52bcb5d5936ebbb92bcdc3715de9fd4e44888dca53c10671",
-    "convex/crm/notificationEmailDetails.ts": "4d2751c2f3a04c62563af18ac3002315e7e56de86557acbc531861c3f04d05ce"
+    "convex/crm/notificationEmailDetails.ts": "4d2751c2f3a04c62563af18ac3002315e7e56de86557acbc531861c3f04d05ce",
+    "src/components/portal/PortalModalForm.js": "7f70ff6a632d629c3c3ac3a668537d89bf4dbdc4dbd3810b856d18509e3fe036",
+    "src/components/portal/entityModal/EntityModalAssignFieldSections.js": "14d8279d7b7da76f5451c4f252b18103c48401b8ca794b7e3bb40402dce4a739",
+    "src/lib/portal/permissions.js": "06d43dd85558d5a2d4711687ead986d4fc3e914aef5f556fcaecda44470b5db7",
+    "src/lib/portal/constants.js": "279452a5a8b275fc9c3fcf2ffaf77019d73b94db22cf364cfbd57c284395b84f",
+    "convex/crm/lib/rolePolicy.ts": "514a2107f925db15b007d8bcf605817844067973bc09714ab523f9cd12a148f8",
+    "convex/crm/notificationWorkAudience.ts": "ef0b4a750988638ef1081959c34fd5aa601722d7d7e9e584918589eaa30551e3",
+    "convex/crm/ticketStatusPolicy.ts": "f58918888518625ac3014230c3df2fcc9e4b6af7b07c2b9ca05359fa4cc89a35"
   },
   "imagesSha256": {
-    "before-desktop.png": "2c7adb4f86858c37b52c0a93a74030a730c2ee5774d932b2935478a22dacc333",
-    "bell-desktop.png": "8f6f6366dad9d6fc0aaa2a2534746acd13b92fcbb91de7d03beaf7be836fa901",
-    "bell-mobile.png": "f5c457295c5cef7ff049da406fd51003f37ec2197a15348ebc757396831d27ab",
+    "before-desktop.png": "30414091cb87d92535dc46d9800bbb411ee45cd4f6454a5f6be01d717101d8d1",
+    "bell-desktop.png": "08cf7092059bcf150b7c2c6ae412650efb0fda819e0d873ce7f5ee54a4bb96b2",
+    "bell-mobile.png": "cd890eedc766dc77c14b01aa159bbb0d3c62a1eced1ced8c9dc60d2ee3d33d7b",
     "email-leave-mobile.png": "f67863117aa6742cb37013e09bc6e91a2ed2b02b5fdba8d7b3ddc30ff5466d7f",
     "email-query-mobile.png": "2ff57f5e79310ed211d57e4aba6ed4d68d48b29335b07366422ab6d9ddf59a13",
     "email-tourManager-mobile.png": "4c72f7b9a587892b674cdacec999a4bb9f62c09ba9af51bd14d83983b60733fb",
     "empty-mobile.png": "3ae7adaf0d1a399b4eaba7311108fe25e9e3410b5718c2992f7dd7340bbeae21",
-    "leader-desktop.png": "ca6ef48702592a8b839a9f7a9387eef9abd85b4df2daca1bdb2e7f8fc0dde272",
-    "loading-bell-mobile.png": "86f461962ab2ce6d77b645f7bd9f2d1b17b523bd9d107f06731f416c63148c75",
+    "leader-desktop.png": "76de3c4318d09a407877d3dd26dde5dd079b9b07dc232977d85061819b5fd39a",
+    "loading-bell-mobile.png": "c642ac1071556f2df14cfe097c004803ff5f402e6e45aff2d6fff19b91af092b",
     "staff-all-desktop.png": "619accd43f48f1cc10130725f7c9f90197bd79ff8991a68f9deadf24e08cc25a",
     "staff-desktop.png": "663d0b34fb7136318f10182228971e3f0845bd1591fbf6b7a38a525c2b20af62",
     "staff-mobile.png": "30746748243880c279846acca55dede54b7755d6c069da6425c140dc8d8cae5c",
-    "read-history-mobile.png": "b1dc33b177d65c116b136469b9ae5f718d36ff71a245832a4f54437b38141a01"
+    "read-history-mobile.png": "b1dc33b177d65c116b136469b9ae5f718d36ff71a245832a4f54437b38141a01",
+    "ticket-attention-mobile.png": "6c3c3335a07d545c4fccd8abbfd96161f0240d7b85a0292d389f7e0495527b0c",
+    "head-self-assignment-mobile.png": "1101085f7421dd6cd111a695c7730bc600a4add5285af4bec18289723939fd6c",
+    "head-self-assignment-desktop.png": "f132de63d8f6638131ce335fc2abb5830df4b8c839b160a4482288f5276ce280",
+    "email-ticket-mobile.png": "54ea89f6d77266a0dd246867b07d512f553e9bb7d9ddf65c9b3a633beb8cf8a3"
   },
   "typography": "Inter and Poppins from the actual root layout, loaded from a local cache for the review fixture.",
   "emailExamples": {
     "query": "queryTeamAssignment.ts, notifyAssignedStaff, exact title and body template with fictional values",
     "leave": "leaveApprovers.ts, notifyLeaveRequestSubmitted, head approver title and body template with fictional values",
-    "tourManager": "ops.ts, notifyTourManagerCreated and tourManagerNotificationBody, exact title and body template with fictional values"
+    "tourManager": "ops.ts, notifyTourManagerCreated and tourManagerNotificationBody, exact title and body template with fictional values",
+    "ticket": "ticketStatusPolicy.ts, notifyTicketAttentionIfNeeded, exact title and body template with fictional values"
   }
 }

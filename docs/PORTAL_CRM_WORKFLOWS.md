@@ -100,7 +100,7 @@ Head/director assignment can assign or reassign contracting and ticketing:
 
 Assignable contracting staff include `Contracting`, `Contracting Head`, and `Contracting Cement`. Assignable ticketing staff include `Ticketing` and `Head of Ticketing`.
 
-Assignments patch the query, mirror owner fields onto linked job cards, create assignment activity, notify assigned staff, and notify relevant heads. If ticketing is assigned or ticketing scope is not `Not required`, Head of Ticketing is included in head notifications.
+Assignments patch the query, mirror owner fields onto linked job cards, create assignment activity, notify assigned staff, and notify relevant heads. Query-intake handoffs also copy active Directors and Admin as Management. This is an intake audience, not a blanket CC for later or private workflows. If ticketing is assigned or ticketing scope is not `Not required`, Head of Ticketing is included in head notifications.
 
 Email and bell delivery intentionally differ for query-team assignment:
 
@@ -278,9 +278,11 @@ Notification deep links use `?open=` and `?id=`. Entity-detail loaders remain in
 record visibility and limits portable email context through `notificationEmailSummaryDetails`.
 Private reasons, passport fragments, documents and internal commercial notes remain in the portal.
 
+Ticket-attention alerts and workflow reminders select the exact assigned SPOCs and relevant heads. Unassigned work reaches the relevant heads. `notificationWorkAudience.ts` owns this audience and its dispatch-time responsibility check. Additional email-alert roles and generic role expansion do not apply to these paths. Reminder settings retain enabled state and detection thresholds but cannot broaden the audience. Leave approval and routing remain unchanged.
+
 The [director review](reviews/notification-email-review/README.md) records the changed audiences,
-retained role subscriptions, source evidence, synthetic screen examples and unresolved
-Management/leave-policy decisions. It does not grant new approval or deployment authority.
+exact work audiences, source evidence, sample screen examples and confirmed decisions D01 to D03.
+Leave approval and deployment authority stay unchanged.
 
 ## Leave
 

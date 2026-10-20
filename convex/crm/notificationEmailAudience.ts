@@ -5,15 +5,28 @@ import { canViewUnlinkedExpense } from "./expensePolicy";
 import { canSeeJobCardRecord, canSeeProposalRecord, canSeeQueryRecord } from "./lib/recordScope";
 import { getRolePermissions, PERMISSIONS } from "./lib/rolePolicy";
 import type { PortalAccess } from "./lib/staffAccess";
+import { legacyNotificationWorkKey, notificationWorkAudience } from "./notificationWorkAudience";
 
 // Revalidate the original delivery purpose and record access, including retries.
 // A queued notification is a delivery instruction, never an authorization grant.
 export async function notificationRecipientCanAccess(
   ctx: QueryCtx,
   staff: Doc<"staffUsers">,
-  job: Pick<Doc<"notificationEmailOutbox">, "entityId" | "entityType" | "recipientPurposes">
+  job: Pick<
+    Doc<"notificationEmailOutbox">,
+    "entityId" | "entityType" | "recipientPurposes" | "title"
+  >
 ): Promise<boolean> {
   const purposes = job.recipientPurposes ?? [{ kind: "event" as const }];
+  const legacyWork = purposes.some((purpose) => purpose.kind === "work")
+    ? undefined
+    : legacyNotificationWorkKey(job);
+  if (legacyWork && job.entityId && job.entityType) {
+    const current = await notificationWorkAudience(ctx, legacyWork, job.entityType, job.entityId);
+    if (!current.some((member) => member._id === staff._id)) {
+      return false;
+    }
+  }
   const eligible = await Promise.all(
     purposes.map((purpose) => recipientPurposeStillApplies(ctx, staff, job, purpose))
   );
@@ -191,6 +204,18 @@ async function recipientPurposeStillApplies(
 ): Promise<boolean> {
   if (purpose.kind === "event") {
     return true;
+  }
+  if (purpose.kind === "work") {
+    if (!(job.entityId && job.entityType)) {
+      return false;
+    }
+    const recipients = await notificationWorkAudience(
+      ctx,
+      purpose.key,
+      job.entityType,
+      job.entityId
+    );
+    return recipients.some((member) => member._id === staff._id);
   }
   if (purpose.kind === "roles") {
     const enabledRoles = new Set<string>([...staff.roles, ...(staff.emailAlertRoles ?? [])]);

@@ -8,6 +8,7 @@ import {
   type NotificationEmailEnvelope,
 } from "../notificationEmailOutbox";
 import { projectNotificationInsert } from "../notificationUnreadProjection";
+import { type NotificationWorkKey, notificationWorkAudience } from "../notificationWorkAudience";
 import { hasActiveE2eRun, insertWithE2eOwnership } from "./e2eOwnership";
 import {
   type OperationalControlKey,
@@ -112,6 +113,7 @@ const workflowNotificationRuns = new WeakMap<
 export type BellNotificationTargets =
   | { kind: "roles"; roles: string[] }
   | { kind: "staff"; staffIds: Id<"staffUsers">[] }
+  | { kind: "exactStaff"; staffIds: Id<"staffUsers">[] }
   | { fallbackRoles?: string[]; kind: "matching"; matches: NotificationStaffMatcher };
 
 export type EmailNotificationTargets =
@@ -327,7 +329,8 @@ function roleBellRows(
 
 function directStaffBellRows(
   staffRows: NotificationStaff[],
-  base: ReturnType<typeof notificationBellBase>
+  base: ReturnType<typeof notificationBellBase>,
+  exactStaff = false
 ) {
   const notifiedUserIds = new Set<string>();
   const staffRoleKeys = new Set<string>();
@@ -344,6 +347,10 @@ function directStaffBellRows(
         recipientStaffId: member._id,
         recipientUserId: member.authUserId,
       });
+      continue;
+    }
+    if (exactStaff) {
+      rows.push({ ...base, recipientStaffId: member._id });
       continue;
     }
     for (const role of member.roles) {
@@ -396,7 +403,7 @@ function notificationBellRows(
     return roleBellRows(targets.roles, base);
   }
   const targetStaff = staffForBellTargets(activeStaff, targets);
-  const rows = directStaffBellRows(targetStaff, base);
+  const rows = directStaffBellRows(targetStaff, base, targets.kind === "exactStaff");
   if (targets.kind === "matching") {
     rows.push(...fallbackBellRows(targetStaff, targets.fallbackRoles ?? [], base));
   }
@@ -741,6 +748,29 @@ export async function publishWorkflowNotification(
       runs.delete(effectId);
     }
   }
+}
+
+export async function publishWorkNotification(
+  ctx: MutationCtx,
+  key: NotificationWorkKey,
+  content: NotificationInput
+) {
+  if (!(content.entityId && content.entityType)) {
+    throw new Error("WORK_NOTIFICATION_ENTITY_REQUIRED");
+  }
+  const staff = await notificationWorkAudience(
+    ctx,
+    key,
+    content.entityType,
+    String(content.entityId)
+  );
+  const staffIds = staff.map((member) => member._id);
+  return await publishWorkflowNotification(ctx, {
+    bellTargets: { kind: "exactStaff", staffIds },
+    content,
+    emailRecipientPurpose: { key, kind: "work" },
+    emailTargets: { kind: "staff", staffIds },
+  });
 }
 
 /** @deprecated Use publishWorkflowNotification with explicit channel targets. */

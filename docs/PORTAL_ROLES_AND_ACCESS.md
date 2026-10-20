@@ -80,7 +80,7 @@ director permissions, team-picker permissions, and shared team-role lists.
 
 Coarse `manage:*` permissions gate API entry points, but proposal/query/job-card mutations also enforce assignment rules:
 
-- **Proposal edit/send** — Contracting SPOC, collaborators, department heads, directors, and the **assigned Ticketing SPOC** on a linked query may edit proposal costing (`canEditProposalRecord` in `convex/crm/lib.ts`). Head of Ticketing remains view-only unless they are the assigned ticketing owner.
+- **Proposal edit/send** — Contracting SPOC, collaborators, department heads, directors, and the **assigned Ticketing SPOC** on a linked query may edit proposal costing (`canEditProposalRecord` in `convex/crm/lib.ts`). Head of Ticketing has the proposal-management permission needed to work after taking a Ticketing assignment. The existing record guard still requires assigned Ticketing ownership or another existing edit entitlement.
 - **Query visibility** — Department heads (including **Accounts Head**) can see queries in their oversight scope. Accounts and Finance still only see confirmed orders unless they are also assigned owners.
 - **Job card creation** — Accounts, Accounts Head, director roles (`Admin`, `Directors`, `Director Cement`), and allowlisted Accounts staff may create job cards from confirmed queries.
 
@@ -107,6 +107,11 @@ Direct staff email targets do not depend on either role list. Workflows that int
 bell without email use the explicit no-email target instead of relying on an empty preference list.
 
 Sales query intake is narrower than the base expansion table: new or submitted queries notify the assigned Contracting/Ticketing SPOCs plus the relevant assignment heads. They do not create bell or email alerts for the entire Contracting team.
+
+Query intake copies active Directors and Admin as Management, as required by the Activity Flow. This does not make Director Cement or additional email-alert subscriptions Management. It does not add Management to leave or private-workflow audiences.
+
+Ticket-attention alerts and all eight workflow reminders use exact staff recipients through `notificationWorkAudience.ts`. They select current SPOCs and the relevant heads, with head oversight when no SPOC is assigned. Additional email-alert roles, generic department expansion and saved whole-team reminder settings cannot widen these audiences. The same work-purpose contract rechecks delayed sends and retries. The director review documents each rule under R10 and R13.
+
 
 Delivery oversight is a separate permission, `view:emailDeliveryStatus`. Department heads, Admin,
 Directors, and Director Cement can see privacy-safe queued/retry/sent/exhausted counts in Activity;

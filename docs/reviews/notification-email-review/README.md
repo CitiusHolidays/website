@@ -4,9 +4,13 @@ Please review these three items before this draft can move forward.
 
 1. Check that the inbox and emails give staff the information they need.
 2. Check each recipient rule below. Every rule has a short ID so you can request a precise change, for example, "R04: also notify the Sales Head."
-3. Resolve decisions D01 to D03. The draft keeps the current policy where the source documents disagree or leave a group undefined.
+3. Check that confirmed decisions D01 to D03 match your instructions. You can request a change using the decision or rule ID.
 
 The screenshots show working Citius components with sample data, not a live signed-in account. All people and trips are fictional. No email was sent during this review. This draft has not been merged or deployed to production.
+
+## What this simplifies
+
+The bell and Notifications page share the same inbox. Staff choose Unread or All, then open an update to view the work. Temporary email failures recover automatically. This simplification covers notifications and email. Other Citius workflows keep their existing behavior.
 
 ## The staff inbox
 
@@ -30,7 +34,7 @@ Heads and other already authorized staff can see email counts separately. "Accep
 
 ## Recipient rules
 
-These rules describe the reviewed workflows. They do not add a general department CC list. Existing email-alert subscriptions and department-head copies still apply where a rule names a role.
+These rules describe the reviewed workflows. They do not add a general department CC list. Query intake, ticket attention and reminders use the actual responsibilities described in R02, R10 and R13. Other workflows keep their existing email-alert subscriptions and department-head copies.
 
 ### R01. Website enquiry
 
@@ -38,11 +42,15 @@ The existing Sales and Sales Head audience receives the enquiry. The info mailbo
 
 ### R02. Query team assignment
 
-The selected Contracting or Ticketing SPOC receives their assignment. Contracting and Operations heads receive the assignment handoff by bell and email. Head of Ticketing receives the initial unassigned work when Ticketing is required. Other Contracting SPOCs do not receive a team-wide assignment email.
+The selected Contracting or Ticketing SPOC receives their assignment. Contracting and Operations heads receive the query-intake handoff by bell and email. Management also receives that intake copy. Management means active staff with the Directors or Admin role. Head of Ticketing receives the intake when Ticketing is required. Other Contracting SPOCs do not receive a team-wide assignment email. Management is not copied on every later event.
 
 ### R03. Direct Job Card assignment
 
-The selected Operations, Contracting or Ticketing owner receives their assignment. The update opens that Job Card. It does not add another department or send the recipient to an assignment form.
+The selected Operations, Contracting or Ticketing owner receives their assignment. Heads can choose themselves in their department assignment list and do the work. Head of Ticketing can prepare proposal costing after taking the Ticketing assignment. The update opens the Job Card. It does not add another department or send the new owner to an assignment form.
+
+The actual assignment fields below show a Head of Ticketing selecting themselves as the SPOC. This is sample data. The registered workflow tests separately verify that the head can save the assignment and prepare costing.
+
+![A head selecting themselves for Ticketing work](head-self-assignment-mobile.png)
 
 ### R04. Proposal ready for Sales
 
@@ -70,7 +78,9 @@ The selected staff Tour Manager receives the Job Card, trip, dates, destination,
 
 ### R10. Ticket attention
 
-The existing Operations and Operations Head audience remains. Recipients must still have access to the Job Card. Decision D03 covers whether this existing subscription should become assignment-only.
+Name-change and reissue alerts go to the assigned Operations and Ticketing SPOCs, along with Operations Head and Head of Ticketing. When a SPOC is unassigned or inactive, the heads retain oversight. Other Operations and Ticketing staff are excluded. Extra email-alert subscriptions do not add recipients. Overlapping roles do not add duplicate bell updates or email copies.
+
+![Ticket attention in the assigned Ticketing inbox](ticket-attention-mobile.png)
 
 ### R11. Expenses
 
@@ -78,11 +88,24 @@ The existing assigned manager, submitting staff member and Finance approval flow
 
 ### R12. Leave
 
-The current configured head approver, distinct final authority when required, HR reviewer and requesting employee receive notices at their current stages. HR final review remains part of the app's approval process. General departments and unrelated managers are excluded. Decision D02 covers the disagreement with the July workbook.
+The current configured head approver, distinct final authority when required, HR reviewer and requesting employee receive notices at their current stages. HR final review remains part of the app's approval process. General departments and unrelated managers are excluded. D02 confirms that this process stays as it is.
 
 ### R13. Scheduled reminders
 
-Existing enabled rules, recipient roles and repeat limits remain. This does not create more frequent reminders or new email campaigns. Decision D03 covers the existing role subscriptions.
+Enabled rules, thresholds and repeat limits remain. Recipients are the people responsible for that work and the relevant heads. A saved whole-team setting or extra email-alert subscription cannot add recipients. Settings can pause a reminder or change its threshold, but cannot turn it into a team broadcast.
+
+| Rule ID | Reminder | Recipients |
+| --- | --- | --- |
+| R13a | Confirmed query needs a Job Card | The selected Job Card creator, if assigned, plus Accounts Head and Finance Head. |
+| R13b | Query needs a Contracting SPOC | Contracting Head and Operations Head. |
+| R13c | Job Card needs an Operations owner | Operations Head. |
+| R13d | Visa readiness before departure | Assigned Operations SPOC and Operations Head. |
+| R13e | Ticket readiness before departure | Assigned Ticketing SPOC and Head of Ticketing. |
+| R13f | Passport validity blocks departure | Assigned Operations SPOC and Operations Head. |
+| R13g | Ticket status needs attention | Assigned Operations and Ticketing SPOCs, Operations Head and Head of Ticketing. |
+| R13h | Invoice balance is overdue | Accounts Head and Finance Head. |
+
+If no SPOC is assigned, the relevant heads receive the reminder. Staff must be active and still have access to the record. Finance Head continues to mean the staff member identified by that existing function, not the whole Finance team.
 
 ### R14. Account and customer messages
 
@@ -90,7 +113,7 @@ Verification, password reset and staff setup keep their current recipients and e
 
 ### R15. Delayed email and changed responsibilities
 
-Before sending an assignment request or proposal-review request, Citius checks that the recipient still has that assignment. It checks the recipient's role or email-alert subscription again for role-based mail. A former SPOC or head does not receive the pending request just because another role still lets them view the record. This applies to delayed first sends and retries. Citius does not transfer the old email to someone else.
+Before sending an assignment request or proposal-review request, Citius checks that the recipient still has that assignment. For ticket attention, reminders and query intake, it checks the original work responsibility or actual head/Management role again. Extra email-alert roles do not count for these paths. Other existing role-based email keeps its established subscription rules. A former SPOC or head does not receive the pending request just because another role still lets them view the record. This applies to delayed first sends and retries. Citius does not transfer the old email to someone else.
 
 An informational event, such as an order being marked lost, can still reach the person originally notified after reassignment if that person remains active and can still view the record. Losing record access, changing address or becoming inactive stops pending mail. Earlier notifications remain in the inbox under the existing access rules. An email already accepted by the email service cannot be recalled.
 
@@ -106,17 +129,23 @@ These samples use the production email layout and the wording published by the n
 
 ![Tour Manager allocation email](email-tourManager-mobile.png)
 
+The ticket-attention email uses the same production wording. It goes to the assigned Operations and Ticketing SPOCs and their relevant heads, with no general team copy.
+
+![Ticket-attention email](email-ticket-mobile.png)
+
 ## If email has a problem
 
 If the email service has a temporary problem, Citius tries again automatically. If it cannot tell whether an email went through, it stops rather than risk sending a duplicate. Staff do not need to choose a retry method or resend an uncertain message.
 
 Authorized staff can see counts and the related work without seeing recipient email addresses. "Accepted" confirms that the email service took the message, not that the recipient received or read it.
 
-## Decisions for director review
+<a id="decisions-for-director-review"></a>
 
-1. D01. Name the exact members of Management and which events should copy them. Activity Flow 1.0 names Management but does not define the group. This draft does not substitute every Admin or Director.
-2. D02. Confirm leave approval policy. The July workbook often makes Final Authority equal Level 1 and names HR as a copy recipient. The later app requires HR final review. This draft preserves current approval authority and self-approval restrictions.
-3. D03. Confirm whether Ticket-attention notices and configurable reminders should become assignment-only. Rules R10 and R13 preserve their existing role subscriptions.
+## Confirmed decisions
+
+1. D01. Management means active Directors plus Admin. The query-intake handoff copies Management because the Activity Flow requires it. This does not add Management to leave, expenses or every notification. Heads can assign work to SPOCs and can take their own department's assignment to do the work themselves.
+2. D02. Keep the current leave approval process. Its authority, stages and recipients remain unchanged. The older workbook does not replace the current process.
+3. D03. Ticket-attention alerts and scheduled reminders go to assigned SPOCs and the relevant heads. They do not go to the whole team. Unassigned work goes to the relevant heads, and overlapping roles do not create duplicate notices.
 
 ## Review limits
 
@@ -125,17 +154,23 @@ These screenshots and browser checks use the working components with sample data
 <details>
 <summary>Engineering notes and detailed verification</summary>
 
+### Shared implementation
+
+`NotificationInbox` serves the bell and Notifications page. The existing outbox owns retry, deduplication and delivery state. `notificationWorkAudience` resolves the exact staff audience for both publication and dispatch. These are shared responsibilities within notifications and email, not a whole-app refactor or a new stack.
+
 ### Delivery behavior
 
 The workflow stores each recipient's outbox job and privacy-safe queued ledger entry in one Convex transaction. One worker claims a 30-second lease. Provider requests time out after ten seconds. The existing shared rate limiter spaces requests by at least 550 ms. Temporary failures allow at most four attempts.
 
 Retries reuse frozen HTML and the same event-recipient provider key. A receipt ID is required for acceptance. Completion and the ledger update commit together. A valid late receipt can complete an earlier attempt. A stale failure cannot undo acceptance. Recovery stops before the provider's 24-hour idempotency window expires. An accepted app job stays deduplicated after that window. Legacy attempted jobs without their original content or timing stop as uncertain.
 
-The outbox records the original recipient purpose. Assignment fields identify actionable query, Job Card and staff Tour Manager assignments. Role audiences retain their original role set, including existing head expansion and additive email-alert subscriptions. The dispatcher and first-render detail query revalidate that purpose plus active status, address and record access. Historical staff-targeted event notices keep event purpose. Older queued jobs without purpose metadata retain their previous record-access checks. No recipient is added during recovery.
+The outbox records the original recipient purpose. Assignment fields identify actionable query, Job Card and staff Tour Manager assignments. Role audiences retain their original role set, including existing head expansion and additive email-alert subscriptions. The dispatcher and first-render detail query revalidate that purpose plus active status, address and record access. Query intake, ticket attention and reminders use exact staff targets and a work-purpose contract. Current assignments and actual head/Management roles are checked both before publication and before delayed delivery. Existing role expansion and additional email-alert roles are not used for these audiences. Disabled saved reminder rules stop queued reminder mail. Invoices have no current Finance SPOC field, so overdue-invoice reminders use head oversight rather than treating the original creator as an assignee. Historical staff-targeted event notices keep event purpose. Recognized legacy ticket, reminder and intake jobs also pass the current work-audience check, so an older broad recipient list cannot bypass the confirmed policy. Other older queued jobs without purpose metadata retain their previous record-access checks. No recipient is added during recovery.
 
 Terminal jobs discard recipient addresses and frozen HTML. Public counts expose neither addresses nor provider response bodies. Authentication email keeps its separate token and expiry behavior. The shared provider request now receives cancellation. No provider credentials or remote MCP settings changed.
 
 ### Implementation and checks
+
+The confirmed-policy regression suite covers all eight registered reminder rules, the real ticket-status mutation, Management inclusion only for query intake, unrelated-team exclusion, inactive staff, record scope, dual-role deduplication without an auth link, unassigned head fallback, independent bell/email controls, disabled reminders, and lost responsibility before first send or retry. Registered self-assignment and work mutations cover Contracting, Ticketing and Operations heads. Leave source and routing are unchanged by this follow-up.
 
 The screenshots render the actual Citius shell, header, inbox, controls, CSS, root fonts and production email HTML. Only Next navigation and Convex transport are mocked. Browser checks cover Unread/All, one selected read, keyboard focus, dismiss/reopen, late arrivals, dense lists, true empty history, unread-empty with read history, loading, the existing error banner and mobile overflow. Source and image hashes are in [browser-evidence.json](browser-evidence.json).
 

@@ -1,6 +1,7 @@
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { publishWorkflowNotification, type WorkflowNotificationPlan } from "./lib";
+import { publishWorkNotification } from "./lib/notifications";
 import { requiresTicketingSpocAssignment } from "./ticketingIntakePolicy";
 
 const OPS_START_ROLES = ["Contracting Head", "Operations Head", "Head of Ticketing"] as const;
@@ -117,15 +118,10 @@ export async function notifyJobCardCreators(
 
 export async function notifyQueryAssignmentHeads(
   ctx: NotificationCtx,
-  query: { ticketingOwnerId?: string; ticketingScope?: string },
+  _query: { ticketingOwnerId?: string; ticketingScope?: string },
   notification: WorkflowNotificationPlan["content"]
 ) {
-  const roles = queryAssignmentHeadRoles(query);
-  await publishWorkflowNotification(ctx, {
-    bellTargets: { kind: "roles", roles },
-    content: notification,
-    emailTargets: { kind: "roles", roles },
-  });
+  await publishWorkNotification(ctx, "query_intake", notification);
 }
 
 export async function notifyTicketingHeadOnQueryIntake(
