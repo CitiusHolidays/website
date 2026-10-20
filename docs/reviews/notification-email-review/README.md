@@ -1,16 +1,19 @@
-# Notification and email review
+# Citius usability, notification and email review
 
-Please review these three items before this draft can move forward.
+Please review these items before this draft can move forward.
 
-1. Check that the inbox and emails give staff the information they need.
-2. Check each recipient rule below. Every rule has a short ID so you can request a precise change, for example, "R04: also notify the Sales Head."
-3. Check that confirmed decisions D01 to D03 match your instructions. You can request a change using the decision or rule ID.
+1. Start with the [illustrated site usability review](site-usability.md). U01 to U05 cover Staff lists, Account editing, Contact and Services. Its coverage map records checked, changed, unchanged and limited areas across all 59 routes.
+2. Check that the inbox and emails give staff the information they need.
+3. Check each recipient rule below. Every rule has a short ID so you can request a precise change, for example, "R04: also notify the Sales Head."
+4. Check that confirmed decisions D01 to D03 match your instructions. You can request a change using the decision or rule ID.
 
 The screenshots show working Citius components with sample data, not a live signed-in account. All people and trips are fictional. No email was sent during this review. This draft has not been merged or deployed to production.
 
 ## What this simplifies
 
-The bell and Notifications page share the same inbox. Staff choose Unread or All, then open an update to view the work. Temporary email failures recover automatically. This simplification covers notifications and email. Other Citius workflows keep their existing behavior.
+The site usability pass reuses the existing Staff toolbar and forms. Staff can clear collapsed filters directly. Account edits start from current details and survive tab changes. Contact keeps submitted values safe while sending and puts the form before office maps on mobile. Services keeps its circular selector, with choices that fit narrow screens and work from the keyboard. The [coverage map](site-usability.md#coverage) records what changed and the limits of each check.
+
+The bell and Notifications page share the same inbox. Staff choose Unread or All, then open an update to view the work. Temporary email failures recover automatically. Business stages, responsible roles, permissions, approvals, calculations and payments retain their existing meaning.
 
 ## The staff inbox
 
@@ -156,7 +159,7 @@ These screenshots and browser checks use the working components with sample data
 
 ### Shared implementation
 
-`NotificationInbox` serves the bell and Notifications page. The existing outbox owns retry, deduplication and delivery state. `notificationWorkAudience` resolves the exact staff audience for both publication and dispatch. These are shared responsibilities within notifications and email, not a whole-app refactor or a new stack.
+`NotificationInbox` serves the bell and Notifications page. The existing outbox owns retry, deduplication and delivery state. `notificationWorkAudience` resolves the exact staff audience for both publication and dispatch. The wider usability pass reuses `PortalListToolbar`, `ProfileInput` and the current forms. It adds no general workflow framework or new stack.
 
 ### Delivery behavior
 

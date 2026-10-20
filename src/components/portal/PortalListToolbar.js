@@ -28,6 +28,7 @@ function ToolbarHeader({
   filtersActive,
   filtersOpen,
   hasFilterControls,
+  onClearAllFilters,
   onSearchChange,
   onToggleFilters,
   resultCount,
@@ -38,7 +39,7 @@ function ToolbarHeader({
 }) {
   return (
     <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex min-w-0 shrink-0 items-baseline gap-2">
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
         <h2 className="portal-page-title shrink-0 text-balance font-heading font-semibold text-citius-blue">
           {title}
         </h2>
@@ -61,12 +62,22 @@ function ToolbarHeader({
             type="button"
           >
             <Filter aria-hidden size={14} />
-            Filters
+            {filtersActive ? "Filters active" : "Filters"}
             <ChevronDown
               aria-hidden
               className={`transition-transform duration-200 ease-[var(--portal-ease-out)] ${filtersOpen ? "rotate-180" : ""}`}
               size={14}
             />
+          </Button>
+        ) : null}
+
+        {onClearAllFilters && filtersActive ? (
+          <Button
+            className="portal-small-btn h-11 shrink-0 whitespace-nowrap bg-white transition-transform duration-150 ease-[var(--portal-ease-out)] active:scale-[0.96]"
+            onClick={onClearAllFilters}
+            type="button"
+          >
+            Clear filters
           </Button>
         ) : null}
 
@@ -100,12 +111,10 @@ function ToolbarFilterRow({
   dateRange,
   filterSearchKeys,
   filterSourceRows,
-  filtersActive,
   jobCardFilter,
   jobCardOptions,
   listFilterConfig,
   listFilters,
-  onClearAllFilters,
   search,
   setDateRange,
   setJobCardFilter,
@@ -161,15 +170,6 @@ function ToolbarFilterRow({
           values={listFilters}
           view={view}
         />
-        {onClearAllFilters && filtersActive ? (
-          <Button
-            className="portal-small-btn h-11 shrink-0 whitespace-nowrap bg-white transition-transform duration-150 ease-[var(--portal-ease-out)] active:scale-[0.96]"
-            onClick={onClearAllFilters}
-            type="button"
-          >
-            Clear filters
-          </Button>
-        ) : null}
       </div>
     </m.div>
   );
@@ -245,6 +245,7 @@ export default function PortalListToolbar({
         filtersActive={filtersActive}
         filtersOpen={filtersOpen}
         hasFilterControls={hasFilterControls}
+        onClearAllFilters={onClearAllFilters}
         onSearchChange={handleSearchChange}
         onToggleFilters={toggleFilters}
         resultCount={resultCount}
@@ -260,12 +261,10 @@ export default function PortalListToolbar({
             dateRange={dateRange}
             filterSearchKeys={filterSearchKeys}
             filterSourceRows={filterSourceRows}
-            filtersActive={filtersActive}
             jobCardFilter={jobCardFilter}
             jobCardOptions={jobCardOptions}
             listFilterConfig={listFilterConfig}
             listFilters={listFilters}
-            onClearAllFilters={onClearAllFilters}
             search={search}
             setDateRange={setDateRange}
             setJobCardFilter={setJobCardFilter}

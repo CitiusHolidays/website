@@ -56,6 +56,32 @@ beforeAll(async () => {
 afterAll(() => dom.window.close());
 
 describe("Mounted Circular Services geometry", () => {
+  test("Makes the existing desktop service details available through focus and activation", async () => {
+    dom.window.innerWidth = 1440;
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(() => root.render(<CircularServicesMenu />));
+    const service = container.querySelector('button[aria-label="Learn about MICE"]');
+    await act(() => service.focus());
+    for (
+      let attempt = 0;
+      attempt < 50 && container.querySelector("h3")?.textContent !== "MICE";
+      attempt += 1
+    ) {
+      // biome-ignore lint/performance/noAwaitInLoops: flush each visible-state check before polling again.
+      await act(() => new Promise((resolve) => setTimeout(resolve, 10)));
+    }
+    expect(document.activeElement).toBe(service);
+    expect(container.querySelector("h3")?.textContent).toBe("MICE");
+    await act(() => service.click());
+    expect(container.querySelector("h3")?.textContent).toBe("MICE");
+    expect(container.querySelectorAll("button")).toHaveLength(11);
+    await act(() => root.unmount());
+    container.remove();
+    dom.window.innerWidth = 400;
+  });
+
   test("Keeps the reduced-motion server snapshot deterministic", () => {
     expect(getReducedMotionServerSnapshot()).toBe(false);
   });

@@ -78,7 +78,9 @@ export default function AccountClient({
                 upcomingBookings={groups.upcoming}
               />
             )}
-            {activeTab === "profile" && <AccountProfilePanel key="profile" user={user} />}
+            <div hidden={activeTab !== "profile"} key="profile">
+              <AccountProfilePanel user={user} />
+            </div>
             {activeTab === "settings" && <AccountSettingsPanel key="settings" />}
           </AnimatePresence>
         </main>
