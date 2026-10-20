@@ -3,6 +3,7 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import { hasOwnKey } from "../../lib/runtimeValues";
 import { deleteNotificationPage, queueEntityNotificationCleanup } from "../notificationCleanup";
+import { enqueueNotificationEmailOutbox } from "../notificationEmailOutbox";
 import { projectNotificationInsert } from "../notificationUnreadProjection";
 import { hasActiveE2eRun, insertWithE2eOwnership } from "./e2eOwnership";
 import {
@@ -179,6 +180,7 @@ async function queueNotificationEmail(
   eventId: string | undefined,
   input: NotificationInput,
   options?: {
+    controlKeys?: OperationalControlKey[];
     emailDelayMs?: number;
     emailRoles?: string[];
   }
@@ -189,17 +191,18 @@ async function queueNotificationEmail(
   if (await hasActiveE2eRun(ctx)) {
     return false;
   }
-  await ctx.scheduler.runAfter(
-    options?.emailDelayMs ?? 0,
-    internal.crm.notificationEmails.sendNotificationEmail,
+  await enqueueNotificationEmailOutbox(
+    ctx,
     {
       body: input.body,
+      controlKeys: options?.controlKeys,
       entityId: notificationEntityId(input.entityId),
       entityType: input.entityType,
       eventId: String(eventId),
       recipients: Array.from(recipients),
       title: input.title,
-    }
+    },
+    options?.emailDelayMs ?? 0
   );
   return true;
 }
@@ -619,9 +622,27 @@ async function publishWorkflowNotificationOnce(ctx: MutationCtx, plan: WorkflowN
       audienceUserIds
     );
   }
-  const scheduled = await queueNotificationEmail(ctx, emailRecipients, emailEventId, plan.content, {
-    emailDelayMs: plan.emailDelayMs,
-  });
+  const workflowScheduled = await queueNotificationEmail(
+    ctx,
+    workflowRecipients,
+    emailEventId,
+    plan.content,
+    {
+      controlKeys: [emailControl.key],
+      emailDelayMs: plan.emailDelayMs,
+    }
+  );
+  const additionalScheduled = await queueNotificationEmail(
+    ctx,
+    additionalRecipients,
+    emailEventId,
+    plan.content,
+    {
+      controlKeys: [additionalEmailControl.key],
+      emailDelayMs: plan.emailDelayMs,
+    }
+  );
+  const scheduled = workflowScheduled || additionalScheduled;
   const workflowRecipientCount = workflowRecipients.size;
   const emailDisposition = notificationEffectDisposition(
     emailControl.enabled,

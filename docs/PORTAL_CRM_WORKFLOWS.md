@@ -257,15 +257,30 @@ roles, staff IDs, or auth users; a role email target resolves both the staff mem
 and additive **Additional email alert roles**, then expands base department roles to their head role.
 An explicit `{ kind: "none" }` email target suppresses email without removing bell delivery.
 
-CRM email delivery writes a privacy-safe ledger with monotonic `queued`, `sending`, `retrying`,
-`sent`, `skipped`, and `exhausted` states. Delivery summaries are restricted to the
-`view:emailDeliveryStatus` permission (department heads, Admin, Directors, and Director Cement),
-and expose counts plus permitted notification links without recipient addresses or provider
-response bodies. Scheduler or provider retries cannot move a sent row backwards.
+CRM email queues each recipient durably with the workflow transaction. A private worker queue
+owns bounded claims, retries, fixed rendered content and provider receipts. Its completion and
+the privacy-safe ledger update commit together. A provider-accepted message remains deduplicated
+after the provider's 24-hour key window. Uncertain outcomes stop before that window expires.
 
-Unread state changes only when a user clicks a notification. Opening the bell dropdown or Activity panel must not mark rows read.
+The ledger retains monotonic `queued`, `sending`, `retrying`, `sent`, `skipped` and `exhausted`
+states for compatibility. In the UI, `sent` is labelled **accepted**. It means the provider
+returned a receipt, not delivery to the recipient's mail server or a human read. Delivery
+summaries retain the separate `view:emailDeliveryStatus` permission and expose counts plus
+permitted links without recipient addresses or provider response bodies.
 
-Notification deep links use `?open=` and `?id=`. Email detail rendering is centralized in `convex/crm/notificationEmailDetails.ts` so entity-specific emails can include useful context for queries, job cards, flights, expenses, leave, and tour manager assignments.
+Every allowed staff member can open their own Notifications page. Administrative activity logs
+and email diagnostics remain separately permissioned. Unread state changes only when a user
+activates a notification. Opening the bell or changing Unread/All does not mark rows read.
+Date filters carried from another workspace do not hide unread notifications.
+
+Notification deep links use `?open=` and `?id=`. Entity-detail loaders remain in
+`convex/crm/notificationEmailDetails.ts`; the delivery worker checks the recipient's current
+record visibility and limits portable email context through `notificationEmailSummaryDetails`.
+Private reasons, passport fragments, documents and internal commercial notes remain in the portal.
+
+The [director review](reviews/notification-email-review/README.md) records the changed audiences,
+retained role subscriptions, source evidence, synthetic screen examples and unresolved
+Management/leave-policy decisions. It does not grant new approval or deployment authority.
 
 ## Leave
 

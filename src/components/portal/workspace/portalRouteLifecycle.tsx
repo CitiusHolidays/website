@@ -152,6 +152,7 @@ function selectPortalRouteContent(
           emailDeliverySummaries={workspace.emailDeliverySummaries}
           markNotificationRead={workspace.markNotificationRead}
           notifications={workspace.periodFiltered.notifications}
+          notificationsLoading={workspace.notifications === undefined}
           removeNotification={workspace.removeNotification}
         />
       );

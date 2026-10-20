@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "5e0b037d76ac20ef88174d594341edd2d79e93b62fa3fcf3f863464a99b689fd";
+const EXPECTED_CAPABILITY_HASH = "2e42d80c6595f9cea5a8139e7de77ca2ec35d7d92e128f0cca2909ff1f5d2062";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -850,4 +850,14 @@ describe("Convex capability inventory", () => {
       name: "purgeEdition001Event",
     });
   });
+});
+
+test("notification recovery workers are internal capabilities", () => {
+  const entries = discoverCapabilities().filter(
+    (entry) =>
+      entry.module === "crm/notificationEmailOutbox" ||
+      (entry.module === "crm/notificationEmails" && entry.name === "dispatchNotificationEmail")
+  );
+  expect(entries).toHaveLength(6);
+  expect(entries.every((entry) => entry.classification === "internal")).toBe(true);
 });

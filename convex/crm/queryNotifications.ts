@@ -3,14 +3,7 @@ import type { MutationCtx } from "../_generated/server";
 import { publishWorkflowNotification, type WorkflowNotificationPlan } from "./lib";
 import { requiresTicketingSpocAssignment } from "./ticketingIntakePolicy";
 
-const OPS_START_ROLES = [
-  "Contracting",
-  "Contracting Head",
-  "Operations",
-  "Operations Head",
-  "Ticketing",
-  "Head of Ticketing",
-] as const;
+const OPS_START_ROLES = ["Contracting Head", "Operations Head", "Head of Ticketing"] as const;
 
 type NotificationCtx = MutationCtx;
 
@@ -52,30 +45,42 @@ export async function notifyQueryOwner(
 
 export async function notifyOrderConfirmedWorkflow(
   ctx: NotificationCtx,
-  query: { queryCode: string; contractingOwnerId?: string; ticketingOwnerId?: string },
+  query: {
+    queryCode: string;
+    contractingOwnerId?: string;
+    ticketingOwnerId?: string;
+    ticketingScope?: string;
+  },
   queryId: Id<"queries">
 ) {
   const entity = { entityId: queryId, entityType: "query" as const };
+  const roles = OPS_START_ROLES.filter(
+    (role) => role !== "Head of Ticketing" || query.ticketingScope !== "Not required"
+  );
   await Promise.all([
     publishWorkflowNotification(ctx, {
-      bellTargets: { kind: "roles", roles: [...OPS_START_ROLES] },
+      bellTargets: { kind: "roles", roles: [...roles] },
       content: {
         body: `${query.queryCode} was confirmed by Sales. Accounts will open a Job Card; contracting, operations, and ticketing can begin traveller master, tickets, passport, visa, and tour manager work.`,
         title: "Order confirmed — prepare operations",
         ...entity,
       },
-      emailTargets: { kind: "roles", roles: [...OPS_START_ROLES] },
+      emailTargets: { kind: "roles", roles: [...roles] },
     }),
     notifyQueryOwner(ctx, query.contractingOwnerId, {
       body: `${query.queryCode} was confirmed. Prepare revised costing if needed and coordinate operations once the Job Card opens.`,
       title: "Order confirmed on your query",
       ...entity,
     }),
-    notifyQueryOwner(ctx, query.ticketingOwnerId, {
-      body: `${query.queryCode} was confirmed. Prepare ticketing once the Job Card opens.`,
-      title: "Order confirmed on your query",
-      ...entity,
-    }),
+    notifyQueryOwner(
+      ctx,
+      query.ticketingScope === "Not required" ? undefined : query.ticketingOwnerId,
+      {
+        body: `${query.queryCode} was confirmed. Prepare ticketing once the Job Card opens.`,
+        title: "Order confirmed on your query",
+        ...entity,
+      }
+    ),
   ]);
 }
 

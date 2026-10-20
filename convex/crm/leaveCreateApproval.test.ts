@@ -8,11 +8,14 @@ beforeAll(() => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
     Object.assign(fromPartial<object>(definition.handler), { _handler: definition.handler });
   mock.module("../_generated/server", () => ({
+    internalAction: registeredFunction,
     internalMutation: registeredFunction,
+    internalQuery: registeredFunction,
     mutation: registeredFunction,
     query: registeredFunction,
   }));
   mock.module("../_generated/api", () => ({
+    components: { rateLimiter: {} },
     internal: {
       crm: {
         commercialFiles: {

@@ -1,0 +1,43 @@
+{
+  "passed": true,
+  "checks": [
+    "staff-only inbox",
+    "leader diagnostics remain separate",
+    "Unread/All preserves read state",
+    "Escape restores bell focus",
+    "dismiss and reopen",
+    "one selected read and correct deep link",
+    "late arrival",
+    "390px and 360px viewport bounds",
+    "dense 18-row list",
+    "empty inbox and bell",
+    "loading resolves to actual updates",
+    "existing error banner",
+    "real email HTML at desktop/mobile"
+  ],
+  "errors": [],
+  "scope": "Actual Citius components, CSS and email renderer with fictional data and mocked Next navigation and Convex transport. No authenticated or hosted proof.",
+  "baseRevision": "050b337408f5b5d3642adcfebbc291ac0b10ac19",
+  "sourceSha256": {
+    "src/components/portal/PortalShell.tsx": "69de4469aaa168b2b7578f48b8144666c097bb9caf2e8f850964b4e44fef2f01",
+    "src/components/portal/NotificationInbox.tsx": "f8af6ccfa50d27e191f4252661905ad20bef74a8d31b3090096c6ae40c6211e0",
+    "src/components/portal/workspace/PortalWorkspaceHeader.tsx": "ff91e4adaff88d4b6933543d85da88ae6d0a7766ad3daca78870a2db505f3ffe",
+    "src/components/portal/workspace/admin/ActivityView.tsx": "8b46f73b38814d370c1534c8032ce31b53e928a5e9953d70a8aa4bb16ee33e4a",
+    "src/app/globals.css": "fb9c3de1161ddd78293b942eef1f2e31a782b26d1c2aa479ed4242ba47a730b6",
+    "convex/crm/notificationEmailContent.ts": "63f217c5a4f035e4d9cc6a077d74096c5bcd20a4aff5aa1fc25746fa7c0c30e3"
+  },
+  "imagesSha256": {
+    "before-desktop.png": "ae24e6a66595a4c9468b8f773d21641a09a474918e4597c795cef7c71ed39032",
+    "bell-desktop.png": "a7e19fff471b30a0f8d332b9eb784c78ed4867ca02a18fa0f33bb5fd73666d77",
+    "bell-mobile.png": "92c8cc72d62d0359be655c7883ef79044c44fd8bce126fab71c8ec89c02ff1f7",
+    "email-leave-mobile.png": "90eb25d8487c5324e082a9a11d51885b6c92c0a8526fb7b6d121dda7cb4f3608",
+    "email-query-mobile.png": "dac136762e554a24fd0ee6181cebf8696a9150b089d34121805ad7aaccd02428",
+    "email-tourManager-mobile.png": "ead1988c03cce62c77f2bbb90d443e9bbcf64297b697d6b0400337a4a0054eab",
+    "empty-mobile.png": "7a0d7066b07132b58077f05c50d086e82d8d32431c317595f21a6aa3da320d41",
+    "leader-desktop.png": "1969bc31cd89651d1cf844ba36657d207cf3dc0145d73cca53e2321eec684a3c",
+    "loading-bell-mobile.png": "02899923cac6a83ce5fc5efd9e6f13f86002208f0bf6b5e784d9f90788a86149",
+    "staff-all-desktop.png": "d0cc408b845ffd56ec0cb978d53d62195edd6669bf91fcec4b06e79a97be0d10",
+    "staff-desktop.png": "4ee3efdfe4b1f833033a15358448683571ca08934af6fbedbdf8cf2f91ae0e41",
+    "staff-mobile.png": "5c9628b398a7934e872addd80b2625be87541872878ecce85737069ee04e63ee"
+  }
+}

@@ -157,3 +157,14 @@ describe("Query status transitions", () => {
     });
   });
 });
+
+test("lost-query notices reach the assigned SPOC and head without waking unused Ticketing", () => {
+  const plan = buildQueryStatusNotificationPlan({
+    args: { queryId: "queries_1", salesStatus: "Order Lost" },
+    current: { ...baseCurrent, ticketingScope: "Not required" },
+    isNewlyConfirmed: false,
+    wasConfirmed: false,
+  });
+  expect(plan.ownerNotifications.map((notice) => notice.ownerId)).toEqual(["staff_contracting"]);
+  expect(plan.roleNotifications.map((notice) => notice.roles)).toEqual([["Contracting Head"]]);
+});

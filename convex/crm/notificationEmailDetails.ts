@@ -1,8 +1,10 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalQuery, type QueryCtx } from "../_generated/server";
 import type { RuntimeValue } from "../lib/runtimeValues";
 import { isRuntimeNumber } from "../lib/runtimeValues";
+import { normalizeEmail } from "./lib/staffAccess";
+import { notificationRecipientCanAccess } from "./notificationEmailAudience";
 
 interface DetailRow {
   label: string;
@@ -629,14 +631,35 @@ export const getNotificationEmailDetails = internalQuery({
   args: {
     entityId: v.optional(v.string()),
     entityType: v.optional(v.string()),
+    jobId: v.optional(v.id("notificationEmailOutbox")),
   },
   handler: async (ctx, args): Promise<DetailSection | null> => {
-    if (!(args.entityType && args.entityId)) {
+    let { entityId, entityType } = args;
+    if (args.jobId) {
+      const job = await ctx.db.get("notificationEmailOutbox", args.jobId);
+      if (!job) {
+        throw new ConvexError("NOTIFICATION_EMAIL_RECIPIENT_ACCESS_CHANGED");
+      }
+      if (job.recipientStaffId) {
+        const staff = await ctx.db.get("staffUsers", job.recipientStaffId);
+        if (
+          !(
+            staff?.active &&
+            normalizeEmail(staff.email) === job.recipient &&
+            (await notificationRecipientCanAccess(ctx, staff, job))
+          )
+        ) {
+          throw new ConvexError("NOTIFICATION_EMAIL_RECIPIENT_ACCESS_CHANGED");
+        }
+      }
+      ({ entityId, entityType } = job);
+    }
+    if (!(entityType && entityId)) {
       return null;
     }
 
-    const loadDetails = notificationDetailLoaders.get(args.entityType);
-    return loadDetails ? await loadDetails(ctx, args.entityId) : null;
+    const loadDetails = notificationDetailLoaders.get(entityType);
+    return loadDetails ? await loadDetails(ctx, entityId) : null;
   },
   returns: v.union(
     v.object({

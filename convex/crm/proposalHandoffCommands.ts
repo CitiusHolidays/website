@@ -164,12 +164,19 @@ async function publishProposalHandoffNotification(
   proposal: Doc<"proposals">,
   query: Doc<"queries">
 ) {
-  const salesStaffId = query.salesOwnerId
-    ? ctx.db.normalizeId("staffUsers", query.salesOwnerId)
-    : null;
+  // New queries store the auth ID; older rows can contain the stable staff ID.
+  // Resolve both without turning an unresolved owner into a department broadcast.
+  const staff = await ctx.db.query("staffUsers").collect();
+  const owners = staff.filter(
+    (member) =>
+      member.active &&
+      Boolean(query.salesOwnerId) &&
+      (member._id === query.salesOwnerId || member.authUserId === query.salesOwnerId)
+  );
+  const salesStaffId = owners.length === 1 ? owners[0]?._id : undefined;
   const targets: BellNotificationTargets = salesStaffId
     ? { kind: "staff", staffIds: [salesStaffId] }
-    : { kind: "roles", roles: ["Sales", "Sales Head"] };
+    : { kind: "roles", roles: ["Sales Head"] };
   await publishWorkflowNotification(ctx, {
     bellTargets: targets,
     content: {

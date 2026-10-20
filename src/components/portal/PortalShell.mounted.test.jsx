@@ -194,7 +194,7 @@ describe("PortalShell menu and notification contracts", () => {
     const popup = document.querySelector('[aria-label="notifications"]');
     expect(popup).not.toBeNull();
     expect(popup.className).toContain("portal-shell-surface");
-    expect(popup.className).toContain("w-[min(20rem,calc(100vw-2rem))]");
+    expect(popup.className).toContain("w-[min(23rem,calc(100vw-1rem))]");
 
     await act(async () => {
       document.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));

@@ -1,0 +1,24 @@
+{
+  "sourceSha256": "93aa8168d5785cf9ecfe67a6b12cd558890a1998ab181a35986f6f183dfa02d7",
+  "mutations": [
+    {
+      "mutation": "lease",
+      "caught": true,
+      "exitCode": 1,
+      "test": "keeps the lease exclusive"
+    },
+    {
+      "mutation": "immutable-render",
+      "caught": true,
+      "exitCode": 1,
+      "test": "freezes one immutable render"
+    },
+    {
+      "mutation": "access-recheck",
+      "caught": true,
+      "exitCode": 1,
+      "test": "rechecks assignment"
+    }
+  ],
+  "restored": true
+}

@@ -166,7 +166,10 @@ describe("ApplyQueryTeamAssignments", () => {
             roles: ["Contracting Head", "Operations Head", "Head of Ticketing"],
           },
           content: expect.objectContaining({ title: "Assign Ticketing SPOC" }),
-          emailTargets: { kind: "roles", roles: ["Head of Ticketing"] },
+          emailTargets: {
+            kind: "roles",
+            roles: ["Contracting Head", "Operations Head", "Head of Ticketing"],
+          },
         })
       );
     } finally {
@@ -279,7 +282,7 @@ describe("ApplyQueryTeamAssignments", () => {
             roles: ["Contracting Head", "Operations Head"],
           },
           content: expect.objectContaining({ title: "Query team assigned by Sales" }),
-          emailTargets: { kind: "none" },
+          emailTargets: { kind: "roles", roles: ["Contracting Head", "Operations Head"] },
         })
       );
     } finally {

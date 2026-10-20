@@ -47,6 +47,7 @@ interface DeliverTransactionalAuthEmailInput {
     html: string;
     idempotencyKey: string;
     recipient: string;
+    signal?: AbortSignal;
     subject: string;
     text: string;
   }) => Promise<AuthEmailProviderResult>;
@@ -244,6 +245,7 @@ async function sendWithResend(input: {
   html: string;
   idempotencyKey: string;
   recipient: string;
+  signal?: AbortSignal;
   subject: string;
   text: string;
 }): Promise<AuthEmailProviderResult> {
@@ -265,6 +267,7 @@ async function sendWithResend(input: {
       "Idempotency-Key": input.idempotencyKey,
     },
     method: "POST",
+    signal: input.signal,
   });
   return response.ok
     ? { error: null }
@@ -360,6 +363,7 @@ export async function executeAuthEmailDeliveryOrchestration(
         html: input.html,
         idempotencyKey: options.idempotencyKey,
         recipient: input.recipient,
+        signal: options.signal,
         subject: input.subject,
         text: input.text,
       });

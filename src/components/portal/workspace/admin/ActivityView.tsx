@@ -1,23 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import type { MouseEvent } from "react";
+import { NotificationInbox } from "@/components/portal/NotificationInbox";
 import { formatDate } from "@/components/portal/PortalModalForm";
-import { Button } from "@/components/ui/application-button";
 import { getNotificationHref } from "@/lib/portal/notificationTargets";
 import { EmptyState, Timeline } from "../portalAdminHelpers";
-import type {
-  ActivityViewProps,
-  PortalDeleteHandler,
-  PortalNotificationRow,
-} from "../portalViewTypes";
-import { DeleteButton, Panel } from "../portalWorkspaceListUi";
-
-interface NotificationItemContentProps {
-  deleteItem: PortalDeleteHandler;
-  item: PortalNotificationRow;
-  removeNotification: ActivityViewProps["removeNotification"];
-}
+import type { ActivityViewProps, PortalNotificationRow } from "../portalViewTypes";
+import { Panel } from "../portalWorkspaceListUi";
 
 type EmailDeliveryResult = NonNullable<ActivityViewProps["emailDeliverySummaries"]>;
 type EmailDeliverySummary = EmailDeliveryResult["summaries"][number];
@@ -31,6 +20,10 @@ export function EmailDeliveryStatusRegion({
 }) {
   return (
     <Panel title="Notification email delivery">
+      <p className="mb-4 text-brand-muted text-xs leading-5">
+        Retries run automatically. Accepted means the email service took the message. Delivery to
+        the recipient's mail server is not confirmed here.
+      </p>
       {coverage === "partial" ? (
         <p className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900 text-xs">
           Delivery totals are still being reconciled. Counts shown are partial.
@@ -63,7 +56,7 @@ export function EmailDeliveryStatusRegion({
                   {summary.total} {coverage === "complete" ? "total" : "currently counted"}
                 </span>
                 <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-800">
-                  {summary.sent} sent
+                  {summary.sent} accepted
                 </span>
                 {summary.queued + summary.sending > 0 ? (
                   <span className="rounded-full bg-blue-100 px-2 py-1 text-blue-800">
@@ -72,12 +65,12 @@ export function EmailDeliveryStatusRegion({
                 ) : null}
                 {summary.retrying > 0 ? (
                   <span className="rounded-full bg-amber-100 px-2 py-1 text-amber-900">
-                    {summary.retrying} retrying
+                    {summary.retrying} retrying automatically
                   </span>
                 ) : null}
                 {summary.exhausted > 0 ? (
                   <span className="rounded-full bg-rose-100 px-2 py-1 text-rose-800">
-                    {summary.exhausted} exhausted
+                    {summary.exhausted} need attention
                   </span>
                 ) : null}
                 {summary.skipped > 0 ? (
@@ -94,64 +87,12 @@ export function EmailDeliveryStatusRegion({
   );
 }
 
-function NotificationItemContent({
-  deleteItem,
-  item,
-  removeNotification,
-}: NotificationItemContentProps) {
-  const handleDeleteClick = (event: MouseEvent<HTMLButtonElement>) => {
-    event.stopPropagation();
-    deleteItem(item.title || "notification", removeNotification, {
-      notificationId: String(item.id),
-    });
-  };
-  return (
-    <div className="flex items-start justify-between gap-3">
-      <div>
-        <div className="font-semibold text-sm">
-          {item.title}: {item.body}
-        </div>
-        <div className="mt-1 text-brand-muted text-xs">
-          {item.readAt ? "Read" : "Unread"} - {formatDate(item.createdAt)}
-        </div>
-      </div>
-      <DeleteButton label={item.title || "notification"} onClick={handleDeleteClick} />
-    </div>
-  );
-}
-
-function InteractiveNotificationItem({
-  deleteItem,
-  item,
-  onNotificationClick,
-  removeNotification,
-}: NotificationItemContentProps & {
-  onNotificationClick: (item: PortalNotificationRow) => void;
-}) {
-  const handleClick = () => onNotificationClick(item);
-  return (
-    <Button
-      className="cursor-pointer rounded-md border border-brand-border bg-brand-light p-3 transition-colors hover:bg-white"
-      nativeButton={false}
-      onClick={handleClick}
-      render={<div />}
-    >
-      <NotificationItemContent
-        deleteItem={deleteItem}
-        item={item}
-        removeNotification={removeNotification}
-      />
-    </Button>
-  );
-}
-
 export function ActivityView({
   activity,
   canViewActivityLog,
   notifications,
-  deleteItem,
+  notificationsLoading = false,
   emailDeliverySummaries,
-  removeNotification,
   markNotificationRead,
 }: ActivityViewProps) {
   const router = useRouter();
@@ -171,53 +112,40 @@ export function ActivityView({
   };
 
   return (
-    <div className={`grid gap-5 ${canViewActivityLog ? "xl:grid-cols-2" : ""}`}>
-      {canViewActivityLog ? (
-        <Panel title="Activity log">
-          <Timeline rows={activity} />
-        </Panel>
-      ) : null}
-      {canViewActivityLog ? (
-        <Panel title="Notifications">
-          {notifications.length === 0 ? (
-            <EmptyState label="No notifications yet." />
-          ) : (
-            <div className="space-y-3">
-              {notifications.map((item) => {
-                const isInteractive = Boolean(item.entityType && item.entityId);
-                const itemClassName = `rounded-md border border-brand-border bg-brand-light p-3 ${
-                  isInteractive ? "cursor-pointer transition hover:bg-white" : ""
-                }`;
-
-                return isInteractive ? (
-                  <InteractiveNotificationItem
-                    deleteItem={deleteItem}
-                    item={item}
-                    key={item.id}
-                    onNotificationClick={handleNotificationClick}
-                    removeNotification={removeNotification}
-                  />
-                ) : (
-                  <div className={itemClassName} key={item.id}>
-                    <NotificationItemContent
-                      deleteItem={deleteItem}
-                      item={item}
-                      removeNotification={removeNotification}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Panel>
-      ) : null}
-      {emailDeliverySummaries ? (
-        <div className={canViewActivityLog ? "xl:col-span-2" : ""}>
-          <EmailDeliveryStatusRegion
-            coverage={emailDeliverySummaries.coverage}
-            summaries={emailDeliverySummaries.summaries}
-          />
+    <div
+      className={`grid items-start gap-5 ${emailDeliverySummaries ? "xl:grid-cols-[minmax(0,1fr)_22rem]" : ""}`}
+    >
+      <section
+        aria-label="Your notifications"
+        className="overflow-hidden rounded-2xl border border-brand-border bg-white"
+      >
+        <div className="px-5 pt-5 pb-3">
+          <h2 className="font-semibold text-brand-dark text-sm">Your updates</h2>
+          <p className="mt-1 text-brand-muted text-xs leading-5">
+            Open an update to view the work. Email retries run automatically.
+          </p>
         </div>
+        <NotificationInbox
+          items={notifications}
+          loading={notificationsLoading}
+          onActivate={handleNotificationClick}
+        />
+      </section>
+      {emailDeliverySummaries ? (
+        <EmailDeliveryStatusRegion
+          coverage={emailDeliverySummaries.coverage}
+          summaries={emailDeliverySummaries.summaries}
+        />
+      ) : null}
+      {canViewActivityLog ? (
+        <details className="rounded-2xl border border-brand-border bg-white p-5 xl:col-span-full">
+          <summary className="cursor-pointer font-semibold text-brand-dark text-sm">
+            Workspace activity
+          </summary>
+          <div className="mt-4">
+            <Timeline rows={activity} />
+          </div>
+        </details>
       ) : null}
     </div>
   );

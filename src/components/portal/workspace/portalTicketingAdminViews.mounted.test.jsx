@@ -413,15 +413,11 @@ describe("Mounted portal ticketing and administration views", () => {
 
     expect(view.container.textContent).toContain("Unread");
     expect(readCalls).toEqual([]);
-    await act(async () =>
-      view.container
-        .querySelector('button[aria-label="Delete Proposal ready"]')
-        ?.dispatchEvent(new MouseEvent("click", { bubbles: true }))
+    expect(view.container.querySelector('button[aria-label="Delete Proposal ready"]')).toBeNull();
+    expect(deleteCalls).toEqual([]);
+    const row = [...view.container.querySelectorAll("button")].find((button) =>
+      button.textContent.includes("Proposal ready")
     );
-    expect(deleteCalls).toHaveLength(1);
-    expect(readCalls).toEqual([]);
-    expect(pushed).toEqual([]);
-    const row = view.container.querySelector('[role="button"]');
     expect(row).toBeTruthy();
     await act(async () => row?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
     expect(readCalls).toEqual([{ notificationId: "notif-1" }]);

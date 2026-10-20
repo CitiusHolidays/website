@@ -379,17 +379,20 @@ export function buildQueryStatusNotificationPlan({
   if (args.salesStatus === "Order Lost") {
     roleNotifications.push({
       body: `${current.queryCode} was marked lost by Sales.`,
-      roles: ["Contracting", "Contracting Head"],
+      roles: ["Contracting Head"],
       title: "Order lost",
     });
     addOwnerNotification(current.contractingOwnerId, {
       body: `${current.queryCode} was marked lost by Sales.`,
       title: "Order lost on your query",
     });
-    addOwnerNotification(current.ticketingOwnerId, {
-      body: `${current.queryCode} was marked lost by Sales.`,
-      title: "Order lost on your query",
-    });
+    addOwnerNotification(
+      queryRequiresTicketingWork(current) ? current.ticketingOwnerId : undefined,
+      {
+        body: `${current.queryCode} was marked lost by Sales.`,
+        title: "Order lost on your query",
+      }
+    );
   }
 
   if (isNewlyConfirmed) {

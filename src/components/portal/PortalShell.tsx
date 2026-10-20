@@ -2,17 +2,7 @@
 
 import { api } from "@convex/_generated/api";
 import { useConvexAuth, useMutation } from "convex/react";
-import {
-  Bell,
-  ChevronDown,
-  ChevronRight,
-  Circle,
-  ExternalLink,
-  LogOut,
-  Menu,
-  Plus,
-  X,
-} from "lucide-react";
+import { Bell, ChevronDown, ChevronRight, ExternalLink, LogOut, Menu, Plus, X } from "lucide-react";
 import { m, useReducedMotion } from "motion/react";
 import Image from "next/image";
 import Link from "next/link";
@@ -26,6 +16,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { NotificationInbox } from "@/components/portal/NotificationInbox";
 import { PortalAccessProvider } from "@/components/portal/PortalAccessContext";
 import { PortalAccountAvatar } from "@/components/portal/PortalAccountAvatar";
 import { PortalActionMenu } from "@/components/portal/PortalActionMenu";
@@ -139,11 +130,6 @@ type PortalNavAction =
   | { open: boolean; type: "saveDialogOpen" }
   | { saving: boolean; type: "savingView" };
 
-interface NotificationListItemProps {
-  item: NotificationItem;
-  onClick: (item: NotificationItem) => void;
-}
-
 interface PortalShellProps {
   access: PortalAccess;
   children: ReactNode;
@@ -180,39 +166,6 @@ const handleLogout = async () => {
   await logout();
   window.location.href = "/";
 };
-
-function NotificationListItem({
-  index,
-  item,
-  onClick,
-}: NotificationListItemProps & { index: number }) {
-  const handleClick = () => onClick(item);
-  return (
-    <m.button
-      animate={{ opacity: 1, transform: "translateY(0)" }}
-      className={`${buttonVariants({ surface: "staff" })} w-full border-brand-border border-b px-4 py-3 text-left last:border-b-0 hover:bg-brand-light active:scale-[0.99]`}
-      initial={{ opacity: 0, transform: "translateY(6px)" }}
-      onClick={handleClick}
-      transition={{ delay: index * 0.04, duration: 0.2, ease: "linear" }}
-      type="button"
-    >
-      <div className="flex gap-2">
-        <Circle
-          className={
-            item.readAt
-              ? "mt-1.5 text-brand-muted/50"
-              : "mt-1.5 fill-citius-orange text-citius-orange"
-          }
-          size={8}
-        />
-        <div>
-          <div className="font-semibold text-sm">{item.title}</div>
-          <div className="mt-1 text-brand-muted text-xs leading-5">{item.body}</div>
-        </div>
-      </div>
-    </m.button>
-  );
-}
 
 interface MobileQuickAccessProps {
   action?: {
@@ -563,7 +516,7 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                       <div className="relative shrink-0">
                         <PortalPopover
                           aria-label="notifications"
-                          className="portal-shell-surface w-[min(20rem,calc(100vw-2rem))]"
+                          className="portal-shell-surface w-[min(23rem,calc(100vw-1rem))]"
                           onOpenChange={handleNotificationsOpenChange}
                           open={notificationsOpen}
                           sideOffset={12}
@@ -573,24 +526,14 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                             <div className="font-heading font-semibold text-citius-blue text-sm">
                               Notifications
                             </div>
-                            <ChevronDown className="text-brand-muted" size={16} />
+                            <span className="text-brand-muted text-xs">Recent updates</span>
                           </div>
-                          <div className="max-h-80 overflow-y-auto">
-                            {notificationRows.length === 0 ? (
-                              <div className="px-4 py-6 text-brand-muted text-sm">
-                                No notifications yet.
-                              </div>
-                            ) : (
-                              notificationRows.map((item, index) => (
-                                <NotificationListItem
-                                  index={index}
-                                  item={item}
-                                  key={item.id}
-                                  onClick={handleNotificationClick}
-                                />
-                              ))
-                            )}
-                          </div>
+                          <NotificationInbox
+                            compact
+                            items={notificationRows}
+                            loading={notificationBellState === undefined}
+                            onActivate={handleNotificationClick}
+                          />
                           <div className="border-brand-border border-t px-4 py-3">
                             <Link
                               className="font-semibold text-citius-blue text-xs transition-colors duration-150 ease-[var(--portal-ease-out)] hover:text-citius-orange-ink"

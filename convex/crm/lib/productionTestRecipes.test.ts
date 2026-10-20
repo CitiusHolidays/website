@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { Effect, Layer } from "effect";
+import { Cause, Deferred, Duration, Effect, Exit, Fiber, Layer } from "effect";
+import { TestClock } from "effect/testing";
 import { assertProductionTestEffectIsRedacted } from "../productionTestLab";
 import {
   DryRunProbe,
@@ -136,5 +137,107 @@ describe("Production Test Lab recipe orchestration", () => {
     expect(result).toMatchObject({ cleanup: "passed", status: "failed" });
     expect(result?.steps.find((step) => step.id === "record-effects")?.status).toBe("skipped");
     expect(cleaned).toEqual(["concierge"]);
+  });
+
+  test("cleans up on parent interruption without starting later recipes", async () => {
+    const ran: string[] = [];
+    const cleaned: string[] = [];
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const started = yield* Deferred.make<void>();
+        const layer = Layer.succeed(DryRunProbe, {
+          cleanup: (recipe) =>
+            Effect.sleep(5).pipe(Effect.andThen(Effect.sync(() => cleaned.push(recipe.id)))),
+          run: (recipe) =>
+            Effect.sync(() => ran.push(recipe.id)).pipe(
+              Effect.andThen(Deferred.succeed(started, undefined)),
+              Effect.andThen(Effect.never)
+            ),
+        });
+        const runner = yield* Effect.forkChild(
+          runProductionTestRecipes(["concierge", "auth_email"]).pipe(Effect.provide(layer))
+        );
+        yield* Deferred.await(started);
+        const interruption = yield* Effect.forkChild(Fiber.interrupt(runner));
+        yield* TestClock.adjust(Duration.millis(4));
+        expect(cleaned).toEqual([]);
+        yield* TestClock.adjust(Duration.millis(1));
+        yield* Fiber.join(interruption);
+        const outcome = yield* Fiber.await(runner);
+        expect(Exit.isFailure(outcome) && Cause.hasInterrupts(outcome.cause)).toBe(true);
+      }).pipe(Effect.provide(TestClock.layer()))
+    );
+    expect(ran).toEqual(["concierge"]);
+    expect(cleaned).toEqual(["concierge"]);
+  });
+
+  test("cleans up a synchronous probe construction defect and continues independent recipes", async () => {
+    const cleaned: string[] = [];
+    const layer = Layer.succeed(DryRunProbe, {
+      cleanup: (recipe) => Effect.sync(() => cleaned.push(recipe.id)),
+      run: (recipe) => {
+        if (recipe.id === "concierge") {
+          throw new Error("Probe construction failed");
+        }
+        return Effect.succeed({
+          detail: "Validated",
+          recordedEffects: [],
+          status: "passed" as const,
+        });
+      },
+    });
+    const results = await Effect.runPromise(
+      runProductionTestRecipes(["concierge", "auth_email"]).pipe(Effect.provide(layer))
+    );
+    expect(results.map((result) => result.status)).toEqual(["failed", "passed"]);
+    expect(results[0]?.cleanup).toBe("passed");
+    expect(cleaned).toEqual(["concierge", "auth_email"]);
+  });
+
+  test("bounds stalled cleanup and measures probe plus cleanup with the supplied clock", async () => {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const layer = Layer.succeed(DryRunProbe, {
+          cleanup: (recipe) => (recipe.id === "concierge" ? Effect.never : Effect.sleep(5)),
+          run: () =>
+            Effect.sleep(5).pipe(
+              Effect.as({ detail: "Validated", recordedEffects: [], status: "passed" as const })
+            ),
+        });
+        const runner = yield* Effect.forkChild(
+          runProductionTestRecipes(["concierge", "auth_email"], { timeoutMs: 10 }).pipe(
+            Effect.provide(layer)
+          )
+        );
+        yield* TestClock.adjust(Duration.millis(25));
+        const results = yield* Fiber.join(runner);
+        expect(
+          results.map(({ status, cleanup, durationMs }) => ({ cleanup, durationMs, status }))
+        ).toEqual([
+          { cleanup: "failed", durationMs: 15, status: "failed" },
+          { cleanup: "passed", durationMs: 10, status: "passed" },
+        ]);
+      }).pipe(Effect.provide(TestClock.layer()))
+    );
+  });
+
+  test("reports synchronous cleanup construction defects and continues independent recipes", async () => {
+    const layer = Layer.succeed(DryRunProbe, {
+      cleanup: (recipe) => {
+        if (recipe.id === "concierge") {
+          throw new Error("Cleanup construction failed");
+        }
+        return Effect.void;
+      },
+      run: () =>
+        Effect.succeed({ detail: "Validated", recordedEffects: [], status: "passed" as const }),
+    });
+    const results = await Effect.runPromise(
+      runProductionTestRecipes(["concierge", "auth_email"]).pipe(Effect.provide(layer))
+    );
+    expect(results.map(({ status, cleanup }) => ({ cleanup, status }))).toEqual([
+      { cleanup: "failed", status: "failed" },
+      { cleanup: "passed", status: "passed" },
+    ]);
   });
 });

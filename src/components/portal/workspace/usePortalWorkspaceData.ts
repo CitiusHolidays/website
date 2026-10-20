@@ -1186,9 +1186,7 @@ function useLeaveWorkspaceData(context: WorkspaceQueryContext) {
 function useStaffSupportWorkspaceData(context: WorkspaceQueryContext) {
   const notifications = useQuery(
     api.crm.activity.listNotifications,
-    context.canFetch && context.needs("activity") && context.has(P.VIEW_ACTIVITY)
-      ? { limit: 80 }
-      : "skip"
+    context.canFetch && context.needs("activity") ? { limit: 80 } : "skip"
   );
   const dropdowns = useQuery(
     api.crm.settings.listDropdowns,

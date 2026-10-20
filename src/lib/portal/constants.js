@@ -493,7 +493,7 @@ export const PORTAL_NAV_GROUPS = [
     items: [
       {
         href: "/portal/activity",
-        label: "Activity Log",
+        label: "Notifications",
         page: "activity",
         permission: P.VIEW_EMAIL_DELIVERY_STATUS,
       },

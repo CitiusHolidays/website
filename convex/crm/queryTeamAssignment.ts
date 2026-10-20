@@ -311,11 +311,16 @@ export async function applyQueryTeamAssignments(
       entityType: "query",
       title: assignmentTitle,
     },
-    // One actionable Head of Ticketing email covers the initial unassigned intake.
-    // Selected SPOCs continue to receive their direct assignment email above.
-    emailTargets: ticketingAssignmentRequired
-      ? { kind: "roles", roles: ["Head of Ticketing"] }
-      : { kind: "none" },
+    // Contracting and Operations heads need the intake email as well as the bell.
+    // Ticketing receives the actionable initial handoff only when work is required.
+    emailTargets: {
+      kind: "roles",
+      roles: [
+        "Contracting Head",
+        "Operations Head",
+        ...(ticketingAssignmentRequired ? ["Head of Ticketing"] : []),
+      ],
+    },
   });
 
   return { id: queryId };

@@ -6,6 +6,7 @@ import {
   importRoomSummaryValidator,
   travelBatchSummaryTransitionValidator,
 } from "./lib/importContractValidators";
+import { notificationEmailOutboxFields } from "./lib/notificationEmailValidators";
 import {
   postTourCategoryValidator,
   postTourRatingValidator,
@@ -1519,6 +1520,12 @@ export default defineSchema({
     travellerId: v.id("travellers"),
     updatedAt: v.number(),
   }).index("by_travellerId", ["travellerId"]),
+
+  // Private work queue. Only internal functions read addresses and frozen messages.
+  // Public delivery summaries remain in the opaque delivery ledger.
+  notificationEmailOutbox: defineTable(notificationEmailOutboxFields)
+    .index("by_deliveryKey", ["idempotencyKey"])
+    .index("by_eventId", ["eventId"]),
 
   // Privacy-safe per-recipient delivery state for CRM email. Recipient
   // addresses are never stored here; the hash is derived from the provider
