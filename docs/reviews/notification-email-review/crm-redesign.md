@@ -6,7 +6,7 @@ These pictures show actual Citius components and CSS with fictional staff and tr
 
 ## U06. A quieter workspace
 
-The main reference is [Augustas's Northwind Ops](https://x.com/augustasdesign/status/2109844574613200974). Its actual archived image is 960 by 1200 pixels. The sidebar crop is x0, y0, width 341, height 1200, normalized to 280 pixels wide. Citius closely follows its light rail, outlined active row, muted icons, group spacing and right-edge count. It retains the Citius logo, configured fonts, destinations and role visibility. Desktop rows are 36 pixels tall; phone controls remain44 pixels.
+The main reference is [Augustas's Northwind Ops](https://x.com/augustasdesign/status/2109844574613200974). Its actual archived image is 960 by 1200 pixels. The sidebar crop is x=0, y=0, width 341, height 1200, normalized to 280 pixels wide. Citius closely follows its light rail, outlined active row, muted icons, group spacing and right-edge count. It retains the Citius logo, configured fonts, destinations and role visibility. Desktop rows are 36 pixels tall; phone controls remain 44 pixels.
 
 ![Actual source crop beside the Citius sidebar](crm/sidebar-comparison.png)
 
@@ -18,25 +18,25 @@ Search commands opens the existing working command palette. Screens without that
 
 The query table puts Stage before secondary columns. Pinned cells are opaque, so underlying text cannot bleed through. Columns and the 44-pixel scroll buttons share one compact row. This removes the redundant control row above the table. Inner horizontal scrolling is intentional; every column remains available.
 
-The table reference is [Akash's table](https://x.com/a 1x45h/status/2103785018636329085), actual 900 by 1200 image, crop x469, y130, width 431, height 520. The comparison uses actual source pixels. Citius follows its quiet header, thin rules and compact controls. It retains its business columns, status colors and named actions.
+The table reference is [Akash's table](https://x.com/a1x45h/status/2103785018636329085), actual 900 by 1200 image, crop x=469, y=130, width 431, height 520. The comparison uses actual source pixels. Citius follows its quiet header, thin rules and compact controls. It retains its business columns, status colors and named actions.
 
 ![Actual table region beside the Citius table](crm/table-comparison.png)
 
-The form reference is [Intent UI's grid fieldset](https://design.intentui.com/patterns/fieldset/with-grid-layout), from bookmarked designer Irsyad. The actual light-browser crop is x532, y290, width 540, height 320 at 1280 by 720. Citius closely follows its white outlined fields,8-pixel corners, labels above fields, grouped two-column layout and full-width notes. Business content requires a wider form and 44-pixel controls. Existing labels, validation and values remain.
+The form reference is [Intent UI's grid fieldset](https://design.intentui.com/patterns/fieldset/with-grid-layout), from bookmarked designer Irsyad. The actual light-browser crop is x=532, y=290, width 540, height 320 at 1280 by 720. Citius closely follows its white outlined fields, 8-pixel corners, labels above fields, grouped two-column layout and full-width notes. Business content requires a wider form and 44-pixel controls. Existing labels, validation and values remain.
 
 ![Actual fieldset region beside the Citius proposal form](crm/form-comparison.png)
 
-Buttons follow the [Intent UI primary button](https://design.intentui.com/patterns/button/primary), actual crop x740, y410, width 120, height 76. The [menu-action table](https://design.intentui.com/patterns/table/with-menu-actions) supports the primary-action/More arrangement. Citius retains navy for the explicit primary action and quiet outlined secondary controls. No component library was installed or paid source accessed.
+Buttons follow the [Intent UI primary button](https://design.intentui.com/patterns/button/primary), actual crop x=740, y=410, width 120, height 76. The [menu-action table](https://design.intentui.com/patterns/table/with-menu-actions) supports the primary-action/More arrangement. Citius retains navy for the explicit primary action and quiet outlined secondary controls. No component library was installed or paid source accessed.
 
 ![Actual button source region](crm/button-reference.png)
 
-The second Northwind Ops image supplies the detail reference. Its actual 960 by 1200 image is cropped x534, y0, width 426, height 860. Citius follows the unboxed title, labeled facts and separated work modules. Its Job Card readiness map, tasks and document access are retained, so this is a detail-layout adaptation rather than a 1:1 screen copy.
+The second Northwind Ops image supplies the detail reference. Its actual 960 by 1200 image is cropped x=534, y=0, width 426, height 860. Citius follows the unboxed title, labeled facts and separated work modules. Its Job Card readiness map, tasks and document access are retained, so this is a detail-layout adaptation rather than a 1:1 screen copy.
 
 ![Actual detail region beside the Citius Job Card](crm/detail-comparison.png)
 
 Cards remain around distinct content. The collapsed Job Card checklist no longer stretches into a large blank card beside the longer next-actions list. Post-tour selectors sit on the page, and report/form cards use the same restrained corners as the CRM.
 
-The earlier notification centre used Nick's compact Unread/All centre, Rico's activity separation and Augustas's secondary status view as adaptations. U01 to U05 retained the existing Citius presentation. These are the exact sources for the later CRM shell and content work; no claim of1:1 copying applies to unrelated screens.
+The earlier notification centre used Nick's compact Unread/All centre, Rico's activity separation and Augustas's secondary status view as adaptations. U01 to U05 retained the existing Citius presentation. These are the exact sources for the later CRM shell and content work; no claim of 1:1 copying applies to unrelated screens.
 
 ## U07. Keep a pending save safe
 
@@ -48,7 +48,7 @@ The proposal retains its linked queries, cost calculation, selling price, tax, i
 | --- | --- |
 | ![Proposal at 390 pixels](crm/proposal-mobile.jpg) | ![Itinerary above Save](crm/proposal-bottom-mobile.jpg) |
 
-[Narrow360-pixel viewport](crm/proposal-360.jpg). At390 by 844 and 360 by 780, the root scroll stayed locked and the document had no horizontal overflow.
+[Narrow 360-pixel viewport](crm/proposal-360.jpg). At 390 by 844 and 360 by 780, the root scroll stayed locked and the document had no horizontal overflow.
 
 | Pending | Failed save |
 | --- | --- |
