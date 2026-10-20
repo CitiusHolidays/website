@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { Doc, Id } from "../_generated/dataModel";
 import schema from "../schema";
 import { modules } from "../test.setup";
+import { publishWorkflowNotification } from "./lib/notifications";
 import {
   enqueueNotificationEmailOutbox,
   NOTIFICATION_IDEMPOTENCY_WINDOW_MS,
@@ -511,4 +512,136 @@ test("does not email a vanished staff address from a legacy entity envelope", as
     failureCode: "recipient_no_longer_identified",
     status: "skipped",
   });
+});
+
+async function pendingPurposeFixture(purpose: "assignment" | "head" | "historical") {
+  const t = harness();
+  const fixture = await t.run(async (ctx) => {
+    const staffId = await ctx.db.insert("staffUsers", {
+      active: true,
+      createdAt: Date.now(),
+      email: "spoc@example.invalid",
+      emailNormalized: "spoc@example.invalid",
+      name: "Original recipient",
+      roles:
+        purpose === "head"
+          ? ["Contracting Head", "Operations Head"]
+          : ["Contracting", "Operations Head"],
+      updatedAt: Date.now(),
+    });
+    const queryId = await ctx.db.insert("queries", {
+      clientName: "Fictional client",
+      contractingOwnerId: staffId,
+      contractingStatus: "Query Received",
+      createdAt: Date.now(),
+      createdBy: "other",
+      paxCount: 12,
+      queryCode: "Q-PURPOSE",
+      queryType: "FIT",
+      salesStatus: "Proposal in discussion",
+      travelType: "Domestic Travel",
+      updatedAt: Date.now(),
+    });
+    await publishWorkflowNotification(ctx, {
+      bellTargets: { kind: "staff", staffIds: [staffId] },
+      content: {
+        body: purpose === "historical" ? "The order was marked lost." : "Review this query.",
+        entityId: queryId,
+        entityType: "query",
+        title: purpose === "historical" ? "Order lost on your query" : "Contracting assignment",
+      },
+      emailRecipientPurpose:
+        purpose === "assignment" ? { field: "contractingOwnerId", kind: "assignment" } : undefined,
+      emailTargets:
+        purpose === "head"
+          ? { kind: "roles", roles: ["Contracting Head"] }
+          : { kind: "staff", staffIds: [staffId] },
+    });
+    const job = await ctx.db.query("notificationEmailOutbox").unique();
+    if (!job) {
+      throw new Error("Fixture did not queue its email");
+    }
+    return { jobId: job._id, queryId, staffId };
+  });
+  return { t, ...fixture };
+}
+
+test.each([
+  ["assignment", "initial"],
+  ["assignment", "retry"],
+  ["head", "initial"],
+  ["head", "retry"],
+] as const)(
+  "stops a removed %s purpose before %s delivery despite continued broad record access",
+  async (purpose, stage) => {
+    const { t, jobId, queryId, staffId } = await pendingPurposeFixture(purpose);
+    if (stage === "retry") {
+      expect(await t.mutation(claim, { jobId })).not.toBeNull();
+      await t.mutation(freeze, { attempt: 1, jobId, message });
+    }
+    await t.run(async (ctx) => {
+      await ctx.db.patch("queries", queryId, { contractingOwnerId: undefined });
+      await ctx.db.patch("staffUsers", staffId, { roles: ["Operations Head"] });
+    });
+    await expect(t.query(details, { jobId })).rejects.toThrow(
+      "NOTIFICATION_EMAIL_RECIPIENT_ACCESS_CHANGED"
+    );
+    vi.setSystemTime(Date.now() + NOTIFICATION_LEASE_MS);
+    expect(await t.mutation(claim, { jobId })).toBeNull();
+    expect(await t.run((ctx) => ctx.db.get("notificationEmailOutbox", jobId))).toMatchObject({
+      attempts: stage === "retry" ? 1 : 0,
+      failureCode: "recipient_access_changed",
+      status: "skipped",
+    });
+  }
+);
+
+test("retains an informational event for its original recipient after reassignment when access remains", async () => {
+  const { t, jobId, queryId } = await pendingPurposeFixture("historical");
+  await t.run((ctx) => ctx.db.patch("queries", queryId, { contractingOwnerId: undefined }));
+  expect(await t.query(details, { jobId })).not.toBeNull();
+  expect(await t.mutation(claim, { jobId })).toMatchObject({ attempts: 1, status: "sending" });
+});
+
+test("keeps an unchanged assignment eligible for delayed delivery", async () => {
+  const { t, jobId } = await pendingPurposeFixture("assignment");
+  vi.setSystemTime(Date.now() + NOTIFICATION_LEASE_MS);
+  expect(await t.mutation(claim, { jobId })).toMatchObject({ attempts: 1, status: "sending" });
+});
+
+test("does not replay an event under a different recipient purpose even when addresses match", async () => {
+  const t = harness();
+  const staffId = await t.run((ctx) =>
+    ctx.db.insert("staffUsers", {
+      active: true,
+      createdAt: Date.now(),
+      email: "head@example.invalid",
+      emailNormalized: "head@example.invalid",
+      name: "Fictional head",
+      roles: ["Contracting Head", "Operations Head"],
+      updatedAt: Date.now(),
+    })
+  );
+  const plan = {
+    bellTargets: { kind: "staff" as const, staffIds: [staffId] },
+    content: { body: "Review pending work.", title: "Head review" },
+    operationalControls: { effectId: "purpose-fixed-event" },
+  };
+  await t.run((ctx) =>
+    publishWorkflowNotification(ctx, {
+      ...plan,
+      emailTargets: { kind: "roles", roles: ["Contracting Head"] },
+    })
+  );
+  await expect(
+    t.run((ctx) =>
+      publishWorkflowNotification(ctx, {
+        ...plan,
+        emailTargets: { kind: "roles", roles: ["Operations Head"] },
+      })
+    )
+  ).rejects.toThrow("OPERATIONAL_EFFECT_RECEIPT_CONFLICT");
+  const jobs = await t.run((ctx) => ctx.db.query("notificationEmailOutbox").collect());
+  expect(jobs).toHaveLength(1);
+  expect(jobs[0]?.recipientPurposes).toEqual([{ kind: "roles", roles: ["Contracting Head"] }]);
 });

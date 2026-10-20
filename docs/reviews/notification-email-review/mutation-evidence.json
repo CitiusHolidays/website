@@ -1,5 +1,5 @@
 {
-  "sourceSha256": "93aa8168d5785cf9ecfe67a6b12cd558890a1998ab181a35986f6f183dfa02d7",
+  "sourceSha256": "f09d9c0b3424c92403c08980abc53c852dad1524f299d477a3af1e6f36e115fa",
   "mutations": [
     {
       "mutation": "lease",
@@ -20,5 +20,15 @@
       "test": "rechecks assignment"
     }
   ],
-  "restored": true
+  "restored": true,
+  "source": "convex/crm/notificationEmailOutbox.ts",
+  "recipientPurpose": {
+    "sourceSha256": "f8cff5ddcd4f2d83f098df3bda298782e5ee1657c7deb2ab438207f8b12fb013",
+    "source": "convex/crm/notificationEmailAudience.ts",
+    "mutation": "remove original recipient purpose recheck",
+    "caught": true,
+    "exitCode": 1,
+    "test": "despite continued broad record access",
+    "restored": true
+  }
 }

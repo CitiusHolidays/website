@@ -420,12 +420,17 @@ export async function handleApplySalesDecision(ctx: MutationCtx, args: SalesDeci
       })
     ),
     ...notificationPlan.ownerNotifications.map((notification) =>
-      notifyQueryOwner(ctx, notification.ownerId, {
-        body: notification.body,
-        entityId: queryId,
-        entityType: "query",
-        title: notification.title,
-      })
+      notifyQueryOwner(
+        ctx,
+        notification.ownerId,
+        {
+          body: notification.body,
+          entityId: queryId,
+          entityType: "query",
+          title: notification.title,
+        },
+        notification.assignmentField
+      )
     ),
   ]);
 

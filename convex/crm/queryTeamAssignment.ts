@@ -177,7 +177,11 @@ async function notifyAssignedStaff(
       body: `You were assigned as ${team} SPOC for ${queryCode}.`,
       entityId: queryId,
       entityType: "query",
-      title: isContracting ? "Assign contracting owner" : "Assign ticketing owner",
+      title: isContracting ? "Contracting assignment" : "Ticketing assignment",
+    },
+    emailRecipientPurpose: {
+      field: isContracting ? "contractingOwnerId" : "ticketingOwnerId",
+      kind: "assignment",
     },
     emailTargets: { kind: "staff", staffIds: [assignment.staffId] },
   });

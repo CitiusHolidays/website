@@ -10,6 +10,29 @@ const dom = new JSDOM("<!doctype html><html><body></body></html>", {
 
 let createRoot;
 let DocumentPreviewHost;
+const mountedRoots = new Set();
+
+function createTrackedRoot(container) {
+  const root = createRoot(container);
+  mountedRoots.add(root);
+  return root;
+}
+
+async function unmountRoot(root) {
+  await act(async () => root.unmount());
+  mountedRoots.delete(root);
+}
+
+async function waitForPreview(predicate) {
+  const deadline = Date.now() + 2000;
+  while (!predicate()) {
+    if (Date.now() >= deadline) {
+      throw new Error("Preview did not reach its expected visible state");
+    }
+    // biome-ignore lint/performance/noAwaitInLoops: Each probe depends on the preceding React update being flushed.
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 10)));
+  }
+}
 
 beforeAll(async () => {
   globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -45,7 +68,13 @@ beforeAll(async () => {
   ({ DocumentPreviewHost } = await import("./DocumentPreviewHost"));
 });
 
-afterEach(() => {
+afterEach(async () => {
+  await act(() => {
+    for (const root of mountedRoots) {
+      root.unmount();
+    }
+    mountedRoots.clear();
+  });
   document.body.replaceChildren();
   window.history.replaceState(null, "", "/portal");
   globalThis.fetch = undefined;
@@ -72,7 +101,7 @@ describe("DocumentPreviewHost", () => {
     };
     const container = document.createElement("div");
     document.body.append(container);
-    const root = createRoot(container);
+    const root = createTrackedRoot(container);
     await act(async () => root.render(<DocumentPreviewHost />));
     const opener = document.createElement("button");
     opener.textContent = "View itinerary";
@@ -105,7 +134,7 @@ describe("DocumentPreviewHost", () => {
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(document.activeElement).toBe(opener);
 
-    await act(async () => root.unmount());
+    await unmountRoot(root);
   });
 
   test("Offers an explicit retry and sends one retry request before rendering", async () => {
@@ -132,20 +161,26 @@ describe("DocumentPreviewHost", () => {
     };
     const container = document.createElement("div");
     document.body.append(container);
-    const root = createRoot(container);
+    const root = createTrackedRoot(container);
     await act(async () => root.render(<DocumentPreviewHost />));
 
     act(() => {
       requestDocumentPreview({ sourceUrl: "/api/portal/files/query/attachment-1" });
     });
-    await flush();
+    await waitForPreview(() =>
+      [...document.querySelectorAll("button")].some(
+        (button) => button.textContent === "Retry preview"
+      )
+    );
 
     const retryButton = [...document.querySelectorAll("button")].find(
       (button) => button.textContent === "Retry preview"
     );
     expect(retryButton).not.toBeUndefined();
     await act(async () => retryButton.click());
-    await flush();
+    await waitForPreview(() =>
+      document.querySelector('[role="dialog"]')?.textContent.includes("Recovered preview")
+    );
 
     expect(requestedUrls).toEqual([
       "/api/portal/files/query/attachment-1?mode=preview",
@@ -153,7 +188,7 @@ describe("DocumentPreviewHost", () => {
     ]);
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Recovered preview");
 
-    await act(async () => root.unmount());
+    await unmountRoot(root);
   });
 
   test("Navigates commercial files on demand without prefetching", async () => {
@@ -173,7 +208,7 @@ describe("DocumentPreviewHost", () => {
     };
     const container = document.createElement("div");
     document.body.append(container);
-    const root = createRoot(container);
+    const root = createTrackedRoot(container);
     await act(async () => root.render(<DocumentPreviewHost />));
 
     act(() => {
@@ -188,13 +223,17 @@ describe("DocumentPreviewHost", () => {
         sourceUrl: "/api/portal/files/commercial/file-1",
       });
     });
-    await flush();
+    await waitForPreview(() =>
+      document.querySelector('[role="dialog"]')?.textContent.includes("First file")
+    );
 
     expect(requestedUrls).toHaveLength(1);
     const next = document.querySelector('button[aria-label="View next file"]');
     expect(next).not.toBeNull();
     await act(async () => next.click());
-    await flush();
+    await waitForPreview(() =>
+      document.querySelector('[role="dialog"]')?.textContent.includes("Second file")
+    );
 
     expect(requestedUrls).toEqual([
       "/api/portal/files/commercial/file-1?mode=preview",
@@ -202,7 +241,7 @@ describe("DocumentPreviewHost", () => {
     ]);
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain("Second file");
 
-    await act(async () => root.unmount());
+    await unmountRoot(root);
   });
 
   test("Restores an authorized internal preview link and clears it on close", async () => {
@@ -220,7 +259,7 @@ describe("DocumentPreviewHost", () => {
     );
     const container = document.createElement("div");
     document.body.append(container);
-    const root = createRoot(container);
+    const root = createTrackedRoot(container);
     await act(async () => root.render(<DocumentPreviewHost />));
     await flush();
 
@@ -232,7 +271,7 @@ describe("DocumentPreviewHost", () => {
     );
     expect(window.location.search).toBe("");
 
-    await act(async () => root.unmount());
+    await unmountRoot(root);
   });
 
   test("Removes a malformed external preview link without opening or crashing", async () => {
@@ -244,7 +283,7 @@ describe("DocumentPreviewHost", () => {
     window.history.replaceState(null, "", "/portal?preview=https%3A%2F%2Fevil.example%2Ffile");
     const container = document.createElement("div");
     document.body.append(container);
-    const root = createRoot(container);
+    const root = createTrackedRoot(container);
     await act(async () => root.render(<DocumentPreviewHost />));
     await flush();
 
@@ -252,7 +291,7 @@ describe("DocumentPreviewHost", () => {
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(window.location.search).toBe("");
 
-    await act(async () => root.unmount());
+    await unmountRoot(root);
   });
 
   test("Suppresses multi-file navigation for sensitive document routes", async () => {
@@ -265,7 +304,7 @@ describe("DocumentPreviewHost", () => {
       );
     const container = document.createElement("div");
     document.body.append(container);
-    const root = createRoot(container);
+    const root = createTrackedRoot(container);
     await act(async () => root.render(<DocumentPreviewHost />));
 
     act(() => {
@@ -286,7 +325,7 @@ describe("DocumentPreviewHost", () => {
     expect(dialog?.textContent).toContain("Sensitive document");
     expect(dialog?.querySelector('button[aria-label="View next file"]')).toBeNull();
 
-    await act(async () => root.unmount());
+    await unmountRoot(root);
   });
 
   test("Exposes accessible image zoom and rotation controls", async () => {
@@ -302,7 +341,7 @@ describe("DocumentPreviewHost", () => {
       );
     const container = document.createElement("div");
     document.body.append(container);
-    const root = createRoot(container);
+    const root = createTrackedRoot(container);
     await act(async () => root.render(<DocumentPreviewHost />));
 
     act(() => {
@@ -315,6 +354,6 @@ describe("DocumentPreviewHost", () => {
     expect(dialog?.querySelector('button[aria-label="Zoom out"]')).not.toBeNull();
     expect(dialog?.querySelector('button[aria-label="Rotate clockwise"]')).not.toBeNull();
 
-    await act(async () => root.unmount());
+    await unmountRoot(root);
   });
 });

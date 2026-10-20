@@ -536,7 +536,7 @@ async function leaveDetails(ctx: QueryCtx, entityId: string): Promise<DetailSect
   addRow(rows, "Head review", leave.headReviewStatus);
   addRow(rows, "Final authority", leave.finalAuthorityName);
   addRow(rows, "Final authority review", leave.finalReviewStatus);
-  addRow(rows, "HR copy", leave.hrCopyName);
+  addRow(rows, "HR reviewer", leave.hrCopyName);
   addRow(rows, "HR review", leave.hrReviewStatus);
   addRow(rows, "Reason", leave.reason);
   addRow(rows, "Decision note", leave.decisionNote);

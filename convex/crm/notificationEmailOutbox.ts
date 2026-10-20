@@ -6,6 +6,7 @@ import { internalMutation, type MutationCtx } from "../_generated/server";
 import {
   notificationEmailMessageValidator,
   notificationEmailOutboxFields,
+  notificationEmailRecipientPurposeValidator,
 } from "../lib/notificationEmailValidators";
 import { rateLimiterComponent } from "../lib/rateLimiterComponent";
 import {
@@ -39,6 +40,7 @@ export const notificationEmailEnvelopeFields = {
   entityId: v.optional(v.string()),
   entityType: v.optional(v.string()),
   eventId: v.string(),
+  recipientPurpose: v.optional(notificationEmailRecipientPurposeValidator),
   recipients: v.array(v.string()),
   title: v.string(),
 };
@@ -121,6 +123,31 @@ function previousJobStatus(previous: Doc<"notificationEmailDeliveries"> | null):
   return "pending";
 }
 
+async function reuseExistingJob(
+  ctx: MutationCtx,
+  existing: Job,
+  envelope: NotificationEmailEnvelope
+) {
+  if (!sameEnvelope(existing, envelope)) {
+    throw new ConvexError("NOTIFICATION_EMAIL_PAYLOAD_CONFLICT");
+  }
+  const controlKeys = Array.from(
+    new Set([
+      ...(existing.controlKeys ?? ["email.crm_workflow"]),
+      ...(envelope.controlKeys ?? ["email.crm_workflow"]),
+    ])
+  );
+  const purposes = existing.recipientPurposes ?? [{ kind: "event" as const }];
+  const purpose = envelope.recipientPurpose ?? { kind: "event" as const };
+  if (!purposes.some((item) => JSON.stringify(item) === JSON.stringify(purpose))) {
+    purposes.push(purpose);
+  }
+  await ctx.db.patch("notificationEmailOutbox", existing._id, {
+    controlKeys,
+    recipientPurposes: purposes,
+  });
+}
+
 export async function enqueueNotificationEmailOutbox(
   ctx: MutationCtx,
   envelope: NotificationEmailEnvelope,
@@ -137,16 +164,7 @@ export async function enqueueNotificationEmailOutbox(
         .withIndex("by_deliveryKey", (q) => q.eq("idempotencyKey", idempotencyKey))
         .unique();
       if (existing) {
-        if (!sameEnvelope(existing, envelope)) {
-          throw new ConvexError("NOTIFICATION_EMAIL_PAYLOAD_CONFLICT");
-        }
-        const controlKeys = Array.from(
-          new Set([
-            ...(existing.controlKeys ?? ["email.crm_workflow"]),
-            ...(envelope.controlKeys ?? ["email.crm_workflow"]),
-          ])
-        );
-        await ctx.db.patch("notificationEmailOutbox", existing._id, { controlKeys });
+        await reuseExistingJob(ctx, existing, envelope);
         return existing._id;
       }
       const previous = await ctx.db
@@ -167,6 +185,7 @@ export async function enqueueNotificationEmailOutbox(
         idempotencyKey,
         nextAttemptAt: now + delayMs,
         recipient: status === "pending" ? recipient : undefined,
+        recipientPurposes: [envelope.recipientPurpose ?? { kind: "event" }],
         recipientStaffId: member?._id,
         status,
         title: envelope.title,

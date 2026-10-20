@@ -187,6 +187,7 @@ async function publishProposalHandoffNotification(
       entityType: "query",
       title: "Proposal ready for review",
     },
+    emailRecipientPurpose: salesStaffId ? { field: "salesOwnerId", kind: "assignment" } : undefined,
     emailTargets: targets,
   });
 }

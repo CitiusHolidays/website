@@ -3,7 +3,10 @@ import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import { hasOwnKey } from "../../lib/runtimeValues";
 import { deleteNotificationPage, queueEntityNotificationCleanup } from "../notificationCleanup";
-import { enqueueNotificationEmailOutbox } from "../notificationEmailOutbox";
+import {
+  enqueueNotificationEmailOutbox,
+  type NotificationEmailEnvelope,
+} from "../notificationEmailOutbox";
 import { projectNotificationInsert } from "../notificationUnreadProjection";
 import { hasActiveE2eRun, insertWithE2eOwnership } from "./e2eOwnership";
 import {
@@ -122,6 +125,7 @@ export interface WorkflowNotificationPlan {
   bellTargets: BellNotificationTargets;
   content: NotificationInput;
   emailDelayMs?: number;
+  emailRecipientPurpose?: NotificationEmailEnvelope["recipientPurpose"];
   emailTargets: EmailNotificationTargets;
   operationalControls?: {
     additionalEmailKey?: OperationalControlKey;
@@ -182,7 +186,7 @@ async function queueNotificationEmail(
   options?: {
     controlKeys?: OperationalControlKey[];
     emailDelayMs?: number;
-    emailRoles?: string[];
+    recipientPurpose?: NotificationEmailEnvelope["recipientPurpose"];
   }
 ) {
   if (recipients.size === 0 || !eventId) {
@@ -199,6 +203,7 @@ async function queueNotificationEmail(
       entityId: notificationEntityId(input.entityId),
       entityType: input.entityType,
       eventId: String(eventId),
+      recipientPurpose: options?.recipientPurpose,
       recipients: Array.from(recipients),
       title: input.title,
     },
@@ -240,6 +245,11 @@ async function workflowEffectDigest(
     body: plan.content.body,
     emailControlKey: plan.operationalControls?.emailKey,
     emailDelayMs: plan.emailDelayMs,
+    emailRecipientPurpose:
+      plan.emailRecipientPurpose ??
+      (plan.emailTargets.kind === "roles"
+        ? { kind: "roles", roles: expandNotificationEmailRoles(plan.emailTargets.roles) }
+        : undefined),
     emailRecipients: Array.from(workflowRecipients).sort((left, right) =>
       left.localeCompare(right)
     ),
@@ -630,6 +640,11 @@ async function publishWorkflowNotificationOnce(ctx: MutationCtx, plan: WorkflowN
     {
       controlKeys: [emailControl.key],
       emailDelayMs: plan.emailDelayMs,
+      recipientPurpose:
+        plan.emailRecipientPurpose ??
+        (plan.emailTargets.kind === "roles"
+          ? { kind: "roles", roles: expandNotificationEmailRoles(plan.emailTargets.roles) }
+          : undefined),
     }
   );
   const additionalScheduled = await queueNotificationEmail(

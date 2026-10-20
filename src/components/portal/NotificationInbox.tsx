@@ -163,11 +163,11 @@ function NotificationInboxContents<T extends InboxItem>({
           <Bell aria-hidden className="mb-3 text-brand-muted" size={22} />
         )}
         <p className="font-semibold text-brand-dark text-sm">
-          {hasItems ? "You're up to date" : "No notifications yet"}
+          {hasItems ? "You're all caught up" : "No notifications yet"}
         </p>
         <p className="mt-1 max-w-64 text-brand-muted text-xs leading-5">
           {hasItems
-            ? "No unread updates in this list."
+            ? "No unread notifications."
             : "Your assignments and workflow updates will appear here."}
         </p>
         {hasItems ? (

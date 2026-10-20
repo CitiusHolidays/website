@@ -98,3 +98,24 @@ test("the inbox keeps loading distinct from an empty result", async () => {
   expect(mounted.container.textContent).toContain("No notifications yet");
   await act(async () => mounted.root.unmount());
 });
+
+test("unread-empty with read history offers the existing read updates", async () => {
+  const activations = [];
+  const mounted = await render(
+    <NotificationInbox
+      items={[{ id: "read-1", readAt: "2026-10-20T08:00:00Z", title: "Existing read update" }]}
+      onActivate={(item) => activations.push(item.id)}
+    />
+  );
+  expect(mounted.container.textContent).toContain("You're all caught up");
+  expect(mounted.container.textContent).toContain("No unread notifications");
+  expect(mounted.container.textContent).not.toContain("No notifications yet");
+  const viewRead = [...mounted.container.querySelectorAll("button")].find(
+    (button) => button.textContent === "View read updates"
+  );
+  expect(viewRead).toBeDefined();
+  await act(async () => viewRead.click());
+  expect(mounted.container.textContent).toContain("Existing read update");
+  expect(activations).toEqual([]);
+  await act(async () => mounted.root.unmount());
+});

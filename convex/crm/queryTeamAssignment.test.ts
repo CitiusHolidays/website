@@ -155,7 +155,8 @@ describe("ApplyQueryTeamAssignments", () => {
         expect.anything(),
         expect.objectContaining({
           bellTargets: { kind: "staff", staffIds: ["staffUsers_contracting"] },
-          content: expect.objectContaining({ title: "Assign contracting owner" }),
+          content: expect.objectContaining({ title: "Contracting assignment" }),
+          emailRecipientPurpose: { field: "contractingOwnerId", kind: "assignment" },
         })
       );
       expect(publishWorkflowNotification).toHaveBeenCalledWith(
@@ -352,7 +353,8 @@ describe("ApplyQueryTeamAssignments", () => {
         expect.anything(),
         expect.objectContaining({
           bellTargets: { kind: "staff", staffIds: ["staffUsers_contracting"] },
-          content: expect.objectContaining({ title: "Assign contracting owner" }),
+          content: expect.objectContaining({ title: "Contracting assignment" }),
+          emailRecipientPurpose: { field: "contractingOwnerId", kind: "assignment" },
         })
       );
     } finally {

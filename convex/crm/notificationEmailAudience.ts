@@ -6,13 +6,20 @@ import { canSeeJobCardRecord, canSeeProposalRecord, canSeeQueryRecord } from "./
 import { getRolePermissions, PERMISSIONS } from "./lib/rolePolicy";
 import type { PortalAccess } from "./lib/staffAccess";
 
-// Revalidate existing record visibility at dispatch, including recovered attempts.
+// Revalidate the original delivery purpose and record access, including retries.
 // A queued notification is a delivery instruction, never an authorization grant.
 export async function notificationRecipientCanAccess(
   ctx: QueryCtx,
   staff: Doc<"staffUsers">,
-  job: Pick<Doc<"notificationEmailOutbox">, "entityId" | "entityType">
+  job: Pick<Doc<"notificationEmailOutbox">, "entityId" | "entityType" | "recipientPurposes">
 ): Promise<boolean> {
+  const purposes = job.recipientPurposes ?? [{ kind: "event" as const }];
+  const eligible = await Promise.all(
+    purposes.map((purpose) => recipientPurposeStillApplies(ctx, staff, job, purpose))
+  );
+  if (!eligible.some(Boolean)) {
+    return false;
+  }
   if (!(job.entityId && job.entityType)) {
     return true;
   }
@@ -175,3 +182,37 @@ const accessChecks = new Map<
   ["expense", expenseAccess],
   ["approval", approvalAccess],
 ]);
+
+async function recipientPurposeStillApplies(
+  ctx: QueryCtx,
+  staff: Doc<"staffUsers">,
+  job: Pick<Doc<"notificationEmailOutbox">, "entityId" | "entityType">,
+  purpose: NonNullable<Doc<"notificationEmailOutbox">["recipientPurposes"]>[number]
+): Promise<boolean> {
+  if (purpose.kind === "event") {
+    return true;
+  }
+  if (purpose.kind === "roles") {
+    const enabledRoles = new Set<string>([...staff.roles, ...(staff.emailAlertRoles ?? [])]);
+    return purpose.roles.some((role) => enabledRoles.has(role));
+  }
+  const tables = {
+    jobCard: "jobCards",
+    query: "queries",
+    tourManager: "tourManagerAssignments",
+  } as const;
+  if (!(job.entityId && job.entityType && hasOwnKey(tables, job.entityType))) {
+    return false;
+  }
+  const table = tables[job.entityType];
+  const id = ctx.db.normalizeId(table, job.entityId);
+  const record = id && (await ctx.db.get(table, id));
+  if (!(record && hasOwnKey(record, purpose.field))) {
+    return false;
+  }
+  const ownerId = record[purpose.field];
+  return (
+    ownerId === staff._id ||
+    (purpose.field === "salesOwnerId" && Boolean(staff.authUserId && ownerId === staff.authUserId))
+  );
+}

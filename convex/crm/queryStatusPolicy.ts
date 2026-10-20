@@ -307,6 +307,7 @@ interface PlannedRoleNotification {
 }
 
 interface PlannedOwnerNotification {
+  assignmentField?: "contractingOwnerId" | "ticketingOwnerId";
   body: string;
   ownerId: string;
   title: string;
@@ -348,11 +349,13 @@ export function buildQueryStatusNotificationPlan({
   if (args.salesStatus === "Date/Destination Change Required") {
     const revisionBody = buildRevisionNotificationBody(current, args);
     addOwnerNotification(current.contractingOwnerId, {
+      assignmentField: "contractingOwnerId",
       body: revisionBody,
       title: "Revise proposal",
     });
     if (queryRequiresTicketingWork(current)) {
       addOwnerNotification(current.ticketingOwnerId, {
+        assignmentField: "ticketingOwnerId",
         body: revisionBody,
         title: "Revise proposal costing",
       });

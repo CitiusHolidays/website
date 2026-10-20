@@ -27,7 +27,8 @@ export function queryAssignmentHeadRoles(query: {
 export async function notifyQueryOwner(
   ctx: NotificationCtx,
   ownerId: string | undefined,
-  notification: WorkflowNotificationPlan["content"]
+  notification: WorkflowNotificationPlan["content"],
+  assignmentField?: "contractingOwnerId" | "ticketingOwnerId"
 ) {
   if (!ownerId) {
     return;
@@ -39,6 +40,9 @@ export async function notifyQueryOwner(
   await publishWorkflowNotification(ctx, {
     bellTargets: { kind: "staff", staffIds: [staffId] },
     content: notification,
+    emailRecipientPurpose: assignmentField
+      ? { field: assignmentField, kind: "assignment" }
+      : undefined,
     emailTargets: { kind: "staff", staffIds: [staffId] },
   });
 }
@@ -155,22 +159,32 @@ export async function notifyAssignedQueryOwners(
   const notifications: Promise<unknown>[] = [];
   if (query.contractingOwnerId) {
     notifications.push(
-      notifyQueryOwner(ctx, query.contractingOwnerId, {
-        body: `${query.queryCode} was submitted by Sales and is ready for contracting proposal work.`,
-        entityId: queryId,
-        entityType: "query",
-        title: "Query submitted for proposal work",
-      })
+      notifyQueryOwner(
+        ctx,
+        query.contractingOwnerId,
+        {
+          body: `${query.queryCode} was submitted by Sales and is ready for contracting proposal work.`,
+          entityId: queryId,
+          entityType: "query",
+          title: "Query submitted for proposal work",
+        },
+        "contractingOwnerId"
+      )
     );
   }
   if (query.ticketingOwnerId) {
     notifications.push(
-      notifyQueryOwner(ctx, query.ticketingOwnerId, {
-        body: `${query.queryCode} was submitted by Sales and is ready for ticketing inputs.`,
-        entityId: queryId,
-        entityType: "query",
-        title: "Query submitted for ticketing inputs",
-      })
+      notifyQueryOwner(
+        ctx,
+        query.ticketingOwnerId,
+        {
+          body: `${query.queryCode} was submitted by Sales and is ready for ticketing inputs.`,
+          entityId: queryId,
+          entityType: "query",
+          title: "Query submitted for ticketing inputs",
+        },
+        "ticketingOwnerId"
+      )
     );
   }
   await Promise.all(notifications);

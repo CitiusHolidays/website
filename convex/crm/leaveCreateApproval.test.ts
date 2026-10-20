@@ -258,7 +258,7 @@ describe("LeaveCreateApproval", () => {
         }),
         expect.objectContaining({
           recipientUserId: "auth_hr",
-          title: "Leave submitted (HR copy)",
+          title: "Leave submitted for HR review",
         }),
       ])
     );

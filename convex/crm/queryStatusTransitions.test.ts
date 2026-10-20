@@ -127,11 +127,13 @@ describe("Query status transitions", () => {
       notifyOrderConfirmedWorkflow: false,
       ownerNotifications: [
         {
+          assignmentField: "contractingOwnerId",
           body: revisionBody,
           ownerId: "staff_contracting",
           title: "Revise proposal",
         },
         {
+          assignmentField: "ticketingOwnerId",
           body: revisionBody,
           ownerId: "staff_ticketing",
           title: "Revise proposal costing",

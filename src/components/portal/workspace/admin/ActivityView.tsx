@@ -122,7 +122,7 @@ export function ActivityView({
         <div className="px-5 pt-5 pb-3">
           <h2 className="font-semibold text-brand-dark text-sm">Your updates</h2>
           <p className="mt-1 text-brand-muted text-xs leading-5">
-            Open an update to view the work. Email retries run automatically.
+            Open an update to view the work.
           </p>
         </div>
         <NotificationInbox
