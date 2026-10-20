@@ -41,6 +41,7 @@ export const E2E_CLEANUP_TABLE_ORDER = {
   passengerImportOperations: 100,
   passportDetails: 100,
   pnrs: 90,
+  portalNavigationActivity: 105,
   postTourFeedback: 90,
   postTourFeedbackPhotos: 100,
   proposalQueryHandoffs: 95,

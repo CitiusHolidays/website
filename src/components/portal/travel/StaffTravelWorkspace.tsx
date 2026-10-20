@@ -30,9 +30,11 @@ const emptyTrip: TripDraft = {
 };
 
 function PersonPicker({
+  disabled,
   value,
   onChange,
 }: {
+  disabled: boolean;
   value: string;
   onChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
 }) {
@@ -43,6 +45,7 @@ function PersonPicker({
         <span className="font-semibold text-sm">Person</span>
         <select
           className={`${inputVariants({ surface: "staff" })} bg-white`}
+          disabled={disabled}
           onChange={onChange}
           value={value}
         >
@@ -115,7 +118,9 @@ function TripForm({
       <h2 className="font-heading font-semibold text-lg">
         {trip ? `Edit ${trip.personName}'s trip` : "Add travel"}
       </h2>
-      {canManageOthers && !trip ? <PersonPicker onChange={person} value={draft.staffId} /> : null}
+      {canManageOthers && !trip ? (
+        <PersonPicker disabled={busy} onChange={person} value={draft.staffId} />
+      ) : null}
       <label className="block space-y-1" htmlFor={`${id}-destination`}>
         <span className="font-semibold text-sm">Destination</span>
         <Input

@@ -1611,6 +1611,17 @@ export default defineSchema({
     version: v.number(),
   }).index("by_key", ["key"]),
 
+  // Per-person navigation acknowledgement is independent of inbox read state.
+  portalNavigationActivity: defineTable({
+    href: v.string(),
+    notificationId: v.id("notifications"),
+    seenAt: v.optional(v.number()),
+    staffId: v.id("staffUsers"),
+    updatedAt: v.number(),
+  })
+    .index("by_staffId_and_href", ["staffId", "href"])
+    .index("by_notificationId", ["notificationId"]),
+
   notifications: defineTable({
     body: v.string(),
     createdAt: v.number(),

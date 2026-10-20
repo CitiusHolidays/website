@@ -87,6 +87,7 @@ export function EntityModalShell({
   const fieldErrorSignature = JSON.stringify(fieldErrors);
 
   const saveButtonState = resolveSaveButtonState({ error, isSaving, saveFlash });
+  const savePending = isSaving || saveFlash;
 
   useEffect(() => {
     if (!error) {
@@ -116,9 +117,16 @@ export function EntityModalShell({
   }, [fieldErrorSignature]);
 
   const handleOpenChange = (nextOpen) => {
-    if (!nextOpen) {
+    if (!(nextOpen || savePending)) {
       close();
     }
+  };
+  const handleSubmit = (event) => {
+    if (savePending) {
+      event.preventDefault();
+      return;
+    }
+    submit(event);
   };
   const resolveInitialFocus = () => {
     const popup = formRef.current;
@@ -138,20 +146,20 @@ export function EntityModalShell({
 
   const fieldBody = (
     <>
-      <EntityModalFieldsPrimary {...primaryProps} />
-      <EntityModalFieldsSecondary {...secondaryProps} />
+      <EntityModalFieldsPrimary {...primaryProps} disabled={savePending} />
+      <EntityModalFieldsSecondary {...secondaryProps} disabled={savePending} />
     </>
   );
 
   return (
     <ControlledDialog
       backdropClassName="portal-entity-modal-backdrop absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
-      closeDisabled={confirmActive}
+      closeDisabled={confirmActive || savePending}
       initialFocus={resolveInitialFocus}
       modal={!confirmActive}
       onOpenChange={handleOpenChange}
       open={Boolean(modal)}
-      popupClassName={`pointer-events-auto relative flex max-h-[90vh] w-full ${modalMaxWidthClass} flex-col overflow-hidden overscroll-contain rounded-[1.75rem] border border-white/70 bg-white shadow-[0_28px_90px_rgba(5,8,20,0.32)] ${
+      popupClassName={`portal-shell pointer-events-auto relative flex max-h-[90vh] w-full ${modalMaxWidthClass} flex-col overflow-hidden overscroll-contain rounded-xl border border-brand-border bg-white shadow-[0_28px_90px_rgba(5,8,20,0.24)] ${
         isCompactModal
           ? "max-sm:max-h-[min(85dvh,100%)] max-sm:rounded-2xl"
           : "max-sm:fixed max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:max-w-none max-sm:rounded-none"
@@ -159,9 +167,10 @@ export function EntityModalShell({
       popupRef={formRef}
       popupRender={
         <form
+          aria-busy={savePending || undefined}
           aria-describedby={error ? "portal-entity-modal-error" : undefined}
           data-testid="portal-entity-modal"
-          onSubmit={submit}
+          onSubmit={handleSubmit}
           tabIndex={-1}
         />
       }
@@ -186,6 +195,7 @@ export function EntityModalShell({
                 <Button
                   aria-label="Close dialog"
                   className="grid size-11 shrink-0 place-items-center rounded-full text-brand-muted transition-colors hover:bg-brand-light hover:text-brand-dark"
+                  disabled={savePending}
                   type="button"
                 />
               }
@@ -193,7 +203,7 @@ export function EntityModalShell({
               <X aria-hidden="true" size={18} />
             </ControlledDialogClose>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-brand-light/35 p-6 [scrollbar-gutter:stable] max-sm:px-4 max-sm:py-5">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6 [scrollbar-gutter:stable] max-sm:px-4 max-sm:py-5">
             <AnimatePresence>
               {error ? (
                 <m.div
@@ -249,12 +259,14 @@ export function EntityModalShell({
                 ]}
               />
             )}
-            {renderFieldContent({
-              fieldBody,
-              fieldColumns,
-              isDetailLoading,
-              isDetailMissing,
-            })}
+            <fieldset className="min-w-0" disabled={savePending}>
+              {renderFieldContent({
+                fieldBody,
+                fieldColumns,
+                isDetailLoading,
+                isDetailMissing,
+              })}
+            </fieldset>
           </div>
           <div className="flex shrink-0 justify-end gap-3 border-brand-border/80 border-t bg-white px-6 py-4 max-sm:grid max-sm:grid-cols-2 max-sm:px-4 max-sm:pb-[max(1rem,var(--safe-area-inset-bottom))]">
             <ControlledDialogClose
@@ -262,6 +274,7 @@ export function EntityModalShell({
                 <Button
                   className="portal-outline-btn max-sm:w-full"
                   data-testid="portal-entity-modal-cancel"
+                  disabled={savePending}
                   type="button"
                 />
               }
@@ -276,7 +289,7 @@ export function EntityModalShell({
               <MultiStateButton
                 className="portal-primary-btn disabled:opacity-60 max-sm:w-full"
                 data-testid="portal-entity-modal-save"
-                disabled={isSaving || isDetailLoading || isDetailMissing}
+                disabled={savePending || isDetailLoading || isDetailMissing}
                 savedLabel={isQueryTaskSheet ? "Query saved" : "Saved"}
                 savingLabel={isQueryTaskSheet ? "Saving query…" : "Saving…"}
                 state={saveButtonState}

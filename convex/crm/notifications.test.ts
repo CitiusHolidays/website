@@ -190,6 +190,8 @@ function makePublishNotificationCtx(
   };
   return {
     db: {
+      get: (table: string, id: string) =>
+        (tables[table] ?? []).find((row) => row._id === id) ?? null,
       insert: (table: string, doc: RuntimeObject) => {
         if (!tables[table]) {
           tables[table] = [];
@@ -199,6 +201,7 @@ function makePublishNotificationCtx(
         rows.push(row);
         return row._id;
       },
+      normalizeId: (_table: string, id: string) => id,
       patch: (table: string, id: string, value: RuntimeObject) => {
         const row = (tables[table] ?? []).find((candidate) => candidate._id === id);
         Object.assign(row, value);

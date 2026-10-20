@@ -2,6 +2,7 @@ import { internal } from "../../_generated/api";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import { hasOwnKey } from "../../lib/runtimeValues";
+import { projectNavigationActivity } from "../navigationActivityProjection";
 import { deleteNotificationPage, queueEntityNotificationCleanup } from "../notificationCleanup";
 import {
   enqueueNotificationEmailOutbox,
@@ -168,6 +169,7 @@ export function prepareWorkflowNotificationBoundary(plan: WorkflowNotificationPl
 }
 
 interface PreparedWorkflowNotification {
+  activeStaff: NotificationStaff[];
   additionalEmailControl: ResolvedOperationalControl;
   additionalRecipients: Set<string>;
   audienceStaffIds: Set<Id<"staffUsers">>;
@@ -531,6 +533,7 @@ async function prepareWorkflowNotification(
     ? requestedAdditionalRecipients
     : new Set<string>();
   return {
+    activeStaff,
     additionalEmailControl,
     additionalRecipients,
     audienceStaffIds,
@@ -581,6 +584,7 @@ async function replayedWorkflowNotificationResult(
 async function publishWorkflowNotificationOnce(ctx: MutationCtx, plan: WorkflowNotificationPlan) {
   const createdAt = Date.now();
   const {
+    activeStaff,
     additionalEmailControl,
     additionalRecipients,
     audienceStaffIds,
@@ -627,6 +631,11 @@ async function publishWorkflowNotificationOnce(ctx: MutationCtx, plan: WorkflowN
       const projection = await projectNotificationInsert(ctx, row);
       return await insertWithE2eOwnership(ctx, "notifications", { ...row, ...projection });
     })
+  );
+  await projectNavigationActivity(
+    ctx,
+    bellRows.map((row, index) => ({ ...row, _id: notificationIds[index] })),
+    activeStaff
   );
   const emailEventId = notificationIds[0] ? String(notificationIds[0]) : effectId;
   if (emailRecipients.size > 0) {

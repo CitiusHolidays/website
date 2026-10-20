@@ -168,6 +168,7 @@ describe("SelectableDataTable horizontal scroll", () => {
     document.body.append(container);
     const root = createRoot(container);
     const wideColumns = Array.from({ length: 8 }, (_, index) => ({
+      hideable: true,
       id: `col-${index}`,
       label: `Column ${index}`,
       render: (row) => row.id,
@@ -198,6 +199,10 @@ describe("SelectableDataTable horizontal scroll", () => {
     });
 
     expect(container.querySelector('[aria-label="Scroll table right"]')).not.toBeNull();
+    const controls = container.querySelector('[data-slot="table-controls"]');
+    expect(controls.querySelector("summary").textContent).toContain("Columns");
+    expect(controls.querySelector('[aria-label="Scroll table left"]')).not.toBeNull();
+    expect(container.querySelectorAll('[data-slot="table-controls"]')).toHaveLength(1);
 
     await act(async () => root.unmount());
     container.remove();

@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { formatDate } from "@/components/portal/PortalModalForm";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
+import { QueryRowActions } from "@/components/portal/QueryRowActions";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { CONTRACTING_TEAM_ROLES } from "@/lib/portal/constants";
 import { getContractingAttention } from "@/lib/portal/contractingListPresentation";
 import { buildContractingSurfaceStatusAction } from "@/lib/portal/contractingQueryActions";
 import { markPortalNavigationFirstContent } from "@/lib/portal/navigationPerformance";
+import { reportPortalDestinationReady } from "@/lib/portal/portalDestinationReady";
 import { canDeleteQuery } from "@/lib/portal/queryDeletionAccess";
 import type {
   ContractingViewProps,
@@ -100,25 +102,41 @@ function ContractingActions({
     deleteItem(row.queryCode ?? "", removeQuery, { queryId: String(row.id) });
   };
 
+  const files = (
+    <button className="portal-small-btn" key="files" onClick={handleFiles} type="button">
+      Files
+    </button>
+  );
+  const assign = canAssign ? (
+    <button className="portal-small-btn" key="assign" onClick={handleAssign} type="button">
+      Assign
+    </button>
+  ) : null;
+  const status = statusAction ? (
+    <button className="portal-small-btn" key="status" onClick={handleStatusAction} type="button">
+      {statusAction.label}
+    </button>
+  ) : null;
+  const primary = canAssign && !row.contractingOwnerId ? assign : status || files;
   return (
-    <div className="flex gap-2">
-      <button className="portal-small-btn" onClick={handleFiles} type="button">
-        Files
-      </button>
-      {canAssign ? (
-        <button className="portal-small-btn" onClick={handleAssign} type="button">
-          Assign
-        </button>
-      ) : null}
-      {statusAction ? (
-        <button className="portal-small-btn" onClick={handleStatusAction} type="button">
-          {statusAction.label}
-        </button>
-      ) : null}
-      {canDeleteQuery(access) ? (
-        <DeleteButton label={row.queryCode} onClick={handleDelete} />
-      ) : null}
-    </div>
+    <QueryRowActions
+      label={row.queryCode ?? String(row.id)}
+      overflowActions={[
+        primary === files ? null : files,
+        primary === assign ? null : assign,
+        primary === status ? null : status,
+        canDeleteQuery(access) ? (
+          <DeleteButton
+            className="portal-danger-btn"
+            key="delete"
+            label={row.queryCode}
+            onClick={handleDelete}
+            type="button"
+          />
+        ) : null,
+      ]}
+      primaryAction={primary}
+    />
   );
 }
 
@@ -215,6 +233,7 @@ export function ContractingView({
 }: ContractingViewProps) {
   useEffect(() => {
     if (!loading) {
+      reportPortalDestinationReady("/portal/contracting");
       markPortalNavigationFirstContent("contracting", rows.length > 0 ? "row" : "empty");
     }
   }, [loading, rows]);
@@ -270,8 +289,11 @@ export function ContractingView({
           {
             id: "client",
             label: "Client",
-            render: (row: PortalContractingQueryRow) => strong(row.clientName),
+            render: (row: PortalContractingQueryRow) => (
+              <div className="min-w-52 max-w-64 whitespace-normal">{strong(row.clientName)}</div>
+            ),
             sortValue: (row: PortalContractingQueryRow) => row.clientName,
+            width: 240,
           },
           {
             hideable: true,

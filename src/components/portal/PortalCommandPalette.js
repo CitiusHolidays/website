@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { createContext, createElement, use, useEffect, useRef, useState } from "react";
+import { usePortalChrome } from "@/components/portal/portalChromeState";
 import { usePortalOverlayFrame } from "@/components/portal/usePortalOverlayFrame";
 import { ControlledDialog, ControlledDialogClose } from "@/components/ui/application-dialog";
 import { Command } from "@/components/ui/foundation/command";
@@ -229,6 +230,7 @@ function CommandPaletteOverlay({
 }
 
 export function PortalCommandPaletteRoot({ workspace, onSaveView, children }) {
+  const { setCommandSearch } = usePortalChrome();
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
   const inputRef = useRef(null);
@@ -242,6 +244,10 @@ export function PortalCommandPaletteRoot({ workspace, onSaveView, children }) {
   };
 
   const openPalette = () => setOpen(true);
+  useEffect(() => {
+    setCommandSearch({ open: () => setOpen(true) });
+    return () => setCommandSearch(null);
+  }, [setCommandSearch]);
 
   const handleOpenChange = (nextOpen) => {
     if (nextOpen) {

@@ -20,6 +20,7 @@ import {
   canShowAssignQueryTeamsButton,
 } from "@/lib/portal/permissions";
 import type { PortalGridAttention } from "@/lib/portal/portalDataGrid";
+import { reportPortalDestinationReady } from "@/lib/portal/portalDestinationReady";
 import { canDeleteQuery } from "@/lib/portal/queryDeletionAccess";
 import {
   getQueryAttentionLabel,
@@ -362,6 +363,7 @@ export function QueriesView({
 }: QueriesViewProps) {
   useEffect(() => {
     if (!loading) {
+      reportPortalDestinationReady("/portal/queries");
       markPortalNavigationFirstContent("queries", rows.length > 0 ? "row" : "empty");
     }
   }, [loading, rows]);
@@ -389,7 +391,9 @@ export function QueriesView({
           render: (row: PortalQueryRow) => (
             <div className="min-w-24">
               <div className="flex flex-wrap items-center gap-2">
-                <div className="font-heading font-semibold text-citius-blue">{row.queryCode}</div>
+                <div className="whitespace-nowrap font-heading font-semibold text-citius-blue">
+                  {row.queryCode}
+                </div>
                 {row.queryCode ? (
                   <PortalCopyButton
                     aria-label={`Copy query ${row.queryCode}`}
@@ -426,6 +430,34 @@ export function QueriesView({
           sortValue: (row: PortalQueryRow) => row.clientName,
         },
         {
+          id: "stage",
+          kind: "status",
+          label: "Stage",
+          render: (row: PortalQueryRow) => {
+            const attention = getQueryAttentionLabel(row);
+            return (
+              <div className="min-w-36">
+                <StatusBadge
+                  domain="queryLeadStage"
+                  label={row.leadStage || "Inquiry"}
+                  status={row.leadStage || "Inquiry"}
+                />
+                {attention ? (
+                  <div
+                    className={`mt-2 rounded-md border px-2 py-1 text-[length:var(--portal-label-size)] ${queryAttentionClass(attention)}`}
+                  >
+                    {attention}
+                  </div>
+                ) : null}
+                <div className="mt-2">
+                  <JobCardHandoff row={row} />
+                </div>
+              </div>
+            );
+          },
+          sortValue: (row: PortalQueryRow) => row.leadStage || "Inquiry",
+        },
+        {
           hideable: true,
           id: "lifecycle",
           label: "Lifecycle",
@@ -459,34 +491,6 @@ export function QueriesView({
             </div>
           ),
           sortValue: (row: PortalQueryRow) => row.paxCount,
-        },
-        {
-          id: "stage",
-          kind: "status",
-          label: "Stage",
-          render: (row: PortalQueryRow) => {
-            const attention = getQueryAttentionLabel(row);
-            return (
-              <div className="min-w-36">
-                <StatusBadge
-                  domain="queryLeadStage"
-                  label={row.leadStage || "Inquiry"}
-                  status={row.leadStage || "Inquiry"}
-                />
-                {attention ? (
-                  <div
-                    className={`mt-2 rounded-md border px-2 py-1 text-[length:var(--portal-label-size)] ${queryAttentionClass(attention)}`}
-                  >
-                    {attention}
-                  </div>
-                ) : null}
-                <div className="mt-2">
-                  <JobCardHandoff row={row} />
-                </div>
-              </div>
-            );
-          },
-          sortValue: (row: PortalQueryRow) => row.leadStage || "Inquiry",
         },
         {
           hideable: true,

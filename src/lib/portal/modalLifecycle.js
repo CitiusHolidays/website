@@ -153,7 +153,20 @@ function applyInitialQueryLink(next, type, queries) {
   }
 }
 
-function applyInitialJobCardLink(next, type, jobCards) {
+function applyInitialJobCardLink(next, type, jobCards, jobCardFilter) {
+  if (
+    JOB_CARD_MODALS.has(type) &&
+    !next.entityId &&
+    !next.jobCardId &&
+    !next.travellerId &&
+    !next.pnrId &&
+    !(type === "expense" && next.expenseType === "office")
+  ) {
+    const filteredJob = jobCards.find((job) => job.id === jobCardFilter);
+    if (filteredJob) {
+      Object.assign(next, applyJobCardLink(next, filteredJob, type, { onlyEmpty: true }));
+    }
+  }
   if (JOB_CARD_MODALS.has(type) && !next.jobCardId && jobCards?.length === 1) {
     Object.assign(next, applyJobCardLink(next, jobCards[0], type, { onlyEmpty: true }));
   }
@@ -223,6 +236,7 @@ export function createInitialModalForm({
   initialForm,
   queries = [],
   jobCards = [],
+  jobCardFilter = "",
   travellers = [],
   travellersWithoutVisa = [],
   pnrs = [],
@@ -232,7 +246,7 @@ export function createInitialModalForm({
   const next = { ...initialForm, ...initial };
   initializeProposalSelection(next, type);
   applyInitialQueryLink(next, type, queries);
-  applyInitialJobCardLink(next, type, jobCards);
+  applyInitialJobCardLink(next, type, jobCards, jobCardFilter);
   applyInitialTravellerLink(next, type, travellers, travellersWithoutVisa);
   applyInitialPnrLink(next, type, pnrs);
   applyInitialVisaLink(next, type, visas);

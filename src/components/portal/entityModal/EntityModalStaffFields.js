@@ -13,6 +13,7 @@ function staffOptionsExcluding(team, excludedId) {
 }
 
 export function EntityModalStaffFields({
+  disabled = false,
   modal,
   form,
   updateForm,
@@ -117,6 +118,7 @@ export function EntityModalStaffFields({
             value={form.marriageLeaveUsed ? "Yes" : "No"}
           />
           <MultiSelect
+            disabled={disabled}
             formField="staffRoles"
             label="Roles"
             onChange={updateForm}
@@ -124,6 +126,7 @@ export function EntityModalStaffFields({
             value={form.staffRoles}
           />
           <MultiSelect
+            disabled={disabled}
             formField="emailAlertRoles"
             help="Portal roles keep their standard email alerts. Additional roles add email coverage without changing portal access or bell notifications."
             label="Additional email alert roles"

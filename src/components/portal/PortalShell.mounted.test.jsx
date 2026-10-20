@@ -15,7 +15,11 @@ mock.module("@convex/_generated/api", () => ({
         markNotificationRead: "markNotificationRead",
         notificationBellState: "notificationBellState",
       },
-      navShortcuts: { list: "navShortcuts" },
+      navShortcuts: {
+        acknowledgeActivity: "acknowledgeActivity",
+        list: "navShortcuts",
+        workState: "workState",
+      },
     },
     eventPhotoBooth: { getMyAccess: "boothAccess" },
   },
@@ -29,6 +33,9 @@ mock.module("convex/react", () => ({
   },
   usePaginatedQuery: () => ({ results: [], status: "Exhausted" }),
   useQuery: (query) => {
+    if (query === "workState") {
+      return { byHref: {}, viewerKey: "staff-test" };
+    }
     if (query === "boothAccess") {
       return { canManage: false, canManageAssignments: false, canParticipateWhenClosed: false };
     }

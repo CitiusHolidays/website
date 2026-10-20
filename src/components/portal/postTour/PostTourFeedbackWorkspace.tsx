@@ -2,7 +2,6 @@
 
 import { api } from "@convex/_generated/api";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
-import Image from "next/image";
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/application-button";
 import { inputVariants } from "@/components/ui/application-field-variants";
@@ -65,28 +64,16 @@ export default function PostTourFeedbackWorkspace({
   const moreFeedback = () => feedback.loadMore(20);
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <header className="grid overflow-hidden rounded-[28px] border border-[#0B1026]/10 bg-[#FDFBF7] sm:grid-cols-[1fr_32%]">
-        <div className="flex flex-col justify-center px-6 py-7 sm:px-8 sm:py-9">
-          <h1 className="font-heading font-semibold text-3xl text-[#0B1026] leading-tight sm:text-4xl">
-            Post-tour feedback
-          </h1>
-          <p className="mt-3 max-w-lg font-sans text-brand-muted text-sm leading-relaxed">
-            Collect traveller comments and photos after each tour. Share a feedback link and keep
-            every response with its Job Card.
-          </p>
-        </div>
-        <div className="relative h-28 sm:h-auto sm:min-h-48">
-          <Image
-            alt="Blue domes overlooking the sea in Santorini"
-            className="object-cover"
-            fill
-            priority
-            sizes="(max-width: 640px) 100vw, 350px"
-            src="/gallery/account/amalfi-santorini/santorini.webp"
-          />
-        </div>
+      <header className="border-brand-border border-b pb-5">
+        <h1 className="portal-page-title font-heading font-semibold text-brand-dark">
+          Post-tour feedback
+        </h1>
+        <p className="mt-2 max-w-2xl font-sans text-brand-muted text-sm leading-relaxed">
+          Collect traveller comments and photos after each tour. Share a feedback link and keep
+          every response with its Job Card.
+        </p>
       </header>
-      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-brand-border bg-white p-4 sm:p-5">
+      <div className="flex flex-wrap items-end gap-3 border-brand-border border-b pb-4">
         <label className="block min-w-0 flex-1 space-y-1" htmlFor={selectId}>
           <span className="font-sans font-semibold text-brand-dark text-sm">
             Job Card / JC number

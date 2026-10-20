@@ -311,7 +311,7 @@ function FeedbackCard({
     setBusy(false);
   };
   return (
-    <article className="min-w-0 rounded-3xl border border-brand-border bg-white p-5 sm:p-6">
+    <article className="min-w-0 rounded-lg border border-brand-border bg-white p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="break-words font-heading font-semibold text-brand-dark text-lg">
@@ -484,7 +484,7 @@ export function PostTourFeedbackView({
       >
         {job?.canCompose ? (
           <details
-            className="min-w-0 rounded-3xl border border-[#0B1026]/10 bg-[#FDFBF7] p-5 sm:p-6"
+            className="min-w-0 rounded-lg border border-brand-border bg-white p-5 sm:p-6"
             open
           >
             <summary className="min-h-11 cursor-pointer font-heading font-semibold text-[#0B1026] text-lg focus-visible:outline-2 focus-visible:outline-citius-blue">
@@ -505,7 +505,7 @@ export function PostTourFeedbackView({
             </p>
           ) : null}
           {!loading && entries.length === 0 ? (
-            <p className="rounded-3xl border border-brand-border bg-white p-6 text-brand-muted text-sm">
+            <p className="rounded-lg border border-brand-border bg-white p-6 text-brand-muted text-sm">
               No post-tour feedback yet.
               {job?.canCompose
                 ? " Add a note about this trip."

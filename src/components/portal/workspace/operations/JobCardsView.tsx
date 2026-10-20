@@ -13,6 +13,7 @@ import {
   canAssignOperations,
   canAssignTicketing,
 } from "@/lib/portal/permissions";
+import { reportPortalDestinationReady } from "@/lib/portal/portalDestinationReady";
 import type { JobCardsViewProps, PortalJobCardListRow } from "../portalViewTypes";
 
 type JobCardRow = JobCardsViewProps["rows"][number];
@@ -66,6 +67,7 @@ export function JobCardsView({
 }: JobCardsViewProps) {
   useEffect(() => {
     if (!loading) {
+      reportPortalDestinationReady("/portal/job-cards");
       markPortalNavigationFirstContent("job-cards", rows.length > 0 ? "row" : "empty");
     }
   }, [loading, rows]);

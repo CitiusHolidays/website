@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "2e42d80c6595f9cea5a8139e7de77ca2ec35d7d92e128f0cca2909ff1f5d2062";
+const EXPECTED_CAPABILITY_HASH = "f59fadae0babd0c14f8bad69d3f6327462b8eda6fa4a3479995364484bf0a63d";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
@@ -111,6 +111,30 @@ describe("Convex capability inventory", () => {
     const capabilities = discoverCapabilities();
     expect(capabilities.length).toBeGreaterThan(200);
     expect(capabilityHash(capabilities)).toBe(EXPECTED_CAPABILITY_HASH);
+  });
+
+  test("classifies scoped navigation reads and acknowledgements as product capabilities, with retention private", () => {
+    const capabilities = discoverCapabilities().filter(
+      ({ module }) => module === "crm/navShortcuts"
+    );
+    expect(capabilities).toContainEqual({
+      classification: "public-product",
+      kind: "query",
+      module: "crm/navShortcuts",
+      name: "workState",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "public-product",
+      kind: "mutation",
+      module: "crm/navShortcuts",
+      name: "acknowledgeActivity",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "internal",
+      kind: "internalMutation",
+      module: "crm/navShortcuts",
+      name: "cleanupSeenForNotification",
+    });
   });
 
   test("Classifies the staff travel schedule and external tour-manager directory as staff product capabilities", () => {

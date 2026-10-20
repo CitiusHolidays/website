@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import { PortalConfirmProvider } from "@/components/portal/PortalConfirmDialog";
 import { PortalToastProvider } from "@/components/portal/PortalToast";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
+import { subscribePortalDestinationReady } from "@/lib/portal/portalDestinationReady";
 import { ActivityView } from "./admin/ActivityView";
 import { ApprovalsView } from "./admin/ApprovalsView";
 import { ExpensesView } from "./admin/ExpensesView";
@@ -98,6 +99,28 @@ function ActivityHarness({ deleteCalls, readCalls }) {
 }
 
 describe("Mounted portal ticketing and administration views", () => {
+  test("Ticketing acknowledges destination readiness only after its summary has loaded", async () => {
+    const visited = [];
+    const unsubscribe = subscribePortalDestinationReady((href) => visited.push(href));
+    const props = {
+      deleteItem: noopDelete,
+      deleteSelected: noopBulkDelete,
+      has: manageTicketing,
+      openModal: noop,
+      removeManyTickets: noopMutation,
+      removeTicket: noopMutation,
+    };
+    const loading = await mount(<TicketDashboardView {...props} summary={undefined} />);
+    expect(visited).toEqual([]);
+    await loading.unmount();
+    const loaded = await mount(
+      <TicketDashboardView {...props} summary={{ issued: 0, pending: 0, preview: [] }} />
+    );
+    expect(visited.filter((href) => href === "/portal/ticketing")).toEqual(["/portal/ticketing"]);
+    unsubscribe();
+    await loaded.unmount();
+  });
+
   test("Ticket dashboard preserves canonical ticket status presentation", async () => {
     const view = await mount(
       <TicketDashboardView

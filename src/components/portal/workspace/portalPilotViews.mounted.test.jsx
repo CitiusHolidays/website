@@ -475,8 +475,8 @@ describe("Mounted portal pilot views", () => {
       />
     );
 
-    const button = [...view.container.querySelectorAll("button")].find((candidate) =>
-      candidate.textContent?.includes("Send to Sales for Q-0001")
+    const button = [...view.container.querySelectorAll("button")].find(
+      (candidate) => candidate.getAttribute("aria-label") === "Send to Sales for Q-0001"
     );
     expect(button).toBeDefined();
     await act(async () => button?.click());

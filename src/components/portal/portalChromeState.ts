@@ -30,9 +30,11 @@ export interface PortalChromeQuickAction {
 }
 
 export interface PortalChromeValue {
+  commandSearch: { open: () => void } | null;
   navShortcuts?: PortalNavShortcuts;
   quickAction: PortalChromeQuickAction | null;
   savedViewActions: PortalChromeSavedViewActions | null;
+  setCommandSearch: (search: { open: () => void } | null) => void;
   setQuickAction: (action: PortalChromeQuickAction | null) => void;
   setSavedViewActions: (actions: PortalChromeSavedViewActions | null) => void;
 }
@@ -41,9 +43,11 @@ const noopSetSavedViewActions = (): void => undefined;
 const noopSetQuickAction = (): void => undefined;
 
 export const PortalChromeContext = createContext<PortalChromeValue>({
+  commandSearch: null,
   navShortcuts: undefined,
   quickAction: null,
   savedViewActions: null,
+  setCommandSearch: () => undefined,
   setQuickAction: noopSetQuickAction,
   setSavedViewActions: noopSetSavedViewActions,
 });

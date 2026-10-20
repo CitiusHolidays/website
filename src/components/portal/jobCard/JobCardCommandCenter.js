@@ -63,7 +63,7 @@ function JobCardTourContext({ commercialFiles, job, query, proposal }) {
   const hasDocuments = commercialFiles.length > 0;
 
   return (
-    <section className="rounded-lg border border-brand-border bg-white p-4">
+    <section className="border-brand-border border-b py-5">
       <h2 className="font-heading text-base text-brand-dark">Tour context</h2>
       <dl className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <ContextField label="Job Card" value={job.jobCode} />
@@ -154,13 +154,13 @@ export default function JobCardCommandCenter({ jobCardId }) {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-lg border border-brand-border bg-white p-4">
+      <section className="border-brand-border border-b pb-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <Link className="font-sans text-citius-blue text-xs" href="/portal/job-cards">
               Back to Job Cards
             </Link>
-            <h1 className="mt-1 font-heading font-semibold text-brand-dark text-xl">
+            <h1 className="portal-page-title mt-2 font-heading font-semibold text-brand-dark">
               {job.jobCode}
             </h1>
             <p className="font-sans text-brand-muted text-sm">
@@ -195,7 +195,7 @@ export default function JobCardCommandCenter({ jobCardId }) {
         </Link>
       </section>
       <JobCardReadinessMap sections={model.readinessSections} />
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_0.8fr]">
+      <div className="grid items-start gap-4 lg:grid-cols-[1.4fr_0.8fr]">
         <section className="rounded-lg border border-brand-border bg-white">
           <button
             aria-expanded={tasksOpen}
