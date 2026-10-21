@@ -12,7 +12,7 @@
   "sources": [
     {
       "path": "convex/lib/transactionalEmail.tsx",
-      "sha256": "24648029fd5ed54a48c52f1df44a1cd49c451daba9db485998d8db08f8aaf983"
+      "sha256": "9396213091dfa29cee66bab799280ffe12a05015af05887a317e1ab787da342f"
     },
     {
       "path": "convex/lib/authEmailHtml.ts",
@@ -637,5 +637,11 @@
       "pixels": [390, 844]
     }
   ],
-  "licenseFilesChanged": false
+  "licenseFilesChanged": false,
+  "plainTextRegression": {
+    "before": "The independent whitespace assertion failed because detail labels and values ran together.",
+    "after": "React Email data-table conversion separates detail labels and values; the restored 12-test shared renderer suite passes.",
+    "visualResult": "All 46 recaptured PNG files are byte-identical to the approved published images.",
+    "changedScreenshots": []
+  }
 }
