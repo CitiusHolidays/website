@@ -4,6 +4,8 @@ The new email design and the changed app screens are collected here. Each pictur
 
 The newest pictures below come from the real local app, signed in with the designated test accounts. The final run passed all 16 selected checks. Earlier component pictures remain useful for populated layouts, loading and deliberate failures. They use substituted transport and are labelled as such. Neither kind of picture proves production configuration or mailbox delivery.
 
+Some signed-in pictures retain Next's small "N" development-tools indicator at the bottom left. It can overlap the edge of a control, including Hotel Cancel. It is a local development overlay, not part of Citius or a production capture. No application error was erased from these pictures.
+
 ## The emails
 
 Workflow updates, account verification, password reset and website enquiries now share the Citius header, readable details, one main action and a visible fallback link. The plain-text version keeps labels and values readable too.
