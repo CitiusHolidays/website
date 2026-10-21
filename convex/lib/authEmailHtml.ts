@@ -35,8 +35,8 @@ export async function prepareAuthEmailMessage(input: {
   const html = await buildAuthEmailHtml({
     bodyParagraphs: [
       reset
-        ? `We received a request to reset your password for your ${AUTH_EMAIL_BRAND} account. Click the button below to choose a new password.`
-        : `Thank you for signing up with ${AUTH_EMAIL_BRAND}. Click the button below to verify your email address and activate your account.`,
+        ? "A password reset was requested for your account. Choose a new password using the link below."
+        : "Confirm this email address to finish setting up your account.",
     ],
     ctaHref: input.ctaHref,
     ctaLabel: reset ? "Reset password" : "Verify email",

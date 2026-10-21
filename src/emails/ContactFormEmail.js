@@ -15,9 +15,9 @@ export default function ContactFormEmail({ name, email, phone, subject, message,
         ],
         title: "Enquiry details",
       }}
-      footer={`Received through the Citius Holidays website. Reply to this email to respond directly to ${name}.`}
+      footer={`From the Citius Holidays website. Reply to this email to respond to ${name}.`}
       message={{ label: "Message", value: message }}
-      paragraphs={["A new enquiry was submitted through the Citius Holidays website."]}
+      paragraphs={[]}
       title="New website enquiry"
     />
   );

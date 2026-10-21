@@ -45,8 +45,7 @@ export function renderNotificationEmail(args: {
     action: { href: args.href, label: "Open in Citius Connect" },
     context: "Citius Connect · Staff workspace",
     details: args.details,
-    footer:
-      "Sent to the staff selected for this workflow update. Sign in to review the full record and take action. Citius Connect has the latest record.",
+    footer: "Citius Connect · Sign in to view the current record.",
     paragraphs: [args.body],
     title: args.title,
   });

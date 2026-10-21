@@ -1,3 +1,4 @@
+// Adapted React Email component examples; notice in docs/licenses/react-email-components.txt.
 import {
   Body,
   Button,
@@ -5,6 +6,7 @@ import {
   Head,
   Heading,
   Html,
+  Img,
   Link,
   Preview,
   Section,
@@ -25,13 +27,14 @@ export interface TransactionalEmailContent {
 
 const colors = {
   blue: "#102A83",
-  border: "#E0E5ED",
-  ink: "#1D293D",
-  muted: "#5D687B",
-  orange: "#C76621",
-  page: "#F4F6F9",
+  details: "#F5F7FB",
+  ink: "#272F3C",
+  muted: "#667080",
+  page: "#F3F5F8",
 };
-const paragraph = { color: colors.ink, fontSize: "15px", lineHeight: "24px", margin: "0 0 16px" };
+export const EMAIL_BRAND_LOGO_URL =
+  "https://www.citiusholidays.com/images/email/citius-logo-v1.jpg";
+const paragraph = { color: colors.ink, fontSize: "15px", lineHeight: "23px", margin: "0 0 12px" };
 
 const LINE_BREAK = /[\r\n]/;
 
@@ -59,10 +62,17 @@ function EmailDetails({ details }: Pick<TransactionalEmailContent, "details">) {
     return null;
   }
   return (
-    <Section style={{ margin: "24px 0" }}>
+    <Section
+      style={{
+        backgroundColor: colors.details,
+        borderRadius: "8px",
+        margin: "20px 0",
+        padding: "16px",
+      }}
+    >
       <Heading
         as="h2"
-        style={{ ...paragraph, fontSize: "14px", fontWeight: 600, margin: "0 0 6px" }}
+        style={{ ...paragraph, fontSize: "13px", fontWeight: 600, margin: "0 0 8px" }}
       >
         {details.title}
       </Heading>
@@ -78,11 +88,10 @@ function EmailDetails({ details }: Pick<TransactionalEmailContent, "details">) {
             <tr key={row.label}>
               <td
                 style={{
-                  borderBottom: `1px solid ${colors.border}`,
                   color: colors.muted,
                   fontSize: "13px",
                   lineHeight: "20px",
-                  padding: "10px 12px 10px 0",
+                  padding: "4px 12px 4px 0",
                   verticalAlign: "top",
                   width: "34%",
                 }}
@@ -91,12 +100,11 @@ function EmailDetails({ details }: Pick<TransactionalEmailContent, "details">) {
               </td>
               <td
                 style={{
-                  borderBottom: `1px solid ${colors.border}`,
                   color: colors.ink,
                   fontSize: "14px",
                   lineHeight: "21px",
                   overflowWrap: "anywhere",
-                  padding: "10px 0",
+                  padding: "4px 0",
                   verticalAlign: "top",
                   whiteSpace: "pre-wrap",
                   wordBreak: "break-word",
@@ -114,11 +122,14 @@ function EmailDetails({ details }: Pick<TransactionalEmailContent, "details">) {
 
 export function CitiusTransactionalEmail(content: TransactionalEmailContent) {
   const href = emailActionHref(content.action.href);
-  const fallbackLabel = href.startsWith("mailto:") ? decodeURIComponent(href.slice(7)) : href;
+  const isReply = href.startsWith("mailto:");
   return (
     <Html lang="en">
-      <Head />
-      <Preview>{content.title}</Preview>
+      <Head>
+        <meta content="light" name="color-scheme" />
+        <meta content="light" name="supported-color-schemes" />
+      </Head>
+      <Preview>{`${content.context}: ${content.title}`}</Preview>
       <Body
         lang="en"
         style={{
@@ -130,139 +141,104 @@ export function CitiusTransactionalEmail(content: TransactionalEmailContent) {
       >
         <Container
           style={{
-            backgroundColor: "#FFFFFF",
-            border: `1px solid ${colors.border}`,
-            borderRadius: "8px",
+            margin: "0 auto",
             maxWidth: "600px",
-            overflow: "hidden",
             width: "100%",
           }}
         >
-          <Section
-            style={{ borderBottom: `1px solid ${colors.border}`, padding: "24px 24px 20px" }}
-          >
-            <Text
-              style={{
-                color: colors.blue,
-                fontSize: "22px",
-                fontWeight: 700,
-                letterSpacing: "-0.5px",
-                lineHeight: "28px",
-                margin: 0,
-              }}
-            >
-              Citius <span style={{ fontWeight: 400 }}>Holidays</span>
-            </Text>
-            <Text
-              style={{
-                color: colors.muted,
-                fontSize: "12px",
-                lineHeight: "18px",
-                margin: "5px 0 0",
-              }}
-            >
-              {content.context}
-            </Text>
-          </Section>
-          <Section style={{ padding: "28px 24px 24px" }}>
-            <div
-              aria-hidden
-              style={{
-                backgroundColor: colors.orange,
-                height: "3px",
-                marginBottom: "18px",
-                width: "28px",
-              }}
-            />
-            <Heading
-              as="h1"
-              style={{
-                color: colors.blue,
-                fontSize: "25px",
-                fontWeight: 600,
-                letterSpacing: "-0.4px",
-                lineHeight: "32px",
-                margin: "0 0 20px",
-                overflowWrap: "anywhere",
-              }}
-            >
-              {content.title}
-            </Heading>
-            {content.greeting ? <Text style={paragraph}>Hi {content.greeting},</Text> : null}
-            {content.paragraphs.map((text) => (
-              <Text
-                key={text}
-                style={{ ...paragraph, overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}
+          <Section style={{ backgroundColor: "#FFFFFF", borderRadius: "12px", padding: "24px" }}>
+            <Section style={{ marginBottom: "28px" }}>
+              <Img
+                alt="Citius Holidays"
+                data-skip-in-text="true"
+                height="50"
+                src={EMAIL_BRAND_LOGO_URL}
+                style={{ backgroundColor: "#FFFFFF", color: colors.blue, fontSize: "14px" }}
+                width="140"
+              />
+            </Section>
+            <Section>
+              <Heading
+                as="h1"
+                style={{
+                  color: colors.ink,
+                  fontSize: "23px",
+                  fontWeight: 600,
+                  letterSpacing: "-0.4px",
+                  lineHeight: "29px",
+                  margin: "0 0 16px",
+                  overflowWrap: "anywhere",
+                }}
               >
-                {text}
-              </Text>
-            ))}
-            <EmailDetails details={content.details} />
-            {content.message ? (
-              <Section style={{ margin: "24px 0" }}>
-                <Heading
-                  as="h2"
-                  style={{ ...paragraph, fontSize: "14px", fontWeight: 600, marginBottom: "8px" }}
-                >
-                  {content.message.label}
-                </Heading>
+                {content.title}
+              </Heading>
+              {content.greeting ? <Text style={paragraph}>Hi {content.greeting},</Text> : null}
+              {content.paragraphs.map((text) => (
                 <Text
+                  key={text}
+                  style={{ ...paragraph, overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}
+                >
+                  {text}
+                </Text>
+              ))}
+              <EmailDetails details={content.details} />
+              {content.message ? (
+                <Section style={{ margin: "20px 0" }}>
+                  <Heading
+                    as="h2"
+                    style={{ ...paragraph, fontSize: "13px", fontWeight: 600, marginBottom: "8px" }}
+                  >
+                    {content.message.label}
+                  </Heading>
+                  <Text
+                    style={{
+                      ...paragraph,
+                      overflowWrap: "anywhere",
+                      whiteSpace: "pre-wrap",
+                      wordBreak: "break-word",
+                    }}
+                  >
+                    {content.message.value}
+                  </Text>
+                </Section>
+              ) : null}
+              <Section style={{ marginTop: "22px" }}>
+                <Button
+                  href={href}
                   style={{
-                    ...paragraph,
-                    overflowWrap: "anywhere",
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
+                    backgroundColor: colors.blue,
+                    borderRadius: "8px",
+                    boxSizing: "border-box",
+                    color: "#FFFFFF",
+                    fontSize: "14px",
+                    fontWeight: 600,
+                    lineHeight: "20px",
+                    padding: "12px",
+                    textAlign: "center",
+                    textDecoration: "none",
+                    width: "100%",
                   }}
                 >
-                  {content.message.value}
-                </Text>
+                  {content.action.label}
+                </Button>
               </Section>
-            ) : null}
-            <Section style={{ marginTop: "24px" }}>
-              <Button
-                href={href}
-                style={{
-                  backgroundColor: colors.blue,
-                  borderRadius: "6px",
-                  color: "#FFFFFF",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  lineHeight: "20px",
-                  padding: "13px 20px",
-                  textDecoration: "none",
-                }}
-              >
-                {content.action.label}
-              </Button>
-            </Section>
-            <Section data-skip-in-text="true" style={{ marginTop: "20px" }}>
-              <Text
-                style={{
-                  color: colors.muted,
-                  fontSize: "12px",
-                  lineHeight: "18px",
-                  margin: "0 0 4px",
-                }}
-              >
-                If the button does not open, use this link:
-              </Text>
-              <Link
-                href={href}
-                style={{
-                  color: colors.blue,
-                  fontSize: "12px",
-                  lineHeight: "18px",
-                  overflowWrap: "anywhere",
-                  textDecoration: "underline",
-                  wordBreak: "break-all",
-                }}
-              >
-                {fallbackLabel}
-              </Link>
+              {isReply ? null : (
+                <Section data-skip-in-text="true" style={{ marginTop: "12px" }}>
+                  <Text
+                    style={{ color: colors.muted, fontSize: "12px", lineHeight: "18px", margin: 0 }}
+                  >
+                    Or{" "}
+                    <Link href={href} style={{ color: colors.muted, textDecoration: "underline" }}>
+                      use the direct link
+                    </Link>
+                    .
+                  </Text>
+                </Section>
+              )}
             </Section>
           </Section>
-          <Section style={{ borderTop: `1px solid ${colors.border}`, padding: "18px 24px 20px" }}>
-            <Text style={{ color: colors.muted, fontSize: "12px", lineHeight: "19px", margin: 0 }}>
+          <Section style={{ padding: "20px 24px 8px" }}>
+            <Text style={{ color: colors.muted, fontSize: "12px", lineHeight: "18px", margin: 0 }}>
               {content.footer}
             </Text>
           </Section>

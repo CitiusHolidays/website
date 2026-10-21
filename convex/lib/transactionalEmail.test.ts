@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
 import { prepareAuthEmailMessage } from "./authEmailHtml";
-import { renderTransactionalEmail, type TransactionalEmailContent } from "./transactionalEmail";
+import {
+  EMAIL_BRAND_LOGO_URL,
+  renderTransactionalEmail,
+  type TransactionalEmailContent,
+} from "./transactionalEmail";
 
 const QUERY_TEXT_ROW = /Query\s+Q-0264/;
 const PAX_TEXT_ROW = /Pax\s+0/;
@@ -42,13 +46,48 @@ describe("shared transactional email", () => {
     expect(text).toContain(base.action.href);
     expect(text).toContain("Pax");
     expect(text).not.toContain("Optional");
-    expect(html).not.toContain("<img");
+    const images = [...dom.window.document.querySelectorAll("img")];
+    expect(images.map((image) => image.src)).toEqual([EMAIL_BRAND_LOGO_URL]);
+    expect(images[0]?.alt).toBe("Citius Holidays");
+    expect(images[0]?.width).toBe(140);
+    expect(images[0]?.height).toBe(50);
+    expect(new URL(EMAIL_BRAND_LOGO_URL).search).toBe("");
     expect(html).not.toContain("@font-face");
     dom.window.close();
   });
 
   test("renders repeated preparation identically so retries can retain the frozen message", async () => {
     expect(await renderTransactionalEmail(base)).toEqual(await renderTransactionalEmail(base));
+  });
+
+  test("keeps token URLs in both action targets and plain text without displaying the token in HTML copy", async () => {
+    const href =
+      "https://citius.example/auth/email-verified?token=private-token&callbackURL=%2Faccount";
+    const { html, text } = await renderTransactionalEmail({
+      ...base,
+      action: { href, label: "Verify email" },
+    });
+    const dom = new JSDOM(html);
+    expect([...dom.window.document.querySelectorAll("a")].map((link) => link.href)).toEqual([
+      href,
+      href,
+    ]);
+    expect(dom.window.document.body.textContent).not.toContain("private-token");
+    expect(text).toContain(href);
+    dom.window.close();
+  });
+
+  test("a reply action has one mail link and no browser-link fallback", async () => {
+    const href = "mailto:morgan%40cedar.example";
+    const { html, text } = await renderTransactionalEmail({
+      ...base,
+      action: { href, label: "Reply to enquiry" },
+    });
+    const dom = new JSDOM(html);
+    expect([...dom.window.document.querySelectorAll("a")].map((link) => link.href)).toEqual([href]);
+    expect(dom.window.document.body.textContent).not.toContain("use the direct link");
+    expect(text).toContain("morgan%40cedar.example");
+    dom.window.close();
   });
 
   test("escapes all supplied content and omits an empty optional details section", async () => {

@@ -28,11 +28,12 @@ describe("Contact email rendering", () => {
     expect(html).toContain("traveller@example.com");
   });
 
-  test("Preserves a long message without depending on images or external fonts", async () => {
+  test("Preserves a long message and includes only the shared first-party brand image", async () => {
     const message = "Travel details ".repeat(250);
     const html = await renderContactFormEmail({ ...base, message });
     expect(html).toContain(message.trim());
-    expect(html).not.toContain("<img");
+    expect((html.match(/<img\s/g) || []).length).toBe(1);
+    expect(html).toContain("https://www.citiusholidays.com/images/email/citius-logo-v1.jpg");
     expect(html).not.toContain("@font-face");
   });
 
