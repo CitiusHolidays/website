@@ -24,6 +24,10 @@ function buildNotificationPath({ entityType, entityId, title }) {
 
   const pathByEntityType = new Map([
     [
+      "postTourReport",
+      () => `/portal/post-tour-feedback?reportId=${encodeURIComponent(entityId)}&view=report`,
+    ],
+    [
       "query",
       () => {
         if (title === "Order confirmed — open Job Card") {

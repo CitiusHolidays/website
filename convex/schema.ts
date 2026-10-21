@@ -6,10 +6,12 @@ import {
   importRoomSummaryValidator,
   travelBatchSummaryTransitionValidator,
 } from "./lib/importContractValidators";
+import { notificationEmailOutboxFields } from "./lib/notificationEmailValidators";
 import {
   postTourCategoryValidator,
   postTourRatingValidator,
 } from "./lib/postTourFeedbackValidators";
+import { postTourReportContentValidator } from "./lib/postTourReportContent";
 import { roomTypeValidator } from "./lib/roomTypeValidators";
 import {
   staffTravelStatusValidator,
@@ -1477,6 +1479,26 @@ export default defineSchema({
     .index("by_storageId", ["storageId"])
     .index("by_thumbnailStorageId", ["thumbnailStorageId"]),
 
+  postTourReports: defineTable({
+    archivedAt: v.optional(v.number()),
+    archivedByStaffId: v.optional(v.id("staffUsers")),
+    content: postTourReportContentValidator,
+    createdAt: v.number(),
+    createdByName: v.string(),
+    createdByStaffId: v.id("staffUsers"),
+    jobCardId: v.id("jobCards"),
+    previousStatus: v.optional(v.union(v.literal("draft"), v.literal("submitted"))),
+    revision: v.number(),
+    status: v.union(v.literal("draft"), v.literal("submitted"), v.literal("archived")),
+    submissionAlertsCancelled: v.optional(v.boolean()),
+    submittedAt: v.optional(v.number()),
+    submittedByName: v.optional(v.string()),
+    submittedByStaffId: v.optional(v.id("staffUsers")),
+    updatedAt: v.number(),
+  })
+    .index("by_jobCardId", ["jobCardId"])
+    .index("by_jobCardId_status", ["jobCardId", "status"]),
+
   postTourFeedback: defineTable({
     authorAuthUserId: v.string(),
     authorName: v.string(),
@@ -1519,6 +1541,12 @@ export default defineSchema({
     travellerId: v.id("travellers"),
     updatedAt: v.number(),
   }).index("by_travellerId", ["travellerId"]),
+
+  // Private work queue. Only internal functions read addresses and frozen messages.
+  // Public delivery summaries remain in the opaque delivery ledger.
+  notificationEmailOutbox: defineTable(notificationEmailOutboxFields)
+    .index("by_deliveryKey", ["idempotencyKey"])
+    .index("by_eventId", ["eventId"]),
 
   // Privacy-safe per-recipient delivery state for CRM email. Recipient
   // addresses are never stored here; the hash is derived from the provider
@@ -1603,6 +1631,17 @@ export default defineSchema({
     updatedAt: v.number(),
     version: v.number(),
   }).index("by_key", ["key"]),
+
+  // Per-person navigation acknowledgement is independent of inbox read state.
+  portalNavigationActivity: defineTable({
+    href: v.string(),
+    notificationId: v.id("notifications"),
+    seenAt: v.optional(v.number()),
+    staffId: v.id("staffUsers"),
+    updatedAt: v.number(),
+  })
+    .index("by_staffId_and_href", ["staffId", "href"])
+    .index("by_notificationId", ["notificationId"]),
 
   notifications: defineTable({
     body: v.string(),

@@ -2,7 +2,6 @@
 
 import { api } from "@convex/_generated/api";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
-import Image from "next/image";
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/application-button";
 import { inputVariants } from "@/components/ui/application-field-variants";
@@ -11,18 +10,76 @@ import {
   type FeedbackEntry,
   PostTourFeedbackView,
 } from "./PostTourFeedbackView";
+import { StructuredPostTourReport } from "./StructuredPostTourReport";
 import { TravelerFeedbackPanel } from "./TravelerFeedbackPanel";
+
+type FeedbackView = "travellers" | "managers" | "report";
+function feedbackView(value: string): FeedbackView {
+  if (value === "travellers" || value === "managers") {
+    return value;
+  }
+  return "report";
+}
+function reportQueryArgs(jobCardId: string, reportId: string) {
+  if (jobCardId) {
+    return { jobCardId };
+  }
+  if (reportId) {
+    return { reportId };
+  }
+  return "skip" as const;
+}
+function FeedbackTabs({
+  view,
+  onChange,
+}: {
+  view: FeedbackView;
+  onChange: (view: FeedbackView) => void;
+}) {
+  const tabs: Array<{ value: FeedbackView; label: string }> = [
+    { label: "Internal tour report", value: "report" },
+    { label: "Traveller feedback", value: "travellers" },
+    { label: "Earlier team notes", value: "managers" },
+  ];
+  return (
+    <fieldset aria-label="Feedback view" className="flex flex-wrap gap-3">
+      {tabs.map((tab) => (
+        <Button
+          aria-pressed={view === tab.value}
+          key={tab.value}
+          onClick={() => onChange(tab.value)}
+          type="button"
+          variant={view === tab.value ? "primary" : "outline"}
+        >
+          {tab.label}
+        </Button>
+      ))}
+    </fieldset>
+  );
+}
+function canLoadMore(status: string) {
+  return status === "CanLoadMore" || status === "LoadingMore";
+}
 
 export default function PostTourFeedbackWorkspace({
   initialJobCardId = "",
+  initialReportId = "",
+  initialView = "report",
 }: {
   initialJobCardId?: string;
+  initialReportId?: string;
+  initialView?: string;
 }) {
   const selectId = useId();
   const [selectedJob, setSelectedJob] = useState(initialJobCardId);
-  const [view, setView] = useState<"travellers" | "managers">("travellers");
+  const [reportFromLink, setReportFromLink] = useState(initialReportId);
+  const [view, setView] = useState<FeedbackView>(() => feedbackView(initialView));
   const jobs = usePaginatedQuery(api.crm.postTourFeedback.listJobs, {}, { initialNumItems: 30 });
-  const jobCardId = selectedJob || undefined;
+  const structured = useQuery(
+    api.crm.postTourReports.workspace,
+    reportQueryArgs(selectedJob, reportFromLink)
+  );
+  const jobCardId = selectedJob || structured?.jobCardId || undefined;
   const job = useQuery(api.crm.postTourFeedback.getJobContext, jobCardId ? { jobCardId } : "skip");
   const feedback = usePaginatedQuery(
     api.crm.postTourFeedback.list,
@@ -59,34 +116,24 @@ export default function PostTourFeedbackWorkspace({
       throw new Error("Photo upload failed");
     }
   };
-  const chooseJob = (event: React.ChangeEvent<HTMLSelectElement>) =>
+  const chooseJob = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setReportFromLink("");
     setSelectedJob(event.target.value);
+  };
   const moreJobs = () => jobs.loadMore(30);
   const moreFeedback = () => feedback.loadMore(20);
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <header className="grid overflow-hidden rounded-[28px] border border-[#0B1026]/10 bg-[#FDFBF7] sm:grid-cols-[1fr_32%]">
-        <div className="flex flex-col justify-center px-6 py-7 sm:px-8 sm:py-9">
-          <h1 className="font-heading font-semibold text-3xl text-[#0B1026] leading-tight sm:text-4xl">
-            Post-tour feedback
-          </h1>
-          <p className="mt-3 max-w-lg font-sans text-brand-muted text-sm leading-relaxed">
-            Collect traveller comments and photos after each tour. Share a feedback link and keep
-            every response with its Job Card.
-          </p>
-        </div>
-        <div className="relative h-28 sm:h-auto sm:min-h-48">
-          <Image
-            alt="Blue domes overlooking the sea in Santorini"
-            className="object-cover"
-            fill
-            priority
-            sizes="(max-width: 640px) 100vw, 350px"
-            src="/gallery/account/amalfi-santorini/santorini.webp"
-          />
-        </div>
+      <header className="border-brand-border border-b pb-5">
+        <h1 className="portal-page-title font-heading font-semibold text-brand-dark">
+          Post-tour feedback
+        </h1>
+        <p className="mt-2 max-w-2xl font-sans text-brand-muted text-sm leading-relaxed">
+          Prepare the internal post-tour report against a Job Card, read earlier team notes, or
+          manage the separate traveller feedback requests.
+        </p>
       </header>
-      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-brand-border bg-white p-4 sm:p-5">
+      <div className="flex flex-wrap items-end gap-3 border-brand-border border-b pb-4">
         <label className="block min-w-0 flex-1 space-y-1" htmlFor={selectId}>
           <span className="font-sans font-semibold text-brand-dark text-sm">
             Job Card / JC number
@@ -95,9 +142,9 @@ export default function PostTourFeedbackWorkspace({
             className={`${inputVariants({ surface: "staff" })} bg-white`}
             id={selectId}
             onChange={chooseJob}
-            value={selectedJob}
+            value={jobCardId ?? ""}
           >
-            <option value="">All Job Cards</option>
+            <option value="">{view === "report" ? "Choose a Job Card..." : "All Job Cards"}</option>
             {job && !jobs.results.some((item) => item.jobCardId === job.jobCardId) ? (
               <option value={job.jobCardId}>
                 {job.jobCode} · {job.clientName}
@@ -111,7 +158,7 @@ export default function PostTourFeedbackWorkspace({
             ))}
           </select>
         </label>
-        {jobs.status === "CanLoadMore" || jobs.status === "LoadingMore" ? (
+        {canLoadMore(jobs.status) ? (
           <Button
             disabled={jobs.status === "LoadingMore"}
             onClick={moreJobs}
@@ -128,24 +175,10 @@ export default function PostTourFeedbackWorkspace({
           This Job Card is no longer available. Choose another Job Card.
         </p>
       ) : null}
-      <fieldset aria-label="Feedback view" className="flex flex-wrap gap-3">
-        <Button
-          aria-pressed={view === "travellers"}
-          onClick={() => setView("travellers")}
-          type="button"
-          variant={view === "travellers" ? "primary" : "outline"}
-        >
-          Traveller feedback
-        </Button>
-        <Button
-          aria-pressed={view === "managers"}
-          onClick={() => setView("managers")}
-          type="button"
-          variant={view === "managers" ? "primary" : "outline"}
-        >
-          Tour manager reports
-        </Button>
-      </fieldset>
+      <FeedbackTabs onChange={setView} view={view} />
+      {view === "report" ? (
+        <StructuredPostTourReport workspace={jobCardId ? structured : null} />
+      ) : null}
       {view === "travellers" ? (
         <TravelerFeedbackPanel job={job ?? null} jobCardId={job?.jobCardId} />
       ) : null}
@@ -161,8 +194,7 @@ export default function PostTourFeedbackWorkspace({
           onUpload={upload}
         />
       ) : null}
-      {view === "managers" &&
-      (feedback.status === "CanLoadMore" || feedback.status === "LoadingMore") ? (
+      {view === "managers" && canLoadMore(feedback.status) ? (
         <Button
           disabled={feedback.status === "LoadingMore"}
           onClick={moreFeedback}

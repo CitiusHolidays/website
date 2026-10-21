@@ -1,7 +1,7 @@
 "use client";
 
 import { m } from "motion/react";
-import { useReducer } from "react";
+import { useReducer, useRef } from "react";
 import { Button } from "@/components/ui/application-button";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { formatProfileUpdateError, readJsonError } from "@/lib/userFacingErrors";
@@ -42,6 +42,8 @@ export function AccountProfilePanel({ user }) {
   const [state, dispatch] = useReducer(profileReducer, user, createProfileState);
   const { savedProfileData, profileForm, isEditingProfile, isSavingProfile, profileAlert } = state;
   const profileData = savedProfileData ?? user;
+  const formRef = useRef(null);
+  const savingRef = useRef(false);
 
   const memberSince = profileData?.createdAt
     ? formatDisplayDate(profileData.createdAt)
@@ -54,6 +56,9 @@ export function AccountProfilePanel({ user }) {
   const handlePhoneInput = (value) => handleProfileInput("phoneNumber", value);
 
   const resetProfileForm = () => {
+    if (savingRef.current) {
+      return;
+    }
     dispatch({
       patch: {
         isEditingProfile: false,
@@ -67,7 +72,11 @@ export function AccountProfilePanel({ user }) {
     });
   };
 
-  const handleProfileSave = async () => {
+  const handleProfileSave = async (event) => {
+    event.preventDefault();
+    if (savingRef.current || !isEditingProfile) {
+      return;
+    }
     const trimmedName = (profileForm.name || "").trim();
     const trimmedPhone = (profileForm.phoneNumber || "").trim();
 
@@ -81,6 +90,7 @@ export function AccountProfilePanel({ user }) {
         },
         type: "patch",
       });
+      formRef.current?.querySelector('[name="name"]')?.focus();
       return;
     }
 
@@ -94,6 +104,7 @@ export function AccountProfilePanel({ user }) {
         },
         type: "patch",
       });
+      formRef.current?.querySelector('[name="name"]')?.focus();
       return;
     }
 
@@ -107,9 +118,11 @@ export function AccountProfilePanel({ user }) {
         },
         type: "patch",
       });
+      formRef.current?.querySelector('[name="phoneNumber"]')?.focus();
       return;
     }
 
+    savingRef.current = true;
     dispatch({ patch: { isSavingProfile: true, profileAlert: null }, type: "patch" });
 
     try {
@@ -174,22 +187,35 @@ export function AccountProfilePanel({ user }) {
         },
         type: "patch",
       });
+    } finally {
+      savingRef.current = false;
     }
   };
   const beginProfileEdit = () => {
     dispatch({
-      patch: { isEditingProfile: true, profileAlert: null },
+      patch: {
+        isEditingProfile: true,
+        profileAlert: null,
+        profileForm: {
+          name: profileData.name || "",
+          phoneNumber: profileData.phoneNumber || "",
+        },
+      },
       type: "patch",
     });
   };
 
   return (
-    <m.div
+    <m.form
       animate="visible"
+      aria-busy={isSavingProfile}
       className="account-card overflow-hidden rounded-sm"
       exit={{ opacity: 0, y: 10 }}
       initial="hidden"
       key="profile"
+      noValidate
+      onSubmit={handleProfileSave}
+      ref={formRef}
       variants={ACCOUNT_CONTAINER_VARIANTS}
     >
       <div className="border-gray-100 border-b p-8">
@@ -204,6 +230,7 @@ export function AccountProfilePanel({ user }) {
             <div className="flex items-center gap-3">
               <Button
                 className="inline-flex min-h-11 items-center rounded-full border border-[var(--account-border)] px-4 py-2 font-medium text-[var(--account-muted)] text-sm transition-colors hover:bg-[var(--account-paper)]"
+                disabled={isSavingProfile}
                 onClick={resetProfileForm}
                 surface="account"
                 type="button"
@@ -217,9 +244,8 @@ export function AccountProfilePanel({ user }) {
                     : "bg-[var(--account-night)] text-white hover:bg-[var(--account-ink)]"
                 }`}
                 loading={isSavingProfile}
-                onClick={handleProfileSave}
                 surface="account"
-                type="button"
+                type="submit"
               >
                 {isSavingProfile ? "Saving…" : "Save Changes"}
               </Button>
@@ -243,14 +269,20 @@ export function AccountProfilePanel({ user }) {
       {isEditingProfile ? (
         <div className="grid gap-x-12 gap-y-8 p-8 md:grid-cols-2">
           <ProfileInput
+            autoComplete="name"
+            disabled={isSavingProfile}
             label="Full Name"
+            name="name"
             onChange={handleNameInput}
             placeholder="Enter your full name"
             value={profileForm.name}
           />
           <ProfileInput disabled label="Email Address" value={profileData.email} />
           <ProfileInput
+            autoComplete="tel"
+            disabled={isSavingProfile}
             label="Phone Number"
+            name="phoneNumber"
             onChange={handlePhoneInput}
             placeholder="+1 555-123-4567"
             type="tel"
@@ -281,6 +313,6 @@ export function AccountProfilePanel({ user }) {
             : "No passport details provided"}
         </div>
       </div>
-    </m.div>
+    </m.form>
   );
 }

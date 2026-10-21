@@ -100,7 +100,7 @@ Head/director assignment can assign or reassign contracting and ticketing:
 
 Assignable contracting staff include `Contracting`, `Contracting Head`, and `Contracting Cement`. Assignable ticketing staff include `Ticketing` and `Head of Ticketing`.
 
-Assignments patch the query, mirror owner fields onto linked job cards, create assignment activity, notify assigned staff, and notify relevant heads. If ticketing is assigned or ticketing scope is not `Not required`, Head of Ticketing is included in head notifications.
+Assignments patch the query, mirror owner fields onto linked job cards, create assignment activity, notify assigned staff, and notify relevant heads. Query-intake handoffs also copy active Directors and Admin as Management. This is an intake audience, not a blanket CC for later or private workflows. If ticketing is assigned or ticketing scope is not `Not required`, Head of Ticketing is included in head notifications.
 
 Email and bell delivery intentionally differ for query-team assignment:
 
@@ -179,6 +179,12 @@ manual thank-you email drafts, and separately recorded promotional permission.
 The Job Card links to categorized post-tour comments and private photos that
 all active staff can read. Assigned tour managers submit their own entries.
 See [post-tour feedback and guest contacts](POST_TOUR_FEEDBACK.md).
+The Feedback dropdown beside each JC also opens the six-section internal tour
+report. Assigned Tour Managers and existing Operations owner/head equivalents
+prepare it. Submitted reports are readable by CRM staff; drafts remain narrow.
+Admin can archive/restore the structured report without changing legacy note or
+traveller-feedback permissions. No new approval stage is added.
+
 
 Traveller master and aligned lists filter by Job Card. They are not unscoped all-passenger views.
 
@@ -257,15 +263,32 @@ roles, staff IDs, or auth users; a role email target resolves both the staff mem
 and additive **Additional email alert roles**, then expands base department roles to their head role.
 An explicit `{ kind: "none" }` email target suppresses email without removing bell delivery.
 
-CRM email delivery writes a privacy-safe ledger with monotonic `queued`, `sending`, `retrying`,
-`sent`, `skipped`, and `exhausted` states. Delivery summaries are restricted to the
-`view:emailDeliveryStatus` permission (department heads, Admin, Directors, and Director Cement),
-and expose counts plus permitted notification links without recipient addresses or provider
-response bodies. Scheduler or provider retries cannot move a sent row backwards.
+CRM email queues each recipient durably with the workflow transaction. A private worker queue
+owns bounded claims, retries, fixed rendered content and provider receipts. Its completion and
+the privacy-safe ledger update commit together. A provider-accepted message remains deduplicated
+after the provider's 24-hour key window. Uncertain outcomes stop before that window expires.
 
-Unread state changes only when a user clicks a notification. Opening the bell dropdown or Activity panel must not mark rows read.
+The ledger retains monotonic `queued`, `sending`, `retrying`, `sent`, `skipped` and `exhausted`
+states for compatibility. In the UI, `sent` is labelled **accepted**. It means the provider
+returned a receipt, not delivery to the recipient's mail server or a human read. Delivery
+summaries retain the separate `view:emailDeliveryStatus` permission and expose counts plus
+permitted links without recipient addresses or provider response bodies.
 
-Notification deep links use `?open=` and `?id=`. Email detail rendering is centralized in `convex/crm/notificationEmailDetails.ts` so entity-specific emails can include useful context for queries, job cards, flights, expenses, leave, and tour manager assignments.
+Every allowed staff member can open their own Notifications page. Administrative activity logs
+and email diagnostics remain separately permissioned. Unread state changes only when a user
+activates a notification. Opening the bell or changing Unread/All does not mark rows read.
+Date filters carried from another workspace do not hide unread notifications.
+
+Notification deep links use `?open=` and `?id=`. Entity-detail loaders remain in
+`convex/crm/notificationEmailDetails.ts`; the delivery worker checks the recipient's current
+record visibility and limits portable email context through `notificationEmailSummaryDetails`.
+Private reasons, passport fragments, documents and internal commercial notes remain in the portal.
+
+Ticket-attention alerts and workflow reminders select the exact assigned SPOCs and relevant heads. Unassigned work reaches the relevant heads. `notificationWorkAudience.ts` owns this audience and its dispatch-time responsibility check. Additional email-alert roles and generic role expansion do not apply to these paths. Reminder settings retain enabled state and detection thresholds but cannot broaden the audience. Leave approval and routing remain unchanged.
+
+The [director review](reviews/notification-email-review/README.md) records the changed audiences,
+exact work audiences, source evidence, sample screen examples and confirmed decisions D01 to D03.
+Leave approval and deployment authority stay unchanged.
 
 ## Leave
 

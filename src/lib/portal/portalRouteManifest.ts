@@ -106,8 +106,8 @@ export const PORTAL_ROUTES = {
     family: "administration",
     paginationKey: "activity",
     permission: P.VIEW_EMAIL_DELIVERY_STATUS,
-    subtitle: "See workflow changes, notifications, and email delivery.",
-    title: "Notifications / Activity Log",
+    subtitle: "Your assignments and workflow updates.",
+    title: "Notifications",
   },
   approvals: {
     component: "ApprovalsView",
@@ -363,6 +363,9 @@ export function canAccessPortalRoute({
   view: string;
 }): boolean {
   const route = getPortalRouteDefinition(view);
+  if (view === "activity") {
+    return Boolean(access?.allowed);
+  }
   if (view === "event-photo-booth") {
     return Boolean(access?.allowed && eventPhotoBooth?.canManage);
   }

@@ -25,6 +25,9 @@ const REVIEWED_NON_E2E_INSERT_OWNERS = [
   "convex/crm/metricAggregates.ts",
   "convex/crm/metricDirty.ts",
   "convex/crm/metricProjection.ts",
+  // Notification email persistence is skipped before enqueue in browser E2E runs.
+  "convex/crm/notificationEmailLedger.ts",
+  "convex/crm/notificationEmailOutbox.ts",
   "convex/crm/notificationUnreadProjection.ts",
   "convex/crm/ops.ts",
   "convex/crm/pnrCommands.ts",

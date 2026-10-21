@@ -319,6 +319,20 @@ export function PortalWorkspaceHeader({ workspace }: { workspace: PortalWorkspac
     return <WorkspaceErrorBanner message={workspace.modal ? "" : workspace.error} />;
   }
 
+  if (workspace.view === "activity" && !workspace.has(P.VIEW_ACTIVITY)) {
+    return (
+      <>
+        <div className="mb-6">
+          <h2 className="portal-page-title font-heading font-semibold text-citius-blue">
+            {workspace.meta.title}
+          </h2>
+          <p className="mt-2 text-brand-muted text-sm">{workspace.meta.subtitle}</p>
+        </div>
+        <WorkspaceErrorBanner message={workspace.error} />
+      </>
+    );
+  }
+
   // Inbound leads own their status/source/search controls so the review and
   // conversion panel stay together instead of rendering a second generic
   // toolbar with unrelated Query filters.
@@ -403,7 +417,9 @@ export function PortalWorkspaceHeader({ workspace }: { workspace: PortalWorkspac
 }
 
 export function WorkspacePagination({ pagination }: { pagination?: PortalPaginationSlice }) {
-  if (!pagination) {
+  if (
+    !(pagination && (pagination.loadedCount || pagination.canLoadMore || pagination.isLoadingMore))
+  ) {
     return null;
   }
   return (

@@ -121,10 +121,7 @@ describe("Authenticated ticket status mutation", () => {
     });
     expect(tables.travellers[0].ticketStatus).toBe("Name Change Required");
     expect(tables.pnrs[0].issuedSeats).toBe(0);
-    expect(tables.notifications.map((row) => row.recipientRole)).toEqual([
-      "Operations",
-      "Operations Head",
-    ]);
+    expect(tables.notifications).toEqual([]);
   });
 
   test("Moves one issued seat when an issued ticket is reassigned to another PNR", async () => {

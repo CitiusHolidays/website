@@ -171,12 +171,25 @@ function makeTourManagerCtx(initialTables: Tables = {}) {
     },
   };
 
-  return { ctx, scheduledEmails, tables };
+  return {
+    ctx,
+    get scheduledEmails() {
+      const groups = new Map();
+      for (const row of tables.notificationEmailOutbox ?? []) {
+        const group = groups.get(row.eventId) ?? { args: { ...row, recipients: [] } };
+        group.args.recipients.push(row.recipient);
+        groups.set(row.eventId, group);
+      }
+      return [...groups.values()];
+    },
+    tables,
+  };
 }
 
 describe("Tour Manager allocation notifications", () => {
   test("Notifies assigned Tour Manager by bell and email with Job Card and Travel Batch context", async () => {
-    const { ctx, tables, scheduledEmails } = makeTourManagerCtx();
+    const fixture = makeTourManagerCtx();
+    const { ctx, tables } = fixture;
 
     const result = await createTourManagerForTest(
       // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -210,7 +223,7 @@ describe("Tour Manager allocation notifications", () => {
         }),
       ])
     );
-    expect(scheduledEmails).toEqual([
+    expect(fixture.scheduledEmails).toEqual([
       expect.objectContaining({
         args: expect.objectContaining({
           entityId: "tourManagerAssignments_1",
@@ -265,7 +278,8 @@ describe("Tour Manager allocation notifications", () => {
   });
 
   test("Keeps direct Tour Manager bell and email delivery without an extra role opt-in", async () => {
-    const { ctx, tables, scheduledEmails } = makeTourManagerCtx();
+    const fixture = makeTourManagerCtx();
+    const { ctx, tables } = fixture;
     const tourManager = tables.staffUsers.find((staff) => staff._id === "staff_tm");
     if (tourManager) {
       tourManager.emailAlertRoles = [];
@@ -291,11 +305,11 @@ describe("Tour Manager allocation notifications", () => {
         }),
       ])
     );
-    expect(scheduledEmails).toHaveLength(1);
+    expect(fixture.scheduledEmails).toHaveLength(1);
   });
 
   test("Notifies when an existing Tour Manager assignment is allocated to a Job Card", async () => {
-    const { ctx, tables, scheduledEmails } = makeTourManagerCtx({
+    const fixture = makeTourManagerCtx({
       tourManagerAssignments: [
         {
           _id: "tourManagerAssignments_1",
@@ -312,6 +326,7 @@ describe("Tour Manager allocation notifications", () => {
         },
       ],
     });
+    const { ctx, tables } = fixture;
 
     await updateTourManagerForTest(
       // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -340,7 +355,7 @@ describe("Tour Manager allocation notifications", () => {
         }),
       ])
     );
-    expect(scheduledEmails[0].args).toMatchObject({
+    expect(fixture.scheduledEmails[0].args).toMatchObject({
       entityId: "tourManagerAssignments_1",
       entityType: "tourManager",
       recipients: ["tour.manager@example.com"],

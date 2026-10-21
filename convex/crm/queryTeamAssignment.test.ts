@@ -155,18 +155,15 @@ describe("ApplyQueryTeamAssignments", () => {
         expect.anything(),
         expect.objectContaining({
           bellTargets: { kind: "staff", staffIds: ["staffUsers_contracting"] },
-          content: expect.objectContaining({ title: "Assign contracting owner" }),
+          content: expect.objectContaining({ title: "Contracting assignment" }),
+          emailRecipientPurpose: { field: "contractingOwnerId", kind: "assignment" },
         })
       );
       expect(publishWorkflowNotification).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({
-          bellTargets: {
-            kind: "roles",
-            roles: ["Contracting Head", "Operations Head", "Head of Ticketing"],
-          },
           content: expect.objectContaining({ title: "Assign Ticketing SPOC" }),
-          emailTargets: { kind: "roles", roles: ["Head of Ticketing"] },
+          emailRecipientPurpose: { key: "query_intake", kind: "work" },
         })
       );
     } finally {
@@ -250,7 +247,7 @@ describe("ApplyQueryTeamAssignments", () => {
     }
   });
 
-  test("Notifies only contracting and operations heads when ticketing is not required", async () => {
+  test("Publishes scoped query intake when ticketing is not required", async () => {
     const { ctx } = makeAssignmentCtx({
       contractingAssignments: [],
       jobCards: [],
@@ -274,12 +271,8 @@ describe("ApplyQueryTeamAssignments", () => {
       expect(publishWorkflowNotification).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({
-          bellTargets: {
-            kind: "roles",
-            roles: ["Contracting Head", "Operations Head"],
-          },
           content: expect.objectContaining({ title: "Query team assigned by Sales" }),
-          emailTargets: { kind: "none" },
+          emailRecipientPurpose: { key: "query_intake", kind: "work" },
         })
       );
     } finally {
@@ -349,7 +342,8 @@ describe("ApplyQueryTeamAssignments", () => {
         expect.anything(),
         expect.objectContaining({
           bellTargets: { kind: "staff", staffIds: ["staffUsers_contracting"] },
-          content: expect.objectContaining({ title: "Assign contracting owner" }),
+          content: expect.objectContaining({ title: "Contracting assignment" }),
+          emailRecipientPurpose: { field: "contractingOwnerId", kind: "assignment" },
         })
       );
     } finally {

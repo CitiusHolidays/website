@@ -92,7 +92,7 @@ export function PortalPopover({
             aria-hidden={open ? undefined : "true"}
             aria-label={ariaLabel}
             className={cn(
-              `max-h-[var(--available-height)] ${popupOriginClass} overflow-hidden border border-brand-border bg-white text-brand-dark shadow-xl`,
+              `portal-shell max-h-[var(--available-height)] ${popupOriginClass} overflow-hidden border border-brand-border bg-white text-brand-dark shadow-xl`,
               className
             )}
             id={popupId}

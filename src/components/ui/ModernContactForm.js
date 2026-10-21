@@ -130,7 +130,10 @@ function createInitialFormState(initialValues) {
 
 function contactFormReducer(state, action) {
   const reducers = {
-    SET_BUTTON: () => ({ ...state, buttonState: action.buttonState }),
+    SET_BUTTON: () =>
+      state.buttonState === "processing" && action.buttonState === "idle"
+        ? state
+        : { ...state, buttonState: action.buttonState },
     SET_ERRORS: () => ({
       ...state,
       announcement: action.announcement ?? state.announcement,
@@ -353,6 +356,7 @@ export default function ModernContactForm({ initialValues }) {
           <label htmlFor="company">Company</label>
           <input
             autoComplete="off"
+            disabled={buttonState === "processing"}
             id="company"
             name="company"
             onChange={updateFormValue}
@@ -369,6 +373,7 @@ export default function ModernContactForm({ initialValues }) {
             </label>
             <input
               className="min-h-12 w-full rounded-lg border-2 border-gray-300 bg-white px-4 py-3 text-gray-800 focus:border-orange-500 focus:outline-none"
+              disabled={buttonState === "processing"}
               id="destination"
               maxLength={80}
               name="destination"
@@ -411,6 +416,7 @@ export default function ModernContactForm({ initialValues }) {
                     ? "border-red-500 focus:border-red-500"
                     : "border-gray-300 focus:border-orange-500"
                 }`}
+                disabled={buttonState === "processing"}
                 id={field.name}
                 name={field.name}
                 onBlur={clearFocusedField}
@@ -460,6 +466,7 @@ export default function ModernContactForm({ initialValues }) {
                 ? "border-red-500 focus:border-red-500"
                 : "border-gray-300 focus:border-orange-500"
             }`}
+            disabled={buttonState === "processing"}
             id="message"
             name="message"
             onBlur={clearFocusedField}
@@ -487,6 +494,7 @@ export default function ModernContactForm({ initialValues }) {
               aria-invalid={errors.consent ? "true" : "false"}
               checked={formValues.consent}
               className="mt-0.5 size-5 shrink-0 accent-orange-500"
+              disabled={buttonState === "processing"}
               name="consent"
               onChange={updateFormValue}
               type="checkbox"

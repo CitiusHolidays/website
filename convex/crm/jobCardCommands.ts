@@ -302,8 +302,9 @@ export async function handleAssignOperationsOwner(
         body: `You were assigned as operations owner for ${job.jobCode}.`,
         entityId: jobCardId,
         entityType: "jobCard",
-        title: "Assign operations owner",
+        title: "Operations assignment",
       },
+      emailRecipientPurpose: { field: "operationsOwnerId", kind: "assignment" },
       emailTargets: { kind: "staff", staffIds: [staffId] },
     }),
   ]);
@@ -364,8 +365,9 @@ export async function handleAssignContractingOwner(
         body: `You were assigned as contracting SPOC for ${job.jobCode}.`,
         entityId: jobCardId,
         entityType: "jobCard",
-        title: "Assign contracting owner",
+        title: "Contracting assignment",
       },
+      emailRecipientPurpose: { field: "contractingOwnerId", kind: "assignment" },
       emailTargets: { kind: "staff", staffIds: [staffId] },
     }),
   ]);

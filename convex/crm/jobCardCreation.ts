@@ -244,23 +244,21 @@ async function publishJobCardCreationNotifications(
     linkedQuery: Doc<"queries">;
   }
 ) {
-  const {
-    contractingStaffId,
-    needsTicketingWork,
-    notifications: ownerNotifications,
-    ticketingStaffId,
-  } = ownerNotificationsForJobCard(ctx, linkedQuery, id, jobCode);
+  const { needsTicketingWork, notifications: ownerNotifications } = ownerNotificationsForJobCard(
+    ctx,
+    linkedQuery,
+    id,
+    jobCode
+  );
   const downstreamRoles = [
-    "Contracting",
     "Contracting Head",
-    "Operations",
     "Operations Head",
-    ...(needsTicketingWork ? ["Ticketing", "Head of Ticketing"] : []),
+    ...(needsTicketingWork ? ["Head of Ticketing"] : []),
   ];
   const downstreamEmailRoles = [
-    ...(contractingStaffId ? [] : ["Contracting"]),
+    "Contracting Head",
     "Operations Head",
-    ...(needsTicketingWork && !ticketingStaffId ? ["Ticketing"] : []),
+    ...(needsTicketingWork ? ["Head of Ticketing"] : []),
   ];
   const travelStartDate = firstTruthy(
     args.travelStartDate,
@@ -300,14 +298,26 @@ async function publishJobCardCreationNotifications(
     }),
     ...ownerNotifications,
     publishWorkflowNotification(ctx, {
-      bellTargets: { kind: "roles", roles: ["Sales", "Sales Head"] },
+      bellTargets: {
+        kind: "matching",
+        matches: (staff) =>
+          staff.roles.includes("Sales Head") ||
+          staff.authUserId === linkedQuery.salesOwnerId ||
+          staff._id === linkedQuery.salesOwnerId,
+      },
       content: {
         body: `${jobCode} has been created and is ready for operations.`,
         entityId: id,
         entityType: "jobCard",
         title: "Job Card opened",
       },
-      emailTargets: { kind: "roles", roles: ["Sales", "Sales Head"] },
+      emailTargets: {
+        kind: "matching",
+        matches: (staff) =>
+          staff.roles.includes("Sales Head") ||
+          staff.authUserId === linkedQuery.salesOwnerId ||
+          staff._id === linkedQuery.salesOwnerId,
+      },
     }),
     notifyFinanceHeadsOnJobCardCreation(ctx, jobCode, id),
   ]);

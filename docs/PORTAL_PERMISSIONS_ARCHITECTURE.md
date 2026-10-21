@@ -92,6 +92,8 @@ Assignment authority is separate from page access.
 
 Sales, Sales Head, and Sales Cement can use the Sales initial assignment form when they have `manage:queries`, but they are not treated as head/director assigners.
 
+Heads remain selectable in their department's assignment dropdown. Contracting and Operations heads already have their department's work permissions. Head of Ticketing also has `manage:proposals` so a self-assigned Ticketing head can prepare costing. Existing record-level proposal guards remain authoritative. Leave permissions and approval routing are unchanged.
+
 ## Cement roles
 
 Base cement roles are scoped roles:

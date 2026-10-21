@@ -89,6 +89,7 @@ interface InitialWorkspaceModalFormInput {
   access: ReturnType<typeof usePortalServerAccess>;
   initial: PortalWorkspaceForm;
   initialForm: typeof INITIAL_FORM;
+  jobCardFilter?: string;
   jobCards: object[];
   pnrs: object[];
   proposals: object[];
@@ -250,6 +251,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
   const deepLinkOpen = searchParams.get("open");
   const deepLinkQueryId = searchParams.get("queryId");
   const deepLinkHandledRef = useRef("");
+  const submissionPendingRef = useRef(false);
   const previousViewRef = useRef(view);
 
   useEffect(() => {
@@ -561,6 +563,9 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
   });
 
   const openModal = (type: string, initial: PortalWorkspaceForm = {}) => {
+    if (submissionPendingRef.current) {
+      return;
+    }
     setError("");
     setFieldErrors({});
     const next = initial.focusedDetailType
@@ -569,6 +574,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
           access,
           initial,
           initialForm: INITIAL_FORM,
+          jobCardFilter,
           jobCards: compactRows(jobCards),
           pnrs: compactRows(pnrs),
           proposals: compactRows(proposals),
@@ -592,6 +598,9 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
   };
 
   const closeModal = () => {
+    if (submissionPendingRef.current) {
+      return;
+    }
     setModal(null);
     setForm(INITIAL_FORM);
     setPendingQueryFiles([]);
@@ -605,6 +614,9 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
   };
 
   const updateForm = (field: string, value: JsonValue) => {
+    if (submissionPendingRef.current) {
+      return;
+    }
     setForm((current) => ({ ...current, [field]: value }));
     if (fieldErrors[field]) {
       setFieldErrors((current) => {
@@ -616,6 +628,9 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
   };
 
   const patchForm = (patch: PortalWorkspaceForm) => {
+    if (submissionPendingRef.current) {
+      return;
+    }
     setForm((current) => ({ ...current, ...patch }));
     const patchedErrorFields = Object.keys(patch).filter((field) => fieldErrors[field]);
     if (patchedErrorFields.length > 0) {
@@ -784,6 +799,9 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submissionPendingRef.current) {
+      return;
+    }
     const validationFailure = submissionValidationFailure(modal, effectiveForm, access, has);
     if (validationFailure) {
       setError(validationFailure.error ?? "");
@@ -792,6 +810,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     }
     setError("");
     setFieldErrors({});
+    submissionPendingRef.current = true;
     setIsSaving(true);
     try {
       let saveSuccessMessage = "Saved";
@@ -878,6 +897,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
       setIsSaving(false);
       patchState({ saveFlash: true });
       await new Promise((resolve) => setTimeout(resolve, 420));
+      submissionPendingRef.current = false;
       closeModal();
       patchState({ saveFlash: false });
     } catch (err) {
@@ -889,6 +909,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
           "Unable to save."
       );
       setIsSaving(false);
+      submissionPendingRef.current = false;
     }
   };
 

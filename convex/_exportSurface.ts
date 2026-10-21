@@ -185,6 +185,8 @@ export const __convexExportSurface = [
   crm_lib.resolvePortalDateRange,
   crm_lib.filterRecordsByDateRange,
   crm_navShortcuts.list,
+  crm_navShortcuts.workState,
+  crm_navShortcuts.acknowledgeActivity,
   crm_ops.listHotels,
   crm_ops.createHotel,
   crm_ops.updateHotel,

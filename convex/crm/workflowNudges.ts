@@ -3,14 +3,10 @@ import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, mutation, query } from "../_generated/server";
 import { isRuntimeNumber, isRuntimeString } from "../lib/runtimeValues";
-import {
-  ALL_ROLES,
-  isDirectorOrAdmin,
-  PERMISSIONS,
-  publishWorkflowNotification,
-  requireStaff,
-} from "./lib";
+import { isDirectorOrAdmin, PERMISSIONS, requireStaff } from "./lib";
+import { publishWorkNotification } from "./lib/notifications";
 import { loadMetricTotals } from "./metricAggregates";
+import type { NotificationWorkKey } from "./notificationWorkAudience";
 import { classifyPassportExpiryUrgency } from "./passportExpiry";
 import {
   classifyStaleNudgeRunState,
@@ -41,7 +37,7 @@ interface NudgeRisk {
   body: string;
   entityId: string;
   entityType: string;
-  ruleKey: string;
+  ruleKey: Exclude<NotificationWorkKey, "query_intake" | "ticket_attention">;
   title: string;
 }
 
@@ -102,7 +98,7 @@ export const WORKFLOW_RULE_CATALOG = [
   {
     key: "confirmed_query_without_job_card",
     label: "Confirmed query without Job Card",
-    recipientRole: "Accounts",
+    recipientRole: "Accounts Head",
     thresholdHours: 0,
   },
   {
@@ -144,7 +140,7 @@ export const WORKFLOW_RULE_CATALOG = [
   {
     key: "invoice_overdue_balance",
     label: "Invoice has overdue balance",
-    recipientRole: "Finance",
+    recipientRole: "Accounts Head",
     thresholdHours: 0,
   },
 ] as const;
@@ -232,7 +228,7 @@ export function effectiveWorkflowRulesFromRows(
           ...catalog,
           enabled: row?.enabled ?? true,
           lastConfiguredAt: row?.updatedAt ?? null,
-          recipientRole: row?.recipientRole ?? catalog.recipientRole,
+          recipientRole: catalog.recipientRole,
           thresholdHours: validateWorkflowThresholdHours(
             row?.thresholdHours ?? catalog.thresholdHours
           ),
@@ -299,16 +295,12 @@ export const updateRule = mutation({
     );
     const timestamp = Date.now();
     const existing = await getRuleRow(ctx, args.key);
-    const requestedRoleValue = args.recipientRole ?? catalog.recipientRole;
-    const requestedRole = requestedRoleValue
-      ? ALL_ROLES.find((role) => role === requestedRoleValue)
-      : undefined;
-    if (requestedRoleValue && !requestedRole) {
-      throw new ConvexError("Unknown workflow recipient role");
+    if (args.recipientRole && args.recipientRole !== catalog.recipientRole) {
+      throw new ConvexError("Workflow recipients are the assigned staff and relevant heads.");
     }
     const patch = {
       enabled: args.enabled,
-      recipientRole: requestedRole,
+      recipientRole: catalog.recipientRole,
       thresholdHours,
       updatedAt: timestamp,
     };
@@ -454,7 +446,7 @@ function collectJobCardRisks(
   if (!ownerRule) {
     return [];
   }
-  return rows.flatMap((job) =>
+  return rows.flatMap<NudgeRisk>((job) =>
     !job.operationsOwnerId &&
     referenceNow - (job.createdAt ?? 0) >= ownerRule.thresholdHours * HOUR_MS
       ? [
@@ -567,7 +559,7 @@ export async function collectRiskItemsPage(
     return await collectTravellerRisks(ctx, rows, referenceNow, effectiveRules);
   }
   if (stage === "tickets") {
-    return rows.flatMap((ticket) => {
+    return rows.flatMap<NudgeRisk>((ticket) => {
       if (!isTicketRiskRow(ticket)) {
         return [];
       }
@@ -586,7 +578,7 @@ export async function collectRiskItemsPage(
     });
   }
   const today = new Date(referenceNow).toISOString().slice(0, 10);
-  return rows.flatMap((invoice) =>
+  return rows.flatMap<NudgeRisk>((invoice) =>
     enabledWorkflowRule(effectiveRules, "invoice_overdue_balance") &&
     (invoice.balanceAmount ?? 0) > 0 &&
     invoice.dueDate &&
@@ -659,16 +651,11 @@ async function dispatchWorkflowNudges(
       ) {
         return 0;
       }
-      const recipientRoles = [rule.recipientRole];
-      await publishWorkflowNotification(ctx, {
-        bellTargets: { kind: "roles", roles: recipientRoles },
-        content: {
-          body: risk.body,
-          entityId: risk.entityId,
-          entityType: risk.entityType,
-          title: risk.title,
-        },
-        emailTargets: { kind: "roles", roles: recipientRoles },
+      await publishWorkNotification(ctx, risk.ruleKey, {
+        body: risk.body,
+        entityId: risk.entityId,
+        entityType: risk.entityType,
+        title: risk.title,
       });
       await markTriggered(ctx, risk, referenceNow);
       return 1;

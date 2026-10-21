@@ -1,0 +1,757 @@
+{
+  "sourceBase": "9d7ad28081bff75d26bf5255ca7e2fb3b1026fcb",
+  "routeCount": 59,
+  "scope": "59-route source inventory with usability changes and CRM redesign, plus selected signed-in local workflows. This does not claim exhaustive route acceptance.",
+  "routes": [
+    {
+      "path": "src/app/(auth)/auth/connect/page.js",
+      "sha256": "df244dd0be6d92132ff7edcf8f85dde4997fe21a7c697beccbb640fd2caa9015",
+      "family": "Authentication",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "entry and component source; synthetic component review where listed",
+      "componentCases": ["staffLogin"],
+      "preserved": "Preserve the existing sign-in, recovery, verification and callback policy.",
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "All 12 designated staff profiles signed in through the actual local auth page.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
+    },
+    {
+      "path": "src/app/(auth)/auth/email-verified/page.js",
+      "sha256": "f14e5724642f14075d3f892a152401aca4e52a3207fb01c61497f5a79d2e2e5e",
+      "family": "Authentication",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "entry/routing source and existing auth regression suite",
+      "componentCases": [],
+      "preserved": "Preserve the existing sign-in, recovery, verification and callback policy.",
+      "limits": "Legacy redirect/email-verified server flow and real auth tokens are not browser-accepted."
+    },
+    {
+      "path": "src/app/(auth)/auth/forgot-password/page.js",
+      "sha256": "1e4ab0d3988b52749d14c8fd461baa2804a3d5e1c2202d2f8bcb1dd90c31e3ee",
+      "family": "Authentication",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "entry and component source; synthetic component review where listed",
+      "componentCases": ["forgot"],
+      "preserved": "Preserve the existing sign-in, recovery, verification and callback policy.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/(auth)/auth/guest/page.js",
+      "sha256": "f7247ae6c808374aee04ff9a2f39aec4dabaa4429169da022ff1ddaa3f670a32",
+      "family": "Authentication",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "entry and component source; synthetic component review where listed",
+      "componentCases": ["guestLogin"],
+      "preserved": "Preserve the existing sign-in, recovery, verification and callback policy.",
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "The designated customer signed in through the actual local auth page.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
+    },
+    {
+      "path": "src/app/(auth)/auth/page.js",
+      "sha256": "32c1b78596d99266c5136d05eba4e295a35e7d1b7463339be0f90012f012c727",
+      "family": "Authentication",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "entry/routing source and existing auth regression suite",
+      "componentCases": [],
+      "preserved": "Preserve the existing sign-in, recovery, verification and callback policy.",
+      "limits": "Legacy redirect/email-verified server flow and real auth tokens are not browser-accepted."
+    },
+    {
+      "path": "src/app/(auth)/auth/reset-password/page.js",
+      "sha256": "a3f7d928172f9141aea5a14627151fbe6e983f84e960c028c296fe41a1beec34",
+      "family": "Authentication",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "entry and component source; synthetic component review where listed",
+      "componentCases": ["reset"],
+      "preserved": "Preserve the existing sign-in, recovery, verification and callback policy.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/(auth)/auth/vendor/page.js",
+      "sha256": "85dbaf03981ea803fa51179b482ebfad9f0ce3b568358820c1eab91f3826fc8f",
+      "family": "Authentication",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "entry and component source; synthetic component review where listed",
+      "componentCases": ["vendorLogin"],
+      "preserved": "Preserve the existing sign-in, recovery, verification and callback policy.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/(authenticated)/account/page.js",
+      "sha256": "d1ef659191c30eebe40e656a20f06a5aa2202410e8bebcf68b1ec3cd59a451bb",
+      "family": "Customer Account",
+      "status": "changed",
+      "changeIds": ["U02"],
+      "review": "entry and component source; synthetic component review where listed",
+      "componentCases": ["account"],
+      "preserved": "Profile editing uses the same validation and PUT payload. Journey entitlements, read-only facts and Settings remain unchanged.",
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Explicit confirmed-trip entitlement, exclusion of Staff/payment data, and Profile opening. Profile edit/tab preservation remains separately component-tested.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
+    },
+    {
+      "path": "src/app/(authenticated)/vendor/page.js",
+      "sha256": "aefe67069ae789a6390b2cb959b2d72d74a7108b367fbc64d1306583950ee118",
+      "family": "Vendor",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "entry and component source; synthetic component review where listed",
+      "componentCases": ["vendor"],
+      "preserved": "Retain the supplier placeholder and current entry availability per the prior keep/revert decision.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/(public)/about/page.js",
+      "sha256": "01bf39a0b8679d2ae684989ad78ddb5285994aeee6a38649b6b896aaab8804a1",
+      "family": "Public marketing and enquiry",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "entry and component source; synthetic component review where listed",
+      "componentCases": ["about"],
+      "preserved": "Retain the accepted composition, content and navigation.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/(public)/contact/page.js",
+      "sha256": "04a685c89b2238f6df09ef6afb956f6479b582a10c26c3260e303af7639815ac",
+      "family": "Public marketing and enquiry",
+      "status": "changed",
+      "changeIds": ["U03", "U04"],
+      "review": "entry and component source; synthetic component review where listed",
+      "componentCases": ["contact"],
+      "preserved": "Same enquiry fields, explicit consent and submit, request payload, security and retry identity. All office details/maps remain.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/(public)/gallery/page.js",
+      "sha256": "db02898f6425ea99a3d2537999ee1caed4eb7bd5b6c5cbaab2da6175613a4870",
+      "family": "Public marketing and enquiry",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "entry and component source; synthetic component review where listed",
+      "componentCases": ["gallery"],
+      "preserved": "Retain the accepted composition, content and navigation.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/(public)/mice/page.js",
+      "sha256": "4f13634c29e8e67fea8fea1e01f2efd934053339c1654027af20c1f4af62b154",
+      "family": "Public marketing and enquiry",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "entry and component source; synthetic component review where listed",
+      "componentCases": ["mice"],
+      "preserved": "Retain the accepted composition, content and navigation.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/(public)/page.js",
+      "sha256": "a0c0b51666268a4312aa1d8aa72b94f18861ddee5c83db2afb8a218b33d013d6",
+      "family": "Public marketing and enquiry",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "entry and component source; synthetic component review where listed",
+      "componentCases": ["home"],
+      "preserved": "Retain the accepted composition, content and navigation.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/(public)/policies/page.js",
+      "sha256": "bbae0a8826239325dd3df46bfa47e9f2a569576779f417bb8ab3c5e6d08c006c",
+      "family": "Public marketing and enquiry",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "entry and component source; synthetic component review where listed",
+      "componentCases": ["policies"],
+      "preserved": "Retain the accepted composition, content and navigation.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/(public)/services/page.js",
+      "sha256": "e4d5090a4ff6e9a521d0d304e54f95495680e3ccae3793f6e594f38fead0dc2c",
+      "family": "Public marketing and enquiry",
+      "status": "changed",
+      "changeIds": ["U05"],
+      "review": "entry and component source; synthetic component review where listed",
+      "componentCases": ["services"],
+      "preserved": "Keep the circular selector and all 11 choices/descriptions; fit narrow screens and allow keyboard selection.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/(public)/blog/[slug]/page.js",
+      "sha256": "b2ee4330e147ab3626f40ccd581e4141e46ec23c0e0c8f935d2da919e0d2ca12",
+      "family": "Journal",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "entry and component source; synthetic component review where listed",
+      "componentCases": ["article"],
+      "preserved": "Retain the existing header, featured/index and article layout. No rejected compact redesign.",
+      "limits": "CMS-backed content and native Next image/runtime behavior require target review."
+    },
+    {
+      "path": "src/app/(public)/blog/page.js",
+      "sha256": "dff00916473c66900838a1d3fefbb10d045ae316133e6126e9218a78d62200e2",
+      "family": "Journal",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "entry and component source; synthetic component review where listed",
+      "componentCases": ["journal"],
+      "preserved": "Retain the existing header, featured/index and article layout. No rejected compact redesign.",
+      "limits": "CMS-backed content and native Next image/runtime behavior require target review."
+    },
+    {
+      "path": "src/app/(public)/photo-booth/page.tsx",
+      "sha256": "cda01d13245f959a64a58a93a3450276f34796b8ffafdd9998c260a88129d95b",
+      "family": "Public Photo Booth",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "entry and component source; synthetic component review where listed",
+      "componentCases": ["booth", "boothClosed"],
+      "preserved": "Retain event availability, photo privacy and explicit capture/export/enquiry behavior.",
+      "limits": "No real participant photos, camera permission, device export or sharing-provider acceptance."
+    },
+    {
+      "path": "src/app/(public)/pilgrimage/[slug]/page.js",
+      "sha256": "562af2cec5d9966bbb2832cbac3ef967656a1d6521b88ae4fe4462dedc7777e6",
+      "family": "Pilgrimage",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "entry and component source; synthetic component review where listed",
+      "componentCases": ["trail"],
+      "preserved": "Retain programme details, comparison, itinerary and explicit enquiry links. No booking/payment changes.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/(public)/pilgrimage/page.js",
+      "sha256": "d5afcb0557df6c8160ccbd885c5092eeae81cda5ad5cebc415fcd202c31777dc",
+      "family": "Pilgrimage",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "entry and component source; synthetic component review where listed",
+      "componentCases": ["pilgrimage"],
+      "preserved": "Retain programme details, comparison, itinerary and explicit enquiry links. No booking/payment changes.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/(public)/sacred-bharat/001/page.js",
+      "sha256": "ec03109e7884fc49d2915ba6da091cd80ba3bbb90506692f36532f5c5e95b300",
+      "family": "Sacred Bharat",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "redirect/alias source and existing regression suite",
+      "componentCases": [],
+      "preserved": "Retain the edition and operational availability control; keep alias redirects and share-token handling.",
+      "limits": "Live availability, analytics and sharing providers are not accepted. The enabled edition is a component fixture."
+    },
+    {
+      "path": "src/app/(public)/sacred-bharat/challenges/page.js",
+      "sha256": "2629b1a7b8f407d2e15edc58b551a8812096353b5596e96a4464b43ab11d0343",
+      "family": "Sacred Bharat",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "redirect/alias source and existing regression suite",
+      "componentCases": [],
+      "preserved": "Retain the edition and operational availability control; keep alias redirects and share-token handling.",
+      "limits": "Live availability, analytics and sharing providers are not accepted. The enabled edition is a component fixture."
+    },
+    {
+      "path": "src/app/(public)/sacred-bharat/groups/[groupId]/page.js",
+      "sha256": "9cee9000ffccdb4b56b42197754a11e9a56e90e7d4351ee05b1064956420a251",
+      "family": "Sacred Bharat",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "redirect/alias source and existing regression suite",
+      "componentCases": [],
+      "preserved": "Retain the edition and operational availability control; keep alias redirects and share-token handling.",
+      "limits": "Live availability, analytics and sharing providers are not accepted. The enabled edition is a component fixture."
+    },
+    {
+      "path": "src/app/(public)/sacred-bharat/leaderboard/page.js",
+      "sha256": "38004a4a1106568bc66a51f3b0d9ca423fa380d6abc3ce861731f342d453757e",
+      "family": "Sacred Bharat",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "redirect/alias source and existing regression suite",
+      "componentCases": [],
+      "preserved": "Retain the edition and operational availability control; keep alias redirects and share-token handling.",
+      "limits": "Live availability, analytics and sharing providers are not accepted. The enabled edition is a component fixture."
+    },
+    {
+      "path": "src/app/(public)/sacred-bharat/page.js",
+      "sha256": "43671e1087966e91aa5392eec9ffa959c557470e3f62837670f9784f74709d20",
+      "family": "Sacred Bharat",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "entry and component source; synthetic component review where listed",
+      "componentCases": ["sacred"],
+      "preserved": "Retain the edition and operational availability control; keep alias redirects and share-token handling.",
+      "limits": "Live availability, analytics and sharing providers are not accepted. The enabled edition is a component fixture."
+    },
+    {
+      "path": "src/app/(public)/sacred-bharat/trails/[slug]/page.js",
+      "sha256": "cddaa52d97da46be6c9ee33d255552a3c4893962a11a4701852a931b35875656",
+      "family": "Sacred Bharat",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "redirect/alias source and existing regression suite",
+      "componentCases": [],
+      "preserved": "Retain the edition and operational availability control; keep alias redirects and share-token handling.",
+      "limits": "Live availability, analytics and sharing providers are not accepted. The enabled edition is a component fixture."
+    },
+    {
+      "path": "src/app/(public)/sacred-bharat/yatris/[slug]/page.js",
+      "sha256": "c201d175854b9a6afd961029262a16d91fb5bda4310ea87097c2d382532b1eee",
+      "family": "Sacred Bharat",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "redirect/alias source and existing regression suite",
+      "componentCases": [],
+      "preserved": "Retain the edition and operational availability control; keep alias redirects and share-token handling.",
+      "limits": "Live availability, analytics and sharing providers are not accepted. The enabled edition is a component fixture."
+    },
+    {
+      "path": "src/app/portal/accounts/job-cards/page.js",
+      "sha256": "5c78eec0dadd42b3064b9b1f671dec4c77dbec2ca74a755bcb6a530cbadf39fe",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Create Job Card from immutable confirmed offer; assigned Sales initials and current number format retained.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
+    },
+    {
+      "path": "src/app/portal/activity/page.js",
+      "sha256": "a6262f1946538399135f247b5759ccaff4f0627c869b0283a7075e83ce5b51c3",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06", "U12"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Exact Query-intake audience across 12 profiles; Unread/All, bell, selected read, real Query deep link and later arrivals. U12 empty-record footer regression fixed.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
+    },
+    {
+      "path": "src/app/portal/approvals/page.js",
+      "sha256": "d725c946714bcb0a6a316e395110205112fa42e2ea21e9be0a81dad698ae233a",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/portal/contracting/page.js",
+      "sha256": "c9387e3cbdae9ac6cc899dec8a436d4665578ffd72e1e162f10be640b6117535",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Assigned query, attachment and series context, exclusion of Sales Decision, sidebar visit acknowledgement; mobile role navigation.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
+    },
+    {
+      "path": "src/app/portal/employees-on-leave/page.js",
+      "sha256": "e84b2822c2d2c277b0772f73f8ce0f33c70954890b8eb204ff0248c593b2e4c2",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Create leave request; configured head then HR final approval; mobile role navigation. Authority and routing unchanged.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
+    },
+    {
+      "path": "src/app/portal/event-photo-booth/page.tsx",
+      "sha256": "5dc475dbbed17e61c0bd17dee1b475f12e6c34915c859c4872fb94d03c6955be",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": [],
+      "preserved": "Existing dashboard or purpose-specific controls retain their workflow. The shared list toolbar is not rendered here.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/portal/expenses/page.js",
+      "sha256": "95464f60d6dd122e302f2cd1896bdcda2d5129733f1fc9743fe91dab9ecb6bb0",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Finance creates an owned draft expense; submission remains a separate available action.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
+    },
+    {
+      "path": "src/app/portal/external-tour-managers/page.tsx",
+      "sha256": "d7c53838d47a81734ce13ef14d251ac56d3c03fceac663ac4e4a1c7c94fe3c30",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["externalManagers"],
+      "preserved": "Retain existing fields, explicit Save/Cancel and record/assignment meaning. No new workflow or authority.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/portal/finance/page.js",
+      "sha256": "4caa2fc2a6c37a4b569904946cd13e89c4ed016cb633e00401471ea80c8768c3",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Finance role mobile destination, overflow and menu focus only. Full finance approval/invoice workflow not browser-accepted.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
+    },
+    {
+      "path": "src/app/portal/flights/page.js",
+      "sha256": "b0dfa110ffa2a33bdc220141c9f66cf5d20f07859bf2064f842c6292ed8558a3",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/portal/hotels/page.js",
+      "sha256": "6afe628f68a722a728ad12654dca59562b467b3a2f1f7307f0a58280f729da68",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/portal/inbound-leads/page.js",
+      "sha256": "a356e4a0591f93af413c0c1bedd41b7527ce14cc3a013a36ec2bde4fbc345301",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": [],
+      "preserved": "Existing dashboard or purpose-specific controls retain their workflow. The shared list toolbar is not rendered here.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/portal/job-cards/[jobCardId]/page.js",
+      "sha256": "3508affae8f83f8232a047d8a185214b9486a6805b1e97a3aaa7c1e4085dcf2e",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["jobDetail"],
+      "preserved": "Retain existing fields, explicit Save/Cancel and record/assignment meaning. No new workflow or authority.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/portal/job-cards/page.js",
+      "sha256": "264bdf2bffe15edd5b36f124d556e2c48cc118553ea9dec42be11c226ab37356",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Management assigns Operations on the created Job Card; Operations mobile destination and menu focus.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
+    },
+    {
+      "path": "src/app/portal/page.js",
+      "sha256": "a3cdb129c71d99fbd31ba9389c1ac8829fea8a6ddaabd0639c1cfeeded982e1e",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": [],
+      "preserved": "Existing dashboard or purpose-specific controls retain their workflow. The shared list toolbar is not rendered here.",
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Sales dashboard-to-Queries progressive navigation and history; Admin mobile dashboard navigation. Full dashboard analytics not accepted.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
+    },
+    {
+      "path": "src/app/portal/passport/page.js",
+      "sha256": "a3ba518c125e5c4d78ca73cb75d961398800b2fb70ee2ff204f6100fbf107a93",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/portal/pipeline/page.js",
+      "sha256": "26526c4865862c671f53fb958bf01ae6cefcfcf74215a09df5c4bcf31bf0c925",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/portal/post-tour-feedback/page.tsx",
+      "sha256": "1bace093aeea4cecfd90b6f4cd05d2ee16ef27d56d35ca6bca3579661e6b5bb4",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["postTour"],
+      "preserved": "Retain existing fields, explicit Save/Cancel and record/assignment meaning. No new workflow or authority.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/portal/proposals/page.js",
+      "sha256": "51530b391b7e0142e0d23113a87e013cb311640022aed71855c8aea403050dfe",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Contracting draft/handoff, incomplete-pricing rejection then explicit successful handoff, commercial confirmation/revision; mobile role navigation.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
+    },
+    {
+      "path": "src/app/portal/queries/page.js",
+      "sha256": "8dd36a7dde56812af97b45f2e432e42e429ce44cdc919ea56992e1bc2188833d",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Sales creation, Ticketing assignment, head self-assignment, exact Notes persistence, Sales confirmation/revision, signed-in notification deep link, and Sales/Cement mobile scopes.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
+    },
+    {
+      "path": "src/app/portal/reports/page.js",
+      "sha256": "55134e3539a205b99f823400100de577fa8028c3bf4e8c9809d8c37fc7e3a44b",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/portal/seat-allocation/page.js",
+      "sha256": "87dabaa86a0fcff0c134146b13e3b4d94e23712b9ab6d9753733fc57f13284aa",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/portal/settings/page.js",
+      "sha256": "3cd37bfdf1a914322eb93569dc90a18f8a08d1828c75f656e609f24f1f9d5649",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/portal/team/page.js",
+      "sha256": "4ec0f430a9ea04461af1083de2064b8b76e23264f9bd8cac91bfd33e20e37947",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/portal/ticketing/page.js",
+      "sha256": "afb35fb69e8fffb88ddf36bf5f4deadc4f871371b859f5c061dbeaa12b30b345",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/portal/tickets/page.js",
+      "sha256": "87b81e8537afbbb51243d87f27da27579eac9a18f704f35b199f5387cd89dcfa",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Ticketing creates and edits a synthetic ticket; Ticketing and head mobile destination. No provider operation.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
+    },
+    {
+      "path": "src/app/portal/tour-managers/page.js",
+      "sha256": "06b31215cd9f3c384f963f325e3bfe4f9e3ee10c536a471f7c67b1d7c666a301",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/portal/travel-schedule/page.tsx",
+      "sha256": "e894417b462149f3a4452748265accd1a0c80efcadb493290432db71a0d59b5b",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staffTravel"],
+      "preserved": "Retain existing fields, explicit Save/Cancel and record/assignment meaning. No new workflow or authority.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/portal/travellers/page.js",
+      "sha256": "762e94d45fe0bb43dda322ca2592fdb2a9eb8cab9b1737aa8bdba2338db75bbf",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Operations creates/edits a traveller on the created Job Card; hold-to-confirm deletion remains required.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
+    },
+    {
+      "path": "src/app/portal/visa/page.js",
+      "sha256": "8b232b5281fa28b1eaa1878ef602e8f5b14f6cd0cb67ea61f12eb017f129b9da",
+      "family": "Staff Workspace",
+      "status": "changed",
+      "changeIds": ["U01", "U06"],
+      "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
+      "componentCases": ["staff"],
+      "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
+      "limits": "No authenticated or hosted route acceptance."
+    },
+    {
+      "path": "src/app/tour-feedback/page.tsx",
+      "sha256": "d1acf282f58b50a5b6707427b11e31945ac4c612a507bf8eb30db186963f481f",
+      "family": "Public tour feedback",
+      "status": "unchanged",
+      "changeIds": [],
+      "review": "entry and component source; synthetic component review where listed",
+      "componentCases": ["feedback"],
+      "preserved": "Retain token-bound optional comments/photos and explicit submit. Existing failure/retry/receipt tests remain.",
+      "limits": "Browser review covers missing-token state; valid-token submission has mounted test evidence, not live backend acceptance."
+    }
+  ],
+  "crmJourneyReview": "crm-redesign.md#staff-journey-coverage",
+  "crmBrowserEvidence": "crm-browser-evidence.json",
+  "signedInLocalAcceptance": {
+    "record": "local-acceptance.json",
+    "passedScenarios": 28,
+    "failedScenarios": 0,
+    "skippedScenarios": 0,
+    "additionalFinalInboxKeyboardRun": "passed",
+    "listedRouteEntries": 15,
+    "otherEntries": "source/component review only; no broader acceptance implied"
+  }
+}

@@ -528,6 +528,7 @@ async function notifyTourManagerCreated(
         entityType: "tourManager",
         title: "Tour Manager allocated",
       },
+      emailRecipientPurpose: { field: "staffId", kind: "assignment" },
       emailTargets: { kind: "staff", staffIds: [staffId] },
     }),
   ]);
@@ -857,6 +858,7 @@ async function notifyTourManagerUpdated(
         entityType: "tourManager",
         title: "Tour Manager allocation updated",
       },
+      emailRecipientPurpose: { field: "staffId", kind: "assignment" },
       emailTargets: { kind: "staff", staffIds: [staffId] },
     }),
   ]);

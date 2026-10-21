@@ -108,7 +108,7 @@ function GridHeaderCell<Row>({
   return (
     <th
       aria-sort={columnAriaSort(column, sort)}
-      className={`border-brand-border border-b px-4 py-3 font-semibold text-citius-blue/80 text-xs ${column.align === "right" ? "text-right" : "text-left"} ${desktopPinnedColumnClass(column.kind, "header", column.sticky)} ${column.headerClassName || ""}`}
+      className={`border-brand-border border-b px-4 py-2 font-medium text-brand-muted text-xs ${column.align === "right" ? "text-right" : "text-left"} ${desktopPinnedColumnClass(column.kind, "header", column.sticky)} ${column.headerClassName || ""}`}
       style={column.width ? { minWidth: column.width } : undefined}
     >
       {column.sortValue || column.semanticValue ? (
@@ -175,13 +175,15 @@ function LoadMoreButton({
 function TableHorizontalScrollContainer({
   children,
   contentKey,
+  controls,
   scrollHints = true,
 }: {
   children: ReactNode;
   contentKey: string;
+  controls?: ReactNode;
   scrollHints?: boolean;
 }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLElement>(null);
   const [scrollState, setScrollState] = useState({
     canScrollLeft: false,
     canScrollRight: false,
@@ -233,44 +235,47 @@ function TableHorizontalScrollContainer({
 
   return (
     <div className="relative hidden md:block">
-      {scrollHints && scrollState.overflow && scrollState.canScrollLeft ? (
-        <>
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-linear-to-r from-white to-transparent"
-          />
-          <button
-            aria-label="Scroll table left"
-            className="absolute top-1/2 left-1 z-20 flex size-8 -translate-y-1/2 items-center justify-center rounded-full border border-brand-border bg-white/95 text-brand-muted shadow-sm transition-colors hover:text-citius-blue"
-            onClick={() => scrollBy("left")}
-            type="button"
-          >
-            <ChevronLeft aria-hidden size={16} />
-          </button>
-        </>
+      {controls || (scrollHints && scrollState.overflow) ? (
+        <div
+          className="mb-2 flex min-h-11 items-center justify-end gap-2 text-brand-muted text-xs"
+          data-slot="table-controls"
+        >
+          <span className="mr-auto">
+            {scrollHints && scrollState.overflow ? "Scroll for more columns" : null}
+          </span>
+          {controls}
+          {scrollHints && scrollState.overflow ? (
+            <div className="flex gap-1">
+              <button
+                aria-label="Scroll table left"
+                className="grid size-11 place-items-center rounded-lg border border-brand-border bg-white disabled:opacity-40"
+                disabled={!scrollState.canScrollLeft}
+                onClick={() => scrollBy("left")}
+                type="button"
+              >
+                <ChevronLeft aria-hidden size={16} />
+              </button>
+              <button
+                aria-label="Scroll table right"
+                className="grid size-11 place-items-center rounded-lg border border-brand-border bg-white disabled:opacity-40"
+                disabled={!scrollState.canScrollRight}
+                onClick={() => scrollBy("right")}
+                type="button"
+              >
+                <ChevronRight aria-hidden size={16} />
+              </button>
+            </div>
+          ) : null}
+        </div>
       ) : null}
-      {scrollHints && scrollState.overflow && scrollState.canScrollRight ? (
-        <>
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-linear-to-l from-white to-transparent"
-          />
-          <button
-            aria-label="Scroll table right"
-            className="absolute top-1/2 right-1 z-20 flex size-8 -translate-y-1/2 items-center justify-center rounded-full border border-brand-border bg-white/95 text-brand-muted shadow-sm transition-colors hover:text-citius-blue"
-            onClick={() => scrollBy("right")}
-            type="button"
-          >
-            <ChevronRight aria-hidden size={16} />
-          </button>
-        </>
-      ) : null}
-      <div
-        className="overflow-x-auto rounded-2xl border border-brand-border bg-white shadow-sm"
+      <section
+        aria-label="Scrollable records table"
+        className="overflow-x-auto rounded-lg border border-brand-border bg-white"
         ref={scrollRef}
+        tabIndex={scrollState.overflow ? 0 : undefined}
       >
         {children}
-      </div>
+      </section>
     </div>
   );
 }
@@ -529,6 +534,29 @@ export function SelectableDataTable<Row extends PortalDataRow>({
 
   const selectionControl = selectable ? renderSelectionControl : undefined;
 
+  const columnControls =
+    hideableColumns.length > 0 ? (
+      <details className="group relative">
+        <summary className="portal-small-btn cursor-pointer list-none bg-white [&::-webkit-details-marker]:hidden">
+          <Columns3 aria-hidden size={14} />
+          Columns
+        </summary>
+        <div className="absolute top-full right-0 z-30 mt-2 min-w-52 rounded-xl border border-brand-border bg-white p-2 shadow-xl">
+          <p className="px-2 py-1 font-semibold text-brand-muted text-xs uppercase tracking-[0.08em]">
+            Optional columns
+          </p>
+          {hideableColumns.map((column) => (
+            <ColumnVisibilityToggle
+              column={column}
+              hidden={!visibleColumnIds.has(column.id)}
+              key={column.id}
+              onToggle={handleToggleColumn}
+            />
+          ))}
+        </div>
+      </details>
+    ) : null;
+
   return (
     <div className="space-y-3">
       {selectable ? (
@@ -547,31 +575,9 @@ export function SelectableDataTable<Row extends PortalDataRow>({
         rows={pageRows}
         selectionControl={selectionControl}
       />
-      {hideableColumns.length > 0 ? (
-        <div className="relative hidden justify-end md:flex">
-          <details className="group relative">
-            <summary className="portal-small-btn cursor-pointer list-none bg-white [&::-webkit-details-marker]:hidden">
-              <Columns3 aria-hidden size={14} />
-              Columns
-            </summary>
-            <div className="absolute top-full right-0 z-30 mt-2 min-w-52 rounded-xl border border-brand-border bg-white p-2 shadow-xl">
-              <p className="px-2 py-1 font-semibold text-brand-muted text-xs uppercase tracking-[0.08em]">
-                Optional columns
-              </p>
-              {hideableColumns.map((column) => (
-                <ColumnVisibilityToggle
-                  column={column}
-                  hidden={!visibleColumnIds.has(column.id)}
-                  key={column.id}
-                  onToggle={handleToggleColumn}
-                />
-              ))}
-            </div>
-          </details>
-        </div>
-      ) : null}
       <TableHorizontalScrollContainer
         contentKey={`${pageRows.length}:${visibleGridColumns.length}`}
+        controls={columnControls}
         scrollHints={scrollHints}
       >
         <table className={`min-w-full border-collapse ${tableClassName}`}>

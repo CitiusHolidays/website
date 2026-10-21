@@ -104,6 +104,13 @@ async function canReadJobContext(
       return true;
     }
   }
+  const report = await ctx.db
+    .query("postTourReports")
+    .withIndex("by_jobCardId_status", (q) => q.eq("jobCardId", job._id).eq("status", "submitted"))
+    .first();
+  if (report) {
+    return true;
+  }
   const feedback = await ctx.db
     .query("postTourFeedback")
     .withIndex("by_jobCardId", (q) => q.eq("jobCardId", job._id))

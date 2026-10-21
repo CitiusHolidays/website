@@ -233,7 +233,10 @@ describe("Portal permissions", () => {
     expect(pagesForRoles(["Sales Head"])).toContain("activity");
     expect(pagesForRoles(["Operations Head"])).toContain("activity");
     expect(pagesForRoles(["HR"])).toContain("activity");
-    expect(pagesForRoles(["Finance"])).not.toContain("activity");
+    expect(pagesForRoles(["Finance"])).toContain("activity");
+    expect(getPermissionsForRoles(["Finance"])).not.toContain(
+      PORTAL_PERMISSIONS.VIEW_EMAIL_DELIVERY_STATUS
+    );
     expect(getPermissionsForRoles(["Sales Head"])).not.toContain(PORTAL_PERMISSIONS.VIEW_ACTIVITY);
   });
 
@@ -286,4 +289,16 @@ describe("Event Photo Booth dedicated access", () => {
       );
     }
   });
+});
+
+test("Every allowed staff member can open their inbox without administrative permissions", () => {
+  const staff = { allowed: true, permissions: [], roles: ["Contracting"] };
+  expect(canAccessPage(staff, "activity")).toBe(true);
+  expect(
+    getAccessibleNavGroups(staff)
+      .flatMap((group) => group.items)
+      .map((item) => item.page)
+  ).toContain("activity");
+  expect(canAccessPage(staff, "settings")).toBe(false);
+  expect(canAccessPage({ ...staff, allowed: false }, "activity")).toBe(false);
 });

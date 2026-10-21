@@ -1,0 +1,211 @@
+{
+  "schemaVersion": 1,
+  "revision": "12e8aeb586541d2e4410c9e2efc0bf3a2ea3b842",
+  "backendSourceHash": "8947546d037b3a0801fe3158250516e5c8e5e7cbe3bed15b170ba048399a1294",
+  "frontend": "http://127.0.0.1:34000",
+  "backend": "http://127.0.0.1:34210",
+  "backendSite": "http://127.0.0.1:34211",
+  "target": "development-local-pr297",
+  "identities": {
+    "frontend": "pass",
+    "backend": "pass",
+    "originalDatabaseUnchanged": true
+  },
+  "result": {
+    "failed": 0,
+    "passed": 16,
+    "skipCategories": {
+      "missing-credentials": 0,
+      "missing-record-url": 0,
+      "planned-matrix": 0,
+      "product-precondition": 0,
+      "uncategorized": 0
+    },
+    "skipped": 0,
+    "matrixCoverage": {
+      "actions": {
+        "covered": 13,
+        "total": 15
+      },
+      "cells": {
+        "covered": 19,
+        "total": 42
+      },
+      "roles": {
+        "covered": 11,
+        "total": 11
+      },
+      "views": {
+        "covered": 9,
+        "total": 25
+      }
+    },
+    "outcome": "passed",
+    "schemaVersion": 1
+  },
+  "command": "playwright test e2e/specs/critical-path.spec.ts e2e/specs/notification-inbox.spec.ts e2e/specs/zz-review-gallery.spec.ts e2e/specs/customer-account-confirmed-trip.spec.ts --workers=1",
+  "scenarios": [
+    {
+      "role": "Sales, Contracting, Ticketing Head, Accounts, Operations",
+      "scenario": "Query creation and file, navigation feedback, proposal preparation/handoff, Sales revision and confirmed offer, Job Card opening, traveller create/edit, hold-to-delete",
+      "outcome": "pass, seven tests"
+    },
+    {
+      "role": "Customer Account",
+      "scenario": "Explicit read-only confirmed trip; draft values, tab continuity and cancel",
+      "outcome": "pass, two tests"
+    },
+    {
+      "role": "All twelve designated Staff profiles",
+      "scenario": "Exact Query-intake audience, unrelated staff excluded, head self-assignment, single read/deep link, retained unread item, later arrival, refresh/hover/visit count-dot independence and phone navigation",
+      "outcome": "pass; fixture named admin has Directors role, separate Admin/dual-role proof remains backend tests"
+    },
+    {
+      "role": "Sales",
+      "scenario": "Desktop/phone Query, command palette, native Columns and account menu",
+      "outcome": "pass"
+    },
+    {
+      "role": "Ticketing Head",
+      "scenario": "Desktop/phone Ticketing overview",
+      "outcome": "pass, empty because no ticket was created in this selected run"
+    },
+    {
+      "role": "Operations, Ticketing",
+      "scenario": "Hotel, seat and visa forms open at desktop/phone sizes and cancel without save",
+      "outcome": "pass, three tests"
+    },
+    {
+      "role": "Existing synthetic Sales auth account",
+      "scenario": "Actual forgot-password callback renders React Email in Convex isolate; generic UI response and increased provider_not_configured receipts",
+      "outcome": "pass, no configured provider and no send"
+    }
+  ],
+  "images": [
+    {
+      "path": "actual/head-self-assignment-desktop.png",
+      "sha256": "9ed25d3ddd0b2fb84564a981c90abc0b41a6b2e8c813b394aaf68b34cb142ebe"
+    },
+    {
+      "path": "actual/inbox-all-desktop.png",
+      "sha256": "5af1c3ae6530e8749ee5b8631d740825776c5f99c7b618ecb62d083889eac5d3"
+    },
+    {
+      "path": "actual/inbox-all-phone.png",
+      "sha256": "6b3f0cb56cc1d6501e97bbca96189fdffbcdf99c4bdb13372907a9071940f519"
+    },
+    {
+      "path": "actual/inbox-bell-desktop.png",
+      "sha256": "2194eed2531592540eae33271dbdc13ea277f41f8f257888650c426eaa0dc7cb"
+    },
+    {
+      "path": "actual/inbox-query-deep-link-desktop.png",
+      "sha256": "dfa89d6ce4969e063c350a7fe98b2eb849afc028658df285160ea9aa7b61f9fb"
+    },
+    {
+      "path": "actual/inbox-sidebar-new-desktop.png",
+      "sha256": "adfad09dc557806e48dcb300f241639d6dfd67dc524ce16e3c8b31e992749ee6"
+    },
+    {
+      "path": "actual/inbox-unread-desktop.png",
+      "sha256": "398c9dd69fb6b3dcb12eede5860a59b3b805556565f1a06813d4c627bf4ad7b3"
+    },
+    {
+      "path": "actual/sidebar-count-activity-phone.png",
+      "sha256": "df34ff95beeec850c2211a070eae1ea063c1e759f05036bbfbffa46666c60314"
+    },
+    {
+      "path": "actual/account-menu-desktop.png",
+      "sha256": "0670fdbba781eb34f55b17e86f846230e52c10703d5f332488e00f1fffe712ee"
+    },
+    {
+      "path": "actual/columns-desktop.png",
+      "sha256": "11eff0dedc6809db007d4a39916b7a0aaac36d3a5b87df5abaa676bc0718486f"
+    },
+    {
+      "path": "actual/commands-desktop.png",
+      "sha256": "db80b7703af55c9c1ffd456a218ffd3e2086016bec3493be6b70edec4dc0a353"
+    },
+    {
+      "path": "actual/commands-phone.png",
+      "sha256": "c98fa9ad5101385a3b27a668158658d993bba052aeb63ab3b78b472f50c6076f"
+    },
+    {
+      "path": "actual/queries-desktop.png",
+      "sha256": "721cbec7070446031c2b53c60937bbf1c2ad61f95cc30446cfcbc02c83f3aea8"
+    },
+    {
+      "path": "actual/queries-phone.png",
+      "sha256": "c8943c2a7b6578608a917e07688caf466b1556738e1036e2dc45e96702769213"
+    },
+    {
+      "path": "actual/customer-profile-draft-desktop.png",
+      "sha256": "142fee0aca495bde6f33e614f3e2ac290f8024156989b759801c1c0f2cf2f6a6"
+    },
+    {
+      "path": "actual/customer-profile-draft-phone.png",
+      "sha256": "4a1519b479d4561d5c5b3f1ff64dd76e96640c3f078384c633984e238f056152"
+    },
+    {
+      "path": "actual/hotel-form-desktop.png",
+      "sha256": "17febca336b4f49fe00774a07b38833c4f19bef9c9084d6d18a9c2a3897a91aa"
+    },
+    {
+      "path": "actual/hotel-form-phone.png",
+      "sha256": "7c9d0ffad8989fb9b2510ebced76e1636f1dba565ef621656fa448a2e6808277"
+    },
+    {
+      "path": "actual/seat-form-desktop.png",
+      "sha256": "2b01dc504794aed5ea29bec9b99502baba47734e7ccde1b4c8a4cc2214fdda7c"
+    },
+    {
+      "path": "actual/seat-form-phone.png",
+      "sha256": "37fb9756317539a63226e0cc2245abf17a82d8aa30ae12c1bb87c486f5a60c3d"
+    },
+    {
+      "path": "actual/visa-form-desktop.png",
+      "sha256": "382feb10db2db1b2f4b66315a7a0a90537679f13dd3306687ace08791a6d720e"
+    },
+    {
+      "path": "actual/visa-form-phone.png",
+      "sha256": "341f15b9ce20bbf5ecf06dc2722cddf3a6556b62efd39e7d3474ebbdddf11e6a"
+    },
+    {
+      "path": "actual/ticketing-overview-desktop.png",
+      "sha256": "292ff045089b2c03cc75eb27162419bfd1279409bdfd7d94cc7d8e701a5b13ff"
+    },
+    {
+      "path": "actual/ticketing-overview-phone.png",
+      "sha256": "5f37ffd9732e0950fee393a739a35555f4a06d5bfe20821c8edfa51c57fdd424"
+    },
+    {
+      "path": "actual/auth-recovery-generic-result.png",
+      "sha256": "6264835b513404cb8bcf34a27d81c5b160f614c4e70e3f9a832ae16458ab12bb"
+    }
+  ],
+  "limits": [
+    "Earlier 28-test local acceptance remains separate revision-bound evidence.",
+    "Loading and failed-transport pictures use component substitutes.",
+    "No provider acceptance, mailbox/client rendering or production configuration proof.",
+    "The native Notes repeated-update error with a writing extension remains unisolated; isolated normal keyboard entry passed.",
+    "Final full gate uses a later test-only revision; runtime application source hashes remain identical."
+  ],
+  "targetNeutralQuality": {
+    "revision": "237ef482c00a4f6f70aff6c9e9c747596ad0335f",
+    "result": "passed",
+    "bunTests": 2073,
+    "convexTests": 225,
+    "zeroWarningLint": "passed",
+    "applicationAndConvexTypes": "passed",
+    "coverageContracts": "29/29",
+    "deadcodeRaw": "existing findings, exit 1",
+    "deadcodeLimit": "passed, 132/183 unchanged reviewed findings"
+  },
+  "cleanup": {
+    "activeRuns": 0,
+    "ownedRecords": 0,
+    "outboxRows": 0,
+    "originalDatabaseUnchanged": true,
+    "note": "Existing designated fixture accounts and redacted auth delivery receipts follow the established local lifecycle. This does not claim an empty database."
+  }
+}

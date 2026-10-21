@@ -1,16 +1,10 @@
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { publishWorkflowNotification, type WorkflowNotificationPlan } from "./lib";
+import { publishWorkNotification } from "./lib/notifications";
 import { requiresTicketingSpocAssignment } from "./ticketingIntakePolicy";
 
-const OPS_START_ROLES = [
-  "Contracting",
-  "Contracting Head",
-  "Operations",
-  "Operations Head",
-  "Ticketing",
-  "Head of Ticketing",
-] as const;
+const OPS_START_ROLES = ["Contracting Head", "Operations Head", "Head of Ticketing"] as const;
 
 type NotificationCtx = MutationCtx;
 
@@ -34,7 +28,8 @@ export function queryAssignmentHeadRoles(query: {
 export async function notifyQueryOwner(
   ctx: NotificationCtx,
   ownerId: string | undefined,
-  notification: WorkflowNotificationPlan["content"]
+  notification: WorkflowNotificationPlan["content"],
+  assignmentField?: "contractingOwnerId" | "ticketingOwnerId"
 ) {
   if (!ownerId) {
     return;
@@ -46,36 +41,51 @@ export async function notifyQueryOwner(
   await publishWorkflowNotification(ctx, {
     bellTargets: { kind: "staff", staffIds: [staffId] },
     content: notification,
+    emailRecipientPurpose: assignmentField
+      ? { field: assignmentField, kind: "assignment" }
+      : undefined,
     emailTargets: { kind: "staff", staffIds: [staffId] },
   });
 }
 
 export async function notifyOrderConfirmedWorkflow(
   ctx: NotificationCtx,
-  query: { queryCode: string; contractingOwnerId?: string; ticketingOwnerId?: string },
+  query: {
+    queryCode: string;
+    contractingOwnerId?: string;
+    ticketingOwnerId?: string;
+    ticketingScope?: string;
+  },
   queryId: Id<"queries">
 ) {
   const entity = { entityId: queryId, entityType: "query" as const };
+  const roles = OPS_START_ROLES.filter(
+    (role) => role !== "Head of Ticketing" || query.ticketingScope !== "Not required"
+  );
   await Promise.all([
     publishWorkflowNotification(ctx, {
-      bellTargets: { kind: "roles", roles: [...OPS_START_ROLES] },
+      bellTargets: { kind: "roles", roles: [...roles] },
       content: {
         body: `${query.queryCode} was confirmed by Sales. Accounts will open a Job Card; contracting, operations, and ticketing can begin traveller master, tickets, passport, visa, and tour manager work.`,
         title: "Order confirmed — prepare operations",
         ...entity,
       },
-      emailTargets: { kind: "roles", roles: [...OPS_START_ROLES] },
+      emailTargets: { kind: "roles", roles: [...roles] },
     }),
     notifyQueryOwner(ctx, query.contractingOwnerId, {
       body: `${query.queryCode} was confirmed. Prepare revised costing if needed and coordinate operations once the Job Card opens.`,
       title: "Order confirmed on your query",
       ...entity,
     }),
-    notifyQueryOwner(ctx, query.ticketingOwnerId, {
-      body: `${query.queryCode} was confirmed. Prepare ticketing once the Job Card opens.`,
-      title: "Order confirmed on your query",
-      ...entity,
-    }),
+    notifyQueryOwner(
+      ctx,
+      query.ticketingScope === "Not required" ? undefined : query.ticketingOwnerId,
+      {
+        body: `${query.queryCode} was confirmed. Prepare ticketing once the Job Card opens.`,
+        title: "Order confirmed on your query",
+        ...entity,
+      }
+    ),
   ]);
 }
 
@@ -108,15 +118,10 @@ export async function notifyJobCardCreators(
 
 export async function notifyQueryAssignmentHeads(
   ctx: NotificationCtx,
-  query: { ticketingOwnerId?: string; ticketingScope?: string },
+  _query: { ticketingOwnerId?: string; ticketingScope?: string },
   notification: WorkflowNotificationPlan["content"]
 ) {
-  const roles = queryAssignmentHeadRoles(query);
-  await publishWorkflowNotification(ctx, {
-    bellTargets: { kind: "roles", roles },
-    content: notification,
-    emailTargets: { kind: "roles", roles },
-  });
+  await publishWorkNotification(ctx, "query_intake", notification);
 }
 
 export async function notifyTicketingHeadOnQueryIntake(
@@ -150,22 +155,32 @@ export async function notifyAssignedQueryOwners(
   const notifications: Promise<unknown>[] = [];
   if (query.contractingOwnerId) {
     notifications.push(
-      notifyQueryOwner(ctx, query.contractingOwnerId, {
-        body: `${query.queryCode} was submitted by Sales and is ready for contracting proposal work.`,
-        entityId: queryId,
-        entityType: "query",
-        title: "Query submitted for proposal work",
-      })
+      notifyQueryOwner(
+        ctx,
+        query.contractingOwnerId,
+        {
+          body: `${query.queryCode} was submitted by Sales and is ready for contracting proposal work.`,
+          entityId: queryId,
+          entityType: "query",
+          title: "Query submitted for proposal work",
+        },
+        "contractingOwnerId"
+      )
     );
   }
   if (query.ticketingOwnerId) {
     notifications.push(
-      notifyQueryOwner(ctx, query.ticketingOwnerId, {
-        body: `${query.queryCode} was submitted by Sales and is ready for ticketing inputs.`,
-        entityId: queryId,
-        entityType: "query",
-        title: "Query submitted for ticketing inputs",
-      })
+      notifyQueryOwner(
+        ctx,
+        query.ticketingOwnerId,
+        {
+          body: `${query.queryCode} was submitted by Sales and is ready for ticketing inputs.`,
+          entityId: queryId,
+          entityType: "query",
+          title: "Query submitted for ticketing inputs",
+        },
+        "ticketingOwnerId"
+      )
     );
   }
   await Promise.all(notifications);

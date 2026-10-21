@@ -249,7 +249,7 @@ export async function notifyLeaveRequestSubmitted(
   const hrCopyPayload = {
     ...payload,
     body: `${summary} HR final approval is required after the head approver decides.`,
-    title: "Leave submitted (HR copy)",
+    title: "Leave submitted for HR review",
   };
   if (args.hrCopyStaffId) {
     await notifyUniqueStaff(args.hrCopyStaffId, hrCopyPayload);

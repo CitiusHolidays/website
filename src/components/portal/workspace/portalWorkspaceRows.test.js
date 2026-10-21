@@ -173,3 +173,16 @@ describe("Portal workspace rows", () => {
     expect(rows.filteredQueries.map((row) => row.queryCode)).toEqual(["Q-001", "Q-002"]);
   });
 });
+
+test("a date filter carried from another workspace cannot hide unread notifications", () => {
+  const rows = buildPortalWorkspaceRows(
+    workspaceRowsInput({
+      dateRange: { from: "2026-10-01", to: "2026-10-31" },
+      notifications: [
+        { createdAt: "2026-06-15", id: "old-unread", readAt: null, title: "Still needs review" },
+      ],
+      view: "activity",
+    })
+  );
+  expect(rows.periodFiltered.notifications.map((row) => row.id)).toEqual(["old-unread"]);
+});

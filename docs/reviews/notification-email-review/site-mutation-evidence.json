@@ -1,0 +1,49 @@
+{
+  "sourceBase": "9d7ad28081bff75d26bf5255ca7e2fb3b1026fcb",
+  "baselinePassed": true,
+  "controlledMutations": [
+    {
+      "name": "hide-collapsed-reset",
+      "source": "src/components/portal/PortalListToolbar.js",
+      "test": "src/components/portal/PortalListToolbar.mounted.test.jsx",
+      "exitCode": 1,
+      "caughtBy": [
+        "Staff list filter recovery > Keeps one reset reachable with collapsed filters and preserves the real reset contract [22.96ms]"
+      ]
+    },
+    {
+      "name": "stale-profile-on-open",
+      "source": "src/components/account/AccountProfilePanel.js",
+      "test": "src/components/account/AccountProfileEditing.mounted.test.jsx",
+      "exitCode": 1,
+      "caughtBy": [
+        "Account profile editing > Opens the latest displayed values, preserves an active draft on refresh, and cancels explicitly [32.82ms]"
+      ]
+    },
+    {
+      "name": "editable-enquiry-while-sending",
+      "source": "src/components/ui/ModernContactForm.js",
+      "test": "src/components/ui/ModernContactForm.mounted.test.jsx",
+      "exitCode": 1,
+      "caughtBy": [
+        "Mounted contact intent > Protects submitted values during sends and retries, including a previous recovery timer [41.85ms]"
+      ]
+    },
+    {
+      "name": "desktop-details-without-focus",
+      "source": "src/components/ui/CircularServicesMenu.js",
+      "test": "src/components/ui/CircularServicesMenu.mounted.test.jsx",
+      "exitCode": 1,
+      "caughtBy": [
+        "Mounted Circular Services geometry > Makes the existing desktop service details available through focus and activation [582.41ms]"
+      ]
+    }
+  ],
+  "restoredPassed": true,
+  "sourceSha256": {
+    "src/components/portal/PortalListToolbar.js": "1ebfec53bf58c5e07573a543ca7534f3ece094aa036096ee56961cff6c109dde",
+    "src/components/account/AccountProfilePanel.js": "2a91f220afc5ffcc48cd8801bb2b5d53a343ae32546fe9c892387180847ec92d",
+    "src/components/ui/ModernContactForm.js": "f17b3c22ad6a0b96a1d9daa69dc845e3dc2817c103a38e8461d768436a827449",
+    "src/components/ui/CircularServicesMenu.js": "bf11c1c60a7b5f56a392fed32d09e30e83393c98d3efd114511bf9c9862ae692"
+  }
+}

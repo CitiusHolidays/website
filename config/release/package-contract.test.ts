@@ -73,7 +73,7 @@ describe("Package and test discovery contract", () => {
     ).not.toContain("bun-version-file");
     expect(packageJson.scripts.doctor).toBe("react-doctor");
     expect(packageJson.devDependencies["react-doctor"]).toBe("0.9.11");
-    expect(packageJson.dependencies.effect).toBe("4.0.0-rc.109");
+    expect(packageJson.dependencies.effect).toBe("4.0.5");
     expect(packageJson.devDependencies.oxlint).toBe("1.78.0");
     expect(packageJson.devDependencies["@oxlint/plugins"]).toBe("1.78.0");
     expect(packageJson.devDependencies["@typescript/native"]).toBe("npm:typescript@7.0.2");

@@ -24,6 +24,53 @@ const initialForm = {
 };
 
 describe("CreateInitialModalForm", () => {
+  const jobs = [
+    { destination: "Kyoto", id: "job-a", jobCode: "JC-A", travelStartDate: "2026-11-03" },
+    { destination: "Jaipur", id: "job-b", jobCode: "JC-B", travelStartDate: "2026-12-05" },
+  ];
+
+  test("Prefills new operational work from an explicit available Job Card filter", () => {
+    for (const type of ["traveller", "pnr", "ticket", "seat", "hotel", "invoice", "expense"]) {
+      const form = createInitialModalForm({
+        initial: { expenseType: "jobCard" },
+        initialForm,
+        jobCardFilter: "job-b",
+        jobCards: jobs,
+        type,
+      });
+      expect(form.jobCardId).toBe("job-b");
+    }
+    expect(
+      createInitialModalForm({
+        initialForm,
+        jobCardFilter: "job-b",
+        jobCards: jobs,
+        type: "traveller",
+      }).travelDate
+    ).toBe("2026-12-05");
+  });
+
+  test("Does not guess a filtered Job Card or replace explicit work links", () => {
+    const create = (initial = {}, jobCardFilter = "job-b", type = "traveller") =>
+      createInitialModalForm({ initial, initialForm, jobCardFilter, jobCards: jobs, type });
+    expect(create({}, "unavailable").jobCardId).toBe("");
+    expect(create({}, "").jobCardId).toBe("");
+    expect(create({ jobCardId: "job-a" }).jobCardId).toBe("job-a");
+    expect(create({ entityId: "existing-traveller" }).jobCardId).toBe("");
+    expect(create({ expenseType: "office" }, "job-b", "expense").jobCardId).toBe("");
+    expect(create({}, "job-b", "proposal").jobCardId).toBe("");
+    const linked = createInitialModalForm({
+      initial: { travellerId: "traveller-a" },
+      initialForm,
+      jobCardFilter: "job-b",
+      jobCards: jobs,
+      travellers: [{ id: "traveller-a", jobCardId: "job-a" }],
+      type: "ticket",
+    });
+    expect(linked.jobCardId).toBe("job-a");
+    expect(linked.travellerId).toBe("traveller-a");
+  });
+
   test("Hydrates job card forms only from the immutable Confirmed Offer", () => {
     const form = createInitialModalForm({
       access: { roles: [] },

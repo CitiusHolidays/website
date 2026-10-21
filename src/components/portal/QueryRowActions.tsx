@@ -108,7 +108,10 @@ export function QueryRowActions({
 }: QueryRowActionsProps) {
   const [open, setOpen] = useState(false);
   const actions = overflowActions.filter(isActionElement);
-  const primary = withActionClass(primaryAction, "min-h-11 whitespace-nowrap md:min-h-10");
+  const primary = withActionClass(
+    primaryAction,
+    "portal-row-action min-h-11 whitespace-nowrap md:min-h-9"
+  );
 
   return (
     <div className="flex items-center gap-2">
@@ -125,7 +128,7 @@ export function QueryRowActions({
               <button
                 {...props}
                 aria-label={`More actions for ${label}`}
-                className="portal-small-btn min-h-11 px-3 md:min-h-10"
+                className="portal-small-btn portal-row-action min-h-11 px-2 md:min-h-9"
                 type="button"
               >
                 <MoreHorizontal size={15} />

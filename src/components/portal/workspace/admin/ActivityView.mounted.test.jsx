@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { JSDOM } from "jsdom";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
+import { NotificationInbox } from "@/components/portal/NotificationInbox";
 import { EmailDeliveryStatusRegion } from "./ActivityView";
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>");
@@ -44,10 +45,10 @@ describe("Activity email delivery visibility", () => {
       />
     );
 
-    expect(mounted.container.textContent).toContain("4 sent");
+    expect(mounted.container.textContent).toContain("4 accepted");
     expect(mounted.container.textContent).toContain("8 total");
     expect(mounted.container.textContent).toContain("2 retrying");
-    expect(mounted.container.textContent).toContain("1 exhausted");
+    expect(mounted.container.textContent).toContain("1 need attention");
     expect(mounted.container.textContent).not.toContain("@");
     expect(mounted.container.querySelector("a")?.getAttribute("href")).toBe(
       "/portal/queries?open=query&id=query_1"
@@ -85,4 +86,36 @@ describe("Activity email delivery visibility", () => {
     expect(mounted.container.textContent).not.toContain("501 total");
     await act(async () => mounted.root.unmount());
   });
+});
+
+test("the inbox keeps loading distinct from an empty result", async () => {
+  const noop = () => undefined;
+  const mounted = await render(<NotificationInbox items={[]} loading onActivate={noop} />);
+  expect(mounted.container.querySelector('[role="status"]')).not.toBeNull();
+  expect(mounted.container.textContent).not.toContain("No notifications yet");
+  await act(async () => mounted.root.render(<NotificationInbox items={[]} onActivate={noop} />));
+  expect(mounted.container.querySelector('[role="status"]')).toBeNull();
+  expect(mounted.container.textContent).toContain("No notifications yet");
+  await act(async () => mounted.root.unmount());
+});
+
+test("unread-empty with read history offers the existing read updates", async () => {
+  const activations = [];
+  const mounted = await render(
+    <NotificationInbox
+      items={[{ id: "read-1", readAt: "2026-10-20T08:00:00Z", title: "Existing read update" }]}
+      onActivate={(item) => activations.push(item.id)}
+    />
+  );
+  expect(mounted.container.textContent).toContain("You're all caught up");
+  expect(mounted.container.textContent).toContain("No unread notifications");
+  expect(mounted.container.textContent).not.toContain("No notifications yet");
+  const viewRead = [...mounted.container.querySelectorAll("button")].find(
+    (button) => button.textContent === "View read updates"
+  );
+  expect(viewRead).toBeDefined();
+  await act(async () => viewRead.click());
+  expect(mounted.container.textContent).toContain("Existing read update");
+  expect(activations).toEqual([]);
+  await act(async () => mounted.root.unmount());
 });

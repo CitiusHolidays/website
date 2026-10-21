@@ -158,12 +158,12 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       resetPasswordTokenExpiresIn: AUTH_EMAIL_TOKEN_TTL_SECONDS,
       sendResetPassword: async ({ user, url, token }) => {
         const resetUrl = token ? `${baseURL}/auth/reset-password?token=${token}` : url;
-        const message = prepareAuthEmailMessage({
-          ctaHref: resetUrl,
-          greetingName: user.name || "there",
-          purpose: "password_reset",
-        });
         try {
+          const message = await prepareAuthEmailMessage({
+            ctaHref: resetUrl,
+            greetingName: user.name || "there",
+            purpose: "password_reset",
+          });
           const outcome = await deliverTransactionalAuthEmail(requireActionCtx(ctx), {
             controlKey: await resolveAuthEmailControlKey(
               requireActionCtx(ctx),
@@ -207,12 +207,12 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       sendOnSignIn: true,
       sendOnSignUp: true,
       sendVerificationEmail: async ({ user, url, token }) => {
-        const message = prepareAuthEmailMessage({
-          ctaHref: url,
-          greetingName: user.name || "there",
-          purpose: "verification",
-        });
         try {
+          const message = await prepareAuthEmailMessage({
+            ctaHref: url,
+            greetingName: user.name || "there",
+            purpose: "verification",
+          });
           const outcome = await deliverTransactionalAuthEmail(requireActionCtx(ctx), {
             controlKey: await resolveAuthEmailControlKey(
               requireActionCtx(ctx),

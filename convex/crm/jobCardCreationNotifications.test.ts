@@ -261,7 +261,19 @@ function makeCreateJobCardCtx() {
     },
   };
 
-  return { ctx, scheduledEmails, tables };
+  return {
+    ctx,
+    get scheduledEmails() {
+      const groups = new Map();
+      for (const row of tables.notificationEmailOutbox ?? []) {
+        const group = groups.get(row.eventId) ?? { args: { ...row, recipients: [] } };
+        group.args.recipients.push(row.recipient);
+        groups.set(row.eventId, group);
+      }
+      return [...groups.values()];
+    },
+    tables,
+  };
 }
 
 describe("Job Card creation notifications", () => {
@@ -337,7 +349,16 @@ describe("Job Card creation notifications", () => {
   );
 
   test("Notifies downstream roles, emails assigned SPOCs and Operations Head, and emails only the Finance Head staff member", async () => {
-    const { ctx, scheduledEmails, tables } = makeCreateJobCardCtx();
+    const fixture = makeCreateJobCardCtx();
+    const { ctx, tables } = fixture;
+    tables.staffUsers.push({
+      _id: "staff_sales_unassigned",
+      active: true,
+      authUserId: "auth_sales_unassigned",
+      email: "sales-unassigned@example.invalid",
+      name: "Unassigned Sales",
+      roles: ["Sales"],
+    });
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
     await fromAny<any, unknown>(createFromQuery)._handler(ctx, {
@@ -351,19 +372,7 @@ describe("Job Card creation notifications", () => {
         expect.objectContaining({
           entityId: "jobCards_2",
           entityType: "jobCard",
-          recipientRole: "Contracting",
-          title: "Job Card opened — start operations",
-        }),
-        expect.objectContaining({
-          entityId: "jobCards_2",
-          entityType: "jobCard",
-          recipientRole: "Operations",
-          title: "Job Card opened — start operations",
-        }),
-        expect.objectContaining({
-          entityId: "jobCards_2",
-          entityType: "jobCard",
-          recipientRole: "Ticketing",
+          recipientRole: "Operations Head",
           title: "Job Card opened — start operations",
         }),
         expect.objectContaining({
@@ -386,31 +395,42 @@ describe("Job Card creation notifications", () => {
         }),
       ])
     );
+    expect(
+      notifications.some((row) =>
+        ["Contracting", "Operations", "Ticketing", "Sales"].includes(String(row.recipientRole))
+      )
+    ).toBe(false);
     expect(notifications.some((row) => row.recipientRole === "Finance")).toBe(false);
     expect(notifications.some((row) => row.recipientUserId === "auth_finance_user")).toBe(false);
 
-    const operationsEmail = scheduledEmails.find(
+    expect(
+      tables.notificationEmailOutbox.some(
+        (row) => row.recipient === "sales-unassigned@example.invalid"
+      )
+    ).toBe(false);
+    const operationsEmail = fixture.scheduledEmails.find(
       ({ args }) => args.title === "Job Card opened — start operations"
     );
     expect(operationsEmail?.args.recipients).toEqual(["operations-head@citius.in"]);
     expect(
-      scheduledEmails.some(({ args }) => args.recipients.includes("operations@citius.in"))
+      fixture.scheduledEmails.some(({ args }) => args.recipients.includes("operations@citius.in"))
     ).toBe(false);
     expect(
-      scheduledEmails.some(({ args }) =>
+      fixture.scheduledEmails.some(({ args }) =>
         args.recipients.includes("contracting-unassigned@citius.in")
       )
     ).toBe(false);
     expect(
-      scheduledEmails.some(({ args }) => args.recipients.includes("contracting@citius.in"))
+      fixture.scheduledEmails.some(({ args }) => args.recipients.includes("contracting@citius.in"))
     ).toBe(true);
     expect(
-      scheduledEmails.some(({ args }) => args.recipients.includes("ticketing@citius.in"))
+      fixture.scheduledEmails.some(({ args }) => args.recipients.includes("ticketing@citius.in"))
     ).toBe(true);
   });
 
   test("Keeps role-default Job Card emails when additional alert roles are empty", async () => {
-    const { ctx, scheduledEmails, tables } = makeCreateJobCardCtx();
+    const fixture = makeCreateJobCardCtx();
+    const { ctx, tables } = fixture;
     for (const staff of tables.staffUsers) {
       staff.emailAlertRoles = [];
     }
@@ -422,8 +442,8 @@ describe("Job Card creation notifications", () => {
     });
 
     expect(tables.notifications.length).toBeGreaterThan(0);
-    expect(scheduledEmails).toHaveLength(5);
-    expect(scheduledEmails.flatMap(({ args }) => args.recipients).sort()).toEqual([
+    expect(fixture.scheduledEmails).toHaveLength(5);
+    expect(fixture.scheduledEmails.flatMap(({ args }) => args.recipients).sort()).toEqual([
       "contracting@citius.in",
       "finance-head@citius.in",
       "operations-head@citius.in",
@@ -446,8 +466,8 @@ describe("Job Card creation notifications", () => {
     expect(notifications.some((row) => row.recipientRole === "Ticketing")).toBe(false);
     expect(notifications.some((row) => row.recipientRole === "Head of Ticketing")).toBe(false);
     expect(notifications.some((row) => row.recipientUserId === "auth_ticketing")).toBe(false);
-    expect(notifications.some((row) => row.recipientRole === "Operations")).toBe(true);
-    expect(notifications.some((row) => row.recipientRole === "Contracting")).toBe(true);
+    expect(notifications.some((row) => row.recipientRole === "Operations Head")).toBe(true);
+    expect(notifications.some((row) => row.recipientRole === "Contracting Head")).toBe(true);
   });
 
   test("Job card creation notifications deep-link to the Job Card operating surface", () => {

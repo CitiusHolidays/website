@@ -1,0 +1,167 @@
+{
+  "schemaVersion": 1,
+  "reviewDate": "2026-10-21",
+  "applicationBaseRevision": "59b488628b3ecfd7273924e6ea95afb637038e58",
+  "footerFixRevision": "e85155c4721051fb19358384bb4f283950ed24b3",
+  "fullLocalE2e": {
+    "revision": "e85155c4721051fb19358384bb4f283950ed24b3",
+    "passed": 28,
+    "failed": 0,
+    "skipped": 0,
+    "command": "playwright test notification-inbox critical-path hr-leave finance-expense workflow/role-semantics customer-account-confirmed-trip ticketing-row-edit mobile-portal-quality --workers=1"
+  },
+  "finalKeyboardInboxE2e": {
+    "revision": "d7a45730771d6aeb37d17818194266391c78f996",
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0,
+    "command": "playwright test e2e/specs/notification-inbox.spec.ts --workers=1",
+    "keyboardInput": "pressSequentially, persisted Notes exact match",
+    "capturedPageErrors": [],
+    "pageErrorCaptureContexts": [
+      "Sales Query entry",
+      "Contracting inbox and deep link"
+    ]
+  },
+  "target": {
+    "frontendOrigin": "http://127.0.0.1:34000",
+    "convexOrigin": "http://127.0.0.1:34210",
+    "convexSiteOrigin": "http://127.0.0.1:34211",
+    "id": "development-local-pr297",
+    "convexSourceHash": "f8c21c3663a1859618e70a2091d97ccb90f28e10cc35175c616b64ad2d2d4c78",
+    "frontendAndBackendIdentity": "passed before every seed",
+    "database": "fresh task-owned synthetic-only SQLite, no original data copied",
+    "providerCredentialKeys": []
+  },
+  "fixtures": {
+    "staffProfiles": 12,
+    "customers": 1,
+    "newAccessCredentialsCreated": false,
+    "existingAuthorizedSettingsReused": true,
+    "outboundNotificationScheduling": "suppressed during active E2E ownership"
+  },
+  "queryIntakeAudience": {
+    "scope": "Both",
+    "oneUpdateEach": [
+      "Contracting",
+      "Directors",
+      "Operations Head",
+      "Head of Ticketing"
+    ],
+    "noUpdate": [
+      "Sales",
+      "Operations",
+      "Ticketing",
+      "Finance",
+      "Accounts",
+      "HR",
+      "Sales Cement",
+      "Contracting Cement"
+    ],
+    "all12ProfilesCheckedBeforeLaterAssignment": true,
+    "separateAdminRoleInBrowser": false,
+    "overlappingRolesInBrowser": false
+  },
+  "cleanup": {
+    "activeRuns": 0,
+    "outboxRows": 0,
+    "ownedRecords": 0,
+    "originalDatabaseUnchanged": true
+  },
+  "footerMutation": {
+    "mutation": "Restore the unrelated zero-record footer",
+    "expectedRegressionCaught": true,
+    "sourceRestored": true,
+    "restoredFileSha256": "27b29bee153f7a1a5cf48aeaa09ca024b5799690ef64b19b54381e5b28620a09",
+    "ordinaryChecksSeparate": true
+  },
+  "limits": [
+    "Local acceptance does not prove production configuration or provider/mailbox delivery.",
+    "Loading and transport/read-failure gallery examples still use component substitutes.",
+    "One native-browser Notes entry with a writing extension logged a repeated-update error. Cause unisolated; not reproduced in final ordinary-keyboard local E2E.",
+    "Runtime actor/data/navigation responses are real locally; no user-browser sessions were copied.",
+    "59-route source inventory exceeds selected signed-in journey coverage."
+  ],
+  "hostedSetup": {
+    "stopped": true,
+    "settingsOrHostedBackendWrittenByThisLocalPass": false,
+    "hostedPreviewRequired": false
+  },
+  "images": [
+    {
+      "path": "local/head-self-assignment-desktop.png",
+      "sha256": "a7797c0cab301221bb67285725c0ea70bb834ba1ec140792c7d3b92e539c8b1b",
+      "sourceRevision": "d7a45730771d6aeb37d17818194266391c78f996",
+      "capture": "Playwright viewport screenshot of the actual signed-in local Next app",
+      "substitutes": [],
+      "viewport": [1280, 720]
+    },
+    {
+      "path": "local/inbox-all-desktop.png",
+      "sha256": "135ad79ab6d6a9fd113a9d1029d62a9143cbe90a7076ad8ff8e9979afb6a301b",
+      "sourceRevision": "d7a45730771d6aeb37d17818194266391c78f996",
+      "capture": "Playwright viewport screenshot of the actual signed-in local Next app",
+      "substitutes": [],
+      "viewport": [1280, 720]
+    },
+    {
+      "path": "local/inbox-all-phone.png",
+      "sha256": "af29de3f5cde901cf4a46e7f55c741fc3a4515f42c3e69dcbbd1deed706f532b",
+      "sourceRevision": "d7a45730771d6aeb37d17818194266391c78f996",
+      "capture": "Playwright viewport screenshot of the actual signed-in local Next app",
+      "substitutes": [],
+      "viewport": [390, 844]
+    },
+    {
+      "path": "local/inbox-bell-desktop.png",
+      "sha256": "0957f993da137dd5484939fddddbe3d6604edc5d5ef79bd49e911278ad34e45b",
+      "sourceRevision": "d7a45730771d6aeb37d17818194266391c78f996",
+      "capture": "Playwright viewport screenshot of the actual signed-in local Next app",
+      "substitutes": [],
+      "viewport": [1280, 720]
+    },
+    {
+      "path": "local/inbox-query-deep-link-desktop.png",
+      "sha256": "c3763342be01c2fe6ed30d7616122e3a092bc701adf4dceb27720d525abe55d0",
+      "sourceRevision": "d7a45730771d6aeb37d17818194266391c78f996",
+      "capture": "Playwright viewport screenshot of the actual signed-in local Next app",
+      "substitutes": [],
+      "viewport": [1280, 720]
+    },
+    {
+      "path": "local/inbox-sidebar-new-desktop.png",
+      "sha256": "d5dec369caa0b8091493a6318e6a9cff97992e5cfa17fa5a3722548c6dd37dc8",
+      "sourceRevision": "d7a45730771d6aeb37d17818194266391c78f996",
+      "capture": "Playwright viewport screenshot of the actual signed-in local Next app",
+      "substitutes": [],
+      "viewport": [1280, 720]
+    },
+    {
+      "path": "local/inbox-unread-desktop.png",
+      "sha256": "efb289acbcaeec006bdd6a16fb2d2e577d2ad6739c755b34dc405495108b49ee",
+      "sourceRevision": "d7a45730771d6aeb37d17818194266391c78f996",
+      "capture": "Playwright viewport screenshot of the actual signed-in local Next app",
+      "substitutes": [],
+      "viewport": [1280, 720]
+    },
+    {
+      "path": "local/sidebar-count-activity-phone.png",
+      "sha256": "a9993f2b8d2f6cf4c22386e6582659e97402f66456d19bf17f44e668992bf041",
+      "sourceRevision": "d7a45730771d6aeb37d17818194266391c78f996",
+      "capture": "Playwright viewport screenshot of the actual signed-in local Next app",
+      "substitutes": [],
+      "viewport": [390, 844]
+    }
+  ],
+  "targetNeutralQuality": {
+    "revision": "d7a45730771d6aeb37d17818194266391c78f996",
+    "command": "bun run verify:local -- --evidence auto --metrics .scratch/dx-metrics/pr297-local-acceptance.json",
+    "result": "passed",
+    "bunTests": 2060,
+    "convexTests": 225,
+    "zeroWarningLint": "passed",
+    "applicationAndConvexTypes": "passed",
+    "coverageContracts": "29/29",
+    "deadcode": "132/183 unchanged reviewed baseline"
+  }
+}

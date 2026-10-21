@@ -5,8 +5,8 @@ import { resolve } from "node:path";
 
 const ROOT_INPUTS = ["bun.lock", "convex", "convex.json", "package.json"] as const;
 const DEPLOYMENT_IDENTITY_PATH = "convex/e2eDeploymentIdentity.ts";
-const CONVEX_SOURCE_EXTENSION_PATTERN = /\.(?:js|json|ts)$/;
-const TEST_SOURCE_PATTERN = /\.(?:convex\.integration|integration|test)\.(?:js|ts)$/;
+const CONVEX_SOURCE_EXTENSION_PATTERN = /\.(?:jsx?|json|tsx?)$/;
+const TEST_SOURCE_PATTERN = /\.(?:convex\.integration|integration|test)\.(?:jsx?|tsx?)$/;
 
 function convexDeploymentSourceFiles(root: string) {
   const result = spawnSync(

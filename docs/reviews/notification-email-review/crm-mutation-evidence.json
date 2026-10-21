@@ -1,0 +1,77 @@
+{
+  "date": "2026-10-20T22:25:51.660558+00:00",
+  "cases": [
+    {
+      "id": "U09-server-arrival-race",
+      "file": "convex/crm/navShortcuts.ts",
+      "mutation": {
+        "before": "args.notificationIds.includes(activity.notificationId)",
+        "after": "true"
+      },
+      "mutatedExit": 1,
+      "restoredExit": 0,
+      "restoredSha256": "701c4033fd10bcfc698cebbd3579dd228fd80c5922ac24d1171677061dc46c22",
+      "bytesRestored": true
+    },
+    {
+      "id": "U09-real-publisher",
+      "file": "convex/crm/lib/notifications.ts",
+      "mutation": {
+        "before": "await projectNavigationActivity(",
+        "after": "await (async (..._ignored: unknown[]) => undefined)("
+      },
+      "mutatedExit": 1,
+      "restoredExit": 0,
+      "restoredSha256": "a10787661dae5dc9b7d79087e791fe6d9c81695615fd9edb83f61d2499e36764",
+      "bytesRestored": true
+    },
+    {
+      "id": "U09-client-snapshot",
+      "file": "src/components/portal/PortalNavWork.tsx",
+      "mutation": {
+        "before": "if (state && visit.snapshot === null)",
+        "after": "if (state)"
+      },
+      "mutatedExit": 1,
+      "restoredExit": 0,
+      "restoredSha256": "71a4b519260c22b01623d23461036f18a22c75f7beed6dfade60d15d4c3a8fab",
+      "bytesRestored": true
+    },
+    {
+      "id": "U07-pending-checkbox",
+      "file": "src/components/portal/entityModal/EntityModalShell.js",
+      "mutation": {
+        "before": "<EntityModalFieldsPrimary {...primaryProps} disabled={savePending} />",
+        "after": "<EntityModalFieldsPrimary {...primaryProps} disabled={false} />"
+      },
+      "mutatedExit": 1,
+      "restoredExit": 0,
+      "restoredSha256": "4050f4716f7e79fa74fc4c849a8f6d0e321dad6e6e4fc4f74ede3e84b7182f85",
+      "bytesRestored": true
+    },
+    {
+      "id": "U08-jobcard-prefill",
+      "file": "src/lib/portal/modalLifecycle.js",
+      "mutation": {
+        "before": "applyInitialJobCardLink(next, type, jobCards, jobCardFilter);",
+        "after": "applyInitialJobCardLink(next, type, jobCards, \"\");"
+      },
+      "mutatedExit": 1,
+      "restoredExit": 0,
+      "restoredSha256": "428a93cec84460724d8106b22b85aa67410aa96c7e1b2ccb09b30a467c1c3944",
+      "bytesRestored": true
+    },
+    {
+      "id": "U10-proposal-handoff",
+      "file": "src/components/portal/workspace/ProposalsView.tsx",
+      "mutation": {
+        "before": "proposalRevision: row.proposalRevision,",
+        "after": "proposalRevision: undefined,"
+      },
+      "mutatedExit": 1,
+      "restoredExit": 0,
+      "restoredSha256": "82909b0d1bd4ac58dc46ad7eef6001c604867e9e6a0d5270a4f3b1a4bd577650",
+      "bytesRestored": true
+    }
+  ]
+}

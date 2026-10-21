@@ -51,7 +51,58 @@ release scanners and codemods.
 
 ## Effect v4 migration evidence (2026-08-15)
 
-- The dependency is pinned to `4.0.0-rc.109` while v4 remains on the upstream release-candidate tag.
-- The sole inventoried production seam, notification email delivery, now uses v4 retry options with a spaced schedule, an explicit attempt bound, and a typed retry predicate.
+- At that migration the dependency was pinned to `4.0.0-rc.109`, the upstream release candidate.
+- At that migration, notification email delivery used v4 retry options with a spaced schedule, an explicit attempt bound, and a typed retry predicate.
 - Its deterministic timing test uses the v4 `effect/testing` `TestClock` layer.
-- The executable adoption inventory records Effect major 4 and still rejects unlisted production imports.
+- `config/release/package-contract.test.ts` checks the exact Effect pin. The earlier claim that an executable import allowlist rejects unlisted seams is stale; no such guard exists in this revision.
+
+
+## Rat Stack reference and current seams (2026-10-20)
+
+Use [Rat Stack's agent guide](https://ratstack.sh/llms.txt) for discovery and its
+[source at `16db4de8`](https://github.com/joelhooks/rat-stack/tree/16db4de8b861c1fd0414b27481294a52769eef9c)
+as a reference. Citius now pins stable Effect `4.0.5`. Check
+installed `node_modules/effect/src` and `ai-docs` before borrowing APIs. This ADR,
+repository instructions, and existing Next.js/Convex architecture remain authoritative.
+
+- Keep recoverable errors concrete and dependencies explicit at real I/O seams.
+  Reuse existing validators and contracts across their actual callers; add projections
+  only when another interface needs the same capability.
+- Own cleanup with finalizers, bound waits, and preserve caller cancellation.
+  Keep provider retry identities and attempt bounds intact.
+- Follow [test-behaviour](https://ratstack.sh/skills/test-behaviour): supply substitutes,
+  use controlled time, assert independent expected results, then plant a violation,
+  observe failure, restore it, and rerun. Retain the existing Bun and Convex test lanes.
+- Use the existing lint/ratchet and package contract checks. Follow
+  [keep-or-cut](https://ratstack.sh/skills/keep-or-cut) when a pattern adds no useful
+  behavior. Dependency upgrades, new runtimes, and remote MCP configuration are separate work.
+
+Current production imports are `convex/crm/notificationEmailDelivery.ts`,
+`convex/crm/lib/productionTestRecipes.ts`, and `convex/crm/productionTestLab.ts`.
+Notification delivery owns pacing, retryable errors, sequential delivery, and
+replay identities; its adjacent test covers those behaviors. The recipe runner
+owns ordered independent recipes, injected `DryRunProbe`, timeout/cancellation,
+cleanup, and elapsed time; `productionTestRecipes.test.ts` covers that lifecycle.
+`productionTestLab.ts` supplies the controlled adapter and runs the program;
+`operationalControls.convex.integration.ts` covers its in-memory authorization,
+recording, and durable run boundary. ADR 0015 owns the Test Lab's product rules.
+These tests and the package pin are executable checks, not a general import allowlist.
+Payments, provider streams, ordinary Convex validators, and UI state keep the
+plain TypeScript decisions above.
+
+## Stable Effect update (2026-10-20)
+
+The user authorized this update separately from the initial reference pass.
+`effect` moves from `4.0.0-rc.109` to exact `4.0.5`, with Bun 1.4.0 regenerating
+`bun.lock`. No separate `@effect/*` package is installed in Citius. The official
+[migration guide](https://github.com/Effect-TS/effect/blob/main/MIGRATION.md)
+requires matching v4 versions for ecosystem packages that remain separate;
+`@effect/platform` 0.x belongs to the older ecosystem and is not added here.
+
+The three runtime imports listed above already use v4 core APIs. They need no
+import or API changes for 4.0.5. The 25 focused package/delivery/recipe checks
+pass with the new runtime. They assert independent retry counts and timing,
+provider identities, cancellation, bounded timeout and cleanup outcomes. The complete candidate passes all 225 schema-backed Convex tests, including
+operational controls, and all 2,055 Bun tests. Application/Convex types,
+zero-warning lint and the existing coverage contract also pass. No provider call or Production
+Test Lab execution was used as upgrade evidence.

@@ -901,6 +901,7 @@ export interface ActivityViewProps {
   };
   markNotificationRead: PortalWorkspaceState["markNotificationRead"];
   notifications: PortalNotificationRow[];
+  notificationsLoading?: boolean;
   removeNotification: PortalWorkspaceState["removeNotification"];
 }
 
