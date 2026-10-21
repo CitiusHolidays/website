@@ -29,7 +29,7 @@ async function createQuery(page: Page, clientName: string, ticketingScope = "Not
   return code?.trim() ?? "";
 }
 
-async function expectExactAudience(browser: Browser, code: string, testInfo: TestInfo) {
+async function expectExactAudience(browser: Browser, code: string) {
   const recipients = new Set(["admin", "contracting", "ticketing-head", "leave-head"]);
   for (const role of E2E_ROLE_PROFILE_KEYS) {
     const { context, page } = await openPortalAs(browser, role);
@@ -37,29 +37,36 @@ async function expectExactAudience(browser: Browser, code: string, testInfo: Tes
       await openInbox(page);
       await inbox(page).getByRole("button", { exact: true, name: "All" }).click();
       const update = inbox(page).getByRole("button").filter({ hasText: code });
-      await expect(update).toHaveCount(recipients.has(role) ? 1 : 0);
-      if (role === "ticketing-head") {
-        await update.click();
-        await expect(page).toHaveURL(/open=assignQueryTeams/);
-        await selectOptionByMatchingLabel(
-          modalCombobox(page, "Ticketing SPOC"),
-          "E2E Ticketing Head"
-        );
-        await page.screenshot({ path: testInfo.outputPath("head-self-assignment-desktop.png") });
-        await saveEntityModal(page);
-        await page.goto("/portal/queries");
-        await page
-          .locator("tr")
-          .filter({ hasText: code })
-          .getByRole("button", { exact: true, name: "Assign teams" })
-          .click();
-        await expect
-          .poll(() => selectedOptionLabel(modalCombobox(page, "Ticketing SPOC")))
-          .toBe("E2E Ticketing Head");
-      }
+      await expect(update, `${role} query-intake audience`).toHaveCount(
+        recipients.has(role) ? 1 : 0
+      );
     } finally {
       await context.close();
     }
+  }
+}
+
+async function takeTicketingWork(browser: Browser, code: string, testInfo: TestInfo) {
+  const { context, page } = await openPortalAs(browser, "ticketing-head");
+  try {
+    await openInbox(page);
+    await inbox(page).getByRole("button", { exact: true, name: "All" }).click();
+    await inbox(page).getByRole("button").filter({ hasText: code }).click();
+    await expect(page).toHaveURL(/open=assignQueryTeams/);
+    await selectOptionByMatchingLabel(modalCombobox(page, "Ticketing SPOC"), "E2E Ticketing Head");
+    await page.screenshot({ path: testInfo.outputPath("head-self-assignment-desktop.png") });
+    await saveEntityModal(page);
+    await page.goto("/portal/queries");
+    await page
+      .locator("tr")
+      .filter({ hasText: code })
+      .getByRole("button", { exact: true, name: "Assign teams" })
+      .click();
+    await expect
+      .poll(() => selectedOptionLabel(modalCombobox(page, "Ticketing SPOC")))
+      .toBe("E2E Ticketing Head");
+  } finally {
+    await context.close();
   }
 }
 
@@ -96,7 +103,7 @@ test.describe("@workflow notification inbox and sidebar activity", () => {
         uniqueE2eLabel("E2E Cedar Conference"),
         "Both"
       );
-      await expectExactAudience(browser, firstCode, testInfo);
+      await expectExactAudience(browser, firstCode);
       await expect(link.getByText("New activity", { exact: true })).toBeVisible();
       const countBefore = await link
         .locator("[title$='work items need attention']")
@@ -212,6 +219,7 @@ test.describe("@workflow notification inbox and sidebar activity", () => {
       await contracting.page.getByRole("button", { name: "Open portal navigation" }).click();
       await expect(link.getByText("New activity", { exact: true })).toHaveCount(0);
       await expect(link.locator("[title$='work items need attention']")).toBeVisible();
+      await takeTicketingWork(browser, firstCode, testInfo);
       expect(pageErrors).toEqual([]);
     } finally {
       await sales.context.close();
