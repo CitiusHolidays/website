@@ -2,8 +2,58 @@ import { execFileSync } from "node:child_process";
 
 const CONVEX_PREVIEW_SITE_SUFFIX = ".convex.site";
 const SAFE_DEPLOYMENT_NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*-\d+$/;
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "localhost", "[::1]"]);
+
+function loopbackOrigin(value: string | undefined) {
+  if (!value) {
+    throw new Error("Local Convex assertions require explicit loopback origins");
+  }
+  const url = new URL(value);
+  if (
+    !(
+      (url.protocol === "http:" || url.protocol === "https:") &&
+      LOOPBACK_HOSTS.has(url.hostname)
+    ) ||
+    url.username ||
+    url.password
+  ) {
+    throw new Error("Local Convex assertions require explicit loopback origins");
+  }
+  return url.origin;
+}
+
+function localConvexDeployment(env: Record<string, string | undefined>) {
+  const deployment = env.E2E_CONVEX_DEPLOYMENT?.trim();
+  if (deployment && deployment !== "local") {
+    throw new Error(
+      "E2E_CONVEX_DEPLOYMENT must identify an explicit local development deployment."
+    );
+  }
+  loopbackOrigin(env.NEXT_PUBLIC_CONVEX_SITE_URL);
+  if (env.CONVEX_DEPLOY_KEY) {
+    throw new Error("Local Convex assertions must not use a cloud deploy key");
+  }
+  if (env.CONVEX_SELF_HOSTED_URL) {
+    if (loopbackOrigin(env.CONVEX_SELF_HOSTED_URL) !== loopbackOrigin(env.NEXT_PUBLIC_CONVEX_URL)) {
+      throw new Error("Local Convex assertion and application origins must match");
+    }
+    if (!env.CONVEX_SELF_HOSTED_ADMIN_KEY) {
+      throw new Error("Local Convex assertions require the existing local admin key");
+    }
+    return "local";
+  }
+  if (deployment !== "local") {
+    throw new Error(
+      "E2E_CONVEX_DEPLOYMENT must identify an explicit local development deployment."
+    );
+  }
+  return "local";
+}
 
 export function e2eConvexDeployment(env: Record<string, string | undefined> = process.env) {
+  if (env.VERCEL_ENV === "production") {
+    throw new Error("Convex E2E assertions are forbidden for Production");
+  }
   const target = env.E2E_PROVISIONING_TARGET?.trim();
   if (target === "preview") {
     const siteUrl = env.NEXT_PUBLIC_CONVEX_SITE_URL;
@@ -22,20 +72,22 @@ export function e2eConvexDeployment(env: Record<string, string | undefined> = pr
   }
 
   if (target === "development") {
-    const deployment = env.E2E_CONVEX_DEPLOYMENT?.trim();
-    if (
-      !(
-        deployment === "local" ||
-        deployment === "dev" ||
-        SAFE_DEPLOYMENT_NAME.test(deployment ?? "")
-      )
-    ) {
-      throw new Error("E2E_CONVEX_DEPLOYMENT must identify an explicit development deployment.");
-    }
-    return deployment;
+    return localConvexDeployment(env);
   }
 
   throw new Error("Convex assertions require an explicit development or preview E2E target.");
+}
+
+export function e2eConvexRunArguments(
+  query: string,
+  env: Record<string, string | undefined> = process.env
+) {
+  const deployment = e2eConvexDeployment(env);
+  // --deployment local resolves a managed local deployment through its project.
+  // A bound self-hosted loopback backend does not need a cloud project lookup.
+  const selector =
+    deployment === "local" && env.CONVEX_SELF_HOSTED_URL ? [] : ["--deployment", deployment];
+  return ["convex", "run", ...selector, "--inline-query", query];
 }
 
 function inlineTravellerQuery(args: { fullName: string; jobCardId?: string }) {
@@ -48,15 +100,10 @@ function inlineTravellerQuery(args: { fullName: string; jobCardId?: string }) {
 }
 
 export function convexTravellerExists(args: { fullName: string; jobCardId?: string }) {
-  const deployment = e2eConvexDeployment();
-  const output = execFileSync(
-    "bunx",
-    ["convex", "run", "--deployment", deployment, "--inline-query", inlineTravellerQuery(args)],
-    {
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    }
-  );
+  const output = execFileSync("bunx", e2eConvexRunArguments(inlineTravellerQuery(args)), {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
   const result = JSON.parse(output.trim());
   if (result !== true && result !== false) {
     throw new Error("Convex assertion command returned a non-boolean result");

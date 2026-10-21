@@ -33,6 +33,29 @@ overflow, mobile navigation focus restoration, account-menu focus restoration, a
 primary/More action contract. A missing disposable Sales Query is reported as a product-precondition
 skip rather than silently counted as executed action proof.
 
+## Local acceptance does not require a hosted Preview
+
+Use the local app and an isolated loopback backend for authenticated E2E work. Hosted Preview
+deployment, Vercel access and Preview credentials are optional for a separately requested hosted
+check. They are not prerequisites for local acceptance. A local pass proves the tested revision
+and local configuration; it does not prove production configuration or delivery.
+
+Use an empty, task-owned data directory or an existing verified synthetic-only backend. Never
+start an unclassified database or copy real business data into it. Keep provider keys out of this
+target, and verify outbound email is unavailable before the test-only seed. Reuse authorized local
+backend credentials and designated test settings; do not generate access keys as a setup shortcut.
+
+For a standalone loopback backend, set `CONVEX_SELF_HOSTED_URL` and the existing
+`CONVEX_SELF_HOSTED_ADMIN_KEY` in the ignored local test environment. The self-hosted URL and
+`NEXT_PUBLIC_CONVEX_URL` must name the same loopback origin; `NEXT_PUBLIC_CONVEX_SITE_URL` names
+that backend's loopback HTTP-actions port. Local assertions use this binding directly without a
+cloud project lookup. For a CLI-managed local backend, use `E2E_CONVEX_DEPLOYMENT=local`.
+Cloud deployment names and the `dev` alias are not local E2E assertion targets.
+
+Start Next separately against those URLs, bind both listeners to loopback, and follow the
+development target setup below. The exact revision, backend source fingerprint, target manifest,
+seed ownership and cleanup checks apply locally. None requires a hosted Preview.
+
 ## Local setup
 
 1. Start app + Convex dev (`bun run dev:all`).
