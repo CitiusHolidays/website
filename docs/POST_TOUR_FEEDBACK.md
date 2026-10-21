@@ -5,17 +5,68 @@ not create a separate application or change Customer Travel Account access.
 
 ## Feedback
 
-Open **Post-tour feedback** from the Job Cards navigation group, or follow the
-feedback link on a Job Card. Select a JC number to read its reports. Each entry
-has a category, comments, author, date, optional vendor name and rating, and
-photos. Categories cover overall experience, what went well, improvements,
+### Structured internal tour report
+
+Open **Feedback** beside a JC number in the Job Card list or detail, then
+**Internal tour report**. The same workspace has a Job Card selector. This is an
+in-app report, not an external feedback invitation.
+
+One current structured report belongs to each JC. Its six sections cover tour
+details, five separate 1–5 performance ratings and highlights, Hits and Misses,
+six supplier ratings, financial/operational closure, and a final assessment.
+The final tour rating uses 1–10. Supplier N.A. is a separate value; zero is
+invalid. Scores of 1 or 2 require the issue and future recommendation. Good or
+N.A. suppliers need no comment. Additional or pending closure work requires the
+amount, reason and responsible person. No approval stage or calculation is added.
+
+Client, destination, dates, guests and assigned manager names start from the JC.
+The report keeps an editable snapshot, rather than changing the JC or adopting
+later JC edits silently. Prepared-by and submission time come from authenticated
+staff identity and the server. No client-supplied identity or submission date is
+accepted.
+
+Assigned Tour Managers can prepare and submit using the existing identity-first
+assignment rules. The existing assigned Operations/Operations Cement owner and
+Operations Head are the Operations Manager equivalents. Their existing record
+and Cement scope checks remain. Directors or Admin alone do not gain preparation
+rights. Current preparers and Admin can read a draft; other CRM staff can read
+only submitted reports. This feedback-only exception grants no full JC, guest,
+customer, finance-record or sensitive-document access.
+
+**Save draft** sends no submission alert. **Submit report** validates all required
+answers and freezes the submitted snapshot. Five performance ratings stay distinct
+from the final 1–10 score. Unsaved edits survive the feedback tabs and JC changes
+within the loaded app, scoped to the current staff member and JC. Failed saves
+keep the draft. Save before closing or reloading the browser. Pending commands
+block edits and duplicate submits. Report ID and revision checks reject stale
+saves, including after an archive/replacement.
+
+Submission publishes one durable bell/email event to active Directors, staff
+identified by the existing Finance Head function, the related Sales owner and
+the JC Contracting owner. The linked Query Contracting owner is used only when
+the JC has no Contracting owner. Missing owners do not trigger a team or head
+fallback. Admin, general Finance staff, unrelated heads and email-alert role
+subscriptions are not added. Overlapping roles deduplicate. Delivery rechecks
+current responsibility, active status, report state and access. Email contains
+the JC reference and a report link, without financial or free-text answers.
+Existing operational controls and delivery/retry rules remain.
+
+Only Admin can **Archive report**, with the existing explicit confirmation.
+Archive hides the report and cancels pending submission-alert eligibility.
+Nothing is purged. Admin can read and restore archived snapshots; restoring sends
+no new alert and cannot overwrite another current report. Audit entries record
+saves, submission, archive and restore. Missing/deleted JCs fail closed. No new
+JC-deletion permission or destructive migration is introduced.
+
+### Earlier team notes
+
+The **Earlier team notes** tab retains category/comment/photo entries. Each
+entry has a category, comments, author, date, optional vendor name and rating,
+and photos. Categories cover overall experience, what went well, improvements,
 itinerary, hotel stay, and food/restaurants. Use separate entries for separate
 topics or vendors. An unrated or inapplicable vendor has no numeric rating;
-zero is not a valid rating.
-
-The supplied post-tour report informed these categories. This first scope does
-not reproduce its billing, refunds, supplier reconciliation, or formal report
-approval sections. Existing JC client, destination and dates provide context.
+zero is not a valid rating. These legacy entries are not converted into the
+structured report and no ratings are inferred from their narratives.
 
 All active, provisioned staff can read feedback and its limited JC context.
 This is an explicit feedback-only exception to ordinary record scope. It does
@@ -59,8 +110,9 @@ evidence for a possible later workflow; they do not enable promotional sending.
 
 ## Release and verification boundary
 
-The schema adds two feedback tables and optional traveller contact/consent
-fields. No backfill, destructive migration, or default opt-in is needed.
+The structured report adds `postTourReports` alongside the existing feedback
+tables and optional traveller contact/consent fields. No backfill, destructive
+migration, or default opt-in is needed.
 Deploy the reviewed schema and backend together before the frontend. Retain
 the optional fields if rolling the frontend back so recorded data remains
 available. No production migration or deployment is implied by local checks.
@@ -74,4 +126,4 @@ backend. Desktop and 390 px browser captures use fictional records; the named
 test run is cleaned afterward. Hosted acceptance and production rollout remain
 separate reviewed actions.
 
-Traveller-facing feedback is the primary Post-tour feedback workflow; see [Traveller feedback requests](TRAVELER_FEEDBACK.md). Internal manager reports remain a separate tab.
+Traveller-facing feedback remains a separate tab and retains its existing request links, consent, submission and photo workflow. See [Traveller feedback requests](TRAVELER_FEEDBACK.md). The new internal-report dropdown does not remove guest feedback links.

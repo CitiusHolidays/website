@@ -18,8 +18,10 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "f59fadae0babd0c14f8bad69d3f6327462b8eda6fa4a3479995364484bf0a63d";
+const EXPECTED_CAPABILITY_HASH = "d49878d4ad9c0e5a3cafa45a2090371cf8afefd81ef7573670371144a2259395";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
+
+const ADMIN_ONLY_CAPABILITIES = new Set(["crm/postTourReports.archive"]);
 
 const ADMIN_ONLY_MODULES = new Set([
   "crm/leaveApprovers",
@@ -69,7 +71,7 @@ function classify(module: string, name: string, kind: string): CapabilityClass {
   if (SERVER_ONLY_CAPABILITIES.has(identity)) {
     return "server-only";
   }
-  if (ADMIN_ONLY_MODULES.has(module)) {
+  if (ADMIN_ONLY_MODULES.has(module) || ADMIN_ONLY_CAPABILITIES.has(identity)) {
     return "admin-only";
   }
   return "public-product";
@@ -157,6 +159,36 @@ describe("Convex capability inventory", () => {
         });
       }
     }
+  });
+
+  test("classifies structured report reading/preparation as staff product APIs and archive as Admin-only", () => {
+    const reports = discoverCapabilities().filter(({ module }) => module === "crm/postTourReports");
+    expect(reports).toEqual([
+      {
+        classification: "admin-only",
+        kind: "mutation",
+        module: "crm/postTourReports",
+        name: "archive",
+      },
+      {
+        classification: "public-product",
+        kind: "mutation",
+        module: "crm/postTourReports",
+        name: "saveDraft",
+      },
+      {
+        classification: "public-product",
+        kind: "mutation",
+        module: "crm/postTourReports",
+        name: "submit",
+      },
+      {
+        classification: "public-product",
+        kind: "query",
+        module: "crm/postTourReports",
+        name: "workspace",
+      },
+    ]);
   });
 
   test("Classifies staff feedback endpoints as product capabilities and storage helpers as internal", () => {

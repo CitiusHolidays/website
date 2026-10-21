@@ -121,3 +121,16 @@ inherit this summary surface.
 ## Travel visibility and traveller feedback
 
 Active staff can view shared travel plans and safe post-tour traveller responses. JC links in travel retain ordinary JC scope. Staff manage their own travel; HR, Operations Head and directors/admins manage others. External tour-manager contacts retain VIEW_TOUR_MANAGERS; Operations Head and directors/admins maintain them. Feedback request creation/revocation requires ordinary JC scope plus an existing management permission. Public feedback links grant submission only, without staff, Account or Journey access. See [Team travel](TEAM_TRAVEL.md) and [Traveller feedback](TRAVELER_FEEDBACK.md).
+
+
+## Structured internal tour reports
+
+The six-section internal report uses the existing assigned Tour Manager policy,
+assigned Operations/Operations Cement owner and Operations Head. Existing JC and
+Cement scope remains. Directors/Admin alone do not gain preparation rights.
+Current preparers and Admin can read drafts; all provisioned active CRM staff
+can read submitted report snapshots without full JC/customer access. Only Admin
+can archive/restore this new report. Legacy note moderation and traveller
+request/consent permissions are unchanged. Submission alerts use actual Directors,
+Finance Head function and related Sales/Contracting owners, with no automatic
+Admin or team expansion. See [the report contract](POST_TOUR_FEEDBACK.md).

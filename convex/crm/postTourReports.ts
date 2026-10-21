@@ -5,6 +5,7 @@ import {
   emptyPostTourReport,
   postTourReportContentValidator,
   postTourReportError,
+  postTourReportWorkspaceValidator,
 } from "../lib/postTourReportContent";
 import { createActivity } from "./lib/activity";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
@@ -136,6 +137,7 @@ export const workspace = query({
       viewerName: access.name,
     };
   },
+  returns: postTourReportWorkspaceValidator,
 });
 async function editable(ctx: MutationCtx, id: Id<"postTourReports">) {
   const access = await requireStaff(ctx);
@@ -217,6 +219,7 @@ export const saveDraft = mutation({
     });
     return { id, revision };
   },
+  returns: v.object({ id: v.id("postTourReports"), revision: v.number() }),
 });
 export const submit = mutation({
   args: { expectedRevision: v.number(), reportId: v.id("postTourReports") },
@@ -265,6 +268,7 @@ export const submit = mutation({
     });
     return { id: report._id };
   },
+  returns: v.object({ id: v.id("postTourReports") }),
 });
 export const archive = mutation({
   args: {
@@ -315,4 +319,5 @@ export const archive = mutation({
     });
     return { id: report._id };
   },
+  returns: v.object({ id: v.id("postTourReports") }),
 });

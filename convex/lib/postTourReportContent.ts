@@ -79,6 +79,32 @@ export const postTourReportContentValidator = v.object({
   }),
 });
 export type PostTourReportContent = Infer<typeof postTourReportContentValidator>;
+
+const reportViewValidator = v.object({
+  canArchive: v.boolean(),
+  canEdit: v.boolean(),
+  canRestore: v.boolean(),
+  content: postTourReportContentValidator,
+  id: v.id("postTourReports"),
+  preparedBy: v.string(),
+  revision: v.number(),
+  status: v.union(v.literal("draft"), v.literal("submitted"), v.literal("archived")),
+  submittedAt: v.union(v.number(), v.null()),
+  updatedAt: v.number(),
+});
+export const postTourReportWorkspaceValidator = v.union(
+  v.null(),
+  v.object({
+    archived: v.array(reportViewValidator),
+    canPrepare: v.boolean(),
+    initial: postTourReportContentValidator,
+    jobCardId: v.id("jobCards"),
+    jobCode: v.string(),
+    report: v.union(v.null(), reportViewValidator),
+    viewerKey: v.string(),
+    viewerName: v.string(),
+  })
+);
 export function emptyPostTourReport(
   tour?: Partial<PostTourReportContent["tour"]>
 ): PostTourReportContent {

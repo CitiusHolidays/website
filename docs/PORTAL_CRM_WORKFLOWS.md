@@ -179,6 +179,12 @@ manual thank-you email drafts, and separately recorded promotional permission.
 The Job Card links to categorized post-tour comments and private photos that
 all active staff can read. Assigned tour managers submit their own entries.
 See [post-tour feedback and guest contacts](POST_TOUR_FEEDBACK.md).
+The Feedback dropdown beside each JC also opens the six-section internal tour
+report. Assigned Tour Managers and existing Operations owner/head equivalents
+prepare it. Submitted reports are readable by CRM staff; drafts remain narrow.
+Admin can archive/restore the structured report without changing legacy note or
+traveller-feedback permissions. No new approval stage is added.
+
 
 Traveller master and aligned lists filter by Job Card. They are not unscoped all-passenger views.
 

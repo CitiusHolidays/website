@@ -1,5 +1,7 @@
 # Pictures of the changes
 
+The [U13 internal post-tour follow-up](../post-tour-report.md) adds the current six-section report and JC dropdown. The pictures below retain the earlier completed CRM/email review and its recorded revisions.
+
 The new email design and the changed app screens are collected here. Each picture uses fictional people and trips. The public site, Customer Account and Staff Workspace keep separate designs and permissions.
 
 The newest pictures below come from the real local app, signed in with the designated test accounts. The final run passed all 16 selected checks. Earlier component pictures remain useful for populated layouts, loading and deliberate failures. They use substituted transport and are labelled as such. Neither kind of picture proves production configuration or mailbox delivery.

@@ -2,6 +2,8 @@
 
 Please review these items before this draft can move forward.
 
+[U13. The requested internal post-tour form](../post-tour-report.md) adds the six-section report, JC dropdown, selected alerts and Admin archive/restore. Its pictures use native GitHub attachments.
+
 1. Start with the [complete picture walkthrough](screenshot-walkthrough.md). It covers the changed screens and states, with desktop and phone pictures and an explicit coverage inventory.
 2. Open the [email gallery](email-review.md) for every workflow detail family, authentication and website enquiry. These are browser renders, not delivered messages.
 3. Check the recipient rules below. Use their R01 to R15 IDs for precise feedback.
