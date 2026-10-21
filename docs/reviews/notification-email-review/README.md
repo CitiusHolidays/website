@@ -118,7 +118,7 @@ If no SPOC is assigned, the relevant heads receive the reminder. Staff must be a
 
 ### R14. Account and customer messages
 
-Verification, password reset and staff setup keep their current recipients and expiry rules. Booking, payment and feedback behavior stays as it is. This draft introduces no charge notification, promotional email, automated feedback invitation or thank-you email. Feedback sharing and thank-you drafts remain manual.
+Verification, password reset and staff setup keep their current recipients and expiry rules. Booking, payment and feedback behavior stays as it is. This draft introduces no charge notification, promotional email, automated feedback invitation or thank-you email. Traveller feedback sharing and thank-you drafts remain manual. The U13 internal report has its separately requested submission notices.
 
 ### R15. Delayed email and changed responsibilities
 
@@ -128,11 +128,11 @@ An informational event, such as an order being marked lost, can still reach the 
 
 ## The emails
 
-The [email gallery](email-review.md) shows all 17 workflow detail sets, both authentication messages, contact enquiries and the long or missing-details cases. These pictures render the real React Email output locally. They are not inbox-delivery proof.
+The [email gallery](email-review.md) shows all 18 workflow examples, both authentication messages, contact enquiries and the long or missing-details cases. These pictures render the real React Email output locally. They are not inbox-delivery proof.
 
 | Workflow email | Authentication email |
 | --- | --- |
-| ![Contracting assignment on a phone](emails/query-phone.png) | ![Account verification on a phone](emails/verification-phone.png) |
+| ![Contracting assignment on a phone](https://github.com/user-attachments/assets/0671bcf2-9e73-400d-bc7d-97c8d583927e) | ![Account verification on a phone](https://github.com/user-attachments/assets/e1df405c-608f-47e3-8d51-9537fcec8295) |
 
 Every family uses the same Citius header, short context, compact details and clear action. A readable fallback link and plain-text alternative keep the message useful without the button. Existing subjects, recipients, access checks, approval stages and retry behavior remain. Contact mail keeps its Reply-To address. Private cost, document fields, leave reasons and internal notes remain in the portal.
 

@@ -14,9 +14,9 @@ Workflow updates, account verification, password reset and website enquiries now
 
 | Workflow update | Verification |
 | --- | --- |
-| ![Contracting assignment email](emails/query-phone.png) | ![Account verification email](emails/verification-phone.png) |
+| ![Contracting assignment email](https://github.com/user-attachments/assets/0671bcf2-9e73-400d-bc7d-97c8d583927e) | ![Account verification email](https://github.com/user-attachments/assets/e1df405c-608f-47e3-8d51-9537fcec8295) |
 
-The [complete email gallery](email-review.md) has desktop and phone renders of all 17 workflow detail sets, both authentication messages, website enquiries and missing-details or long-content cases. These 46 pictures render actual template HTML. No email was sent. Staff password setup uses the password-reset template. Reminders use the corresponding workflow details and their existing event wording.
+The [complete email gallery](email-review.md) has desktop and phone renders of all 18 workflow examples, both authentication messages, website enquiries and missing-details or long-content cases. The 52 pictures render actual template HTML, including narrow, image-blocked and browser-dark-preference states. No email was sent. Staff password setup uses the password-reset template. Reminders use the corresponding workflow details and their existing event wording.
 
 ## Sidebar, lists and search
 
@@ -137,7 +137,7 @@ These public-state pictures use actual components with substituted requests. [U0
 | Contact form and submitted values | [Form](u03-after-desktop.png) | [Pending](u03-sending-mobile.png), [mobile order](u04-after-mobile.png). Failure recovery has a behavior check. |
 | Services selector | [Desktop](u05-after-1440.png) | [Phone](u05-after-390.png) |
 | Authentication email and recovery result | [Email gallery](email-review.md#authentication-contact-and-edge-cases) | [Actual generic recovery result](actual/auth-recovery-generic-result.png). The local backend rendered the reset message and recorded provider-not-configured. |
-| Every mail detail family and optional/long states | [All 23 desktop variants](email-review.md) | [All 23 phone variants](email-review.md). Browser rendering only. |
+| Every mail detail family and optional/long states | [All 24 desktop variants](email-review.md) | [All 24 phone variants](email-review.md). Browser rendering only. |
 | Recipient selection, retries, controls, access, deduplication and races | No image can establish these guarantees. | Exact-audience, schema-backed, delivery and controlled-mutation tests supply the evidence. See [rules R01 to R15](README.md#recipient-rules). |
 | Type-only, lifecycle, readiness and shared style changes | They have no standalone page. | The [source coverage map](screenshot-coverage.json) maps every changed `src` implementation file to the corresponding pictures or behavioral proof. |
 
