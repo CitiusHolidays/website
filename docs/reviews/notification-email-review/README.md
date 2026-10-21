@@ -2,10 +2,10 @@
 
 Please review these items before this draft can move forward.
 
-1. Start with the [new inbox gallery](inbox-review.md). It shows Unread/All, the bell, phone layouts, empty/loading/error states and staff/Admin examples from the Mac browser. The signed-in local gallery and exact limits are included.
-2. Review the [CRM redesign](crm-redesign.md) and [site usability changes](site-usability.md). Their pictures and coverage map distinguish changed, unchanged and limited areas across all 59 routes.
-3. Check each recipient rule below. Every rule has a short ID so you can request a precise change, for example, "R04: also notify the Sales Head."
-4. Check that confirmed decisions D01 to D03 match your instructions. You can request a change using the decision or rule ID.
+1. Start with the [complete picture walkthrough](screenshot-walkthrough.md). It covers the changed screens and states, with desktop and phone pictures and an explicit coverage inventory.
+2. Open the [email gallery](email-review.md) for every workflow detail family, authentication and website enquiry. These are browser renders, not delivered messages.
+3. Check the recipient rules below. Use their R01 to R15 IDs for precise feedback.
+4. Check confirmed decisions D01 to D03. The [CRM review](crm-redesign.md), [public and Account review](site-usability.md) and [local workflow record](local-acceptance.md) retain their stable change IDs and exact limits.
 
 The new local gallery shows the real app signed in with designated test accounts. Earlier component-state and failure-state pictures use component substitutes. All people and trips are fictional. No email was sent during this review. This draft has not been merged or deployed to production.
 

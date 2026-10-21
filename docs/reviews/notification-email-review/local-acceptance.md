@@ -2,6 +2,14 @@
 
 The existing test accounts now run against the real Citius app and a fresh local test database. The main workflow run passed all 28 selected checks, with no failures or skips. A final inbox run also passed after ordinary keyboard entry of the Query notes. These checks used fictional staff and trips. They sent no email.
 
+## Email follow-up and additional pictures
+
+The later email follow-up passed 16 selected local checks with no failures or skips. It repeats the seven-step commercial chain, entitled Customer Account view and the full inbox/audience scenario. It adds actual desktop/phone command search, column chooser, account menu, Query list, Ticketing overview, Account draft/tab continuity, and Hotel, Seat and Visa open/cancel forms. The [picture walkthrough](screenshot-walkthrough.md) includes those screens.
+
+The actual forgot-password callback also rendered the new React Email template in the local Convex isolate. The generic response appeared and the safe receipt recorded provider-not-configured. No provider key was present and no email was sent. This is renderer/runtime evidence, not token redemption or mailbox acceptance.
+
+The run used `12e8aeb586541d2e4410c9e2efc0bf3a2ea3b842`, with both runtime identities verified before seeding. Its [machine-readable evidence](email-local-acceptance.json) records exact scenarios, source identity and image hashes. A later test-only lint correction leaves all application source hashes unchanged. The complete final gate passed 2,073 Bun and 225 Convex tests, zero-warning lint, both type checks and 29/29 coverage contracts. The raw dead-code scan retains existing findings and its unchanged 132/183 limit passes.
+
 ## The inbox and bell
 
 Sales created these Queries through the normal form. Contracting received the resulting assignments from the real backend. Opening the bell preserved both unread updates.
@@ -57,7 +65,7 @@ Loading and failed-read pictures in the [earlier inbox gallery](inbox-review.md#
 
 One native-browser Notes entry logged a repeated-update error while a writing extension was active. The cause remains unisolated. It did not recur in the isolated browser's normal keyboard-entry check, which captured page errors and verified the exact saved Notes text. No speculative extension or form rewrite was applied.
 
-The 59-route source audit remains broader than the signed-in checks above. Unlisted routes, password recovery, external providers and production are not accepted by this run. No new access credential, hosted setting, production record, real message, analytics, merge or production deployment was used.
+The 59-route source audit remains broader than the signed-in checks above. Unlisted routes, token redemption, external providers and production are not accepted by this earlier run. The email follow-up above adds only the local reset-rendering check. No new access credential, hosted setting, production record, real message, analytics, merge or production deployment was used.
 
 <details>
 <summary>Exact revisions and local evidence</summary>

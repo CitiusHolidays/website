@@ -1,6 +1,6 @@
 # Existing work, easier to use
 
-This first site-wide pass keeps the team's current workflow. The public site, Customer Account and Staff Workspace keep their separate presentation. Use U01 to U05 for this first pass and U06 to U11 in the [CRM redesign review](crm-redesign.md).
+This first site-wide pass keeps the team's current workflow. The public site, Customer Account and Staff Workspace keep their separate presentation. Use U01 to U05 for this first pass and U06 to U12 in the [CRM redesign review](crm-redesign.md).
 
 The pictures show actual Citius components with fictional people and trips. Navigation, images and data transport use local review substitutes. These are component checks, not proof of a real signed-in session. No email, booking, charge or live business record was created.
 
@@ -71,9 +71,9 @@ The [59-route coverage file](site-coverage.json) lists every page entry, its cha
 | Area | Routes | Checked and changed | Unchanged or limited |
 | --- | ---: | --- | --- |
 | Staff Workspace | 30 | U01 reaches 23 shared-list routes when their toolbar is shown. The actual Query toolbar and four custom workspaces were reviewed at desktop/mobile sizes. | The deeper [CRM journey review](crm-redesign.md#staff-journey-coverage) now covers populated commercial, operational, finance, leave and custom screens. Other routes inherit the shell where used. Real role sessions and record-specific journeys remain target checks. |
-| Customer Account | 1 | U02 covers Profile and tab continuity. Existing Journeys and Settings tests remain. | Entitlements and journey facts remain read-only. No customer session was used. |
+| Customer Account | 1 | U02 covers Profile and tab continuity. Existing Journeys and Settings tests remain. | Entitlements and journey facts remain read-only. The later signed-in local run checks the entitled trip and Profile draft/tab continuity; it does not broaden entitlement access. |
 | Public marketing and enquiry | 7 | Contact and Services changed. Home, About, Gallery, MICE and Policies components were checked at desktop/mobile sizes. | Retained composition and content stay. CMS media and the native server layout need target review. |
-| Authentication | 7 | Staff, guest and vendor sign-in, forgot-password and missing-token reset components were checked. | Auth rules are unchanged. Legacy redirect, verification links and real recovery delivery are not browser-accepted. |
+| Authentication | 7 | Staff, guest and vendor sign-in, forgot-password and missing-token reset components were checked. | Auth rules are unchanged. The later local callback check renders password-reset mail and records provider-not-configured. Legacy redirects, verification tokens and actual recovery delivery remain unaccepted. |
 | Vendor | 1 | Existing supplier page checked at desktop/mobile sizes. | The retained placeholder and entry availability stay. No supplier session or new capability. |
 | Journal | 2 | Index and article components checked with sample content. | Existing featured layout and article presentation stay. Live CMS content was not fetched. |
 | Pilgrimage | 2 | Hub and trail components checked using existing trail data. | Programme, itinerary, enquiry, booking and payment meaning stay. No booking was submitted. |

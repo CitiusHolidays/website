@@ -1,6 +1,6 @@
 # The notification inbox
 
-The [signed-in local checks](local-acceptance.md) now show the actual app, existing test accounts and isolated local backend. All 28 selected workflow checks passed. The earlier state examples below remain component checks with substituted sign-in, server responses and navigation. No email was sent.
+The [signed-in local checks](local-acceptance.md) now show the actual app, existing test accounts and isolated local backend. All 28 selected workflow checks passed. The [complete picture walkthrough](screenshot-walkthrough.md) adds the latest signed-in screens and email gallery. The earlier state examples below remain component checks with substituted sign-in, server responses and navigation. No email was sent.
 
 ![The actual signed-in Contracting inbox](local/inbox-unread-desktop.png)
 
@@ -67,7 +67,7 @@ The earlier Preview-access investigation is historical. It is not a prerequisite
 | Claimed change | Actual picture or comparison | Evidence and remaining limit |
 | --- | --- | --- |
 | Shared inbox, Unread/All, selected read, bell, late arrival, failed read | The desktop and phone pictures above | Signed-in local inbox, bell, selected read and destination checks are in local-acceptance.md. Earlier loading/error examples retain synthetic transport. |
-| Assignment, leave, Tour Manager and ticket emails | [Email examples](README.md#the-emails) | Production HTML with fictional values from the earlier notification review. No provider or mailbox acceptance. |
+| Assignment, leave, Tour Manager and ticket emails | [Email examples](README.md#the-emails) | The current shared React Email templates with fictional values, across all detail families and desktop/phone views. No provider or mailbox acceptance. |
 | Heads can take their own work | [Self-assignment picture](README.md#r03-direct-job-card-assignment) | Actual selector plus a signed-in Head of Ticketing self-assignment and persisted-value check. Other head/work combinations retain registered tests. |
 | Recipient, retry and deduplication rules | [R01 to R15](README.md#recipient-rules) | Schema-backed and controlled-mutation evidence. A screenshot cannot prove audience or delivery guarantees. |
 | Staff filters, Account editing, Contact and Services | [U01 to U05 before/after](site-usability.md) | Actual components and focused behavior tests. Their distinct visual designs remain. |

@@ -58,7 +58,7 @@ Counts are established for Queries, Contracting, Draft Proposals, open assigned 
 
 Reads are bounded. A complete count shows its number. A positive incomplete count shows at least that number. An incomplete zero shows an ellipsis with an accessible explanation, rather than claiming there is no work.
 
-Activity persists per person and destination, outside the bell's limited recent feed. Thirty unrelated notices cannot evict it. The real controlled notification publisher records it atomically, using current authorized recipients and record access. Disabled bell controls create no new marker. Existing bell history is not backfilled. The new table is code only; no target migration or deployment was run.
+Activity persists per person and destination, outside the bell's limited recent feed. Thirty unrelated notices cannot evict it. The real controlled notification publisher records it atomically, using current authorized recipients and record access. Disabled bell controls create no new marker. Existing bell history is not backfilled. The new table was exercised only on the task-owned loopback test backend. No hosted or production backend update was used for local acceptance.
 
 Activity records a historical arrival. If work later closes or moves to someone else, the workload count changes; the arrival dot can remain until that person visits. A proposal sent to its assigned Sales owner can therefore produce a dot with no Draft proposal count. Acknowledgement checks current route permission and staff identity. Hover, prefetch, failed navigation and merely rendering the sidebar do not acknowledge it. An exact captured ID prevents an old acknowledgement from clearing a newer arrival.
 
@@ -114,7 +114,7 @@ The [signed-in local gallery](local-acceptance.md) shows the real inbox, bell, Q
 
 [Six controlled mutations](crm-mutation-evidence.json) caught stale server acknowledgement, missing real-publisher projection, a moving client snapshot, enabled pending checkboxes, missing Job Card prefill and a lost Proposal revision. Every original file was restored byte-for-byte and its focused suite passed afterward. These are separate from the four earlier U01 to U05 mutations and ordinary passing tests.
 
-The final local gate passes with Effect 4.0.5: 2,060 Bun tests, 225 schema-backed Convex tests, zero-warning lint, application/Convex types, and coverage for six high-risk files and 29/29 branch contracts. The existing dead-code check passes at 132/183 reviewed findings, with no baseline update. Diff hygiene passes. The PR records the exact published revision and hosted result separately.
+The final email follow-up keeps Effect 4.0.5 and passes the complete local gate with 2,073 Bun tests, 225 schema-backed Convex tests, zero-warning lint, application/Convex types and 29/29 coverage contracts. The raw dead-code scan reports existing findings; its limit passes at 132/183 reviewed findings, without a baseline update. Diff hygiene passes. The [complete picture walkthrough](screenshot-walkthrough.md) adds the current signed-in forms, menus and Account states. The PR records the exact published revision and hosted result separately.
 
 The first upgrade run correctly rejected the old dependency-closure fingerprint. The existing repository calculation refreshed it, without weakening its test. A later React Doctor check found the compiler limitation described below; the complete local gate passed again after that fix.
 

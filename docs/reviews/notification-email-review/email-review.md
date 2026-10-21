@@ -2,7 +2,7 @@
 
 These are browser renders of the real React Email templates with fictional values. No message was sent. They show layout and content at desktop and phone widths, not Gmail, Outlook or mailbox delivery.
 
-The emails share Citius branding, compact labeled details, one primary action and a visible fallback link. CRM private notes, document details, leave reasons and cost price stay behind portal access checks. Subjects, recipients, approval stages, existing links, retries and duplicate prevention retain their meaning. Authentication keeps its current token and callback construction. Plain text includes the secure action link.
+The emails share Citius branding, compact labeled details, one primary action and a visible fallback link. CRM private notes, document details, leave reasons and cost price stay behind portal access checks. Subjects, recipients, approval stages, existing links, retries and duplicate prevention retain their meaning. Authentication keeps its current token and callback construction. Plain text includes the secure action link and separates every detail label from its value. A regression test reproduced concatenated rows before the fix and passed afterward; all 46 HTML pictures remain byte-identical.
 
 ## Workflow mail
 
