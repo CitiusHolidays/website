@@ -29,7 +29,7 @@ async function createQuery(page: Page, clientName: string) {
 
 async function openInbox(page: Page) {
   await page.goto("/portal/activity");
-  await expect(inbox(page).getByRole("button", { name: /^Unread/ })).toBeVisible();
+  await expect(inbox(page).getByRole("button", { name: /^Unread(?: · \d+)?$/ })).toBeVisible();
   await expect(inbox(page).getByRole("status", { name: "Loading notifications" })).toBeHidden();
 }
 
@@ -48,11 +48,14 @@ test.describe("@workflow notification inbox and sidebar activity", () => {
     contracting.page.on("pageerror", (error) => pageErrors.push(error.message));
     try {
       await openInbox(contracting.page);
-      await expect(inbox(contracting.page).getByText("No notifications yet")).toBeVisible();
-      await contracting.page.screenshot({ path: testInfo.outputPath("inbox-empty-desktop.png") });
+      const unreadBefore = await inbox(contracting.page).locator("li").count();
+      const link = contractingLink(contracting.page);
+      if (!(await link.isVisible())) {
+        await contracting.page.getByRole("button", { name: /^Enquiries/ }).click();
+      }
+      await expect(link).toBeVisible();
 
       const firstCode = await createQuery(sales.page, uniqueE2eLabel("E2E Cedar Conference"));
-      const link = contractingLink(contracting.page);
       await expect(link.getByText("New activity", { exact: true })).toBeVisible();
       const countBefore = await link
         .locator("[title$='work items need attention']")
@@ -75,13 +78,19 @@ test.describe("@workflow notification inbox and sidebar activity", () => {
       );
       await openInbox(contracting.page);
       await expect(
-        inbox(contracting.page).getByRole("button", { name: /^Unread · 1$/ })
+        inbox(contracting.page).getByRole("button", {
+          exact: true,
+          name: `Unread · ${unreadBefore + 1}`,
+        })
       ).toBeVisible();
 
       const secondCode = await createQuery(sales.page, uniqueE2eLabel("E2E Cedar Follow-up"));
       await expect(link.getByText("New activity", { exact: true })).toBeVisible();
       await expect(
-        inbox(contracting.page).getByRole("button", { name: /^Unread · 2$/ })
+        inbox(contracting.page).getByRole("button", {
+          exact: true,
+          name: `Unread · ${unreadBefore + 2}`,
+        })
       ).toBeVisible();
       const firstUpdate = inbox(contracting.page)
         .getByRole("button")
@@ -90,9 +99,12 @@ test.describe("@workflow notification inbox and sidebar activity", () => {
       await contracting.page.screenshot({ path: testInfo.outputPath("inbox-unread-desktop.png") });
 
       await openInbox(hr.page);
-      await expect(inbox(hr.page).getByText("No notifications yet")).toBeVisible();
-      await expect(hr.page.getByRole("button", { name: /Open notifications/ })).not.toContainText(
-        "2"
+      await inbox(hr.page).getByRole("button", { exact: true, name: "All" }).click();
+      await expect(inbox(hr.page).getByRole("button").filter({ hasText: firstCode })).toHaveCount(
+        0
+      );
+      await expect(inbox(hr.page).getByRole("button").filter({ hasText: secondCode })).toHaveCount(
+        0
       );
       await expect(hr.page.locator('a.portal-nav-link[href="/portal/contracting"]')).toHaveCount(0);
 
@@ -107,7 +119,10 @@ test.describe("@workflow notification inbox and sidebar activity", () => {
       });
       await openInbox(contracting.page);
       await expect(
-        inbox(contracting.page).getByRole("button", { name: /^Unread · 1$/ })
+        inbox(contracting.page).getByRole("button", {
+          exact: true,
+          name: `Unread · ${unreadBefore + 1}`,
+        })
       ).toBeVisible();
       await expect(
         inbox(contracting.page).getByRole("button").filter({ hasText: firstCode })

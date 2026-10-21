@@ -106,7 +106,7 @@ test.describe
       });
       await page.goto("/portal");
       await page.getByRole("button", { exact: true, name: "Enquiries" }).click();
-      const queriesLink = page.getByRole("link", { exact: true, name: "All Sales Queries" });
+      const queriesLink = page.locator('a.portal-nav-link[href="/portal/queries"]');
       await expect(queriesLink).toBeVisible();
 
       await page.evaluate(() => performance.clearMarks());
@@ -137,9 +137,7 @@ test.describe
 
       await page.goBack();
       await expect(page).toHaveURL(PORTAL_DASHBOARD_URL_PATTERN);
-      await expect(
-        page.getByRole("link", { exact: true, name: "All Sales Queries" })
-      ).toBeVisible();
+      await expect(page.locator('a.portal-nav-link[href="/portal/queries"]')).toBeVisible();
       await page.goForward();
       await expect(page).toHaveURL(PORTAL_QUERIES_URL_PATTERN);
       await expect(
