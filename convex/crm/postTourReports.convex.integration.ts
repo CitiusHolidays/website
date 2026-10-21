@@ -329,3 +329,59 @@ test("removed assignments, inactive staff and deleted Job Cards fail closed with
       .mutation(api.crm.postTourReports.archive, { expectedRevision: 1, reportId: saved.id })
   ).rejects.toThrow("no longer available");
 });
+
+test("a replacement draft cannot be overwritten by a stale form with the same revision", async () => {
+  const f = await fixture();
+  const first = await f.save();
+  await f
+    .actor("admin")
+    .mutation(api.crm.postTourReports.archive, { expectedRevision: 1, reportId: first.id });
+  const replacement = await f.save();
+  expect(replacement.revision).toBe(1);
+  await expect(
+    f.actor("tm").mutation(api.crm.postTourReports.saveDraft, {
+      content: { ...f.content, highlights: "Stale overwrite" },
+      expectedRevision: 1,
+      jobCardId: f.jobId,
+      reportId: first.id,
+    })
+  ).rejects.toThrow("changed in another session");
+  await expect(
+    f.actor("admin").mutation(api.crm.postTourReports.archive, {
+      expectedRevision: 2,
+      reportId: first.id,
+      restore: true,
+    })
+  ).rejects.toThrow("current report already exists");
+  expect(
+    await f.actor("hr").query(api.crm.postTourReports.workspace, { reportId: first.id })
+  ).toBeNull();
+  expect(
+    (await f.actor("tm").query(api.crm.postTourReports.workspace, { jobCardId: f.jobId }))?.report
+      ?.content.highlights
+  ).toBe(f.content.highlights);
+});
+
+test("assigned Operations equivalents retain Cement scope and a matching customer email grants no report access", async () => {
+  const f = await fixture();
+  await f.t.run((ctx) => ctx.db.patch("staffUsers", f.ids.ops, { roles: ["Operations Cement"] }));
+  await expect(f.save("ops")).rejects.toThrow("FORBIDDEN");
+  await f.t.run(async (ctx) => {
+    await ctx.db.patch("queries", f.queryId, { queryType: "Cement" });
+    await ctx.db.patch("jobCards", f.jobId, { queryType: "Cement" });
+  });
+  const saved = await f.save("ops");
+  await f
+    .actor("ops")
+    .mutation(api.crm.postTourReports.submit, { expectedRevision: 1, reportId: saved.id });
+  await expect(
+    f.t
+      .withIdentity({
+        email: "hr@example.invalid",
+        issuer,
+        subject: "unprovisioned-customer",
+        tokenIdentifier: `${issuer}|unprovisioned-customer`,
+      })
+      .query(api.crm.postTourReports.workspace, { reportId: saved.id })
+  ).rejects.toThrow("FORBIDDEN");
+});
