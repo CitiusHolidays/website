@@ -3,7 +3,7 @@ import { E2E_ROLE_PROFILE_KEYS } from "../fixtures/staffProfiles";
 import { openPortalAs } from "../helpers/auth";
 import { uniqueE2eLabel } from "../helpers/chainState";
 import { entityModal, modalCombobox, modalField, saveEntityModal } from "../helpers/modal";
-import { selectOptionByMatchingLabel } from "../helpers/select";
+import { selectedOptionLabel, selectOptionByMatchingLabel } from "../helpers/select";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 import { QueriesPage } from "../pages/queriesPage";
 
@@ -48,12 +48,14 @@ async function expectExactAudience(browser: Browser, code: string, testInfo: Tes
         await page.screenshot({ path: testInfo.outputPath("head-self-assignment-desktop.png") });
         await saveEntityModal(page);
         await page.goto("/portal/queries");
-        await expect(
-          page
-            .locator("tr")
-            .filter({ hasText: code })
-            .getByText("E2E Ticketing Head", { exact: true })
-        ).toBeVisible();
+        await page
+          .locator("tr")
+          .filter({ hasText: code })
+          .getByRole("button", { exact: true, name: "Assign teams" })
+          .click();
+        await expect
+          .poll(() => selectedOptionLabel(modalCombobox(page, "Ticketing SPOC")))
+          .toBe("E2E Ticketing Head");
       }
     } finally {
       await context.close();
