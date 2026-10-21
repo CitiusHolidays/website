@@ -301,7 +301,10 @@ export function PostTourReportForm({
               <Field key={key} label={label}>
                 {key === "startDate" || key === "endDate" ? (
                   <PortalDateInput
+                    aria-label={label}
+                    id={`${id}-${key}`}
                     inputClassName="!bg-white"
+                    name={key}
                     onChange={(value: string) => tour(key, value)}
                     required
                     value={content.tour[key]}
