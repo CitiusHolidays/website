@@ -9,9 +9,8 @@ import { resolveAuthOrigin } from "../lib/authOriginPolicy";
 import { AUTH_EMAIL_FROM } from "../lib/emailConfig";
 import { resolveNotificationResendKey } from "./notificationEmailConfig";
 import {
-  buildNotificationHtml,
-  buildNotificationText,
   notificationEmailSummaryDetails,
+  renderNotificationEmail,
 } from "./notificationEmailContent";
 import {
   deliverNotificationEmailsSequentially,
@@ -109,15 +108,16 @@ export const dispatchNotificationEmail = internalAction({
           href,
           title: job.title,
         };
+        const rendered = await renderNotificationEmail(content);
         message =
           (await ctx.runMutation(freezeRef, {
             attempt: job.attempts,
             jobId,
             message: {
               from: AUTH_EMAIL_FROM,
-              html: buildNotificationHtml(content),
+              html: rendered.html,
               subject: `Citius Connect: ${job.title}`,
-              text: buildNotificationText(content),
+              text: rendered.text,
             },
           })) ?? undefined;
       } catch (error) {

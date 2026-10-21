@@ -7,7 +7,7 @@ Please review these items before this draft can move forward.
 3. Check each recipient rule below. Every rule has a short ID so you can request a precise change, for example, "R04: also notify the Sales Head."
 4. Check that confirmed decisions D01 to D03 match your instructions. You can request a change using the decision or rule ID.
 
-The new local gallery shows the real app signed in with designated test accounts. Earlier reference comparisons and failure-state pictures use component substitutes. All people and trips are fictional. No email was sent during this review. This draft has not been merged or deployed to production.
+The new local gallery shows the real app signed in with designated test accounts. Earlier component-state and failure-state pictures use component substitutes. All people and trips are fictional. No email was sent during this review. This draft has not been merged or deployed to production.
 
 ## What this simplifies
 
@@ -126,19 +126,15 @@ An informational event, such as an order being marked lost, can still reach the 
 
 ## The emails
 
-Emails give the event, useful record context and one link to Citius Connect. Leave reasons, decision notes, passport fragments, files, internal notes, cost prices and budget amounts stay in the portal. The approved inbound enquiry message remains available for that follow-up purpose.
+The [email gallery](email-review.md) shows all 17 workflow detail sets, both authentication messages, contact enquiries and the long or missing-details cases. These pictures render the real React Email output locally. They are not inbox-delivery proof.
 
-These samples use the production email layout and the wording published by the named workflow, with fictional values substituted. The leave sample goes to the head approver. "HR reviewer" describes the app's current final-review step, not a proposed copy-only policy.
+| Workflow email | Authentication email |
+| --- | --- |
+| ![Contracting assignment on a phone](emails/query-phone.png) | ![Account verification on a phone](emails/verification-phone.png) |
 
-![Contracting assignment email](email-query-mobile.png)
+Every family uses the same Citius header, short context, compact details and clear action. A readable fallback link and plain-text alternative keep the message useful without the button. Existing subjects, recipients, access checks, approval stages and retry behavior remain. Contact mail keeps its Reply-To address. Private cost, document fields, leave reasons and internal notes remain in the portal.
 
-![Leave head-approval email](email-leave-mobile.png)
-
-![Tour Manager allocation email](email-tourManager-mobile.png)
-
-The ticket-attention email uses the same production wording. It goes to the assigned Operations and Ticketing SPOCs and their relevant heads, with no general team copy.
-
-![Ticket-attention email](email-ticket-mobile.png)
+The [desktop and phone pictures](email-review.md) also show contact, Proposal, Job Card, traveller, Ticketing, PNR, passport, visa, flight, seat, invoice, expense, approval, leave, hotel and Tour Manager mail. No Resend setup or real send was needed.
 
 ## If email has a problem
 
@@ -189,7 +185,7 @@ Controlled source mutations separately remove lease protection, immutable-conten
 
 The final PR records the exact revision, full local gates and hosted result. Target-neutral checks do not prove deployment. The selected authenticated workflows passed on a fresh local backend. Hosted and production changes remain subject to the repository release process.
 
-Effect remains limited to existing orchestration uses under ADR 0004 and is pinned to 4.0.5. Rat Stack is a version-aware reference. The production-test runner now completes bounded asynchronous cleanup during interruption and catches construction defects. Next.js, Convex, auth, approvals, payments and deployment architecture remain in place.
+Effect remains limited to existing orchestration uses under ADR 0004 and is pinned to 4.0.5. The production-test runner now completes bounded asynchronous cleanup during interruption and catches construction defects. Next.js, Convex, auth, approvals, payments and deployment architecture remain in place.
 
 ### Business sources
 

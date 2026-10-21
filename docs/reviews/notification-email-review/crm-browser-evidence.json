@@ -355,5 +355,9 @@
     "Historical before fixtures may be less populated than final fixtures; compare layout rather than business outcomes"
   ],
   "jobCard": "Collapsed checklist no longer stretches; expanded actual task board inspected with retained tasks. Synthetic Job Card uses confirmed Query and Sent Proposal.",
-  "states": "Query Loading records progressbar and separate No active queries empty state captured. No new records or submissions."
+  "states": "Query Loading records progressbar and separate No active queries empty state captured. No new records or submissions.",
+  "removedPresentationAssets": {
+    "count": 9,
+    "reason": "Director review now shows Citius screenshots only. Historical image evidence remains in the earlier published revision; functional observations and source hashes are retained."
+  }
 }

@@ -73,12 +73,12 @@ export async function executeProductionTestRecipe(
       return;
     }
     case "auth_email": {
-      const verification = prepareAuthEmailMessage({
+      const verification = await prepareAuthEmailMessage({
         ctaHref: "https://example.invalid/auth/verify",
         greetingName: "Account owner",
         purpose: "verification",
       });
-      const reset = prepareAuthEmailMessage({
+      const reset = await prepareAuthEmailMessage({
         ctaHref: "https://example.invalid/auth/reset",
         greetingName: "Account owner",
         purpose: "password_reset",

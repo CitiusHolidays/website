@@ -15,7 +15,7 @@ describe("Contact email rendering", () => {
   test("Renders the complete table-based transactional layout without emoji", async () => {
     const html = await renderContactFormEmail({ ...base, phone: "+1 555-123-4567" });
     expect(html).toContain('role="presentation"');
-    expect(html).toContain("New Contact Form Submission");
+    expect(html).toContain("New website enquiry");
     expect(html).toContain("Citius Holidays website");
     expect(html).toContain("+1 555-123-4567");
     expect(html).not.toMatch(EMOJI_PATTERN);

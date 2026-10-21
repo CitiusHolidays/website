@@ -1,3 +1,5 @@
+import { renderTransactionalEmail } from "../lib/transactionalEmail";
+
 type EmailDetails = {
   title: string;
   rows: Array<{ label: string; value: string }>;
@@ -33,152 +35,19 @@ export function notificationEmailSummaryDetails(
   };
 }
 
-function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-const MULTILINE_DETAIL_LABELS = new Set([
-  "Batching notes",
-  "Decision note",
-  "Itinerary summary",
-  "Notes",
-  "Particulars",
-  "Reason",
-  "Reporting instructions",
-  "Special instructions",
-  "Summary",
-]);
-
-const EMAIL_NAVY = "#0f2d5c";
-const EMAIL_ORANGE = "#f58220";
-const EMAIL_BG = "#eef2f7";
-const EMAIL_BORDER = "#d5dde8";
-const EMAIL_LABEL = "#5c6b7f";
-const EMAIL_TEXT = "#1a2332";
-const EMAIL_MUTED = "#6b7c93";
-
-function isMultilineDetailRow(label: string, value: string) {
-  return value.includes("\n") || MULTILINE_DETAIL_LABELS.has(label);
-}
-
-function buildDetailValueHtml(label: string, value: string) {
-  const escaped = escapeHtml(value);
-  if (isMultilineDetailRow(label, value)) {
-    return `<td style="padding:10px 14px;border-top:1px solid ${EMAIL_BORDER};color:${EMAIL_TEXT};font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.55;vertical-align:top;white-space:pre-wrap;word-break:break-word;">${escaped}</td>`;
-  }
-  return `<td style="padding:10px 14px;border-top:1px solid ${EMAIL_BORDER};color:${EMAIL_TEXT};font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.45;font-weight:600;vertical-align:top;word-break:break-word;">${escaped}</td>`;
-}
-
-function buildDetailsHtml(details: EmailDetails) {
-  if (!details || details.rows.length === 0) {
-    return "";
-  }
-
-  const rows = details.rows
-    .map(
-      (row) => `<tr>
-            <td style="padding:10px 14px;border-top:1px solid ${EMAIL_BORDER};color:${EMAIL_LABEL};font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.45;width:34%;vertical-align:top;font-weight:600;">${escapeHtml(row.label)}</td>
-            ${buildDetailValueHtml(row.label, row.value)}
-          </tr>`
-    )
-    .join("");
-
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 24px;border-collapse:collapse;border:1px solid ${EMAIL_BORDER};background-color:#f8fafc;">
-          <tr>
-            <td colspan="2" style="padding:12px 14px;background-color:${EMAIL_NAVY};color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">${escapeHtml(details.title)}</td>
-          </tr>
-          ${rows}
-        </table>`;
-}
-
-export function buildNotificationText(args: {
+export function renderNotificationEmail(args: {
   title: string;
   body: string;
   href: string;
   details: EmailDetails;
 }) {
-  const detailLines =
-    args.details && args.details.rows.length > 0
-      ? [
-          "",
-          args.details.title.toUpperCase(),
-          "-".repeat(Math.min(args.details.title.length, 48)),
-          ...args.details.rows.map((row) => `${row.label}: ${row.value}`),
-        ]
-      : [];
-
-  return [
-    "CITIUS CONNECT",
-    args.title,
-    "",
-    args.body,
-    ...detailLines,
-    "",
-    "Open in portal:",
-    args.href,
-    "",
-    "Sign in to review the full record and take action.",
-  ].join("\n");
-}
-
-export function buildNotificationHtml(args: {
-  title: string;
-  body: string;
-  href: string;
-  details: EmailDetails;
-}) {
-  const title = escapeHtml(args.title);
-  const body = escapeHtml(args.body);
-  const href = escapeHtml(args.href);
-  const detailsHtml = buildDetailsHtml(args.details);
-
-  return `<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>${title}</title>
-  </head>
-  <body style="margin:0;padding:0;background-color:${EMAIL_BG};font-family:Arial,Helvetica,sans-serif;color:${EMAIL_TEXT};">
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:${EMAIL_BG};border-collapse:collapse;">
-      <tr>
-        <td align="center" style="padding:28px 16px;">
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:600px;border-collapse:collapse;">
-            <tr>
-              <td style="padding:20px 24px;background-color:${EMAIL_NAVY};border:1px solid ${EMAIL_NAVY};border-top:4px solid ${EMAIL_ORANGE};border-bottom:none;border-radius:8px 8px 0 0;">
-                <p style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;color:#ffffff;">Citius Connect</p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:28px 24px;background-color:#ffffff;border-left:1px solid ${EMAIL_BORDER};border-right:1px solid ${EMAIL_BORDER};">
-                <h1 style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:1.3;font-weight:700;color:${EMAIL_NAVY};">${title}</h1>
-                <p style="margin:0 0 24px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#334155;">${body}</p>
-                ${detailsHtml}
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
-                  <tr>
-                    <td align="left" bgcolor="${EMAIL_NAVY}" style="border-radius:6px;background-color:${EMAIL_NAVY};">
-                      <a href="${href}" style="display:inline-block;padding:13px 22px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;line-height:1.2;color:#ffffff;text-decoration:none;border-radius:6px;">Open in Citius Connect</a>
-                    </td>
-                  </tr>
-                </table>
-                <p style="margin:22px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.55;color:${EMAIL_MUTED};">Sign in to review the full record and take action.</p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:16px 24px;background-color:#f4f7fb;border:1px solid ${EMAIL_BORDER};border-top:none;border-radius:0 0 8px 8px;text-align:center;">
-                <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.5;color:${EMAIL_MUTED};">Automated workflow update. Citius Connect has the latest record.</p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`;
+  return renderTransactionalEmail({
+    action: { href: args.href, label: "Open in Citius Connect" },
+    context: "Citius Connect · Staff workspace",
+    details: args.details,
+    footer:
+      "Sent to the staff selected for this workflow update. Sign in to review the full record and take action. Citius Connect has the latest record.",
+    paragraphs: [args.body],
+    title: args.title,
+  });
 }

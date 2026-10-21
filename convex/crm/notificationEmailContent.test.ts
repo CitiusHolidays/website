@@ -1,12 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import {
-  buildNotificationHtml,
-  buildNotificationText,
   notificationEmailSummaryDetails,
+  renderNotificationEmail,
 } from "./notificationEmailContent";
 
 describe("portable notification email content", () => {
-  test("keeps useful trip context while private reasons, documents and commercial notes stay in the portal", () => {
+  test("keeps useful trip context while private reasons, documents and commercial notes stay in the portal", async () => {
     const details = notificationEmailSummaryDetails(
       {
         rows: [
@@ -28,8 +27,7 @@ describe("portable notification email content", () => {
       href: "https://example.invalid/portal/job-cards?open=jobCard&id=demo",
       title: "Job Card opened",
     };
-    const html = buildNotificationHtml(content);
-    const text = buildNotificationText(content);
+    const { html, text } = await renderNotificationEmail(content);
     for (const rendered of [html, text]) {
       expect(rendered).toContain("JC-0264");
       expect(rendered).toContain("Bali");
@@ -43,7 +41,7 @@ describe("portable notification email content", () => {
       }
     }
   });
-  test("retains the enquiry message for the explicitly approved inbound follow-up purpose and escapes markup", () => {
+  test("retains the enquiry message for the explicitly approved inbound follow-up purpose and escapes markup", async () => {
     const details = notificationEmailSummaryDetails(
       { rows: [{ label: "Notes", value: "Please call about <Bali>" }], title: "Enquiry" },
       "inboundQueryIntent"
@@ -54,8 +52,9 @@ describe("portable notification email content", () => {
       href: "https://example.invalid/portal",
       title: "New <enquiry>",
     };
-    expect(buildNotificationHtml(content)).toContain("Please call about &lt;Bali&gt;");
-    expect(buildNotificationHtml(content)).not.toContain("<enquiry>");
-    expect(buildNotificationText(content)).toContain("Please call about <Bali>");
+    const { html, text } = await renderNotificationEmail(content);
+    expect(html).toContain("Please call about &lt;Bali&gt;");
+    expect(html).not.toContain("<enquiry>");
+    expect(text).toContain("Please call about <Bali>");
   });
 });

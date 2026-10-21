@@ -1,0 +1,641 @@
+{
+  "schemaVersion": 1,
+  "scope": "Browser-rendered actual React Email output with synthetic content. No provider/mailbox/client acceptance.",
+  "packages": {
+    "@react-email/components": "1.0.12",
+    "@react-email/render": "2.1.0",
+    "React": "19.3.0",
+    "Resend": "6.28.1"
+  },
+  "dependencyChanges": false,
+  "providerCalls": 0,
+  "sources": [
+    {
+      "path": "convex/lib/transactionalEmail.tsx",
+      "sha256": "24648029fd5ed54a48c52f1df44a1cd49c451daba9db485998d8db08f8aaf983"
+    },
+    {
+      "path": "convex/lib/authEmailHtml.ts",
+      "sha256": "9a8e1a987954912edbe7ba6521c630a4965615c47c3e8eb752ed268a0bbf4709"
+    },
+    {
+      "path": "convex/crm/notificationEmailContent.ts",
+      "sha256": "0c3f1b0f15d7429c5eb1948f65dc4aca14e566762d1fe4ff7f34a7c0267e1eb5"
+    },
+    {
+      "path": "convex/crm/notificationEmails.ts",
+      "sha256": "443152d6bfd074d8cac0fa598b5d9af7b1f0d5f1226a55d25516a4826d0e45fc"
+    },
+    {
+      "path": "src/emails/ContactFormEmail.js",
+      "sha256": "1629c57bb5d94c91622f364397c971fa5054fb1b5d95ac4990517056ea2ae2b2"
+    },
+    {
+      "path": "src/lib/contact/renderContactEmail.js",
+      "sha256": "f848619c10eec87ac8f7b9bbdbd35bc9ebbbe31b87f141e3d0fcae7d54e958ae"
+    }
+  ],
+  "checks": [
+    {
+      "id": "query",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "query",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "inboundQueryIntent",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "inboundQueryIntent",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "proposal",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "proposal",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "jobCard",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "jobCard",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "traveller",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "traveller",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "ticket",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "ticket",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "pnr",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "pnr",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "passport",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "passport",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "visa",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "visa",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "flight",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "flight",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "seat",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "seat",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "invoice",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "invoice",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "expense",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "expense",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "approval",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "approval",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "leave",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "leave",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "hotel",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "hotel",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "tourManager",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "tourManager",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "verification",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "verification",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "password_reset",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "password_reset",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "contact",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "contact",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "contact-minimal",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "contact-minimal",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "minimal",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "minimal",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "long",
+      "size": "desktop",
+      "width": 900,
+      "height": 1000,
+      "overflow": 0,
+      "networkRequests": 0
+    },
+    {
+      "id": "long",
+      "size": "phone",
+      "width": 390,
+      "height": 844,
+      "overflow": 0,
+      "networkRequests": 0
+    }
+  ],
+  "images": [
+    {
+      "path": "emails/approval-desktop.png",
+      "sha256": "75ccc85776328b950e542cb773e0aa0d2cf37d0a7b6df1bc79861fd6a15c4629",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/approval-phone.png",
+      "sha256": "b45bccafb0c2050d511284ad45ac56f7f81d9a095cf5d4d13822cc44257ee0f6",
+      "pixels": [390, 866]
+    },
+    {
+      "path": "emails/contact-desktop.png",
+      "sha256": "21db565aec24603140d5715be98361655712660f9286226fe87117c39dd3ec13",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/contact-minimal-desktop.png",
+      "sha256": "c56331587c0aa351465081a75654f8b3fcf2f0593e7f22f31231156392a17368",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/contact-minimal-phone.png",
+      "sha256": "3563bfa2991931919853d20113995c54cee34cb936867fb64709495d377ec352",
+      "pixels": [390, 844]
+    },
+    {
+      "path": "emails/contact-phone.png",
+      "sha256": "6a75c37ca62632a5ab5e98399ffbdbc2007f734f1a6d5b8ad7e79561d2a48924",
+      "pixels": [390, 931]
+    },
+    {
+      "path": "emails/expense-desktop.png",
+      "sha256": "bf945cd469aab70618d05af9b0d8f9959175c7ad8aee53b6478ba4fdb1f45a69",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/expense-phone.png",
+      "sha256": "12151bf580af2acdf436818143900d90295fb98b5818f8eaa5fbdb6dca46c3a7",
+      "pixels": [390, 867]
+    },
+    {
+      "path": "emails/flight-desktop.png",
+      "sha256": "790cffd2bf80fb7f8db8530aede63782fc66bf25c12f2a7f70ec31eed584e98e",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/flight-phone.png",
+      "sha256": "5ca8e72195650c70b2dca497358b89f6ef453b668e01792f0462b6fb40c4934b",
+      "pixels": [390, 932]
+    },
+    {
+      "path": "emails/hotel-desktop.png",
+      "sha256": "b178fa4b7f433e05e674feade090e0e58e6dc54a5007b6b9ec6ceffb3d4c4871",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/hotel-phone.png",
+      "sha256": "1972da5931c4013358d47b937479194a1a0868baa39052a4bd6e4e0f56a23791",
+      "pixels": [390, 943]
+    },
+    {
+      "path": "emails/inboundQueryIntent-desktop.png",
+      "sha256": "f3f0084b433850670c6b506148b2c761b24a77092aeb5e16b9bc6cbdb2dd58da",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/inboundQueryIntent-phone.png",
+      "sha256": "160e2ade14a793e41d3b995c2847f098c2f569d2cb43081acd9f43fc4697df04",
+      "pixels": [390, 887]
+    },
+    {
+      "path": "emails/invoice-desktop.png",
+      "sha256": "12f423e30bce2fc348f704932a89ca8cac1f532c650ac9c36e5e9657bf0b1f2e",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/invoice-phone.png",
+      "sha256": "40b93d7eda8029de3158244cf2c446b251443ef7bb4f1bb39afc5543b7ecd6f9",
+      "pixels": [390, 848]
+    },
+    {
+      "path": "emails/jobCard-desktop.png",
+      "sha256": "e0109fe72080d8cd90154163cee69fbb1d4fd032a2d455597a52fe32a4736d4e",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/jobCard-phone.png",
+      "sha256": "3d38f8e7f61b87b0e2fc4bef910982b6006060c520e38da8e3219297ffa58386",
+      "pixels": [390, 898]
+    },
+    {
+      "path": "emails/leave-desktop.png",
+      "sha256": "4e7c58f74186abfb13e56365171d946b73f0849f5e93bcbfdf990fa22fb6bc07",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/leave-phone.png",
+      "sha256": "7971212d702e6675b24cc85e8e44c41a37c66eaceb285dced7ef043fa45c3055",
+      "pixels": [390, 1006]
+    },
+    {
+      "path": "emails/long-desktop.png",
+      "sha256": "432e8e48b4a9a9c68a61e68e5e59f560d99a10bb4d81196286dd6e30ebbd5d39",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/long-phone.png",
+      "sha256": "13e91c2d3133bc8bec68adf4fa4b964995a8445d8a962035a5165a84944ee99d",
+      "pixels": [390, 1106]
+    },
+    {
+      "path": "emails/minimal-desktop.png",
+      "sha256": "ab18c41c4b49a0a67bea228d2274d6339c3ee19ce5e49cbfe6d01f6c658a4a5f",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/minimal-phone.png",
+      "sha256": "f945d3de561f88de14dcee122ab2b9505ba16f1b89e44ccba9027b05f4c3be5b",
+      "pixels": [390, 844]
+    },
+    {
+      "path": "emails/passport-desktop.png",
+      "sha256": "6a0297582dbbf70b725ff5f74aad8f7c933f45966abcffdee5cb02a540443c22",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/passport-phone.png",
+      "sha256": "c81bdb0e74cc61fb8a55dbcba961768b9a1d523af3898a113354a399845e4d55",
+      "pixels": [390, 844]
+    },
+    {
+      "path": "emails/password_reset-desktop.png",
+      "sha256": "70b95eaf4b83e8e2f06c708588e9c7ec80ad1821fe7eb6420a073f1ab72df9b1",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/password_reset-phone.png",
+      "sha256": "df7d7bd6ab975f10382d93810fb9696b9664d82317363464ff7711d19f5db6ec",
+      "pixels": [390, 844]
+    },
+    {
+      "path": "emails/pnr-desktop.png",
+      "sha256": "fa85e5c01b8361150f6d539d3f04f683c6ca8c9f2926bc5996a31e98e132dc2a",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/pnr-phone.png",
+      "sha256": "69b358e0784373c294ead035bd3b51f91a9d7f234fabc6062014251b33570c68",
+      "pixels": [390, 890]
+    },
+    {
+      "path": "emails/proposal-desktop.png",
+      "sha256": "568c327047b935ee1e57b600beef482d41850a59cc9b8cd4d2bc10cc757241cd",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/proposal-phone.png",
+      "sha256": "74e4def21c334dac07d1d147846b0f5e6e29b606b39b3611e97ab7dee5ff19b9",
+      "pixels": [390, 885]
+    },
+    {
+      "path": "emails/query-desktop.png",
+      "sha256": "18d8134218302383fe9cc15b56b39991b2c929c31688536873794eeb31c0bd4b",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/query-phone.png",
+      "sha256": "3b359a7b5bf83cc0962d775024919429453338f254fa59365457b9aa27c6fb35",
+      "pixels": [390, 866]
+    },
+    {
+      "path": "emails/seat-desktop.png",
+      "sha256": "4709becb1ec0f53e43d365325fe22cf0b3899a136b766541f4712744cdbd720f",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/seat-phone.png",
+      "sha256": "160adc3d485fb7436a58d382917e91a76a67924aee13c2e7114d6f3845be636c",
+      "pixels": [390, 844]
+    },
+    {
+      "path": "emails/ticket-desktop.png",
+      "sha256": "5d74a251c16459812264cc64805af639c057b6fa425188da95e78e73069ab7fd",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/ticket-phone.png",
+      "sha256": "b9eba2d3c4d28c1b8eb1ace63f01a7b1389fd417454d5e9bf872ca2f21cf686c",
+      "pixels": [390, 908]
+    },
+    {
+      "path": "emails/tourManager-desktop.png",
+      "sha256": "b561987178dd64b66906519fc57bad07706913353c873445b206061e9f1ad38f",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/tourManager-phone.png",
+      "sha256": "76527852cced9520d38beadef9537ad7692e77e6ad5738ced761e5688d58bb59",
+      "pixels": [390, 977]
+    },
+    {
+      "path": "emails/traveller-desktop.png",
+      "sha256": "03bd8b92227d6a587aec949179d78b95db82baadead996fedd304c804adc784a",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/traveller-phone.png",
+      "sha256": "2f9d7737110966c4161d516dbc1462d2a7b8e4fb385a8b3afbc385b04bdb205f",
+      "pixels": [390, 890]
+    },
+    {
+      "path": "emails/verification-desktop.png",
+      "sha256": "cbeaec6ad424ac68f01adf87bb32cde1e641a3f40da92385b9859da043ef7c8b",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/verification-phone.png",
+      "sha256": "993489b35542037e0b0743c3fdbeabd393e7a728f77c5ffe63436c479e749e2b",
+      "pixels": [390, 844]
+    },
+    {
+      "path": "emails/visa-desktop.png",
+      "sha256": "fbf2eb820250dbed2a4a9759de5a7263ccff69a8be139366298fe738a3228663",
+      "pixels": [900, 1000]
+    },
+    {
+      "path": "emails/visa-phone.png",
+      "sha256": "f90d93408258cef723eeb26d42172fa61372fb3be11b1311868f2a202b2ef671",
+      "pixels": [390, 844]
+    }
+  ],
+  "licenseFilesChanged": false
+}

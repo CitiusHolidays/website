@@ -6,37 +6,25 @@ These pictures show actual Citius components and CSS with fictional staff and tr
 
 ## U06. A quieter workspace
 
-The main reference is [Augustas's Northwind Ops](https://x.com/augustasdesign/status/2109844574613200974). Its actual archived image is 960 by 1200 pixels. The sidebar crop is x=0, y=0, width 341, height 1200, normalized to 280 pixels wide. Citius closely follows its light rail, outlined active row, muted icons, group spacing and right-edge count. It retains the Citius logo, configured fonts, destinations and role visibility. Desktop rows are 36 pixels tall; phone controls remain 44 pixels.
+The sidebar keeps the Citius logo, destinations and role visibility. Search commands opens the working command palette. Screens without that palette do not show a nonfunctional search control or shortcut hint. Desktop rows are compact; phone controls keep usable touch targets.
 
-![Actual source crop beside the Citius sidebar](crm/sidebar-comparison.png)
-
-Search commands opens the existing working command palette. Screens without that palette show neither a nonfunctional search control nor its shortcut hint. The user's supplied Library image libfile_80621dfeaed88191ae1d6d9720059d78 shows a gray number at the row's right edge. The orange dot beside it comes from the separate activity request. No Runs destination was added.
-
-| Before | After |
+| Earlier Citius layout | Current Citius layout |
 | --- | --- |
-| ![Earlier query composition](crm/queries-1440-before.jpg) | ![Flat header and compact table toolbar](crm/queries-desktop.jpg) |
+| ![Earlier query composition](crm/queries-1440-before.jpg) | ![Flat heading and compact table toolbar](crm/queries-desktop.jpg) |
 
-The query table puts Stage before secondary columns. Pinned cells are opaque, so underlying text cannot bleed through. Columns and the 44-pixel scroll buttons share one compact row. This removes the redundant control row above the table. Inner horizontal scrolling is intentional; every column remains available.
+The Query table places Stage before secondary columns. Pinned cells are opaque, so underlying text cannot bleed through. Columns and scroll controls share one compact toolbar. Inner horizontal scrolling keeps every business column available.
 
-The table reference is [Akash's table](https://x.com/a1x45h/status/2103785018636329085), actual 900 by 1200 image, crop x=469, y=130, width 431, height 520. The comparison uses actual source pixels. Citius follows its quiet header, thin rules and compact controls. It retains its business columns, status colors and named actions.
+| Query table | Proposal form |
+| --- | --- |
+| ![Current Query table and actions](crm/queries-1440.jpg) | ![Grouped Proposal fields and clear actions](crm/form-proposal-1440.jpg) |
 
-![Actual table region beside the Citius table](crm/table-comparison.png)
+Forms have labels above their fields and separate related groups. Required fields, existing values, validation and actions remain. Proposal rows keep the main handoff action visible, with less frequent actions in More.
 
-The form reference is [Intent UI's grid fieldset](https://design.intentui.com/patterns/fieldset/with-grid-layout), from bookmarked designer Irsyad. The actual light-browser crop is x=532, y=290, width 540, height 320 at 1280 by 720. Citius closely follows its white outlined fields, 8-pixel corners, labels above fields, grouped two-column layout and full-width notes. Business content requires a wider form and 44-pixel controls. Existing labels, validation and values remain.
+| Job Card details | Details on a phone |
+| --- | --- |
+| ![Job Card readiness and next actions](crm/jobDetail-1440.jpg) | ![Job Card details on a phone](crm/jobDetail-390.jpg) |
 
-![Actual fieldset region beside the Citius proposal form](crm/form-comparison.png)
-
-Buttons follow the [Intent UI primary button](https://design.intentui.com/patterns/button/primary), actual crop x=740, y=410, width 120, height 76. The [menu-action table](https://design.intentui.com/patterns/table/with-menu-actions) supports the primary-action/More arrangement. Citius retains navy for the explicit primary action and quiet outlined secondary controls. No component library was installed or paid source accessed.
-
-![Actual button source region](crm/button-reference.png)
-
-The second Northwind Ops image supplies the detail reference. Its actual 960 by 1200 image is cropped x=534, y=0, width 426, height 860. Citius follows the unboxed title, labeled facts and separated work modules. Its Job Card readiness map, tasks and document access are retained, so this is a detail-layout adaptation rather than a 1:1 screen copy.
-
-![Actual detail region beside the Citius Job Card](crm/detail-comparison.png)
-
-Cards remain around distinct content. The collapsed Job Card checklist no longer stretches into a large blank card beside the longer next-actions list. Post-tour selectors sit on the page, and report/form cards use the same restrained corners as the CRM.
-
-The earlier notification centre used Nick's compact Unread/All centre, Rico's activity separation and Augustas's secondary status view as adaptations. U01 to U05 retained the existing Citius presentation. These are the exact sources for the later CRM shell and content work; no claim of 1:1 copying applies to unrelated screens.
+Cards separate distinct content. The collapsed Job Card checklist no longer stretches into a blank card beside the next-actions list. Post-tour selectors sit directly on the page. Public-site and Customer Account presentation stays separate.
 
 ## U07. Keep a pending save safe
 
@@ -134,6 +122,6 @@ React Doctor's changed-code check now has zero errors and seven advisory notes. 
 
 The dependency audit reports existing advisories in ten packages: brace-expansion, braces, DOMPurify, follow-redirects, KaTeX, Next.js, sharp, source-map-js, undici and Vite. Their installed versions match the pre-change lockfile, and the audit lists no Effect advisory. This is an audit failure for the existing dependency set, not a clean dependency-security result or an assessment of application reachability. Unrelated package upgrades are outside this Effect update.
 
-The existing ignore rules already cover the local fixture, caches, logs and test outputs. No new ignore rule is warranted. Intended source, regression tests, these reference crops and review pictures remain tracked.
+The existing ignore rules already cover the local fixture, caches, logs and test outputs. No new ignore rule is warranted. Intended source, regression tests, review pictures remain tracked.
 
 These component checks do not prove a production build or provider acceptance. The separate signed-in local run used the actual Next dev server and locally deployed PR functions/schema, with no hosted backend write. No real record, email, charge or live control was used. The draft grants no merge or production deployment authority.
