@@ -4,12 +4,18 @@ import PostTourFeedbackWorkspace from "@/components/portal/postTour/PostTourFeed
 export const metadata = { title: "Post-tour feedback | Citius Connect" };
 
 interface PageProps {
-  searchParams: Promise<{ jobCardId?: string }>;
+  searchParams: Promise<{ jobCardId?: string; reportId?: string; view?: string }>;
 }
 
 async function FeedbackContent({ searchParams }: PageProps) {
-  const { jobCardId } = await searchParams;
-  return <PostTourFeedbackWorkspace initialJobCardId={jobCardId} />;
+  const { jobCardId, reportId, view } = await searchParams;
+  return (
+    <PostTourFeedbackWorkspace
+      initialJobCardId={jobCardId}
+      initialReportId={reportId}
+      initialView={view}
+    />
+  );
 }
 
 export default function PostTourFeedbackPage(props: PageProps) {

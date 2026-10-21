@@ -35,7 +35,17 @@ interface WorkContext {
   invoice?: Doc<"invoices"> | null;
   job?: Doc<"jobCards"> | null;
   query?: Doc<"queries"> | null;
+  report?: Doc<"postTourReports"> | null;
   ticket?: Doc<"tickets"> | null;
+}
+
+async function reportWorkContext(ctx: QueryCtx, entityId: string): Promise<WorkContext | null> {
+  const id = ctx.db.normalizeId("postTourReports", entityId);
+  const report = id ? await ctx.db.get("postTourReports", id) : null;
+  const job = report ? await ctx.db.get("jobCards", report.jobCardId) : null;
+  return job && report
+    ? { job, query: job.queryId ? await ctx.db.get("queries", job.queryId) : null, report }
+    : null;
 }
 
 async function loadWorkContext(
@@ -73,6 +83,18 @@ function intendedWorkRecipients(key: NotificationWorkKey, work: WorkContext) {
   const owners = new Set<string>();
   let financeHead = false;
   switch (key) {
+    case "post_tour_submission": {
+      heads.add("Directors");
+      financeHead = true;
+      const contractingOwner = work.job?.contractingOwnerId || work.query?.contractingOwnerId;
+      if (contractingOwner) {
+        owners.add(contractingOwner);
+      }
+      if (work.query?.salesOwnerId) {
+        owners.add(work.query.salesOwnerId);
+      }
+      break;
+    }
     case "query_intake":
       heads.add("Contracting Head").add("Operations Head").add("Directors").add("Admin");
       if (
@@ -129,6 +151,9 @@ function intendedWorkRecipients(key: NotificationWorkKey, work: WorkContext) {
 }
 
 async function workStillPending(ctx: QueryCtx, key: NotificationWorkKey, work: WorkContext) {
+  if (key === "post_tour_submission") {
+    return work.report?.status === "submitted" && !work.report.submissionAlertsCancelled;
+  }
   if (key === "query_intake") {
     return true;
   }
@@ -231,14 +256,17 @@ export async function notificationWorkAudience(
   entityType: string,
   entityId: string
 ): Promise<Doc<"staffUsers">[]> {
-  const work = await loadWorkContext(ctx, entityType, entityId);
+  const work =
+    entityType === "postTourReport"
+      ? await reportWorkContext(ctx, entityId)
+      : await loadWorkContext(ctx, entityType, entityId);
   if (!(work && (await workStillPending(ctx, key, work)))) {
     return [];
   }
   const { financeHead, heads, owners } = intendedWorkRecipients(key, work);
   const staff = await ctx.db.query("staffUsers").collect();
   return staff.filter((member) => {
-    if (!member.active) {
+    if (!member.active || member.roles.length === 0) {
       return false;
     }
     const intended =
@@ -248,6 +276,9 @@ export async function notificationWorkAudience(
       (financeHead && member.function?.trim().toLowerCase() === "finance head");
     if (!intended) {
       return false;
+    }
+    if (key === "post_tour_submission") {
+      return true;
     }
     const access: PortalAccess = {
       allowed: true,

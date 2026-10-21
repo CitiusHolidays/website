@@ -8,6 +8,7 @@ import { formatDisplayDate } from "@/lib/formatDate";
 import { buildJobCardCommandCenter } from "@/lib/portal/jobCardCommandCenter";
 import { displayPortalTerm } from "@/lib/portal/productTerminology";
 import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
+import { JobCardFeedbackMenu } from "./JobCardFeedbackMenu";
 import JobCardReadinessMap from "./JobCardReadinessMap";
 import JobCardTaskBoard from "./JobCardTaskBoard";
 
@@ -185,14 +186,12 @@ export default function JobCardCommandCenter({ jobCardId }) {
       <section className="rounded-lg border border-brand-border bg-white p-4">
         <h2 className="font-heading text-base text-brand-dark">Post-tour feedback</h2>
         <p className="mt-1 text-brand-muted text-sm">
-          Read team feedback and share comments or photos after the tour.
+          Open the internal tour report, earlier team notes or separate traveller feedback for this
+          Job Card.
         </p>
-        <Link
-          className="mt-2 inline-flex min-h-11 items-center text-citius-blue text-sm underline"
-          href={`/portal/post-tour-feedback?jobCardId=${encodeURIComponent(jobCardId)}`}
-        >
-          Open feedback for {job.jobCode}
-        </Link>
+        <div className="mt-3">
+          <JobCardFeedbackMenu jobCardId={String(jobCardId)} jobCode={job.jobCode} />
+        </div>
       </section>
       <JobCardReadinessMap sections={model.readinessSections} />
       <div className="grid items-start gap-4 lg:grid-cols-[1.4fr_0.8fr]">

@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { PortalCopyButton } from "@/components/motion-ui/copy-button";
+import { JobCardFeedbackMenu } from "@/components/portal/jobCard/JobCardFeedbackMenu";
 import { formatDate } from "@/components/portal/PortalModalForm";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
@@ -37,7 +38,10 @@ function JobCardMobileCard({
     <div className="space-y-2">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="font-semibold text-brand-dark">{job.jobCode}</div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold text-brand-dark">{job.jobCode}</span>
+            <JobCardFeedbackMenu jobCardId={String(job.id)} jobCode={job.jobCode} />
+          </div>
           <div className="text-brand-muted text-sm">{job.clientName}</div>
         </div>
         <StatusBadge domain="jobCard" status={job.status} />
@@ -97,6 +101,7 @@ export function JobCardsView({
             render: (row: JobCardRow) => (
               <div className="flex items-center gap-2">
                 {strong(row.jobCode)}
+                <JobCardFeedbackMenu jobCardId={String(row.id)} jobCode={row.jobCode} />
                 {row.jobCode ? (
                   <PortalCopyButton
                     aria-label={`Copy job card ${row.jobCode}`}

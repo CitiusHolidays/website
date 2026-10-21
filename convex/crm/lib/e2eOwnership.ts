@@ -44,6 +44,7 @@ export const E2E_CLEANUP_TABLE_ORDER = {
   portalNavigationActivity: 105,
   postTourFeedback: 90,
   postTourFeedbackPhotos: 100,
+  postTourReports: 90,
   proposalQueryHandoffs: 95,
   proposalQueryLinks: 90,
   proposals: 50,

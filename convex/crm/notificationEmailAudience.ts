@@ -50,6 +50,13 @@ export async function notificationRecipientCanAccess(
   if (check) {
     return await check(ctx, access, id, staff);
   }
+  if (job.entityType === "postTourReport") {
+    const reportId = ctx.db.normalizeId("postTourReports", id);
+    const report = reportId ? await ctx.db.get("postTourReports", reportId) : null;
+    return Boolean(
+      report?.status === "submitted" && (await ctx.db.get("jobCards", report.jobCardId))
+    );
+  }
   if (job.entityType === "inboundQueryIntent") {
     return access.permissions.includes(PERMISSIONS.VIEW_QUERIES);
   }

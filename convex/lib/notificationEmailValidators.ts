@@ -9,6 +9,7 @@ export const notificationEmailMessageValidator = v.object({
 });
 
 export const notificationWorkKeyValidator = v.union(
+  v.literal("post_tour_submission"),
   v.literal("query_intake"),
   v.literal("ticket_attention"),
   v.literal("confirmed_query_without_job_card"),

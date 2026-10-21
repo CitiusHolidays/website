@@ -11,6 +11,7 @@ import {
   postTourCategoryValidator,
   postTourRatingValidator,
 } from "./lib/postTourFeedbackValidators";
+import { postTourReportContentValidator } from "./lib/postTourReportContent";
 import { roomTypeValidator } from "./lib/roomTypeValidators";
 import {
   staffTravelStatusValidator,
@@ -1477,6 +1478,26 @@ export default defineSchema({
     .index("by_requestId", ["requestId"])
     .index("by_storageId", ["storageId"])
     .index("by_thumbnailStorageId", ["thumbnailStorageId"]),
+
+  postTourReports: defineTable({
+    archivedAt: v.optional(v.number()),
+    archivedByStaffId: v.optional(v.id("staffUsers")),
+    content: postTourReportContentValidator,
+    createdAt: v.number(),
+    createdByName: v.string(),
+    createdByStaffId: v.id("staffUsers"),
+    jobCardId: v.id("jobCards"),
+    previousStatus: v.optional(v.union(v.literal("draft"), v.literal("submitted"))),
+    revision: v.number(),
+    status: v.union(v.literal("draft"), v.literal("submitted"), v.literal("archived")),
+    submissionAlertsCancelled: v.optional(v.boolean()),
+    submittedAt: v.optional(v.number()),
+    submittedByName: v.optional(v.string()),
+    submittedByStaffId: v.optional(v.id("staffUsers")),
+    updatedAt: v.number(),
+  })
+    .index("by_jobCardId", ["jobCardId"])
+    .index("by_jobCardId_status", ["jobCardId", "status"]),
 
   postTourFeedback: defineTable({
     authorAuthUserId: v.string(),

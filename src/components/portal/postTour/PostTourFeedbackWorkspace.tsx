@@ -10,18 +10,76 @@ import {
   type FeedbackEntry,
   PostTourFeedbackView,
 } from "./PostTourFeedbackView";
+import { StructuredPostTourReport } from "./StructuredPostTourReport";
 import { TravelerFeedbackPanel } from "./TravelerFeedbackPanel";
+
+type FeedbackView = "travellers" | "managers" | "report";
+function feedbackView(value: string): FeedbackView {
+  if (value === "travellers" || value === "managers") {
+    return value;
+  }
+  return "report";
+}
+function reportQueryArgs(jobCardId: string, reportId: string) {
+  if (jobCardId) {
+    return { jobCardId };
+  }
+  if (reportId) {
+    return { reportId };
+  }
+  return "skip" as const;
+}
+function FeedbackTabs({
+  view,
+  onChange,
+}: {
+  view: FeedbackView;
+  onChange: (view: FeedbackView) => void;
+}) {
+  const tabs: Array<{ value: FeedbackView; label: string }> = [
+    { label: "Internal tour report", value: "report" },
+    { label: "Traveller feedback", value: "travellers" },
+    { label: "Earlier team notes", value: "managers" },
+  ];
+  return (
+    <fieldset aria-label="Feedback view" className="flex flex-wrap gap-3">
+      {tabs.map((tab) => (
+        <Button
+          aria-pressed={view === tab.value}
+          key={tab.value}
+          onClick={() => onChange(tab.value)}
+          type="button"
+          variant={view === tab.value ? "primary" : "outline"}
+        >
+          {tab.label}
+        </Button>
+      ))}
+    </fieldset>
+  );
+}
+function canLoadMore(status: string) {
+  return status === "CanLoadMore" || status === "LoadingMore";
+}
 
 export default function PostTourFeedbackWorkspace({
   initialJobCardId = "",
+  initialReportId = "",
+  initialView = "report",
 }: {
   initialJobCardId?: string;
+  initialReportId?: string;
+  initialView?: string;
 }) {
   const selectId = useId();
   const [selectedJob, setSelectedJob] = useState(initialJobCardId);
-  const [view, setView] = useState<"travellers" | "managers">("travellers");
+  const [reportFromLink, setReportFromLink] = useState(initialReportId);
+  const [view, setView] = useState<FeedbackView>(() => feedbackView(initialView));
   const jobs = usePaginatedQuery(api.crm.postTourFeedback.listJobs, {}, { initialNumItems: 30 });
-  const jobCardId = selectedJob || undefined;
+  const structured = useQuery(
+    api.crm.postTourReports.workspace,
+    reportQueryArgs(selectedJob, reportFromLink)
+  );
+  const jobCardId = selectedJob || structured?.jobCardId || undefined;
   const job = useQuery(api.crm.postTourFeedback.getJobContext, jobCardId ? { jobCardId } : "skip");
   const feedback = usePaginatedQuery(
     api.crm.postTourFeedback.list,
@@ -58,8 +116,10 @@ export default function PostTourFeedbackWorkspace({
       throw new Error("Photo upload failed");
     }
   };
-  const chooseJob = (event: React.ChangeEvent<HTMLSelectElement>) =>
+  const chooseJob = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setReportFromLink("");
     setSelectedJob(event.target.value);
+  };
   const moreJobs = () => jobs.loadMore(30);
   const moreFeedback = () => feedback.loadMore(20);
   return (
@@ -69,8 +129,8 @@ export default function PostTourFeedbackWorkspace({
           Post-tour feedback
         </h1>
         <p className="mt-2 max-w-2xl font-sans text-brand-muted text-sm leading-relaxed">
-          Collect traveller comments and photos after each tour. Share a feedback link and keep
-          every response with its Job Card.
+          Prepare the internal post-tour report against a Job Card, read earlier team notes, or
+          manage the separate traveller feedback requests.
         </p>
       </header>
       <div className="flex flex-wrap items-end gap-3 border-brand-border border-b pb-4">
@@ -82,9 +142,9 @@ export default function PostTourFeedbackWorkspace({
             className={`${inputVariants({ surface: "staff" })} bg-white`}
             id={selectId}
             onChange={chooseJob}
-            value={selectedJob}
+            value={jobCardId ?? ""}
           >
-            <option value="">All Job Cards</option>
+            <option value="">{view === "report" ? "Choose a Job Card..." : "All Job Cards"}</option>
             {job && !jobs.results.some((item) => item.jobCardId === job.jobCardId) ? (
               <option value={job.jobCardId}>
                 {job.jobCode} · {job.clientName}
@@ -98,7 +158,7 @@ export default function PostTourFeedbackWorkspace({
             ))}
           </select>
         </label>
-        {jobs.status === "CanLoadMore" || jobs.status === "LoadingMore" ? (
+        {canLoadMore(jobs.status) ? (
           <Button
             disabled={jobs.status === "LoadingMore"}
             onClick={moreJobs}
@@ -115,24 +175,10 @@ export default function PostTourFeedbackWorkspace({
           This Job Card is no longer available. Choose another Job Card.
         </p>
       ) : null}
-      <fieldset aria-label="Feedback view" className="flex flex-wrap gap-3">
-        <Button
-          aria-pressed={view === "travellers"}
-          onClick={() => setView("travellers")}
-          type="button"
-          variant={view === "travellers" ? "primary" : "outline"}
-        >
-          Traveller feedback
-        </Button>
-        <Button
-          aria-pressed={view === "managers"}
-          onClick={() => setView("managers")}
-          type="button"
-          variant={view === "managers" ? "primary" : "outline"}
-        >
-          Tour manager reports
-        </Button>
-      </fieldset>
+      <FeedbackTabs onChange={setView} view={view} />
+      {view === "report" ? (
+        <StructuredPostTourReport workspace={jobCardId ? structured : null} />
+      ) : null}
       {view === "travellers" ? (
         <TravelerFeedbackPanel job={job ?? null} jobCardId={job?.jobCardId} />
       ) : null}
@@ -148,8 +194,7 @@ export default function PostTourFeedbackWorkspace({
           onUpload={upload}
         />
       ) : null}
-      {view === "managers" &&
-      (feedback.status === "CanLoadMore" || feedback.status === "LoadingMore") ? (
+      {view === "managers" && canLoadMore(feedback.status) ? (
         <Button
           disabled={feedback.status === "LoadingMore"}
           onClick={moreFeedback}
