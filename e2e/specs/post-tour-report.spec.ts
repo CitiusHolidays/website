@@ -13,7 +13,10 @@ async function capture(page: Page, info: TestInfo, name: string) {
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth))
     .toBeLessThanOrEqual(1);
-  await page.screenshot({ fullPage: true, path: info.outputPath(`${name}.png`) });
+  await page.screenshot({
+    fullPage: !(name.includes("confirm") || name.includes("dropdown")),
+    path: info.outputPath(`${name}.png`),
+  });
 }
 function setLocalAdminFixture(admin: boolean) {
   if (e2eConvexDeployment() !== "local" || process.env.E2E_PROVISIONING_TARGET !== "development") {
@@ -49,6 +52,13 @@ test("@workflow internal tour report preserves drafts, submits once, shares with
       .filter({ visible: true })
       .click();
     await capture(page, info, "jc-feedback-dropdown-desktop");
+    await page.keyboard.press("Escape");
+    await page.setViewportSize({ height: 844, width: 390 });
+    await page
+      .getByRole("button", { exact: true, name: `Feedback for ${JC}` })
+      .filter({ visible: true })
+      .click();
+    await capture(page, info, "jc-feedback-dropdown-phone");
     await page.getByRole("menuitem", { exact: true, name: "Internal tour report" }).click();
     await expect(reportForm(page)).toBeVisible();
     reportUrl = page.url();
@@ -133,9 +143,15 @@ test("@workflow internal tour report preserves drafts, submits once, shares with
     await expect(
       page.getByText("Draft saved. No submission alert has been sent.", { exact: true })
     ).toBeVisible();
+    await page.setViewportSize({ height: 1000, width: 1440 });
     await capture(page, info, "internal-report-draft-desktop");
     await page.setViewportSize({ height: 844, width: 390 });
     await capture(page, info, "internal-report-draft-phone");
+    for (let section = 1; section <= 6; section += 1) {
+      await reportForm(page)
+        .locator(`[data-report-section="${section}"]`)
+        .screenshot({ path: info.outputPath(`internal-report-section-${section}-phone.png`) });
+    }
     const hr = await openPortalAs(browser, "hr");
     try {
       await hr.page.goto(reportUrl);
@@ -160,6 +176,19 @@ test("@workflow internal tour report preserves drafts, submits once, shares with
     await capture(hr.page, info, "internal-report-staff-read-desktop");
   } finally {
     await hr.context.close();
+  }
+  for (const role of ["admin", "hr", "finance", "sales", "contracting"] as const) {
+    const session = await openPortalAs(browser, role);
+    try {
+      await session.page.goto("/portal/activity");
+      const inbox = session.page.getByRole("region", { name: "Your notifications" });
+      await inbox.getByRole("button", { exact: true, name: "All" }).click();
+      await expect(
+        inbox.getByRole("button").filter({ hasText: `The internal report for ${JC} is ready` })
+      ).toHaveCount(role === "admin" ? 1 : 0);
+    } finally {
+      await session.context.close();
+    }
   }
   const directors = await openPortalAs(browser, "admin");
   try {
