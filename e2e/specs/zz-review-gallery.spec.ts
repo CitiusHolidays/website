@@ -3,6 +3,7 @@ import { expect, type Page, type TestInfo, test } from "@playwright/test";
 import { e2eStaffEmail } from "../fixtures/staffProfiles";
 import { openCustomerAccount, openPortalAs } from "../helpers/auth";
 import { e2eConvexRunArguments } from "../helpers/convexAssert";
+import { cancelEntityModal, entityModal, expectEntityModalOpen } from "../helpers/modal";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 
 async function screenshot(page: Page, testInfo: TestInfo, name: string) {
@@ -13,6 +14,11 @@ async function screenshot(page: Page, testInfo: TestInfo, name: string) {
       )
     )
     .toBeLessThanOrEqual(1);
+  await Promise.all(
+    (await page.locator('[role="dialog"]:visible, [role="menu"]:visible').all()).map((overlay) =>
+      expect(overlay).toHaveCSS("opacity", "1")
+    )
+  );
   await page.screenshot({ path: testInfo.outputPath(`${name}.png`) });
 }
 
@@ -70,6 +76,7 @@ test.describe("@review signed-in screenshot gaps", () => {
       await expect(
         page.locator("[data-portal-route-component='TicketDashboardView']")
       ).toBeVisible();
+      await expect(page.getByText("FIT Tickets", { exact: true })).toBeVisible();
       await screenshot(page, testInfo, "ticketing-overview-desktop");
       await page.setViewportSize({ height: 844, width: 390 });
       await screenshot(page, testInfo, "ticketing-overview-phone");
@@ -114,4 +121,53 @@ test.describe("@review signed-in screenshot gaps", () => {
     await expect.poll(unavailableProviderReceipts).toBeGreaterThan(before);
     await screenshot(page, testInfo, "auth-recovery-generic-result");
   });
+
+  for (const scenario of [
+    {
+      action: "Add Hotel",
+      component: "HotelRoomingView",
+      id: "hotel",
+      path: "/portal/hotels",
+      role: "operations",
+    },
+    {
+      action: "Save Seat",
+      component: "SeatView",
+      id: "seat",
+      path: "/portal/seat-allocation",
+      role: "ticketing",
+    },
+    {
+      action: "Create Visa Record",
+      component: "VisaTrackingView",
+      id: "visa",
+      path: "/portal/visa",
+      role: "operations",
+    },
+  ] as const) {
+    test(`${scenario.id} form remains explicit at desktop and phone widths`, async ({
+      browser,
+    }, testInfo) => {
+      const { context, page } = await openPortalAs(browser, scenario.role);
+      try {
+        await page.setViewportSize({ height: 1000, width: 1440 });
+        await page.goto(scenario.path);
+        await expect(
+          page.locator(`[data-portal-route-component='${scenario.component}']`)
+        ).toBeVisible();
+        await page
+          .getByTestId("portal-list-toolbar-actions")
+          .getByRole("button", { exact: true, name: scenario.action })
+          .click();
+        await expectEntityModalOpen(page);
+        await expect(entityModal(page)).toHaveCSS("opacity", "1");
+        await screenshot(page, testInfo, `${scenario.id}-form-desktop`);
+        await page.setViewportSize({ height: 844, width: 390 });
+        await screenshot(page, testInfo, `${scenario.id}-form-phone`);
+        await cancelEntityModal(page);
+      } finally {
+        await context.close();
+      }
+    });
+  }
 });
