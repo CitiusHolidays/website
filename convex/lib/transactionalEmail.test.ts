@@ -3,6 +3,9 @@ import { JSDOM } from "jsdom";
 import { prepareAuthEmailMessage } from "./authEmailHtml";
 import { renderTransactionalEmail, type TransactionalEmailContent } from "./transactionalEmail";
 
+const QUERY_TEXT_ROW = /Query\s+Q-0264/;
+const PAX_TEXT_ROW = /Pax\s+0/;
+
 const base: TransactionalEmailContent = {
   action: {
     href: "https://citius.example/portal/queries?open=query&id=sample&from=email",
@@ -34,8 +37,8 @@ describe("shared transactional email", () => {
       base.action.href,
     ]);
     expect(text).toContain(base.title);
-    expect(text).toMatch(/Query\s+Q-0264/);
-    expect(text).toMatch(/Pax\s+0/);
+    expect(text).toMatch(QUERY_TEXT_ROW);
+    expect(text).toMatch(PAX_TEXT_ROW);
     expect(text).toContain(base.action.href);
     expect(text).toContain("Pax");
     expect(text).not.toContain("Optional");
