@@ -74,6 +74,9 @@ async function openInbox(page: Page) {
   await page.goto("/portal/activity");
   await expect(inbox(page).getByRole("button", { name: /^Unread(?: · \d+)?$/ })).toBeVisible();
   await expect(inbox(page).getByRole("status", { name: "Loading notifications" })).toBeHidden();
+  await expect(page.getByText(/^0 authorized records loaded; all available records/)).toHaveCount(
+    0
+  );
 }
 
 test.describe("@workflow notification inbox and sidebar activity", () => {
@@ -149,6 +152,7 @@ test.describe("@workflow notification inbox and sidebar activity", () => {
       const bell = contracting.page.getByRole("dialog", { exact: true, name: "notifications" });
       await expect(bell.getByRole("button").filter({ hasText: firstCode })).toHaveCount(1);
       await expect(bell.getByRole("button").filter({ hasText: secondCode })).toHaveCount(1);
+      await expect(bell).toHaveCSS("opacity", "1");
       await contracting.page.screenshot({ path: testInfo.outputPath("inbox-bell-desktop.png") });
       await contracting.page.keyboard.press("Escape");
       await expect(

@@ -417,7 +417,9 @@ export function PortalWorkspaceHeader({ workspace }: { workspace: PortalWorkspac
 }
 
 export function WorkspacePagination({ pagination }: { pagination?: PortalPaginationSlice }) {
-  if (!pagination) {
+  if (
+    !(pagination && (pagination.loadedCount || pagination.canLoadMore || pagination.isLoadingMore))
+  ) {
     return null;
   }
   return (
