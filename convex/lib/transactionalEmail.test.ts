@@ -34,7 +34,8 @@ describe("shared transactional email", () => {
       base.action.href,
     ]);
     expect(text).toContain(base.title);
-    expect(text).toContain("Q-0264");
+    expect(text).toMatch(/Query\s+Q-0264/);
+    expect(text).toMatch(/Pax\s+0/);
     expect(text).toContain(base.action.href);
     expect(text).toContain("Pax");
     expect(text).not.toContain("Optional");

@@ -69,6 +69,7 @@ function EmailDetails({ details }: Pick<TransactionalEmailContent, "details">) {
       <table
         cellPadding="0"
         cellSpacing="0"
+        data-text-format="dataTable"
         role="presentation"
         style={{ borderCollapse: "collapse", tableLayout: "fixed", width: "100%" }}
       >

@@ -51,7 +51,7 @@ test.describe("@review signed-in screenshot gaps", () => {
       await expect(page.getByRole("combobox", { name: "Search portal commands" })).toBeVisible();
       await screenshot(page, testInfo, "commands-desktop");
       await page.keyboard.press("Escape");
-      await page.getByRole("button", { name: /Columns/ }).click();
+      await page.locator("summary").filter({ hasText: "Columns" }).click();
       await screenshot(page, testInfo, "columns-desktop");
       await page.keyboard.press("Escape");
       await page.getByRole("button", { name: /Open account menu for/ }).click();
@@ -74,7 +74,9 @@ test.describe("@review signed-in screenshot gaps", () => {
       await page.setViewportSize({ height: 1000, width: 1440 });
       await page.goto("/portal/ticketing");
       await expect(
-        page.locator("[data-portal-route-component='TicketDashboardView']")
+        page
+          .locator("[data-portal-route-component='TicketDashboardView']")
+          .filter({ visible: true })
       ).toBeVisible();
       await expect(page.getByText("FIT Tickets", { exact: true })).toBeVisible();
       await screenshot(page, testInfo, "ticketing-overview-desktop");
@@ -153,7 +155,9 @@ test.describe("@review signed-in screenshot gaps", () => {
         await page.setViewportSize({ height: 1000, width: 1440 });
         await page.goto(scenario.path);
         await expect(
-          page.locator(`[data-portal-route-component='${scenario.component}']`)
+          page
+            .locator(`[data-portal-route-component='${scenario.component}']`)
+            .filter({ visible: true })
         ).toBeVisible();
         await page
           .getByTestId("portal-list-toolbar-actions")
