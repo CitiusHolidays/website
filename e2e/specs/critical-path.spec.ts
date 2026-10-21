@@ -243,10 +243,9 @@ test.describe
         ""
       );
       await saveEntityModal(page);
-      await expect(row.getByText(/linked to jc-/i)).toBeVisible({ timeout: 15_000 });
-      const jobCodeText = await row.locator("text=/JC-/").first().textContent();
-      e2eChain.jobCode = jobCodeText?.match(/JC-\d+-[A-Z]+/)?.[0] || "";
-      expect(e2eChain.jobCode).toMatch(/JC-\d+-ES/);
+      await expect(row.getByText(/linked to JC\/ES\//i)).toBeVisible({ timeout: 15_000 });
+      e2eChain.jobCode = (await row.getByRole("status").textContent())?.trim() ?? "";
+      expect(e2eChain.jobCode).toMatch(/^JC\/ES\/\d{3}\/\d{2}-\d{2}$/);
       await context.close();
 
       const { context: adminContext, page: adminPage } = await openPortalAs(browser, "admin");
