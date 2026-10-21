@@ -78,9 +78,8 @@ async function mount(workspace, onSaveDraft, extra = {}) {
   return host;
 }
 function control(host, label) {
-  return [...host.querySelectorAll("label")]
-    .find((row) => row.textContent.startsWith(label))
-    ?.querySelector("input,select,textarea");
+  return [...host.querySelectorAll("label")].find((row) => row.textContent.startsWith(label))
+    ?.control;
 }
 function button(host, label) {
   return [...host.querySelectorAll("button")].find((row) => row.textContent === label);
@@ -166,6 +165,11 @@ test("unsaved navigation draft is scoped to the same staff and Job Card", async 
   root = null;
   host = await mount(workspace, async () => ({ id: "report", revision: 1 }));
   expect(control(host, "Client / Company").value).toBe("Private local draft");
+  expect(
+    [...host.querySelectorAll("label")].find(
+      (row) => row.htmlFor === control(host, "Client / Company").id
+    ).textContent
+  ).toBe("Client / Company *");
   await act(() => root.unmount());
   root = null;
   host = await mount({ ...workspace, viewerKey: "different-staff" }, async () => ({

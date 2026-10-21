@@ -4,6 +4,7 @@ import { e2eStaffEmail, loadE2eStaffProfiles } from "../fixtures/staffProfiles";
 import { openPortalAs } from "../helpers/auth";
 import { holdToConfirmDelete } from "../helpers/confirm";
 import { e2eConvexDeployment, e2eConvexRunArguments } from "../helpers/convexAssert";
+import { fillPortalDate } from "../helpers/date";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 
 const JC = "JC-E2E-WORKFLOW-EO";
@@ -51,8 +52,14 @@ test("@workflow internal tour report preserves drafts, submits once, shares with
     await page.getByRole("menuitem", { exact: true, name: "Internal tour report" }).click();
     await expect(reportForm(page)).toBeVisible();
     reportUrl = page.url();
-    await reportForm(page).getByLabel("Tour start date *", { exact: true }).fill("2026-10-01");
-    await reportForm(page).getByLabel("Tour end date *", { exact: true }).fill("2026-10-04");
+    await fillPortalDate(
+      reportForm(page).getByLabel("Tour start date *", { exact: true }),
+      "2026-10-01"
+    );
+    await fillPortalDate(
+      reportForm(page).getByLabel("Tour end date *", { exact: true }),
+      "2026-10-04"
+    );
     await reportForm(page)
       .getByLabel("Tour Manager *", { exact: true })
       .fill("Synthetic Operations trip manager");

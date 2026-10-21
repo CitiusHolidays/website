@@ -23,6 +23,7 @@ import {
   useState,
 } from "react";
 import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
+import { PortalDateInput } from "@/components/portal/PortalDateInput";
 import { Button } from "@/components/ui/application-button";
 import { inputVariants, textareaVariants } from "@/components/ui/application-field-variants";
 import { formatDisplayDate } from "@/lib/formatDate";
@@ -62,10 +63,12 @@ function supplierRating(value: string): number | "na" | null {
 function Field({ label, children }: { label: string; children: ReactElement<{ id?: string }> }) {
   const id = useId();
   return (
-    <label className="block min-w-0 space-y-1.5" htmlFor={id}>
-      <span className="block font-medium text-brand-dark text-sm">{label}</span>
+    <div className="min-w-0 space-y-1.5">
+      <label className="block font-medium text-brand-dark text-sm" htmlFor={id}>
+        {label}
+      </label>
       {cloneElement(children, { id })}
-    </label>
+    </div>
   );
 }
 function Section({
@@ -206,6 +209,7 @@ export function PostTourReportForm({
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const errorRef = useRef<HTMLParagraphElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     if (error) {
@@ -223,6 +227,10 @@ export function PostTourReportForm({
     change({ ...draft, tour: { ...draft.tour, [key]: value } });
   const save = async (submitting: boolean) => {
     if (busy.current || readOnly) {
+      return;
+    }
+    if (formRef.current?.querySelector('[aria-invalid="true"]')) {
+      setError("Complete the tour dates in DD/MM/YYYY before saving.");
       return;
     }
     const validation = postTourReportError(draft, submitting);
@@ -276,6 +284,7 @@ export function PostTourReportForm({
       className="space-y-6"
       data-report-id={reportId ?? "new"}
       onSubmit={submitForm}
+      ref={formRef}
     >
       <fieldset className="min-w-0 space-y-6 disabled:opacity-100" disabled={pending || readOnly}>
         <Section number={1} title="Tour details">
@@ -290,14 +299,23 @@ export function PostTourReportForm({
               ] as const
             ).map(([key, label]) => (
               <Field key={key} label={label}>
-                <input
-                  className={`${fieldClass} bg-white`}
-                  maxLength={200}
-                  onChange={(event) => tour(key, event.target.value)}
-                  required
-                  type={key.endsWith("Date") ? "date" : "text"}
-                  value={content.tour[key]}
-                />
+                {key === "startDate" || key === "endDate" ? (
+                  <PortalDateInput
+                    inputClassName="!bg-white"
+                    onChange={(value: string) => tour(key, value)}
+                    required
+                    value={content.tour[key]}
+                  />
+                ) : (
+                  <input
+                    className={`${fieldClass} bg-white`}
+                    maxLength={200}
+                    onChange={(event) => tour(key, event.target.value)}
+                    required
+                    type="text"
+                    value={content.tour[key]}
+                  />
+                )}
               </Field>
             ))}
             <Field label="Number of guests *">
