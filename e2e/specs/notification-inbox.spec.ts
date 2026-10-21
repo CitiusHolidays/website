@@ -1,7 +1,9 @@
-import { expect, type Page, test } from "@playwright/test";
+import { type Browser, expect, type Page, type TestInfo, test } from "@playwright/test";
+import { E2E_ROLE_PROFILE_KEYS } from "../fixtures/staffProfiles";
 import { openPortalAs } from "../helpers/auth";
 import { uniqueE2eLabel } from "../helpers/chainState";
-import { entityModal, modalField, saveEntityModal } from "../helpers/modal";
+import { entityModal, modalCombobox, modalField, saveEntityModal } from "../helpers/modal";
+import { selectOptionByMatchingLabel } from "../helpers/select";
 import { E2E_SKIP_REASON, hasE2eCredentials } from "../helpers/skip";
 import { QueriesPage } from "../pages/queriesPage";
 
@@ -13,10 +15,10 @@ function contractingLink(page: Page) {
   return page.locator('a.portal-nav-link[href="/portal/contracting"]').filter({ visible: true });
 }
 
-async function createQuery(page: Page, clientName: string) {
+async function createQuery(page: Page, clientName: string, ticketingScope = "Not required") {
   const queries = new QueriesPage(page);
   await queries.open();
-  await queries.createQuery(clientName);
+  await queries.createQuery(clientName, "E2E Contracting", ticketingScope);
   await modalField(page, "Destination").fill("Jaipur");
   await modalField(page, "Notes").fill("Synthetic local acceptance enquiry. Preserve these notes.");
   await saveEntityModal(page);
@@ -25,6 +27,38 @@ async function createQuery(page: Page, clientName: string) {
   const code = await row.getByText(/Q-\d+/).first().textContent();
   expect(code).toMatch(/Q-\d+/);
   return code?.trim() ?? "";
+}
+
+async function expectExactAudience(browser: Browser, code: string, testInfo: TestInfo) {
+  const recipients = new Set(["admin", "contracting", "ticketing-head", "leave-head"]);
+  for (const role of E2E_ROLE_PROFILE_KEYS) {
+    const { context, page } = await openPortalAs(browser, role);
+    try {
+      await openInbox(page);
+      await inbox(page).getByRole("button", { exact: true, name: "All" }).click();
+      const update = inbox(page).getByRole("button").filter({ hasText: code });
+      await expect(update).toHaveCount(recipients.has(role) ? 1 : 0);
+      if (role === "ticketing-head") {
+        await update.click();
+        await expect(page).toHaveURL(/open=assignQueryTeams/);
+        await selectOptionByMatchingLabel(
+          modalCombobox(page, "Ticketing SPOC"),
+          "E2E Ticketing Head"
+        );
+        await page.screenshot({ path: testInfo.outputPath("head-self-assignment-desktop.png") });
+        await saveEntityModal(page);
+        await page.goto("/portal/queries");
+        await expect(
+          page
+            .locator("tr")
+            .filter({ hasText: code })
+            .getByText("E2E Ticketing Head", { exact: true })
+        ).toBeVisible();
+      }
+    } finally {
+      await context.close();
+    }
+  }
 }
 
 async function openInbox(page: Page) {
@@ -55,7 +89,12 @@ test.describe("@workflow notification inbox and sidebar activity", () => {
       }
       await expect(link).toBeVisible();
 
-      const firstCode = await createQuery(sales.page, uniqueE2eLabel("E2E Cedar Conference"));
+      const firstCode = await createQuery(
+        sales.page,
+        uniqueE2eLabel("E2E Cedar Conference"),
+        "Both"
+      );
+      await expectExactAudience(browser, firstCode, testInfo);
       await expect(link.getByText("New activity", { exact: true })).toBeVisible();
       const countBefore = await link
         .locator("[title$='work items need attention']")
@@ -97,6 +136,18 @@ test.describe("@workflow notification inbox and sidebar activity", () => {
         .filter({ hasText: firstCode });
       await expect(firstUpdate).toHaveCount(1);
       await contracting.page.screenshot({ path: testInfo.outputPath("inbox-unread-desktop.png") });
+      await contracting.page.getByRole("button", { name: "Open notifications" }).click();
+      const bell = contracting.page.getByRole("dialog", { exact: true, name: "notifications" });
+      await expect(bell.getByRole("button").filter({ hasText: firstCode })).toHaveCount(1);
+      await expect(bell.getByRole("button").filter({ hasText: secondCode })).toHaveCount(1);
+      await contracting.page.screenshot({ path: testInfo.outputPath("inbox-bell-desktop.png") });
+      await contracting.page.keyboard.press("Escape");
+      await expect(
+        inbox(contracting.page).getByRole("button", {
+          exact: true,
+          name: `Unread · ${unreadBefore + 2}`,
+        })
+      ).toBeVisible();
 
       await openInbox(hr.page);
       await inbox(hr.page).getByRole("button", { exact: true, name: "All" }).click();
@@ -142,6 +193,14 @@ test.describe("@workflow notification inbox and sidebar activity", () => {
       await contracting.page.setViewportSize({ height: 844, width: 390 });
       await contracting.page.screenshot({ path: testInfo.outputPath("inbox-all-phone.png") });
       await contracting.page.getByRole("button", { name: "Open portal navigation" }).click();
+      await expect(contracting.page.getByRole("dialog", { name: "Navigation" })).toHaveCSS(
+        "opacity",
+        "1"
+      );
+      await expect(contracting.page.getByRole("dialog", { name: "Navigation" })).toHaveCSS(
+        "transform",
+        /^(?:none|matrix\(1, 0, 0, 1, 0, 0\))$/
+      );
       await expect(link.getByText("New activity", { exact: true })).toBeVisible();
       await contracting.page.screenshot({
         path: testInfo.outputPath("sidebar-count-activity-phone.png"),
