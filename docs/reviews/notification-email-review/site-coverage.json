@@ -1,7 +1,7 @@
 {
   "sourceBase": "9d7ad28081bff75d26bf5255ca7e2fb3b1026fcb",
   "routeCount": 59,
-  "scope": "59-route source inventory with first usability pass and CRM redesign. Component/browser evidence is not exhaustive authenticated route acceptance.",
+  "scope": "59-route source inventory with usability changes and CRM redesign, plus selected signed-in local workflows. This does not claim exhaustive route acceptance.",
   "routes": [
     {
       "path": "src/app/(auth)/auth/connect/page.js",
@@ -12,7 +12,13 @@
       "review": "entry and component source; synthetic component review where listed",
       "componentCases": ["staffLogin"],
       "preserved": "Preserve the existing sign-in, recovery, verification and callback policy.",
-      "limits": "No authenticated or hosted route acceptance."
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "All 12 designated staff profiles signed in through the actual local auth page.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
     },
     {
       "path": "src/app/(auth)/auth/email-verified/page.js",
@@ -45,7 +51,13 @@
       "review": "entry and component source; synthetic component review where listed",
       "componentCases": ["guestLogin"],
       "preserved": "Preserve the existing sign-in, recovery, verification and callback policy.",
-      "limits": "No authenticated or hosted route acceptance."
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "The designated customer signed in through the actual local auth page.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
     },
     {
       "path": "src/app/(auth)/auth/page.js",
@@ -89,7 +101,13 @@
       "review": "entry and component source; synthetic component review where listed",
       "componentCases": ["account"],
       "preserved": "Profile editing uses the same validation and PUT payload. Journey entitlements, read-only facts and Settings remain unchanged.",
-      "limits": "No authenticated or hosted route acceptance."
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Explicit confirmed-trip entitlement, exclusion of Staff/payment data, and Profile opening. Profile edit/tab preservation remains separately component-tested.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
     },
     {
       "path": "src/app/(authenticated)/vendor/page.js",
@@ -320,18 +338,30 @@
       "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
       "componentCases": ["staff"],
       "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
-      "limits": "No authenticated or hosted route acceptance."
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Create Job Card from immutable confirmed offer; assigned Sales initials and current number format retained.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
     },
     {
       "path": "src/app/portal/activity/page.js",
       "sha256": "a6262f1946538399135f247b5759ccaff4f0627c869b0283a7075e83ce5b51c3",
       "family": "Staff Workspace",
       "status": "changed",
-      "changeIds": ["U01", "U06"],
+      "changeIds": ["U01", "U06", "U12"],
       "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
       "componentCases": ["staff"],
       "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
-      "limits": "No authenticated or hosted route acceptance."
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Exact Query-intake audience across 12 profiles; Unread/All, bell, selected read, real Query deep link and later arrivals. U12 empty-record footer regression fixed.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
     },
     {
       "path": "src/app/portal/approvals/page.js",
@@ -353,7 +383,13 @@
       "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
       "componentCases": ["staff"],
       "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
-      "limits": "No authenticated or hosted route acceptance."
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Assigned query, attachment and series context, exclusion of Sales Decision, sidebar visit acknowledgement; mobile role navigation.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
     },
     {
       "path": "src/app/portal/employees-on-leave/page.js",
@@ -364,7 +400,13 @@
       "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
       "componentCases": ["staff"],
       "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
-      "limits": "No authenticated or hosted route acceptance."
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Create leave request; configured head then HR final approval; mobile role navigation. Authority and routing unchanged.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
     },
     {
       "path": "src/app/portal/event-photo-booth/page.tsx",
@@ -386,7 +428,13 @@
       "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
       "componentCases": ["staff"],
       "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
-      "limits": "No authenticated or hosted route acceptance."
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Finance creates an owned draft expense; submission remains a separate available action.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
     },
     {
       "path": "src/app/portal/external-tour-managers/page.tsx",
@@ -408,7 +456,13 @@
       "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
       "componentCases": ["staff"],
       "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
-      "limits": "No authenticated or hosted route acceptance."
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Finance role mobile destination, overflow and menu focus only. Full finance approval/invoice workflow not browser-accepted.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
     },
     {
       "path": "src/app/portal/flights/page.js",
@@ -463,7 +517,13 @@
       "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
       "componentCases": ["staff"],
       "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
-      "limits": "No authenticated or hosted route acceptance."
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Management assigns Operations on the created Job Card; Operations mobile destination and menu focus.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
     },
     {
       "path": "src/app/portal/page.js",
@@ -474,7 +534,13 @@
       "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
       "componentCases": [],
       "preserved": "Existing dashboard or purpose-specific controls retain their workflow. The shared list toolbar is not rendered here.",
-      "limits": "No authenticated or hosted route acceptance."
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Sales dashboard-to-Queries progressive navigation and history; Admin mobile dashboard navigation. Full dashboard analytics not accepted.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
     },
     {
       "path": "src/app/portal/passport/page.js",
@@ -518,7 +584,13 @@
       "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
       "componentCases": ["staff"],
       "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
-      "limits": "No authenticated or hosted route acceptance."
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Contracting draft/handoff, incomplete-pricing rejection then explicit successful handoff, commercial confirmation/revision; mobile role navigation.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
     },
     {
       "path": "src/app/portal/queries/page.js",
@@ -529,7 +601,13 @@
       "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
       "componentCases": ["staff"],
       "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
-      "limits": "No authenticated or hosted route acceptance."
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Sales creation, Ticketing assignment, head self-assignment, exact Notes persistence, Sales confirmation/revision, signed-in notification deep link, and Sales/Cement mobile scopes.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
     },
     {
       "path": "src/app/portal/reports/page.js",
@@ -595,7 +673,13 @@
       "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
       "componentCases": ["staff"],
       "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
-      "limits": "No authenticated or hosted route acceptance."
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Ticketing creates and edits a synthetic ticket; Ticketing and head mobile destination. No provider operation.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
     },
     {
       "path": "src/app/portal/tour-managers/page.js",
@@ -628,7 +712,13 @@
       "review": "Shared CRM shell and component source; populated journey cases in crm-redesign.md where mapped. No signed-in route acceptance.",
       "componentCases": ["staff"],
       "preserved": "Reuse one existing reset callback. Row actions, stages, saved views and record access are unchanged.",
-      "limits": "No authenticated or hosted route acceptance."
+      "limits": "No authenticated or hosted route acceptance.",
+      "localAcceptance": {
+        "record": "local-acceptance.json",
+        "status": "selected local checks passed",
+        "observed": "Operations creates/edits a traveller on the created Job Card; hold-to-confirm deletion remains required.",
+        "limits": "This supplements the original component/source-audit limits above. No provider or production proof, and no unlisted action acceptance."
+      }
     },
     {
       "path": "src/app/portal/visa/page.js",
@@ -654,5 +744,14 @@
     }
   ],
   "crmJourneyReview": "crm-redesign.md#staff-journey-coverage",
-  "crmBrowserEvidence": "crm-browser-evidence.json"
+  "crmBrowserEvidence": "crm-browser-evidence.json",
+  "signedInLocalAcceptance": {
+    "record": "local-acceptance.json",
+    "passedScenarios": 28,
+    "failedScenarios": 0,
+    "skippedScenarios": 0,
+    "additionalFinalInboxKeyboardRun": "passed",
+    "listedRouteEntries": 15,
+    "otherEntries": "source/component review only; no broader acceptance implied"
+  }
 }

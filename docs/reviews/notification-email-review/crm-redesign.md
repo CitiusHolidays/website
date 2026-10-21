@@ -114,15 +114,19 @@ The [59-route inventory](site-coverage.json) retains checked, changed, unchanged
 
 Dashboard, inbound/event tools and other routes inherit the CRM shell where used, but are not claimed as independently accepted signed-in journeys. Public/Account usability remains U01 to U05; their visual identities stay separate. Parked PRs and rejected product features remain parked. No analytics was enabled.
 
+## U12. Omit an unrelated empty-record message
+
+The signed-in Notifications page no longer announces an empty activity-log count beneath a populated personal inbox. Empty lists omit that footer, while real Load more actions remain. A mounted regression, a restored controlled mutation and the real local inbox check cover it. See the [local results](local-acceptance.md#u12-remove-an-unrelated-empty-record-message).
+
 ## Verification and limits
 
-The [current inbox gallery](inbox-review.md) adds desktop and phone pictures from the Mac browser, including Unread/All, the bell and failure states. It also records the existing test-account discovery and the inaccessible, mismatched preview binding. No current signed-in target acceptance is claimed.
+The [signed-in local gallery](local-acceptance.md) shows the real inbox, bell, Query deep link, head self-assignment and phone count/dot. All 28 selected workflow checks passed. Earlier loading/error pictures still use component substitutes; hosted Preview access is not a local acceptance requirement.
 
 [Browser evidence](crm-browser-evidence.json) identifies current image hashes and substitutes. The [loading state](crm/queries-loading-1440.jpg), [empty state](crm/queries-empty-1440.jpg) and failed-save pictures are distinct. Earlier before pictures use the pre-redesign components; some have fewer sample rows than the populated final pictures. Compare composition, not those sample business outcomes.
 
 [Six controlled mutations](crm-mutation-evidence.json) caught stale server acknowledgement, missing real-publisher projection, a moving client snapshot, enabled pending checkboxes, missing Job Card prefill and a lost Proposal revision. Every original file was restored byte-for-byte and its focused suite passed afterward. These are separate from the four earlier U01 to U05 mutations and ordinary passing tests.
 
-The final local gate passes with Effect 4.0.5: 2,055 Bun tests, 225 schema-backed Convex tests, zero-warning lint, application/Convex types, and coverage for six high-risk files and 29/29 branch contracts. The existing dead-code check passes at 132/183 reviewed findings, with no baseline update. Diff hygiene passes. The PR records the exact published revision and hosted result separately.
+The final local gate passes with Effect 4.0.5: 2,060 Bun tests, 225 schema-backed Convex tests, zero-warning lint, application/Convex types, and coverage for six high-risk files and 29/29 branch contracts. The existing dead-code check passes at 132/183 reviewed findings, with no baseline update. Diff hygiene passes. The PR records the exact published revision and hosted result separately.
 
 The first upgrade run correctly rejected the old dependency-closure fingerprint. The existing repository calculation refreshed it, without weakening its test. A later React Doctor check found the compiler limitation described below; the complete local gate passed again after that fix.
 
@@ -132,4 +136,4 @@ The dependency audit reports existing advisories in ten packages: brace-expansio
 
 The existing ignore rules already cover the local fixture, caches, logs and test outputs. No new ignore rule is warranted. Intended source, regression tests, these reference crops and review pictures remain tracked.
 
-No native Next build, authenticated non-production acceptance, provider acceptance, deployment or migration is proved by these component checks. No real record, email, charge or live control was used. The draft grants no merge or production deployment authority.
+These component checks do not prove a production build or provider acceptance. The separate signed-in local run used the actual Next dev server and locally deployed PR functions/schema, with no hosted backend write. No real record, email, charge or live control was used. The draft grants no merge or production deployment authority.

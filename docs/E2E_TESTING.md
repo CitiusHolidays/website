@@ -93,7 +93,7 @@ seed ownership and cleanup checks apply locally. None requires a hosted Preview.
 
 4. Run tests. Global setup validates every prerequisite, compares both configured origins, the
    exact frontend revision, and the code-baked Convex source fingerprint with the approved manifest,
-   independently reads `/api/e2e/identity` from the frontend and Convex Preview, calls the protected
+   independently reads `/api/e2e/identity` from the frontend and the selected Convex backend, calls the protected
    seed endpoint with the same server-configured target ID, and
    aborts on any seed or sign-in failure before specs execute:
 

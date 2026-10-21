@@ -87,4 +87,4 @@ Prior keep/revert decisions remain in place. Home company/client/logo/award sect
 
 The [browser evidence](site-browser-evidence.json) records final source and image hashes, baseline reproductions, viewport checks and review substitutes. The [controlled regression evidence](site-mutation-evidence.json) records four deliberately broken behaviors that their tests caught, followed by a passing restored suite. Ordinary passing tests are separate evidence.
 
-The final commit and required local gate result are recorded in the task handoff. Hosted quality, a non-production signed-in acceptance run and provider acceptance remain separate. This local review grants no merge or production deployment authority.
+The final commit and required local gate result are recorded in the task handoff. The [selected signed-in local workflows](local-acceptance.md) now pass. That run does not accept every route in the source inventory or prove provider delivery. Hosted quality remains separate. This local review grants no merge or production deployment authority.
