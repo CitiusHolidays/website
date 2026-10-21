@@ -20,7 +20,9 @@ async function createQuery(page: Page, clientName: string, ticketingScope = "Not
   await queries.open();
   await queries.createQuery(clientName, "E2E Contracting", ticketingScope);
   await modalField(page, "Destination").fill("Jaipur");
-  await modalField(page, "Notes").fill("Synthetic local acceptance enquiry. Preserve these notes.");
+  await modalField(page, "Notes").pressSequentially(
+    "Synthetic local acceptance enquiry. Preserve these notes."
+  );
   await saveEntityModal(page);
   const row = queries.queryRow(clientName);
   await expect(row).toBeVisible();
