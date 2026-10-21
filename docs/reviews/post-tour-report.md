@@ -1,5 +1,7 @@
 # U13. Internal post-tour feedback and learning form
 
+The [staff task guide](notification-email-review/staff-guide.md#prepare-the-internal-tour-report) explains preparation, visibility, submission alerts and Admin archive with a workflow diagram.
+
 Open Feedback beside the JC number, then Internal tour report. The form stays in
 Citius Connect. The Job Card selector opens the selected trip's report. Earlier
 team notes and traveller feedback remain separate choices, with their existing
@@ -12,11 +14,28 @@ check reported no application errors. These are local-development captures, not
 production or mailbox-delivery proof. GitHub's native PR attachment feature hosts
 the pictures; every returned image URL opened and decoded successfully.
 
-| JC dropdown | On a phone |
-| --- | --- |
-| ![JC dropdown](https://github.com/user-attachments/assets/74224976-05cb-41c5-8e5e-ced3c093f2a6) | ![Phone dropdown](https://github.com/user-attachments/assets/b1073b3c-0a2b-456c-a7bf-eedc13db2424) |
+JC dropdown
+
+![JC dropdown](https://github.com/user-attachments/assets/74224976-05cb-41c5-8e5e-ced3c093f2a6)
+
+On a phone
+
+![Phone dropdown](https://github.com/user-attachments/assets/b1073b3c-0a2b-456c-a7bf-eedc13db2424)
+
 
 ## The six sections
+
+<details>
+<summary>Open the complete form before the section close-ups</summary>
+
+This complete signed-in local phone capture includes the page heading, Job Card selector, all six sections and both actions. Open the original for full-size reading. The smaller section crops below are additional detail views.
+
+[![Complete six-section phone form](https://github.com/user-attachments/assets/86f36631-6909-44bf-a627-8692d9368315)](https://github.com/user-attachments/assets/86f36631-6909-44bf-a627-8692d9368315)
+
+[Complete desktop form](https://github.com/user-attachments/assets/2c1e1230-1202-4c23-8d7f-975d32d21679).
+
+</details>
+
 
 Tour details start from the JC and stay editable as a report snapshot. The form
 has five separate 1–5 performance ratings, highlights, Hits and Misses, six
@@ -26,17 +45,32 @@ and future-recommendation question. Additional or pending closure work reveals
 the amount, reason and responsible-person field. No example selections are
 submitted automatically.
 
-| Tour details | Five distinct performance ratings |
-| --- | --- |
-| ![Tour details, phone section crop](https://github.com/user-attachments/assets/db62f605-9980-4f02-9636-11c991afd353) | ![Five distinct performance ratings, phone section crop](https://github.com/user-attachments/assets/8e3fc902-f2a3-4f9d-9ef1-2e3b52c335f7) |
+Tour details
 
-| Hits | Supplier rating and low-score follow-up |
-| --- | --- |
-| ![Hits, Misses and issue learning, phone section crop](https://github.com/user-attachments/assets/29a63681-e137-450c-acdf-dc873a9819a4) | ![Supplier rating and low-score follow-up, phone section crop](https://github.com/user-attachments/assets/b27c4b63-b00f-4b08-b33a-77ebeb665342) |
+![Tour details, phone section crop](https://github.com/user-attachments/assets/db62f605-9980-4f02-9636-11c991afd353)
 
-| Closure choices and pending owner | Final assessment and server-derived ownership |
-| --- | --- |
-| ![Closure choices and pending owner, phone section crop](https://github.com/user-attachments/assets/e6c33a0d-f7f2-4753-8cbf-1d5b8ab98d11) | ![Final assessment and server-derived ownership, phone section crop](https://github.com/user-attachments/assets/629802a0-37ce-45f6-b336-c4013819b4dd) |
+Five distinct performance ratings
+
+![Five distinct performance ratings, phone section crop](https://github.com/user-attachments/assets/8e3fc902-f2a3-4f9d-9ef1-2e3b52c335f7)
+
+
+Hits
+
+![Hits, Misses and issue learning, phone section crop](https://github.com/user-attachments/assets/29a63681-e137-450c-acdf-dc873a9819a4)
+
+Supplier rating and low-score follow-up
+
+![Supplier rating and low-score follow-up, phone section crop](https://github.com/user-attachments/assets/b27c4b63-b00f-4b08-b33a-77ebeb665342)
+
+
+Closure choices and pending owner
+
+![Closure choices and pending owner, phone section crop](https://github.com/user-attachments/assets/e6c33a0d-f7f2-4753-8cbf-1d5b8ab98d11)
+
+Final assessment and server-derived ownership
+
+![Final assessment and server-derived ownership, phone section crop](https://github.com/user-attachments/assets/629802a0-37ce-45f6-b336-c4013819b4dd)
+
 
 The six section pictures are crops from the actual 390-pixel phone layout.
 [Full desktop draft](https://github.com/user-attachments/assets/2c1e1230-1202-4c23-8d7f-975d32d21679) and [full phone draft](https://github.com/user-attachments/assets/86f36631-6909-44bf-a627-8692d9368315) show the scrollable form.

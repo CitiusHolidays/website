@@ -1,10 +1,12 @@
 # Pictures of the changes
 
+The [staff task guide](staff-guide.md) explains where to click, what each indicator means, saving and recovery, role responsibilities and report submission. Pictures here use one column so phone screens and full frames stay readable. The [picture and state inventory](#picture-and-state-inventory) links every covered screen.
+
 The [U13 internal post-tour follow-up](../post-tour-report.md) adds the current six-section report and JC dropdown. The pictures below retain the earlier completed CRM/email review and its recorded revisions.
 
 The new email design and the changed app screens are collected here. Each picture uses fictional people and trips. The public site, Customer Account and Staff Workspace keep separate designs and permissions.
 
-The newest pictures below come from the real local app, signed in with the designated test accounts. The final run passed all 16 selected checks. Earlier component pictures remain useful for populated layouts, loading and deliberate failures. They use substituted transport and are labelled as such. Neither kind of picture proves production configuration or mailbox delivery.
+The signed-in pictures below come from the real local app with the designated test accounts. The replacement complete Query picture is a current-component example with synthetic responses, labelled at the image. The final run passed all 16 selected checks. Earlier component pictures remain useful for populated layouts, loading and deliberate failures. They use substituted transport and are labelled as such. Neither kind of picture proves production configuration or mailbox delivery.
 
 Some signed-in pictures retain Next's small "N" development-tools indicator at the bottom left. It can overlap the edge of a control, including Hotel Cancel. It is a local development overlay, not part of Citius or a production capture. No application error was erased from these pictures.
 
@@ -12,9 +14,14 @@ Some signed-in pictures retain Next's small "N" development-tools indicator at t
 
 Workflow updates, account verification, password reset and website enquiries now share the Citius header, readable details, one main action and a visible fallback link. The plain-text version keeps labels and values readable too.
 
-| Workflow update | Verification |
-| --- | --- |
-| ![Contracting assignment email](https://github.com/user-attachments/assets/0671bcf2-9e73-400d-bc7d-97c8d583927e) | ![Account verification email](https://github.com/user-attachments/assets/e1df405c-608f-47e3-8d51-9537fcec8295) |
+Workflow update
+
+![Contracting assignment email](https://github.com/user-attachments/assets/0671bcf2-9e73-400d-bc7d-97c8d583927e)
+
+Verification
+
+![Account verification email](https://github.com/user-attachments/assets/e1df405c-608f-47e3-8d51-9537fcec8295)
+
 
 The [complete email gallery](email-review.md) has desktop and phone renders of all 18 workflow examples, both authentication messages, website enquiries and missing-details or long-content cases. The 52 pictures render actual template HTML, including narrow, image-blocked and browser-dark-preference states. No email was sent. Staff password setup uses the password-reset template. Reminders use the corresponding workflow details and their existing event wording.
 
@@ -22,19 +29,40 @@ The [complete email gallery](email-review.md) has desktop and phone renders of a
 
 The sidebar keeps every permitted destination. A gray count means outstanding work. An orange dot means relevant activity since the person last opened that destination. Opening the loaded destination clears the captured dot without completing work or reading inbox items. A later arrival restores it.
 
-| Signed-in Query list | On a phone |
-| --- | --- |
-| ![Actual Query list with compact toolbar and pinned actions](actual/queries-desktop.png) | ![Actual Query cards and primary actions on a phone](actual/queries-phone.png) |
+Complete Query table, synthetic component example
 
-| New activity beside the work count | Phone navigation |
-| --- | --- |
-| ![New assigned activity in the sidebar](actual/inbox-sidebar-new-desktop.png) | ![Work count and new-activity dot in the phone drawer](actual/sidebar-count-activity-phone.png) |
+[![Complete Query table](https://github.com/user-attachments/assets/848ff8e4-0611-4263-ab02-ebd4b0a23b5f)](https://github.com/user-attachments/assets/848ff8e4-0611-4263-ab02-ebd4b0a23b5f)
+
+This new full-page component capture includes the last row and bottom of the table. Navigation and data use substitutes. The earlier [signed-in desktop viewport](actual/queries-desktop.png) remains evidence for its named local run; its lower footer is cut at the viewport edge. It is not a whole-page capture.
+
+On a phone
+
+![Actual Query cards and primary actions on a phone](actual/queries-phone.png)
+
+
+New activity beside the work count
+
+![New assigned activity in the sidebar](actual/inbox-sidebar-new-desktop.png)
+
+Phone navigation
+
+![Work count and new-activity dot in the phone drawer](actual/sidebar-count-activity-phone.png)
+
 
 Search commands opens the existing command palette. Columns keeps the existing field choices. The account menu keeps the existing destinations and sign-out action.
 
-| Commands | Columns | Account menu |
-| --- | --- | --- |
-| ![Actual command palette](actual/commands-desktop.png) | ![Actual column chooser](actual/columns-desktop.png) | ![Actual account menu](actual/account-menu-desktop.png) |
+Commands
+
+![Actual command palette](actual/commands-desktop.png)
+
+Columns
+
+![Actual column chooser](actual/columns-desktop.png)
+
+Account menu
+
+![Actual account menu](actual/account-menu-desktop.png)
+
 
 ![Commands on a phone](actual/commands-phone.png)
 
@@ -44,13 +72,23 @@ The earlier [filter before and after](site-usability.md#u01-clear-staff-filters-
 
 Unread and All share one inbox. Opening the bell or changing the filter preserves unread items. Opening one item reads only that item and loads the authorized work. The signed-in test inspected the exact audience across all 12 designated staff profiles before reassignment.
 
-| Actual inbox | Actual bell |
-| --- | --- |
-| ![Signed-in Contracting inbox](actual/inbox-unread-desktop.png) | ![Bell preserves both unread assignments](actual/inbox-bell-desktop.png) |
+Actual inbox
 
-| All on a phone | The opened Query |
-| --- | --- |
-| ![Read history and remaining unread assignment](actual/inbox-all-phone.png) | ![The assignment opens its authorized Query](actual/inbox-query-deep-link-desktop.png) |
+![Signed-in Contracting inbox](actual/inbox-unread-desktop.png)
+
+Actual bell
+
+![Bell preserves both unread assignments](actual/inbox-bell-desktop.png)
+
+
+All on a phone
+
+![Read history and remaining unread assignment](actual/inbox-all-phone.png)
+
+The opened Query
+
+![The assignment opens its authorized Query](actual/inbox-query-deep-link-desktop.png)
+
 
 The [inbox state gallery](inbox-review.md#empty-loading-and-failed-requests) also shows no history, all caught up, loading and a failed read. Those deliberate failure examples use component substitutes. The separate staff and authorized email-status views are pictured there too.
 
@@ -58,9 +96,18 @@ The [inbox state gallery](inbox-review.md#empty-loading-and-failed-requests) als
 
 The existing sequence remains Query, assigned preparation, Proposal, Sales decision, confirmed offer, then Job Card. Required fields, costing, tax, documents and authority stay the same. Save remains explicit. Pending saves pause edits; failed saves keep the draft for retry.
 
-| Query | Proposal | Team assignment |
-| --- | --- | --- |
-| ![Query form on a phone](crm/form-query-390.jpg) | ![Proposal form on a phone](crm/proposal-mobile.jpg) | ![Assignment form on a phone](crm/form-assignQueryTeams-390.jpg) |
+Query
+
+![Query form on a phone](crm/form-query-390.jpg)
+
+Proposal
+
+![Proposal form on a phone](crm/proposal-mobile.jpg)
+
+Team assignment
+
+![Assignment form on a phone](crm/form-assignQueryTeams-390.jpg)
+
 
 The [Proposal gallery](crm-redesign.md#u07-keep-a-pending-save-safe) shows the desktop form, narrow phone, final itinerary fields, pending state and failed-save recovery. The real local workflow passed creation, handoff, revision, confirmation and Job Card creation. The head self-assignment test saved and reopened the head's own Ticketing assignment.
 
@@ -68,23 +115,46 @@ The [Proposal gallery](crm-redesign.md#u07-keep-a-pending-save-safe) shows the d
 
 The selected Job Card carries into seven operational form kinds only when it is still a valid choice. Edits and explicit record links take precedence. It does not create or submit anything.
 
-| Hotel | Seat allocation | Visa |
-| --- | --- | --- |
-| ![Actual hotel form on a phone](actual/hotel-form-phone.png) | ![Actual seat form on a phone](actual/seat-form-phone.png) | ![Actual visa form on a phone](actual/visa-form-phone.png) |
+Hotel
+
+![Actual hotel form on a phone](actual/hotel-form-phone.png)
+
+Seat allocation
+
+![Actual seat form on a phone](actual/seat-form-phone.png)
+
+Visa
+
+![Actual visa form on a phone](actual/visa-form-phone.png)
+
 
 These three signed-in form checks opened and cancelled without saving. Visa uses the shared presentation but is not one of the seven Job Card-prefill kinds. Traveller, PNR, Ticket and Expense forms have their desktop and phone pictures below. Invoice uses the same form controls; its context-prefill behavior has a regression check, rather than a separate invoice-creation claim.
 
 ## Job Cards, Ticketing and custom workspaces
 
-| Job Card details | Staff travel | Post-tour work |
-| --- | --- | --- |
-| ![Job Card details on a phone](crm/jobDetail-390.jpg) | ![Staff travel on a phone](crm/staffTravel-390.jpg) | ![Post-tour feedback on a phone](crm/postTour-390.jpg) |
+Job Card details
+
+![Job Card details on a phone](crm/jobDetail-390.jpg)
+
+Staff travel
+
+![Staff travel on a phone](crm/staffTravel-390.jpg)
+
+Post-tour work
+
+![Post-tour feedback on a phone](crm/postTour-390.jpg)
+
 
 These populated component pictures use fictional responses. Job Card readiness, checklist completion, travel ownership and post-tour meaning remain. The travel failure picture below shows the retained draft. External manager profiles and the expanded Job Card checklist have separate pictures in the inventory.
 
-| Actual Ticketing overview | On a phone |
-| --- | --- |
-| ![The signed-in Ticketing overview with no tickets yet](actual/ticketing-overview-desktop.png) | ![The same empty overview on a phone](actual/ticketing-overview-phone.png) |
+Actual Ticketing overview
+
+![The signed-in Ticketing overview with no tickets yet](actual/ticketing-overview-desktop.png)
+
+On a phone
+
+![The same empty overview on a phone](actual/ticketing-overview-phone.png)
+
 
 The local overview is empty because this selected run created no tickets. The [populated Ticket list](crm/tickets-1440.jpg) is a component example. Earlier signed-in Ticket creation and edit checks remain in the [local workflow record](local-acceptance.md). This distinction avoids presenting sample component rows as backend data.
 
@@ -92,15 +162,29 @@ The local overview is empty because this selected run created no tickets. The [p
 
 Account editing starts from the displayed details. Moving between tabs retains the draft; Cancel does not save it. The real signed-in test changed a draft name, switched tabs, confirmed the draft remained and cancelled.
 
-| Actual Account draft | On a phone |
-| --- | --- |
-| ![Customer profile draft at desktop width](actual/customer-profile-draft-desktop.png) | ![The same retained draft on a phone](actual/customer-profile-draft-phone.png) |
+Actual Account draft
+
+![Customer profile draft at desktop width](actual/customer-profile-draft-desktop.png)
+
+On a phone
+
+![The same retained draft on a phone](actual/customer-profile-draft-phone.png)
+
 
 The public Contact form comes before office maps on a phone. While sending, it protects the submitted values. A failure keeps them for retry. Services keeps its circular selector, with every choice reachable on narrow screens and by keyboard.
 
-| Contact while sending | Mobile Contact order | Services |
-| --- | --- | --- |
-| ![Enquiry values protected during sending](u03-sending-mobile.png) | ![Form before the retained office maps](u04-after-mobile.png) | ![Services fit the phone width](u05-after-390.png) |
+Contact while sending
+
+![Enquiry values protected during sending](u03-sending-mobile.png)
+
+Mobile Contact order
+
+![Form before the retained office maps](u04-after-mobile.png)
+
+Services
+
+![Services fit the phone width](u05-after-390.png)
+
 
 These public-state pictures use actual components with substituted requests. [U01 to U05](site-usability.md) retain the before pictures, desktop views and failure or pending states. No public enquiry was sent during the signed-in run.
 
@@ -136,7 +220,7 @@ These public-state pictures use actual components with substituted requests. [U0
 | Customer Account draft and pending save | [Actual draft](actual/customer-profile-draft-desktop.png), [component](u02-after-desktop.png) | [Actual draft](actual/customer-profile-draft-phone.png), [pending](u02-saving-mobile.png) |
 | Contact form and submitted values | [Form](u03-after-desktop.png) | [Pending](u03-sending-mobile.png), [mobile order](u04-after-mobile.png). Failure recovery has a behavior check. |
 | Services selector | [Desktop](u05-after-1440.png) | [Phone](u05-after-390.png) |
-| Authentication email and recovery result | [Email gallery](email-review.md#authentication-contact-and-edge-cases) | [Actual generic recovery result](actual/auth-recovery-generic-result.png). The local backend rendered the reset message and recorded provider-not-configured. |
+| Authentication email and recovery result | [Email gallery](email-review.md#every-email-variant) | [Actual generic recovery result](actual/auth-recovery-generic-result.png). The local backend rendered the reset message and recorded provider-not-configured. |
 | Every mail detail family and optional/long states | [All 24 desktop variants](email-review.md) | [All 24 phone variants](email-review.md). Browser rendering only. |
 | Recipient selection, retries, controls, access, deduplication and races | No image can establish these guarantees. | Exact-audience, schema-backed, delivery and controlled-mutation tests supply the evidence. See [rules R01 to R15](README.md#recipient-rules). |
 | Type-only, lifecycle, readiness and shared style changes | They have no standalone page. | The [source coverage map](screenshot-coverage.json) maps every changed `src` implementation file to the corresponding pictures or behavioral proof. |

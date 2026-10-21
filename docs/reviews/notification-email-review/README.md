@@ -1,6 +1,6 @@
 # Citius usability, notification and email review
 
-Please review these items before this draft can move forward.
+Start with the [staff task guide](staff-guide.md) for detailed steps, complete pictures, alert audiences and the internal report diagram. The event rules and confirmed decisions below keep their review IDs.
 
 [U13. The requested internal post-tour form](../post-tour-report.md) adds the six-section report, JC dropdown, selected alerts and Admin archive/restore. Its pictures use native GitHub attachments.
 
@@ -130,9 +130,13 @@ An informational event, such as an order being marked lost, can still reach the 
 
 The [email gallery](email-review.md) shows all 18 workflow examples, both authentication messages, contact enquiries and the long or missing-details cases. These pictures render the real React Email output locally. They are not inbox-delivery proof.
 
-| Workflow email | Authentication email |
-| --- | --- |
-| ![Contracting assignment on a phone](https://github.com/user-attachments/assets/0671bcf2-9e73-400d-bc7d-97c8d583927e) | ![Account verification on a phone](https://github.com/user-attachments/assets/e1df405c-608f-47e3-8d51-9537fcec8295) |
+Workflow email
+
+![Contracting assignment on a phone](https://github.com/user-attachments/assets/0671bcf2-9e73-400d-bc7d-97c8d583927e)
+
+Authentication email
+
+![Account verification on a phone](https://github.com/user-attachments/assets/e1df405c-608f-47e3-8d51-9537fcec8295)
 
 Every family uses the same Citius header, short context, compact details and clear action. A readable fallback link and plain-text alternative keep the message useful without the button. Existing subjects, recipients, access checks, approval stages and retry behavior remain. Contact mail keeps its Reply-To address. Private cost, document fields, leave reasons and internal notes remain in the portal.
 

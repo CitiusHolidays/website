@@ -8,9 +8,14 @@ The pictures show actual Citius components with fictional people and trips. Navi
 
 An active filter can hide every result. Previously, Clear filters was hidden inside the collapsed panel. One reset is now visible beside Filters active, including on search-only lists. It calls the existing reset and preserves the record link in the URL. New query and the other workflow actions stay where they are.
 
-| Before | After |
-| --- | --- |
-| ![Collapsed filters hid the reset](u01-before-mobile.png) | ![One visible reset beside active filters](u01-after-mobile.png) |
+Before
+
+![Collapsed filters hid the reset](u01-before-mobile.png)
+
+After
+
+![One visible reset beside active filters](u01-after-mobile.png)
+
 
 [Desktop before](u01-before-desktop.png) and [desktop after](u01-after-desktop.png). The mounted check exercises the real reset callback for search, dates, Job Card and list filters. It also checks the preserved record link, one reset, and an unchanged primary action.
 
@@ -20,9 +25,14 @@ Edit starts with the details currently shown. Enter saves through the same Save 
 
 Switching between Account tabs keeps the profile draft. A save that finishes while another tab is open retains its result or recovery message. Switching tabs does not submit anything. Email and passport details keep their existing read-only behavior.
 
-| Before | After |
-| --- | --- |
-| ![Edit opened older profile values](u02-before-mobile.png) | ![Edit starts from the current displayed values](u02-after-mobile.png) |
+Before
+
+![Edit opened older profile values](u02-before-mobile.png)
+
+After
+
+![Edit starts from the current displayed values](u02-after-mobile.png)
+
 
 The sample was updated to Avery Rao Updated before Edit opened. The earlier field still showed Avery Rao. The after image uses the updated value.
 
@@ -34,9 +44,14 @@ The sample was updated to Avery Rao Updated before Edit opened. The earlier fiel
 
 The enquiry fields pause while Send is running. Previously, a visitor could type more while the old values were being sent, then lose the later edit when success cleared the form. A failed send restores editing and keeps the enquiry and retry identity.
 
-| Before, while sending | After, while sending |
-| --- | --- |
-| ![A later edit could be entered during sending and then discarded](u03-sending-before-mobile.png) | ![The submitted enquiry stays protected until the response](u03-sending-mobile.png) |
+Before, while sending
+
+![A later edit could be entered during sending and then discarded](u03-sending-before-mobile.png)
+
+After, while sending
+
+![The submitted enquiry stays protected until the response](u03-sending-mobile.png)
+
 
 The fields, consent, security check and explicit submit are unchanged. Tests verify one request, the same Website enquiry payload and retry key, failure recovery and success clearing. An older recovery timer cannot unlock a newer pending request.
 
@@ -46,9 +61,14 @@ The fields, consent, security check and explicit submit are unchanged. Tests ver
 
 The existing form comes before the three office maps on a phone. Visual order now follows keyboard order. The desktop order, office details, map links and response commitment stay the same.
 
-| Before | After |
-| --- | --- |
-| ![Office maps appeared before the enquiry form](u04-before-mobile.png) | ![The existing enquiry form comes first](u04-after-mobile.png) |
+Before
+
+![Office maps appeared before the enquiry form](u04-before-mobile.png)
+
+After
+
+![The existing enquiry form comes first](u04-after-mobile.png)
+
 
 Browser checks verify mobile order, retained maps, unchanged desktop order, and the same explicit consented submission.
 
@@ -58,9 +78,14 @@ The circular Services selector stays. The original fixed ring clipped choices on
 
 Each service can be chosen from the keyboard as well as by pointer. Its accessible name now says Learn about the service.
 
-| Before | After |
-| --- | --- |
-| ![Service names were clipped at the sides](u05-before-390.png) | ![All choices fit, with readable details below the retained selector](u05-after-390.png) |
+Before
+
+![Service names were clipped at the sides](u05-before-390.png)
+
+After
+
+![All choices fit, with readable details below the retained selector](u05-after-390.png)
+
 
 [Desktop before](u05-before-1440.png) and [desktop after](u05-after-1440.png). Geometry and activation checks cover 320, 360, 390, 400, 500, 768 and 1440px. The narrow view also passed with enlarged text. This does not restore the rejected Services list redesign.
 

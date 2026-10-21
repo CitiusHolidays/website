@@ -8,21 +8,36 @@ These pictures show actual Citius components and CSS with fictional staff and tr
 
 The sidebar keeps the Citius logo, destinations and role visibility. Search commands opens the working command palette. Screens without that palette do not show a nonfunctional search control or shortcut hint. Desktop rows are compact; phone controls keep usable touch targets.
 
-| Earlier Citius layout | Current Citius layout |
-| --- | --- |
-| ![Earlier query composition](crm/queries-1440-before.jpg) | ![Flat heading and compact table toolbar](crm/queries-desktop.jpg) |
+Earlier Citius layout
+
+![Earlier query composition](crm/queries-1440-before.jpg)
+
+Current Citius layout
+
+![Flat heading and compact table toolbar](crm/queries-desktop.jpg)
+
 
 The Query table places Stage before secondary columns. Pinned cells are opaque, so underlying text cannot bleed through. Columns and scroll controls share one compact toolbar. Inner horizontal scrolling keeps every business column available.
 
-| Query table | Proposal form |
-| --- | --- |
-| ![Current Query table and actions](crm/queries-1440.jpg) | ![Grouped Proposal fields and clear actions](crm/form-proposal-1440.jpg) |
+Query table
+
+![Current Query table and actions](crm/queries-1440.jpg)
+
+Proposal form
+
+![Grouped Proposal fields and clear actions](crm/form-proposal-1440.jpg)
+
 
 Forms have labels above their fields and separate related groups. Required fields, existing values, validation and actions remain. Proposal rows keep the main handoff action visible, with less frequent actions in More.
 
-| Job Card details | Details on a phone |
-| --- | --- |
-| ![Job Card readiness and next actions](crm/jobDetail-1440.jpg) | ![Job Card details on a phone](crm/jobDetail-390.jpg) |
+Job Card details
+
+![Job Card readiness and next actions](crm/jobDetail-1440.jpg)
+
+Details on a phone
+
+![Job Card details on a phone](crm/jobDetail-390.jpg)
+
 
 Cards separate distinct content. The collapsed Job Card checklist no longer stretches into a blank card beside the next-actions list. Post-tour selectors sit directly on the page. Public-site and Customer Account presentation stays separate.
 
@@ -32,15 +47,25 @@ Save remains explicit. While a command is pending and during its short saved fee
 
 The proposal retains its linked queries, cost calculation, selling price, tax, itinerary and document workflow. The phone dialog matches the viewport and scrolls internally. The footer stays visible. Keyboard navigation reaches the last itinerary field above it; Tab from Save wraps to Close. Escape closes an idle dialog. These are viewport screenshots, not captures beyond the fixed overlay.
 
-| Phone, top | Phone, final fields |
-| --- | --- |
-| ![Proposal at 390 pixels](crm/proposal-mobile.jpg) | ![Itinerary above Save](crm/proposal-bottom-mobile.jpg) |
+Phone, top
+
+![Proposal at 390 pixels](crm/proposal-mobile.jpg)
+
+Phone, final fields
+
+![Itinerary above Save](crm/proposal-bottom-mobile.jpg)
+
 
 [Narrow 360-pixel viewport](crm/proposal-360.jpg). At 390 by 844 and 360 by 780, the root scroll stayed locked and the document had no horizontal overflow.
 
-| Pending | Failed save |
-| --- | --- |
-| ![Fields and linked-query checkboxes disabled](crm/proposal-saving-390.jpg) | ![Error with values retained and editing restored](crm/proposal-error-390.jpg) |
+Pending
+
+![Fields and linked-query checkboxes disabled](crm/proposal-saving-390.jpg)
+
+Failed save
+
+![Error with values retained and editing restored](crm/proposal-error-390.jpg)
+
 
 ## U08. Carry the selected Job Card into a new form
 
@@ -66,9 +91,14 @@ Activity records a historical arrival. If work later closes or moves to someone 
 
 Proposal rows show Send to Sales when the existing Draft and linked-query rules permit it. Files, Edit, collaborator sharing and Delete remain in More. Contracting rows show Assign for unallocated work when allowed, otherwise their existing Status action. Every permission check and exact record/revision target remains. Delete still reaches its existing confirmation.
 
-| Proposal rows | Contracting on a phone |
-| --- | --- |
-| ![Compact handoff and visible status](crm/proposals-1440.jpg) | ![Assignment and other actions remain reachable](crm/contracting-390.jpg) |
+Proposal rows
+
+![Compact handoff and visible status](crm/proposals-1440.jpg)
+
+Contracting on a phone
+
+![Assignment and other actions remain reachable](crm/contracting-390.jpg)
+
 
 [Open Proposal action menu](crm/proposal-actions-1440.jpg). Mounted checks exercise the actual actions, exact targets and read-only Files-only access. They also retain the heads' allocation path. No new approval power or workflow stage was added.
 
@@ -76,9 +106,14 @@ Proposal rows show Send to Sales when the existing Draft and linked-query rules 
 
 The actual travel form left Person enabled while its other fields and Save paused. It now disables Person too. A failed save restores the selected person, destination and dates for explicit retry. Permissions, Job Card linking and mutation meaning are unchanged.
 
-| Before, during save | After, during save |
-| --- | --- |
-| ![Person was still enabled](crm/travel-person-before.jpg) | ![Person now pauses with the submitted draft](crm/travel-person-after.jpg) |
+Before, during save
+
+![Person was still enabled](crm/travel-person-before.jpg)
+
+After, during save
+
+![Person now pauses with the submitted draft](crm/travel-person-after.jpg)
+
 
 [Failed-save recovery](crm/travel-failure-390.jpg). This was reproduced through the actual component with a deferred synthetic mutation. It is browser evidence, separate from the backend travel tests.
 
