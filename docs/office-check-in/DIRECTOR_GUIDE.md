@@ -2,84 +2,65 @@
 
 Office check-in lets staff press **Clock in** and **Clock out** in Citius Connect, and shows
 managers who is in the office today. For now it only **records** the result. Nobody is ever
-blocked from clocking in.
+blocked from clocking in. The same text is sent to directors on WhatsApp.
 
-Do the steps below once for each office: Mumbai/Thane, Bengaluru and Kolkata.
+## Office details (looked up on Google Maps, 5 November 2026)
 
----
+| Office | Code | Address | Latitude | Longitude |
+| --- | --- | --- | --- | --- |
+| Thane | THN | 810, Capittal Tree, Pokhran Road No 2, Thane West 400606 | 19.2183687 | 72.9705434 |
+| Bengaluru | BLR | Pachie's, 3C-982, 3rd Cross Road, Kalyan Nagar, Bengaluru 560043 | 13.0187393 | 77.6521613 |
+| Kolkata | CCU | 207, The Chambers, 1865 Rajdanga Main Road, Kasba, Kolkata 700107 | 22.513929 | 88.3942969 |
 
-## 1. Ask IT one question (5 minutes)
+The Thane pin is Google's "Capittal Tree sales office" listing for the building. The Kolkata pin
+is the Citius Holidays listing. The Bengaluru pin is the Pachie's building. Confirm each with the
+self-test in step 2.
 
-Send this message to whoever manages the office internet:
+## 1. Set up each office (about 10 minutes each, from anywhere)
 
-> Hi, for our new office check-in system I need the **public IP address** of our office
-> internet connection. Please include the backup connection if we have one. Also, do people
-> working from home use a company VPN that makes them appear to come from the office internet?
+Open **Citius Connect → Admin → Office check-in** and scroll to **Office rules**.
 
-Keep their reply. You'll need it in step 3.
-
-## 2. Get the office location (2 minutes)
-
-1. Stand at the office entrance with your phone.
-2. Open Google Maps and press and hold on your blue dot to drop a pin.
-3. Copy the two numbers shown at the top, for example `19.2166, 72.9722`.
-
-## 3. Set up the office in Citius Connect (10 minutes)
-
-Open **Citius Connect → Admin → Office check-in** and scroll down to **Office rules**.
-
-1. **Add office.** Type the office name and a short code (for example `BOM`), then press
-   **Add office**.
-2. Select the office you just added, and fill in the rule:
-
-   | Field | What to enter |
-   | --- | --- |
-   | Choose what to check | **Office network or location** |
-   | Office network ranges | The IP address from IT, with the label "Main line". Add the backup line too if there is one. If IT said home VPN users appear as the office, choose **Office, shared with VPN** for that address. Otherwise choose **Office**. |
-   | Latitude / Longitude | The two numbers from step 2 |
-   | Radius (m) | `150` |
-   | Accuracy limit (m) | `75` |
-   | Time zone | `Asia/Kolkata` |
-   | Mode | **Report only** (leave it like this) |
-   | Reason | `First setup` |
-
+1. Type the office name and code from the table, then press **Add office**.
+2. Select the office and fill in:
+   - **Choose what to check:** Location
+   - **Latitude / Longitude:** from the table
+   - **Radius (m):** 150
+   - **Accuracy limit (m):** 75
+   - **Time zone:** Asia/Kolkata
+   - **Mode:** Report only (leave it)
+   - **Reason:** First setup
 3. Press **Save rule**.
-4. Under **Staff office**, pick each person who works at this office, select the office, type
-   `First setup` as the reason, and press **Save assignment**.
+4. Under **Staff office**, pick each person at that office, choose the office, type
+   `First setup`, and press **Save assignment**.
 
-If the screen shows an error when you save, take a screenshot and send it to the development
-team.
+## 2. Test it (at the office, 5 minutes)
 
-## 4. Try it yourself (5 minutes)
+- Press **Clock in** on your phone and allow location. It should say **Location: Pass**. Indoors
+  it may say **Uncertain**, which is fine.
+- Press **Clock out**. Your time appears.
+- Scroll to **Today in the office**. Your team is listed.
 
-| Do this | You should see |
-| --- | --- |
-| Press **Clock in** on an office computer | **Office network: Pass** |
-| Press **Clock in** on your phone in the office and allow location | **Location: Pass** (inside the building it may say **Uncertain**, which is fine) |
-| Press **Clock out** | Your clock-out time appears |
+## 3. Add the office internet (when IT replies)
 
-Then scroll to **Today in the office**. You should see your staff, with who has clocked in.
+Send IT this message:
 
-## 5. Each week during the pilot (10 minutes)
+> Hi, what is the public IP address of our office internet, and the backup line if we have one?
+> Also, do people on the company VPN from home appear to come from the office internet?
 
-- Open **Today in the office** and look for **Fail** or **Uncertain**.
-- Ask the person what happened (working from home, phone indoors, backup internet). It is a
-  prompt to ask, not proof someone was absent.
-- If the check was wrong, press **Review**, choose accept, and write why.
-- If someone forgot to clock out, press **Correct times**.
-- If someone couldn't clock in at all, press **Add entry**.
+When they reply, open the office rule:
 
-Send the development team a screenshot of anything that keeps failing for people who are in the
-office. They will adjust the settings.
+1. Under **Office network ranges**, add the IP address with the label "Main line". If IT said VPN
+   users appear as the office, choose **Office, shared with VPN**; otherwise choose **Office**.
+2. Change **Choose what to check** to **Office network or location**.
+3. Write a reason and press **Save rule**.
 
-## Please don't
+## Each week
 
-- Don't change **Mode** to **Enforce**. Talk to the development team first.
-- Don't invent IP addresses or locations. Leave a field empty and ask.
+Look at **Today in the office** for **Fail** or **Uncertain**. Ask the person what happened, then
+use **Review**, **Correct times** or **Add entry**. A result is a prompt to ask, not proof someone
+was absent.
 
-## Good to know
+Don't switch **Mode** to **Enforce** without talking to the development team first.
 
-- Location is only asked for at the moment someone presses Clock in or Clock out. Nobody is
-  tracked during the day.
-- Exact locations and full internet addresses are never stored.
-- Records are deleted automatically after 3 months.
+Location is only asked for when someone presses Clock in or Clock out. Exact locations and full
+internet addresses are never stored, and records are deleted after 3 months.
