@@ -18,7 +18,7 @@
         "@react-email/render": "^2.2.0",
         "@sanity/client": "^7.28.0",
         "@sanity/image-url": "^2.1.1",
-        "@silurus/ooxml": "0.80.1",
+        "@silurus/ooxml": "0.89.7",
         "@streamdown/cjk": "^1.0.4",
         "@streamdown/code": "^1.1.1",
         "@streamdown/math": "^1.0.3",
@@ -40,7 +40,7 @@
         "motion": "13.1.0",
         "motion-plus": "^1.5.1",
         "next": "16.4.5",
-        "pdfjs-dist": "6.2.108",
+        "pdfjs-dist": "6.5.438",
         "razorpay": "^2.9.8",
         "react": "^19.3.1",
         "react-dom": "^19.3.1",
@@ -759,7 +759,7 @@
 
     "@shikijs/vscode-textmate": ["@shikijs/vscode-textmate@10.1.0", "", {}, "sha512-cVBuhDQjBZaNMTwBquYfPydrUP+E3hE6oYGasx8h6ZrODIM7/r+gxLDXdd66oszbrggZHEntdE6j+5gYIVyMWQ=="],
 
-    "@silurus/ooxml": ["@silurus/ooxml@0.80.1", "", {}, "sha512-LdbV4vDzI7i2ZypUaCq1OIJ3xGjrtAGqejG2mNO8yFnVRCYEjqbhvbw7F9gJWFLBak66a9PVjAB/e1gL9VjDuQ=="],
+    "@silurus/ooxml": ["@silurus/ooxml@0.89.7", "", {}, "sha512-GZGQRiPjOqlWjqPv4DE1etTgdHt9walWvuONn0eWcdgMDEMSBA/SV/tPOFoIWTTcMxPb7JnYGkg66Z64lu4p9w=="],
 
     "@stablelib/base64": ["@stablelib/base64@1.0.1", "", {}, "sha512-1bnPQqSxSuc3Ii6MhBysoWCg58j97aUjuCSZrGSmDxNqtytIi0k8utUenAwTZN4V5mXXYGsVUI9zeBqy+jBOSQ=="],
 
@@ -1943,7 +1943,7 @@
 
     "pathe": ["pathe@2.0.3", "", {}, "sha512-WUjGcAqP1gQacoQe+OBJsFA7Ld4DyXuUIjZ5cc75cLHvJ7dtNsTugphxIADwspS+AraAUePCKrSVtPLFj/F88w=="],
 
-    "pdfjs-dist": ["pdfjs-dist@6.2.108", "", { "optionalDependencies": { "@napi-rs/canvas": "^1.0.0" } }, "sha512-YxFb+SQcodN2rnX9Tn3dHYlqfb7NjlzzfONPpJd+AKoKtUjEdevTfbC07d5TcczzOK6261auRkP/M8OBHs9vFQ=="],
+    "pdfjs-dist": ["pdfjs-dist@6.5.438", "", { "optionalDependencies": { "@napi-rs/canvas": "^1.0.13" } }, "sha512-vg8Pw1x+AFKy4AMDvhuWl5cOYV8d698UoEANoFFhc79hqXDnZQqnOXoxw3HG907WHOg1JYOvLhP756boddFxpA=="],
 
     "peberminta": ["peberminta@0.10.0", "", {}, "sha512-80B2AsU+I4Qdb0ZAPSfe9UwvGzwkM37IKIFEvdS3D/3Ndgv2bsuJ0bfG1+iEYO+l7Gfd4EUJmuRyq7efLgRMzQ=="],
 
