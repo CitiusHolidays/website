@@ -8,7 +8,13 @@ import {
   SALES_STATUSES,
   VISA_STATUSES,
 } from "./constants.js";
-import { getListFilterConfig, LIST_FILTER_CONFIG, PORTAL_LIST_VIEWS } from "./listFilterConfig.js";
+import {
+  getListFilterConfig,
+  getViewFilterSearchKeys,
+  LIST_FILTER_CONFIG,
+  PORTAL_LIST_VIEWS,
+} from "./listFilterConfig.js";
+import { filterScopeRows } from "./listFilters.js";
 
 describe("ListFilterConfig", () => {
   test("Defines config for every portal list view", () => {
@@ -46,9 +52,22 @@ describe("ListFilterConfig", () => {
 
   test("Team view uses directory filters without date-scoped fields", () => {
     const fields = LIST_FILTER_CONFIG.team.map((entry) => entry.field);
-    expect(fields).toEqual(["department", "function"]);
+    expect(fields).toEqual(["department"]);
     expect(LIST_FILTER_CONFIG.dashboard).toEqual([]);
     expect(LIST_FILTER_CONFIG.reports).toEqual([]);
+  });
+
+  test("Team search still matches roles and function after the Function filter is dropped", () => {
+    const searchKeys = getViewFilterSearchKeys("team");
+    expect(searchKeys).toEqual(expect.arrayContaining(["roles", "function"]));
+    const rows = [
+      { function: "Sales leadership", id: "a", name: "Asha", roles: ["Sales Head"] },
+      { function: "Visa and documents", id: "b", name: "Bina", roles: ["Operations"] },
+    ];
+    const ids = (search) =>
+      filterScopeRows(rows, { search, searchKeys, view: "team" }).map((row) => row.id);
+    expect(ids("sales head")).toEqual(["a"]);
+    expect(ids("visa and doc")).toEqual(["b"]);
   });
 
   test("Pipeline sales mode exposes lead stage and query type only", () => {

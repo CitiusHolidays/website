@@ -216,7 +216,7 @@ export const LIST_FILTER_CONFIG = {
     { field: "status", label: "Status", options: staticOptions(SEAT_STATUSES, "All statuses") },
   ],
   settings: [],
-  team: [fromRows("department", "All departments"), fromRows("function", "All functions")],
+  team: [fromRows("department", "All departments")],
   ticketing: [
     {
       field: "ticketStatus",
