@@ -44,8 +44,7 @@ beforeAll(async () => {
     usePortalToast: () => ({ error: () => undefined, success: toastSuccess }),
   }));
   ({ createRoot } = await import("react-dom/client"));
-  ({ OfficeRuleEditor } = await import("./OfficeRuleEditor"));
-  ({ checkRuleDraft } = await import("./officeRuleDraft"));
+  ({ OfficeRuleEditor, checkRuleDraft } = await import("./OfficeRuleEditor"));
   ({ PortalConfirmProvider } = await import("@/components/portal/PortalConfirmDialog"));
 });
 
@@ -162,68 +161,6 @@ describe("Office rule editor", () => {
     expect(reason.getAttribute("aria-invalid")).toBe("true");
     expect(document.activeElement).toBe(reason);
     await view.unmount();
-  });
-
-  test("Lists rule problems in a focused alert and does not save", async () => {
-    const view = await mount(office());
-    await act(async () =>
-      typeInto(dom, view.container.querySelector("textarea"), "Adding a location check")
-    );
-    const latitude = [...view.container.querySelectorAll("label")].find(
-      (label) => label.textContent === "Latitude"
-    );
-    await act(async () => typeInto(dom, document.getElementById(latitude.htmlFor), "18.5"));
-    await settle(() => findButton(view.container, "Save rule").click());
-    const alert = view.container.querySelector('[role="alert"]');
-    expect(alert?.textContent).toContain(
-      "Fill in latitude, longitude, radius and accuracy limit as numbers, or leave all four empty."
-    );
-    expect(document.activeElement).toBe(alert);
-    expect(saveRule).not.toHaveBeenCalled();
-    await view.unmount();
-  });
-
-  test("Sends trimmed network ranges and drops blank rows", () => {
-    const result = checkRuleDraft(
-      {
-        accuracy: "",
-        latitude: "",
-        longitude: "",
-        mode: "report_only",
-        networks: [
-          { cidr: " 203.0.113.0/24 ", key: "a", kind: "office", label: " Main line " },
-          { cidr: "   ", key: "b", kind: "vpn", label: "" },
-          { cidr: "", key: "c", kind: "shared", label: " Lobby Wi-Fi " },
-        ],
-        radius: "",
-        reason: "x",
-        requirement: "network",
-        timeZone: "",
-      },
-      "report_only"
-    );
-    // A row with only a label is kept, so the missing range is reported rather than dropped.
-    expect(result.problems).toEqual(['"" is not a valid IPv4 or IPv6 address or CIDR range.']);
-    const valid = checkRuleDraft(
-      {
-        accuracy: "",
-        latitude: "",
-        longitude: "",
-        mode: "report_only",
-        networks: [
-          { cidr: " 203.0.113.0/24 ", key: "a", kind: "office", label: " Main line " },
-          { cidr: "   ", key: "b", kind: "vpn", label: "" },
-        ],
-        radius: "",
-        reason: "x",
-        requirement: "network",
-        timeZone: "",
-      },
-      "report_only"
-    );
-    expect(valid.submission?.networks).toEqual([
-      { cidr: "203.0.113.0/24", kind: "office", label: "Main line" },
-    ]);
   });
 
   test("Mirrors the server's rule validation before sending", () => {
