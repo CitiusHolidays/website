@@ -5,6 +5,7 @@ import { PortalCopyButton } from "@/components/motion-ui/copy-button";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { markPortalNavigationFirstContent } from "@/lib/portal/navigationPerformance";
+import { reportPortalDestinationReady } from "@/lib/portal/portalDestinationReady";
 import { getTicketAttention } from "@/lib/portal/ticketListPresentation";
 import { travelBatchDisplayLabel } from "../portalOperationsHelpers";
 import type { PortalTicketListRow, TicketsViewProps } from "../portalViewTypes";
@@ -62,6 +63,7 @@ export function TicketsView({
 }: TicketsViewProps) {
   useEffect(() => {
     if (!loading) {
+      reportPortalDestinationReady("/portal/tickets");
       markPortalNavigationFirstContent("tickets", rows.length > 0 ? "row" : "empty");
     }
   }, [loading, rows]);

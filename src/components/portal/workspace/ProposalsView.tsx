@@ -3,9 +3,11 @@
 import { Send } from "lucide-react";
 import { useEffect } from "react";
 import { formatDate, LifecycleDates } from "@/components/portal/PortalModalForm";
+import { QueryRowActions } from "@/components/portal/QueryRowActions";
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { markPortalNavigationFirstContent } from "@/lib/portal/navigationPerformance";
+import { reportPortalDestinationReady } from "@/lib/portal/portalDestinationReady";
 import { proposalLinkedQueryLabel } from "@/lib/portal/proposalLinks";
 import { getProposalAttention, proposalWorkflowLabel } from "@/lib/portal/proposalListPresentation";
 import type { ProposalsViewProps } from "./portalViewTypes";
@@ -101,25 +103,45 @@ function ProposalRowActions({
 
   const { queryId } = row;
 
-  return (
-    <div className="flex flex-wrap gap-2">
-      {filesButton}
-      {row.status === "Draft" && queryId && (
-        <button className="portal-small-btn" onClick={handleSendToSales} type="button">
-          <Send size={13} /> Send to Sales for {row.query?.queryCode ?? "Query"}
-        </button>
-      )}
-      <EditButton onClick={handleEdit} />
-      <button className="portal-small-btn" onClick={handleInvite} type="button">
-        Invite collaborator
+  const handoff =
+    row.status === "Draft" && queryId ? (
+      <button
+        aria-label={`Send to Sales for ${row.query?.queryCode ?? "Query"}`}
+        className="portal-small-btn"
+        onClick={handleSendToSales}
+        type="button"
+      >
+        <Send aria-hidden size={13} /> Send to Sales
       </button>
-      {row.hasCollaborators ? (
-        <button className="portal-small-btn" onClick={handleUnshare} type="button">
-          Unshare
-        </button>
-      ) : null}
-      <DeleteButton label={row.proposalCode} onClick={handleDelete} />
-    </div>
+    ) : null;
+  return (
+    <QueryRowActions
+      label={row.proposalCode ?? String(row.id)}
+      overflowActions={[
+        handoff ? (
+          <button className="portal-small-btn" key="files" onClick={handleFiles} type="button">
+            Files
+          </button>
+        ) : null,
+        <EditButton key="edit" onClick={handleEdit} type="button" />,
+        <button className="portal-small-btn" key="invite" onClick={handleInvite} type="button">
+          Invite collaborator
+        </button>,
+        row.hasCollaborators ? (
+          <button className="portal-small-btn" key="unshare" onClick={handleUnshare} type="button">
+            Unshare
+          </button>
+        ) : null,
+        <DeleteButton
+          className="portal-danger-btn"
+          key="delete"
+          label={row.proposalCode}
+          onClick={handleDelete}
+          type="button"
+        />,
+      ]}
+      primaryAction={handoff || filesButton}
+    />
   );
 }
 
@@ -228,6 +250,7 @@ export function ProposalsView({
 }: ProposalsViewProps) {
   useEffect(() => {
     if (!loading) {
+      reportPortalDestinationReady("/portal/proposals");
       markPortalNavigationFirstContent("proposals", rows.length > 0 ? "row" : "empty");
     }
   }, [loading, rows]);
@@ -252,12 +275,25 @@ export function ProposalsView({
             <span className="font-heading font-semibold text-citius-blue">{row.proposalCode}</span>
           ),
           sortValue: (row: PortalProposalRow) => row.proposalCode,
+          width: 160,
         },
         {
           id: "client",
           label: "Client",
-          render: (row: PortalProposalRow) => strong(row.clientName),
+          render: (row: PortalProposalRow) => (
+            <div className="min-w-52 max-w-64 whitespace-normal">{strong(row.clientName)}</div>
+          ),
           sortValue: (row: PortalProposalRow) => row.clientName,
+          width: 240,
+        },
+        {
+          id: "status",
+          kind: "status",
+          label: "Status",
+          render: (row: PortalProposalRow) => (
+            <StatusBadge domain="proposal" label={proposalWorkflowLabel(row)} status={row.status} />
+          ),
+          sortValue: (row: PortalProposalRow) => row.status || "",
         },
         {
           id: "created",
@@ -370,15 +406,6 @@ export function ProposalsView({
           ),
         },
         {
-          id: "status",
-          kind: "status",
-          label: "Status",
-          render: (row: PortalProposalRow) => (
-            <StatusBadge domain="proposal" label={proposalWorkflowLabel(row)} status={row.status} />
-          ),
-          sortValue: (row: PortalProposalRow) => row.status || "",
-        },
-        {
           id: "attention",
           label: "Attention",
           mobile: "status",
@@ -412,7 +439,7 @@ export function ProposalsView({
       mobileCardRender={renderMobileCard}
       rowAttention={proposalRowAttention}
       rows={rows}
-      tableClassName="min-w-[88rem]"
+      tableClassName="min-w-[96rem]"
     />
   );
 }

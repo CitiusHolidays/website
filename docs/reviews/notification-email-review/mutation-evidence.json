@@ -1,0 +1,67 @@
+{
+  "sourceSha256": "f09d9c0b3424c92403c08980abc53c852dad1524f299d477a3af1e6f36e115fa",
+  "mutations": [
+    {
+      "mutation": "lease",
+      "caught": true,
+      "exitCode": 1,
+      "test": "keeps the lease exclusive"
+    },
+    {
+      "mutation": "immutable-render",
+      "caught": true,
+      "exitCode": 1,
+      "test": "freezes one immutable render"
+    },
+    {
+      "mutation": "access-recheck",
+      "caught": true,
+      "exitCode": 1,
+      "test": "rechecks assignment"
+    }
+  ],
+  "restored": true,
+  "source": "convex/crm/notificationEmailOutbox.ts",
+  "recipientPurpose": {
+    "sourceSha256": "b3d3d6896847205f6bec80f9cfc64a4dba7e15b792e6882e4a28e60e3ffde407",
+    "source": "convex/crm/notificationEmailAudience.ts",
+    "mutation": "remove original recipient purpose recheck",
+    "caught": true,
+    "exitCode": 1,
+    "test": "despite continued broad record access",
+    "restored": true
+  },
+  "confirmedPolicy": {
+    "baselinePassed": true,
+    "restoredTestsPassed": true,
+    "sourcesSha256": {
+      "convex/crm/notificationWorkAudience.ts": "ef0b4a750988638ef1081959c34fd5aa601722d7d7e9e584918589eaa30551e3",
+      "convex/crm/notificationEmailAudience.ts": "b3d3d6896847205f6bec80f9cfc64a4dba7e15b792e6882e4a28e60e3ffde407",
+      "convex/crm/lib/rolePolicy.ts": "514a2107f925db15b007d8bcf605817844067973bc09714ab523f9cd12a148f8"
+    },
+    "mutations": [
+      {
+        "mutation": "extra-alert-roles",
+        "source": "convex/crm/notificationWorkAudience.ts",
+        "test": "registered",
+        "caught": true,
+        "exitCode": 1
+      },
+      {
+        "mutation": "work-responsibility-recheck",
+        "source": "convex/crm/notificationEmailAudience.ts",
+        "test": "loses responsibility despite broad access",
+        "caught": true,
+        "exitCode": 1
+      },
+      {
+        "mutation": "head-proposal-permission",
+        "source": "convex/crm/lib/rolePolicy.ts",
+        "test": "heads can assign themselves",
+        "caught": true,
+        "exitCode": 1
+      }
+    ],
+    "restored": true
+  }
+}

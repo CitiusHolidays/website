@@ -1,341 +1,168 @@
 "use node";
 
-import { v } from "convex/values";
-import { Resend } from "resend";
+import { makeFunctionReference } from "convex/server";
+import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
+import type { Doc, Id } from "../_generated/dataModel";
 import { internalAction } from "../_generated/server";
 import { resolveAuthOrigin } from "../lib/authOriginPolicy";
 import { AUTH_EMAIL_FROM } from "../lib/emailConfig";
-import { propertiesWhen } from "../lib/runtimeValues";
+import { resolveNotificationResendKey } from "./notificationEmailConfig";
 import {
-  LEGACY_RESEND_ENV_NAME,
-  LEGACY_RESEND_ENV_SUNSET,
-  resolveNotificationResendKey,
-} from "./notificationEmailConfig";
+  notificationEmailSummaryDetails,
+  renderNotificationEmail,
+} from "./notificationEmailContent";
 import {
   deliverNotificationEmailsSequentially,
-  notificationEmailIdempotencyKey,
-  RESEND_DELIVERY_MAX_ATTEMPTS,
-  RESEND_DELIVERY_MIN_INTERVAL_MS,
+  type NotificationEmailMessage,
 } from "./notificationEmailDelivery";
+import { normalizeNotificationEmailFailure } from "./notificationEmailLedger";
 import {
-  normalizeNotificationEmailFailure,
-  notificationEmailRecipientHashFromIdempotencyKey,
-} from "./notificationEmailLedger";
+  NOTIFICATION_PROVIDER_TIMEOUT_MS,
+  type NotificationEmailEnvelope,
+  notificationEmailEnvelopeFields,
+} from "./notificationEmailOutbox";
+import { sendNotificationEmailWithResend } from "./notificationEmailProvider";
 import { getNotificationHref } from "./notificationPaths";
 
-type EmailDetails = {
-  title: string;
-  rows: Array<{ label: string; value: string }>;
-} | null;
+const TRAILING_SLASH = /\/$/;
 
-const TRAILING_SLASH_RE = /\/$/;
+const enqueueRef = makeFunctionReference<
+  "mutation",
+  NotificationEmailEnvelope,
+  Id<"notificationEmailOutbox">[]
+>("crm/notificationEmailOutbox:enqueueLegacyNotificationEmail");
+const claimRef = makeFunctionReference<
+  "mutation",
+  { jobId: Id<"notificationEmailOutbox"> },
+  Doc<"notificationEmailOutbox"> | null
+>("crm/notificationEmailOutbox:claimNotificationEmail");
+const freezeRef = makeFunctionReference<
+  "mutation",
+  { attempt: number; jobId: Id<"notificationEmailOutbox">; message: NotificationEmailMessage },
+  NotificationEmailMessage | null
+>("crm/notificationEmailOutbox:freezeNotificationEmail");
+const completeRef = makeFunctionReference<
+  "mutation",
+  {
+    attempt: number;
+    failureCode?: string;
+    jobId: Id<"notificationEmailOutbox">;
+    providerEmailId?: string;
+    retryable: boolean;
+    ambiguous?: boolean;
+    status: "accepted" | "failed" | "skipped";
+  },
+  null
+>("crm/notificationEmailOutbox:completeNotificationEmail");
 
-function safeErrorCode(cause: unknown) {
-  const normalized = normalizeNotificationEmailFailure(cause);
-  return {
-    failureCode: normalized.code,
-    providerStatus: normalized.providerStatus,
-  };
-}
-
-function siteUrl() {
-  return resolveAuthOrigin(process.env).replace(TRAILING_SLASH_RE, "");
-}
-
-function escapeHtml(value: string) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-const MULTILINE_DETAIL_LABELS = new Set([
-  "Batching notes",
-  "Decision note",
-  "Itinerary summary",
-  "Notes",
-  "Particulars",
-  "Reason",
-  "Reporting instructions",
-  "Special instructions",
-  "Summary",
-]);
-
-const EMAIL_NAVY = "#0f2d5c";
-const EMAIL_ORANGE = "#f58220";
-const EMAIL_BG = "#eef2f7";
-const EMAIL_BORDER = "#d5dde8";
-const EMAIL_LABEL = "#5c6b7f";
-const EMAIL_TEXT = "#1a2332";
-const EMAIL_MUTED = "#6b7c93";
-
-function isMultilineDetailRow(label: string, value: string) {
-  return value.includes("\n") || MULTILINE_DETAIL_LABELS.has(label);
-}
-
-function buildDetailValueHtml(label: string, value: string) {
-  const escaped = escapeHtml(value);
-  if (isMultilineDetailRow(label, value)) {
-    return `<td style="padding:10px 14px;border-top:1px solid ${EMAIL_BORDER};color:${EMAIL_TEXT};font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.55;vertical-align:top;white-space:pre-wrap;word-break:break-word;">${escaped}</td>`;
-  }
-  return `<td style="padding:10px 14px;border-top:1px solid ${EMAIL_BORDER};color:${EMAIL_TEXT};font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:1.45;font-weight:600;vertical-align:top;word-break:break-word;">${escaped}</td>`;
-}
-
-function buildDetailsHtml(details: EmailDetails) {
-  if (!details || details.rows.length === 0) {
-    return "";
-  }
-
-  const rows = details.rows
-    .map(
-      (row) => `<tr>
-            <td style="padding:10px 14px;border-top:1px solid ${EMAIL_BORDER};color:${EMAIL_LABEL};font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.45;width:34%;vertical-align:top;font-weight:600;">${escapeHtml(row.label)}</td>
-            ${buildDetailValueHtml(row.label, row.value)}
-          </tr>`
-    )
-    .join("");
-
-  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:0 0 24px;border-collapse:collapse;border:1px solid ${EMAIL_BORDER};background-color:#f8fafc;">
-          <tr>
-            <td colspan="2" style="padding:12px 14px;background-color:${EMAIL_NAVY};color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;">${escapeHtml(details.title)}</td>
-          </tr>
-          ${rows}
-        </table>`;
-}
-
-function buildNotificationText(args: {
-  title: string;
-  body: string;
-  href: string;
-  details: EmailDetails;
-}) {
-  const detailLines =
-    args.details && args.details.rows.length > 0
-      ? [
-          "",
-          args.details.title.toUpperCase(),
-          "-".repeat(Math.min(args.details.title.length, 48)),
-          ...args.details.rows.map((row) => `${row.label}: ${row.value}`),
-        ]
-      : [];
-
-  return [
-    "CITIUS CONNECT",
-    args.title,
-    "",
-    args.body,
-    ...detailLines,
-    "",
-    "Open in portal:",
-    args.href,
-    "",
-    "Sign in to review the full record and take action.",
-  ].join("\n");
-}
-
-function buildNotificationHtml(args: {
-  title: string;
-  body: string;
-  href: string;
-  details: EmailDetails;
-}) {
-  const title = escapeHtml(args.title);
-  const body = escapeHtml(args.body);
-  const href = escapeHtml(args.href);
-  const detailsHtml = buildDetailsHtml(args.details);
-
-  return `<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>${title}</title>
-  </head>
-  <body style="margin:0;padding:0;background-color:${EMAIL_BG};font-family:Arial,Helvetica,sans-serif;color:${EMAIL_TEXT};">
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:${EMAIL_BG};border-collapse:collapse;">
-      <tr>
-        <td align="center" style="padding:28px 16px;">
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="max-width:600px;border-collapse:collapse;">
-            <tr>
-              <td style="padding:20px 24px;background-color:${EMAIL_NAVY};border:1px solid ${EMAIL_NAVY};border-bottom:none;border-radius:8px 8px 0 0;">
-                <p style="margin:0 0 6px;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#9eb6d4;">Citius Connect</p>
-                <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.4;color:#d7e3f2;">Portal notification</p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:28px 24px;background-color:#ffffff;border-left:1px solid ${EMAIL_BORDER};border-right:1px solid ${EMAIL_BORDER};">
-                <h1 style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:22px;line-height:1.3;font-weight:700;color:${EMAIL_NAVY};">${title}</h1>
-                <p style="margin:0 0 24px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#334155;">${body}</p>
-                ${detailsHtml}
-                <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
-                  <tr>
-                    <td align="left" bgcolor="${EMAIL_ORANGE}" style="border-radius:6px;background-color:${EMAIL_ORANGE};">
-                      <a href="${href}" style="display:inline-block;padding:13px 22px;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;line-height:1.2;color:#ffffff;text-decoration:none;border-radius:6px;">Open in portal</a>
-                    </td>
-                  </tr>
-                </table>
-                <p style="margin:22px 0 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.55;color:${EMAIL_MUTED};">Sign in to review the full record and take action.</p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:16px 24px;background-color:#f4f7fb;border:1px solid ${EMAIL_BORDER};border-top:none;border-radius:0 0 8px 8px;text-align:center;">
-                <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:11px;line-height:1.5;color:${EMAIL_MUTED};">Citius Connect CRM portal</p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`;
-}
-
+// Retains the old scheduled function's arguments while routing replays through durable dedupe.
 export const sendNotificationEmail = internalAction({
-  args: {
-    body: v.string(),
-    entityId: v.optional(v.string()),
-    entityType: v.optional(v.string()),
-    eventId: v.string(),
-    recipients: v.array(v.string()),
-    title: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const resendConfig = resolveNotificationResendKey(process.env);
-    const recipients = Array.from(
-      new Set(
-        args.recipients.flatMap((email) => {
-          const normalized = email.trim().toLowerCase();
-          return normalized ? [normalized] : [];
-        })
-      )
-    );
-    if (recipients.length === 0) {
-      return { sent: 0, skipped: 0 };
-    }
+  args: notificationEmailEnvelopeFields,
+  handler: async (ctx, args) => ({ queued: (await ctx.runMutation(enqueueRef, args)).length }),
+  returns: v.object({ queued: v.number() }),
+});
 
-    const recordStatus = async (event: {
-      attempts: number;
-      error?: { name?: string; statusCode?: number | null };
-      idempotencyKey: string;
-      recipient: string;
-      status: "queued" | "sending" | "retrying" | "sent" | "skipped" | "exhausted";
-    }) => {
-      const failure = event.error
-        ? safeErrorCode(event.error)
-        : { failureCode: undefined, providerStatus: undefined };
-      const ledgerArgs = {
-        attempts: event.attempts,
-        eventId: args.eventId,
-        ...propertiesWhen(failure.failureCode, () => ({ failureCode: failure.failureCode })),
-        idempotencyKey: event.idempotencyKey,
-        ...propertiesWhen(!(failure.providerStatus === undefined), () => ({
-          providerStatus: failure.providerStatus,
-        })),
-        recipientHash: notificationEmailRecipientHashFromIdempotencyKey(event.idempotencyKey),
-        status: event.status,
-      };
+export const dispatchNotificationEmail = internalAction({
+  args: { jobId: v.id("notificationEmailOutbox") },
+  handler: async (ctx, { jobId }) => {
+    const job = await ctx.runMutation(claimRef, { jobId });
+    if (!job) {
+      return null;
+    }
+    const complete = (outcome: {
+      failureCode?: string;
+      providerEmailId?: string;
+      retryable: boolean;
+      ambiguous?: boolean;
+      status: "accepted" | "failed" | "skipped";
+    }) => ctx.runMutation(completeRef, { ...outcome, attempt: job.attempts, jobId });
+    const config = resolveNotificationResendKey(process.env);
+    if (!config.key) {
+      await complete({
+        failureCode: "provider_not_configured",
+        retryable: false,
+        status: "skipped",
+      });
+      return null;
+    }
+    if (!job.recipient) {
+      throw new Error("NOTIFICATION_EMAIL_RECIPIENT_MISSING");
+    }
+    let { message } = job;
+    if (!message) {
       try {
-        await ctx.runMutation(
-          internal.crm.notificationEmailLedger.recordDeliveryOutcome,
-          ledgerArgs
-        );
+        const details =
+          job.entityType && job.entityId
+            ? await ctx.runQuery(
+                internal.crm.notificationEmailDetails.getNotificationEmailDetails,
+                {
+                  jobId,
+                }
+              )
+            : null;
+        const href = `${resolveAuthOrigin(process.env).replace(TRAILING_SLASH, "")}${getNotificationHref(job)}`;
+        const content = {
+          body: job.body,
+          details: notificationEmailSummaryDetails(details, job.entityType),
+          href,
+          title: job.title,
+        };
+        const rendered = await renderNotificationEmail(content);
+        message =
+          (await ctx.runMutation(freezeRef, {
+            attempt: job.attempts,
+            jobId,
+            message: {
+              from: AUTH_EMAIL_FROM,
+              html: rendered.html,
+              subject: `Citius Connect: ${job.title}`,
+              text: rendered.text,
+            },
+          })) ?? undefined;
       } catch (error) {
-        // Ledger writes are observability best-effort and must never change
-        // recipient pacing or turn a successful provider send into a failure.
-        try {
-          await ctx.scheduler.runAfter(
-            1000,
-            internal.crm.notificationEmailLedger.retryDeliveryOutcome,
-            { ...ledgerArgs, writeAttempt: 1 }
-          );
-        } catch {
-          // The delivery result remains authoritative; log only privacy-safe identifiers below.
-        }
-        const code = safeErrorCode(error).failureCode;
-        console.error(
-          JSON.stringify({
-            errorCode: code,
-            event: "crm_notification_email_ledger_write_failed",
-            eventId: args.eventId,
-            recipientHash: notificationEmailRecipientHashFromIdempotencyKey(event.idempotencyKey),
-          })
-        );
+        const accessChanged =
+          error instanceof ConvexError &&
+          error.data === "NOTIFICATION_EMAIL_RECIPIENT_ACCESS_CHANGED";
+        await complete({
+          failureCode: accessChanged ? "recipient_access_changed" : "preparation_failed",
+          retryable: !accessChanged,
+          status: accessChanged ? "skipped" : "failed",
+        });
+        return null;
       }
-    };
-
-    if (!resendConfig.key) {
-      console.error(
-        JSON.stringify({
-          event: "crm_notification_email_skipped",
-          eventId: args.eventId,
-          reason: "provider_not_configured",
-          recipientCount: recipients.length,
-        })
-      );
-      await Promise.all(
-        recipients.map(async (recipient) => {
-          // Use the same privacy-safe idempotency derivation as configured
-          // sends; the raw address never enters the ledger or logs.
-          const hashedKey = await notificationEmailIdempotencyKey(args.eventId, recipient);
-          await recordStatus({
-            attempts: 0,
-            idempotencyKey: hashedKey,
-            recipient,
-            status: "skipped",
-          });
-        })
-      );
-      return { sent: 0, skipped: recipients.length };
     }
-    if (resendConfig.source === LEGACY_RESEND_ENV_NAME) {
-      console.warn(
-        `Notification email is using legacy ${LEGACY_RESEND_ENV_NAME}; migrate to RESEND_API_KEY before ${LEGACY_RESEND_ENV_SUNSET}.`
-      );
+    if (!message) {
+      return null;
     }
-
-    const href = `${siteUrl()}${getNotificationHref(args)}`;
-    const details: EmailDetails =
-      args.entityType && args.entityId
-        ? await ctx.runQuery(internal.crm.notificationEmailDetails.getNotificationEmailDetails, {
-            entityId: args.entityId,
-            entityType: args.entityType,
-          })
-        : null;
-    const html = buildNotificationHtml({
-      body: args.body,
-      details,
-      href,
-      title: args.title,
-    });
-    const text = buildNotificationText({
-      body: args.body,
-      details,
-      href,
-      title: args.title,
-    });
-    const resend = new Resend(resendConfig.key);
-    const delivery = await deliverNotificationEmailsSequentially({
+    await deliverNotificationEmailsSequentially({
       config: {
-        maxAttempts: RESEND_DELIVERY_MAX_ATTEMPTS,
-        minIntervalMs: RESEND_DELIVERY_MIN_INTERVAL_MS,
+        maxAttempts: 1,
+        minIntervalMs: 0,
+        requestTimeoutMs: NOTIFICATION_PROVIDER_TIMEOUT_MS,
       },
-      eventId: args.eventId,
-      message: {
-        from: AUTH_EMAIL_FROM,
-        html,
-        subject: `Citius Connect: ${args.title}`,
-        text,
+      eventId: job.eventId,
+      message,
+      onStatus: async (event) => {
+        if (event.status === "sent") {
+          await complete({
+            providerEmailId: event.providerEmailId,
+            retryable: false,
+            status: "accepted",
+          });
+        } else if (event.status === "exhausted") {
+          await complete({
+            ambiguous: event.ambiguous,
+            failureCode: normalizeNotificationEmailFailure(event.error).code,
+            retryable: event.retryable ?? false,
+            status: "failed",
+          });
+        }
       },
-      onStatus: recordStatus,
-      recipients,
-      sendEmail: (message, options) => resend.emails.send(message, options),
+      recipients: [job.recipient],
+      sendEmail: (email, options) => sendNotificationEmailWithResend(config.key, email, options),
     });
-
-    return delivery;
+    return null;
   },
-  returns: v.object({ sent: v.number(), skipped: v.number() }),
+  returns: v.null(),
 });

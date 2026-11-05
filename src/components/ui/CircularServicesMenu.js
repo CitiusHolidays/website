@@ -95,6 +95,12 @@ function getServiceLayout() {
     return DESKTOP_MEDIUM_LAYOUT;
   }
   const width = window.innerWidth;
+  if (width < 360) {
+    return MOBILE_TINY_LAYOUT;
+  }
+  if (width < 400) {
+    return MOBILE_NARROW_LAYOUT;
+  }
   if (width < 500) {
     return MOBILE_SMALL_LAYOUT;
   }
@@ -107,8 +113,10 @@ function getServiceLayout() {
   return DESKTOP_LARGE_LAYOUT;
 }
 
-const MOBILE_SMALL_LAYOUT = Object.freeze({ isMobile: true, radius: 180 });
-const MOBILE_MEDIUM_LAYOUT = Object.freeze({ isMobile: true, radius: 200 });
+const MOBILE_TINY_LAYOUT = Object.freeze({ isMobile: true, radius: 100, verticalRadius: 200 });
+const MOBILE_NARROW_LAYOUT = Object.freeze({ isMobile: true, radius: 120, verticalRadius: 200 });
+const MOBILE_SMALL_LAYOUT = Object.freeze({ isMobile: true, radius: 140, verticalRadius: 200 });
+const MOBILE_MEDIUM_LAYOUT = Object.freeze({ isMobile: true, radius: 180, verticalRadius: 200 });
 const DESKTOP_MEDIUM_LAYOUT = Object.freeze({ isMobile: false, radius: 240 });
 const DESKTOP_LARGE_LAYOUT = Object.freeze({ isMobile: false, radius: 280 });
 
@@ -121,11 +129,11 @@ function roundOrbitCoordinate(value) {
   return Math.round(value * 1000) / 1000;
 }
 
-export function getServiceOrbitPosition(index, totalServices, radius) {
+export function getServiceOrbitPosition(index, totalServices, radius, verticalRadius = radius) {
   const angle = (index * 2 * Math.PI) / totalServices - Math.PI / 2;
   return {
     x: roundOrbitCoordinate(Math.cos(angle) * radius),
-    y: roundOrbitCoordinate(Math.sin(angle) * radius),
+    y: roundOrbitCoordinate(Math.sin(angle) * verticalRadius),
   };
 }
 
@@ -155,9 +163,7 @@ function OrbitService({
 }) {
   const ServiceIcon = service.icon;
   const handleClick = () => {
-    if (isMobile) {
-      onSelect(service);
-    }
+    onSelect(service);
   };
   const handleHoverStart = () => {
     if (!isMobile) {
@@ -178,8 +184,9 @@ function OrbitService({
       variants={itemVariants}
     >
       <button
-        aria-label={`Maps to ${service.title} service`}
+        aria-label={`Learn about ${service.title}`}
         className="group flex size-12 cursor-pointer items-center justify-center rounded-full border-2 border-citius-orange bg-brand-light shadow-lg focus:outline-none focus:ring-4 focus:ring-citius-orange/30 md:h-16 md:w-16 lg:h-18 lg:w-18"
+        onFocus={handleHoverStart}
         tabIndex={0}
         type="button"
       >
@@ -187,7 +194,7 @@ function OrbitService({
       </button>
       <span
         aria-hidden="true"
-        className="mt-2 max-w-[80px] select-none text-center font-medium text-brand-dark text-xs leading-tight md:max-w-[100px] md:text-sm lg:text-base"
+        className="mt-2 max-w-[80px] select-none break-words text-center font-medium text-brand-dark text-xs leading-tight md:max-w-[100px] md:break-normal md:text-sm lg:text-base"
       >
         {service.title}
       </span>
@@ -212,7 +219,7 @@ export default function CircularServicesMenu() {
 
   const servicePositions = services.map((service, index) => ({
     ...service,
-    ...getServiceOrbitPosition(index, services.length, layout.radius),
+    ...getServiceOrbitPosition(index, services.length, layout.radius, layout.verticalRadius),
   }));
 
   // Calculate line position from center to hovered/tapped service
@@ -260,101 +267,109 @@ export default function CircularServicesMenu() {
   };
 
   return (
-    <div
-      className="relative flex h-[400px] w-full items-center justify-center md:h-[520px] lg:h-[600px]"
-      ref={containerRef}
-    >
-      {/* Complete connector geometry is measured once; only its opacity transitions. */}
-      <AnimatePresence>
-        {linePos ? (
-          <m.svg
-            animate={{ opacity: 1 }}
-            className="pointer-events-none absolute top-0 left-0 z-10 size-full"
-            exit={{ opacity: 0 }}
-            initial={{ opacity: 0 }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.15, ease: [0.23, 1, 0.32, 1] }}
-          >
-            <line
-              opacity={0.3}
-              stroke="#9ca3af"
-              strokeDasharray="6,6"
-              strokeLinecap="round"
-              strokeWidth="3"
-              x1={linePos.x1}
-              x2={linePos.x2}
-              y1={linePos.y1}
-              y2={linePos.y2}
-            />
-          </m.svg>
-        ) : null}
-      </AnimatePresence>
-      <m.div
-        animate={{ opacity: 1, scale: 1 }}
-        className="relative z-20 flex size-32 flex-col items-center justify-center rounded-full border-4 border-citius-blue bg-white px-3 pb-8 shadow-2xl md:h-52 md:w-52"
-        initial={{ opacity: 0, scale: 0.8 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
+    <>
+      <div
+        className="relative flex h-[500px] w-full items-center justify-center md:h-[520px] lg:h-[600px]"
+        ref={containerRef}
       >
-        <div className="flex h-auto flex-col items-center justify-center">
-          <div className="mb-1 flex items-center justify-center">
-            <Image
-              alt="Citius Logo"
-              className="mx-auto size-12 object-contain md:h-20 md:w-20"
-              height={60}
-              priority
-              src={CitiusLogo}
-              style={{ objectFit: "contain" }}
-              width={60}
-            />
-          </div>
-          <AnimatePresence mode="wait">
-            <m.div
-              animate={{ opacity: 1, transform: "translate3d(0, 0, 0)" }}
-              className="flex flex-1 flex-col justify-center text-center"
-              exit={{
-                opacity: 0,
-                transform: shouldReduceMotion ? "none" : "translate3d(0, -10px, 0)",
-              }}
-              initial={{
-                opacity: 0,
-                transform: shouldReduceMotion ? "none" : "translate3d(0, 10px, 0)",
-              }}
-              key={selectedService?.title || "default"}
-              transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
+        {/* Complete connector geometry is measured once; only its opacity transitions. */}
+        <AnimatePresence>
+          {linePos ? (
+            <m.svg
+              animate={{ opacity: 1 }}
+              className="pointer-events-none absolute top-0 left-0 z-10 size-full"
+              exit={{ opacity: 0 }}
+              initial={{ opacity: 0 }}
+              transition={{ duration: shouldReduceMotion ? 0 : 0.15, ease: [0.23, 1, 0.32, 1] }}
             >
-              <h3 className="mb-1 font-bold text-brand-dark text-xs leading-tight md:text-base">
-                {selectedService?.title || "Our Services"}
-              </h3>
-              <p className="px-1 text-brand-muted text-xs leading-tight">
-                {selectedService?.description ||
-                  (layout.isMobile
-                    ? "Tap a service to learn more"
-                    : "Hover over a service to learn more")}
-              </p>
-            </m.div>
-          </AnimatePresence>
-        </div>
-      </m.div>
+              <line
+                opacity={0.3}
+                stroke="#9ca3af"
+                strokeDasharray="6,6"
+                strokeLinecap="round"
+                strokeWidth="3"
+                x1={linePos.x1}
+                x2={linePos.x2}
+                y1={linePos.y1}
+                y2={linePos.y2}
+              />
+            </m.svg>
+          ) : null}
+        </AnimatePresence>
+        <m.div
+          animate={{ opacity: 1, scale: 1 }}
+          className="relative z-20 flex size-28 flex-col items-center justify-center rounded-full border-4 border-citius-blue bg-white px-3 shadow-2xl md:h-52 md:w-52 md:pb-8 min-[360px]:size-32"
+          initial={{ opacity: 0, scale: 0.8 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+        >
+          <div className="flex h-auto flex-col items-center justify-center">
+            <div className="mb-1 flex items-center justify-center">
+              <Image
+                alt="Citius Logo"
+                className="mx-auto size-12 object-contain md:h-20 md:w-20"
+                height={60}
+                priority
+                src={CitiusLogo}
+                style={{ objectFit: "contain" }}
+                width={60}
+              />
+            </div>
+            <AnimatePresence mode="wait">
+              <m.div
+                animate={{ opacity: 1, transform: "translate3d(0, 0, 0)" }}
+                className="flex flex-1 flex-col justify-center text-center"
+                exit={{
+                  opacity: 0,
+                  transform: shouldReduceMotion ? "none" : "translate3d(0, -10px, 0)",
+                }}
+                initial={{
+                  opacity: 0,
+                  transform: shouldReduceMotion ? "none" : "translate3d(0, 10px, 0)",
+                }}
+                key={selectedService?.title || "default"}
+                transition={{ duration: shouldReduceMotion ? 0 : 0.18 }}
+              >
+                <h3 className="mb-1 font-bold text-brand-dark text-xs leading-tight md:text-base">
+                  {selectedService?.title || "Our Services"}
+                </h3>
+                <p className="hidden px-1 text-brand-muted text-xs leading-tight md:block">
+                  {selectedService?.description ||
+                    (layout.isMobile
+                      ? "Tap a service to learn more"
+                      : "Hover over a service to learn more")}
+                </p>
+              </m.div>
+            </AnimatePresence>
+          </div>
+        </m.div>
 
-      <m.div
-        animate="show"
-        className="absolute inset-0"
-        custom={shouldReduceMotion}
-        initial="hidden"
-        variants={containerVariants}
+        <m.div
+          animate="show"
+          className="absolute inset-0"
+          custom={shouldReduceMotion}
+          initial="hidden"
+          variants={containerVariants}
+        >
+          {servicePositions.map((service, idx) => (
+            <OrbitService
+              index={idx}
+              isMobile={layout.isMobile}
+              key={service.title}
+              onLeave={handleServiceLeave}
+              onSelect={handleServiceInteraction}
+              onServiceRef={registerServiceRef}
+              service={service}
+              shouldReduceMotion={shouldReduceMotion}
+            />
+          ))}
+        </m.div>
+      </div>
+      <p
+        aria-live="polite"
+        className="mx-auto mt-8 min-h-16 max-w-md text-center text-brand-muted text-sm leading-relaxed md:hidden"
       >
-        {servicePositions.map((service, idx) => (
-          <OrbitService
-            index={idx}
-            isMobile={layout.isMobile}
-            key={service.title}
-            onLeave={handleServiceLeave}
-            onSelect={handleServiceInteraction}
-            onServiceRef={registerServiceRef}
-            service={service}
-            shouldReduceMotion={shouldReduceMotion}
-          />
-        ))}
-      </m.div>
-    </div>
+        {selectedService?.description || "Tap a service to learn more"}
+      </p>
+    </>
   );
 }

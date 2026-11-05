@@ -190,6 +190,8 @@ function makePublishNotificationCtx(
   };
   return {
     db: {
+      get: (table: string, id: string) =>
+        (tables[table] ?? []).find((row) => row._id === id) ?? null,
       insert: (table: string, doc: RuntimeObject) => {
         if (!tables[table]) {
           tables[table] = [];
@@ -199,6 +201,7 @@ function makePublishNotificationCtx(
         rows.push(row);
         return row._id;
       },
+      normalizeId: (_table: string, id: string) => id,
       patch: (table: string, id: string, value: RuntimeObject) => {
         const row = (tables[table] ?? []).find((candidate) => candidate._id === id);
         Object.assign(row, value);
@@ -252,11 +255,14 @@ describe("PublishWorkflowNotification", () => {
     });
 
     expect(tables.notifications.map((row) => row.recipientRole)).toEqual(["Accounts"]);
-    expect(scheduled[0].args.recipients.sort()).toEqual([
+    expect((tables.notificationEmailOutbox ?? []).map((row) => row.recipient).sort()).toEqual([
       "accounts@example.com",
       "head@example.com",
     ]);
-    expect(scheduled[0].args.eventId).toBe("notifications_1");
+    expect(tables.notificationEmailOutbox.map((row) => row.eventId)).toEqual([
+      "notifications_1",
+      "notifications_1",
+    ]);
   });
 
   test("Uses portal roles by default and additional alert roles add email-only coverage", async () => {
@@ -313,7 +319,7 @@ describe("PublishWorkflowNotification", () => {
     });
 
     expect(tables.notifications.map((row) => row.recipientRole)).toEqual(["Operations Head"]);
-    expect(scheduled[0].args.recipients.sort()).toEqual([
+    expect((tables.notificationEmailOutbox ?? []).map((row) => row.recipient).sort()).toEqual([
       "delegate@example.com",
       "ops-head@example.com",
     ]);
@@ -358,7 +364,7 @@ describe("PublishWorkflowNotification", () => {
       emailTargets: { kind: "roles", roles: ["Admin", "Directors"] },
     });
 
-    expect(scheduled[0].args.recipients.sort()).toEqual([
+    expect((tables.notificationEmailOutbox ?? []).map((row) => row.recipient).sort()).toEqual([
       "admin@example.com",
       "director@example.com",
     ]);
@@ -451,7 +457,7 @@ describe("PublishWorkflowNotification", () => {
     });
 
     expect(tables.notifications).toHaveLength(2);
-    expect(scheduled[0].args.recipients.sort()).toEqual([
+    expect((tables.notificationEmailOutbox ?? []).map((row) => row.recipient).sort()).toEqual([
       "sales-one@example.com",
       "sales-two@example.com",
     ]);
@@ -499,7 +505,8 @@ describe("PublishWorkflowNotification", () => {
 
     expect(results.map((result) => result.bell.disposition)).toEqual(["queued", "queued"]);
     expect(tables.notifications).toHaveLength(1);
-    expect(scheduled).toHaveLength(1);
+    expect(tables.notificationEmailOutbox).toHaveLength(1);
+    expect(scheduled).toHaveLength(2);
     expect(tables.operationalEffectReceipts).toHaveLength(2);
     expect(tables.operationalEffectReceipts[0]?.payloadFingerprint).toMatch(SHA_256_HEX_PATTERN);
     expect(JSON.stringify(tables.operationalEffectReceipts)).not.toContain("One logical delivery");

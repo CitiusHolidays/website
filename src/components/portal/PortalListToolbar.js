@@ -28,6 +28,7 @@ function ToolbarHeader({
   filtersActive,
   filtersOpen,
   hasFilterControls,
+  onClearAllFilters,
   onSearchChange,
   onToggleFilters,
   resultCount,
@@ -37,20 +38,41 @@ function ToolbarHeader({
   title,
 }) {
   return (
-    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex min-w-0 shrink-0 items-baseline gap-2">
-        <h2 className="portal-page-title shrink-0 text-balance font-heading font-semibold text-citius-blue">
-          {title}
-        </h2>
-        {filtersActive && resultCount !== null ? (
-          <span className="shrink-0 text-brand-muted text-sm tabular-nums">
-            {resultCount} loaded {resultCount === 1 ? "result" : "results"}
-            {resultsPartial ? "; more available" : ""}
-          </span>
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h2 className="portal-page-title text-balance font-heading font-semibold text-brand-dark">
+            {title}
+          </h2>
+          {resultCount === null ? null : (
+            <span className="shrink-0 text-brand-muted text-sm tabular-nums">
+              {resultCount} loaded {resultCount === 1 ? "result" : "results"}
+              {resultsPartial ? "; more available" : ""}
+            </span>
+          )}
+        </div>
+        {actions ? (
+          <div
+            className="flex shrink-0 flex-wrap items-center gap-2"
+            data-testid="portal-list-toolbar-actions"
+          >
+            {actions}
+          </div>
         ) : null}
       </div>
 
-      <div className="flex min-w-0 shrink-0 flex-wrap items-center justify-end gap-2">
+      <div className="mt-4 flex min-w-0 flex-wrap items-center gap-2">
+        {showSearch ? (
+          <PortalSearchField
+            className="min-w-[8rem]"
+            id="portal-list-search"
+            label="Search this page"
+            onChange={onSearchChange}
+            placeholder="Search"
+            value={search}
+            wrapperClassName="min-w-0 flex-1 sm:max-w-72"
+          />
+        ) : null}
         {collapsibleFilters && hasFilterControls ? (
           <Button
             aria-expanded={filtersOpen}
@@ -61,7 +83,7 @@ function ToolbarHeader({
             type="button"
           >
             <Filter aria-hidden size={14} />
-            Filters
+            {filtersActive ? "Filters active" : "Filters"}
             <ChevronDown
               aria-hidden
               className={`transition-transform duration-200 ease-[var(--portal-ease-out)] ${filtersOpen ? "rotate-180" : ""}`}
@@ -70,29 +92,19 @@ function ToolbarHeader({
           </Button>
         ) : null}
 
-        {showSearch ? (
-          <PortalSearchField
-            className="min-w-[10rem]"
-            id="portal-list-search"
-            label="Search this page"
-            onChange={onSearchChange}
-            placeholder="Search"
-            value={search}
-            wrapperClassName="min-w-0 shrink sm:w-56"
-          />
+        {onClearAllFilters && filtersActive ? (
+          <Button
+            className="portal-small-btn h-11 shrink-0 whitespace-nowrap bg-white transition-transform duration-150 ease-[var(--portal-ease-out)] active:scale-[0.96]"
+            onClick={onClearAllFilters}
+            type="button"
+          >
+            Clear filters
+          </Button>
         ) : null}
 
         {commandPalette}
-        {actions ? (
-          <div
-            className="flex shrink-0 flex-nowrap items-center gap-2"
-            data-testid="portal-list-toolbar-actions"
-          >
-            {actions}
-          </div>
-        ) : null}
       </div>
-    </div>
+    </>
   );
 }
 
@@ -100,12 +112,10 @@ function ToolbarFilterRow({
   dateRange,
   filterSearchKeys,
   filterSourceRows,
-  filtersActive,
   jobCardFilter,
   jobCardOptions,
   listFilterConfig,
   listFilters,
-  onClearAllFilters,
   search,
   setDateRange,
   setJobCardFilter,
@@ -127,7 +137,7 @@ function ToolbarFilterRow({
         shouldReduceMotion ? { duration: 0 } : { duration: 0.18, ease: [0.23, 1, 0.32, 1] }
       }
     >
-      <div className="mt-3 flex min-w-0 flex-wrap items-start gap-3 rounded-xl bg-brand-light/70 p-3">
+      <div className="mt-3 flex min-w-0 flex-wrap items-start gap-3 border-brand-border border-t pt-3">
         {showPeriodFilter ? (
           <PortalDateRangeFilter
             compact
@@ -161,15 +171,6 @@ function ToolbarFilterRow({
           values={listFilters}
           view={view}
         />
-        {onClearAllFilters && filtersActive ? (
-          <Button
-            className="portal-small-btn h-11 shrink-0 whitespace-nowrap bg-white transition-transform duration-150 ease-[var(--portal-ease-out)] active:scale-[0.96]"
-            onClick={onClearAllFilters}
-            type="button"
-          >
-            Clear filters
-          </Button>
-        ) : null}
       </div>
     </m.div>
   );
@@ -236,7 +237,7 @@ export default function PortalListToolbar({
 
   return (
     <div
-      className={`material-structural sticky top-[var(--portal-chrome-height)] ${PORTAL_Z.toolbar} mb-4 rounded-2xl border border-brand-border/80 bg-white/95 p-3 shadow-[0_12px_32px_rgba(16,42,131,0.06)] backdrop-blur-xl`}
+      className={`sticky top-[var(--portal-chrome-height)] ${PORTAL_Z.toolbar} mb-4 border-brand-border border-b bg-white py-4`}
     >
       <ToolbarHeader
         actions={actions}
@@ -245,6 +246,7 @@ export default function PortalListToolbar({
         filtersActive={filtersActive}
         filtersOpen={filtersOpen}
         hasFilterControls={hasFilterControls}
+        onClearAllFilters={onClearAllFilters}
         onSearchChange={handleSearchChange}
         onToggleFilters={toggleFilters}
         resultCount={resultCount}
@@ -260,12 +262,10 @@ export default function PortalListToolbar({
             dateRange={dateRange}
             filterSearchKeys={filterSearchKeys}
             filterSourceRows={filterSourceRows}
-            filtersActive={filtersActive}
             jobCardFilter={jobCardFilter}
             jobCardOptions={jobCardOptions}
             listFilterConfig={listFilterConfig}
             listFilters={listFilters}
-            onClearAllFilters={onClearAllFilters}
             search={search}
             setDateRange={setDateRange}
             setJobCardFilter={setJobCardFilter}

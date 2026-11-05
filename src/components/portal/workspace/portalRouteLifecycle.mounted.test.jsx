@@ -233,4 +233,22 @@ describe("Mounted portal route lifecycle", () => {
     expect(mounted.container.textContent).toContain("Load more records");
     await mounted.unmount();
   });
+
+  test("A personal inbox does not announce an unrelated empty activity-log count", async () => {
+    const mounted = await mount(
+      <RouteLifecycleHarness gate="ready" pagination={PAGINATION} view="activity" />
+    );
+    expect(mounted.container.textContent).toContain("Ready route: activity");
+    expect(mounted.container.textContent).not.toContain("0 authorized records loaded");
+    await mounted.unmount();
+  });
+
+  test("An empty loaded page keeps its control when more authorized records are available", async () => {
+    const mounted = await mount(
+      <WorkspacePagination pagination={{ canLoadMore: true, loadedCount: 0 }} />
+    );
+    expect(mounted.container.textContent).toContain("more are available");
+    expect(mounted.container.textContent).toContain("Load more records");
+    await mounted.unmount();
+  });
 });

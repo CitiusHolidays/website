@@ -318,8 +318,8 @@ describe("registered notification email summary projection", () => {
     await t.mutation(internal.crm.notificationEmailLedger.recordDeliveryOutcome, {
       attempts: 1,
       eventId: published.eventId,
-      idempotencyKey: "email-only/stable-recipient",
-      recipientHash: "recipient-email-only",
+      idempotencyKey: `crm-notification/${published.eventId}/ce215fd43c62fc056fe920fe6c3254a3`,
+      recipientHash: "ce215fd43c62fc056fe920fe6c3254a3",
       status: "sent",
     });
 

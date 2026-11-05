@@ -1,6 +1,7 @@
+import { ConvexError, v } from "convex/values";
 import type { DataModel } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
-import { query } from "../_generated/server";
+import { internalMutation, mutation, query } from "../_generated/server";
 import { formatDisplayDate } from "../lib/formatDate";
 import {
   canSeeJobCardRecord,
@@ -9,7 +10,87 @@ import {
   PERMISSIONS,
   requireStaff,
 } from "./lib";
+import { patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { navShortcutListResultValidator } from "./miscReturnContracts";
+import {
+  canViewDestination,
+  NAVIGATION_EVENT_LIMIT,
+  navigationStateForAccess,
+} from "./navigationWork";
+import { deleteNavigationSeenPage } from "./notificationUnreadProjection";
+
+export const workState = query({
+  args: {},
+  handler: async (ctx) => navigationStateForAccess(ctx, await requireStaff(ctx)),
+  returns: v.object({
+    byHref: v.record(
+      v.string(),
+      v.object({
+        complete: v.boolean(),
+        count: v.number(),
+        eventIds: v.array(v.id("notifications")),
+        newActivity: v.boolean(),
+      })
+    ),
+    viewerKey: v.string(),
+  }),
+});
+
+export const acknowledgeActivity = mutation({
+  args: {
+    href: v.string(),
+    notificationIds: v.array(v.id("notifications")),
+    viewerKey: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx);
+    if (
+      !access.staffId ||
+      args.viewerKey !== String(access.staffId) ||
+      args.notificationIds.length > NAVIGATION_EVENT_LIMIT
+    ) {
+      throw new ConvexError("Invalid navigation acknowledgement");
+    }
+    const { staffId } = access;
+    if (!canViewDestination(access, args.href)) {
+      return null;
+    }
+    const activity = await ctx.db
+      .query("portalNavigationActivity")
+      .withIndex("by_staffId_and_href", (q) => q.eq("staffId", staffId).eq("href", args.href))
+      .unique();
+    // A newer arrival must survive an acknowledgement of an older snapshot.
+    if (
+      activity &&
+      activity.seenAt === undefined &&
+      args.notificationIds.includes(activity.notificationId)
+    ) {
+      await patchWithE2eOwnership(
+        ctx,
+        "portalNavigationActivity",
+        activity._id,
+        { seenAt: Date.now() },
+        access
+      );
+    }
+    return null;
+  },
+  returns: v.null(),
+});
+
+// Retention follows the source notification, in bounded batches. A live source
+// is never cleaned up, including a stale or accidentally repeated invocation.
+export const cleanupSeenForNotification = internalMutation({
+  args: { notificationId: v.id("notifications") },
+  handler: async (ctx, { notificationId }): Promise<null> => {
+    if (await ctx.db.get("notifications", notificationId)) {
+      return null;
+    }
+    await deleteNavigationSeenPage(ctx, notificationId);
+    return null;
+  },
+  returns: v.null(),
+});
 
 function takeNewestByCreatedAt<TableName extends keyof DataModel>(
   ctx: QueryCtx,

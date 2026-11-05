@@ -39,7 +39,6 @@ export default function ContactPage({ contactIntent = null, destination = "" }) 
 
           <div className="grid gap-12 lg:grid-cols-2 lg:gap-16">
             <m.div
-              className="order-2 lg:order-1"
               initial={{ opacity: 0, x: -20 }}
               transition={{ delay: 0.4, duration: 0.8, ease: "easeOut" }}
               viewport={{ amount: 0.2, once: true }}
@@ -48,7 +47,7 @@ export default function ContactPage({ contactIntent = null, destination = "" }) 
               <ModernContactForm initialValues={initialValues} />
             </m.div>
 
-            <div className="order-1 space-y-8 lg:order-2">
+            <div className="space-y-8">
               <m.div
                 initial={{ opacity: 0, x: 20 }}
                 transition={{ delay: 0.4, duration: 0.8, ease: "easeOut" }}

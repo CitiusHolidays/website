@@ -112,7 +112,8 @@ test.describe("@workflow Exact role semantics", () => {
     ).toHaveText("Enter selling price and cost price on the proposal before sending it to Sales.");
     await page.getByRole("button", { exact: true, name: "Dismiss notification" }).click();
     await expect(row.getByText("Draft", { exact: true })).toBeVisible();
-    await row.getByRole("button", { name: "Edit" }).click();
+    await row.getByRole("button", { name: /More actions for/ }).click();
+    await page.getByRole("menuitem", { exact: true, name: "Edit" }).click();
     await expectEntityModalOpen(page);
     await modalSpinbutton(page, "Land Cost/Pax").fill("1000");
     await modalSpinbutton(page, "Selling Price per Person (pre-tax)").fill("2000");

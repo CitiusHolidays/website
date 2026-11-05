@@ -10,6 +10,7 @@ import {
   getPortalRouteDefinition,
   resolvePortalRoutePagination,
 } from "@/lib/portal/portalRouteManifest";
+import { queryHistoryScopeForView } from "@/lib/portal/queryHistory";
 import { LoadingPanel } from "./portalAdminHelpers";
 import {
   AccountsJobCardView,
@@ -130,6 +131,7 @@ function selectPortalRouteContent(
   workspace: PortalWorkspaceImplementationState
 ): ReactNode {
   const { component } = getPortalRouteDefinition(view);
+  const queryHistoryScope = queryHistoryScopeForView(view, workspace.listFilters);
   switch (component) {
     case "AccountsJobCardView":
       return (
@@ -151,6 +153,7 @@ function selectPortalRouteContent(
           emailDeliverySummaries={workspace.emailDeliverySummaries}
           markNotificationRead={workspace.markNotificationRead}
           notifications={workspace.periodFiltered.notifications}
+          notificationsLoading={workspace.notifications === undefined}
           removeNotification={workspace.removeNotification}
         />
       );
@@ -175,7 +178,9 @@ function selectPortalRouteContent(
           getFinalizedPdfUrl={workspace.getFinalizedPdfUrl}
           getQueryAttachmentUrl={workspace.getQueryAttachmentUrl}
           has={workspace.has}
+          historyScope={queryHistoryScope}
           loading={workspace.queries === undefined}
+          onHistoryScopeChange={workspace.setQueryHistoryScope}
           openModal={workspace.openModal}
           removeQuery={workspace.removeQuery}
           rows={workspace.filteredContractingQueries}
@@ -356,7 +361,9 @@ function selectPortalRouteContent(
           getFinalizedPdfUrl={workspace.getFinalizedPdfUrl}
           getQueryAttachmentUrl={workspace.getQueryAttachmentUrl}
           has={workspace.has}
+          historyScope={queryHistoryScope}
           loading={workspace.queries === undefined}
+          onHistoryScopeChange={workspace.setQueryHistoryScope}
           openModal={workspace.openModal}
           removeQuery={workspace.removeQuery}
           rows={workspace.filteredQueries}

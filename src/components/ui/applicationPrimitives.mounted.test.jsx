@@ -101,7 +101,7 @@ describe("Application UI primitives", () => {
     const [name, date, file] = view.container.querySelectorAll("input");
     await act(() => name.focus());
     expect(document.activeElement).toBe(name);
-    expect(name.className).toContain("bg-brand-light");
+    expect(name.className).toContain("bg-white");
     expect(date.type).toBe("date");
     expect(file.type).toBe("file");
     expect(view.container.textContent).toContain("Traveller name");

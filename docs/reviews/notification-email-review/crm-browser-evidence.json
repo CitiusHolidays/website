@@ -1,0 +1,363 @@
+{
+  "scope": "Actual components and CSS with synthetic API/auth/navigation/image substitutes. No signed-in or provider acceptance.",
+  "reviewDate": "2026-10-20",
+  "images": [
+    {
+      "path": "crm/approvals-1440.jpg",
+      "width": 1440,
+      "height": 1001,
+      "sha256": "4007402fd88bf69fc63048a75ef39c16b7cf7c95130dcd38623cf429de82b0d6"
+    },
+    {
+      "path": "crm/approvals-390.jpg",
+      "width": 390,
+      "height": 845,
+      "sha256": "5beba32f6ebe6e3acb69fdd144b8df0469747ba2aad4141b7e64d86b39ff9af3"
+    },
+    {
+      "path": "crm/contracting-1440.jpg",
+      "width": 1440,
+      "height": 1001,
+      "sha256": "43e769a3c962117e1f686db6a9436592b306296e309b36fae01287546e75bdf4"
+    },
+    {
+      "path": "crm/contracting-390.jpg",
+      "width": 390,
+      "height": 1656,
+      "sha256": "ed949991a6cf12285b5f3c85cf2bf9f2f586cd733edcc82c2f4933dc8b40afad"
+    },
+    {
+      "path": "crm/employees-on-leave-1440.jpg",
+      "width": 1440,
+      "height": 1001,
+      "sha256": "12c4aead17c6c90677d0b79ce2f0e75f82ec8ffa8030c2f7f61e2aee4755a9d6"
+    },
+    {
+      "path": "crm/employees-on-leave-390.jpg",
+      "width": 390,
+      "height": 2431,
+      "sha256": "820f2176c59f51c7d43ac070307738f744ad1aaa4ae4426db674c0a75f839c94"
+    },
+    {
+      "path": "crm/expenses-1440.jpg",
+      "width": 1440,
+      "height": 1001,
+      "sha256": "1b3b469e74b8117c10a0e1918a442ae51915d9fe0ba72aef445d5d5db30617f2"
+    },
+    {
+      "path": "crm/expenses-390.jpg",
+      "width": 390,
+      "height": 845,
+      "sha256": "851a857f1996524061d04db5c6d6bf95f5b62d2a0537d12e33be5b5f513be4e8"
+    },
+    {
+      "path": "crm/externalManagers-1440.jpg",
+      "width": 1440,
+      "height": 1317,
+      "sha256": "4ec8ed67b821d19cf0edf63a506db54ec6ad30a1bf134ff95b23741f830b43c8"
+    },
+    {
+      "path": "crm/externalManagers-390.jpg",
+      "width": 390,
+      "height": 1669,
+      "sha256": "a10ce6f7568df50f51af64bc20a8e12e72afd9150eb84e9dd17948aa6ff1436b"
+    },
+    {
+      "path": "crm/form-assignQueryTeams-1440.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "f442308702e36259ee95b8fadab9d34f78dea003c497d1bbc3c4151639728337"
+    },
+    {
+      "path": "crm/form-assignQueryTeams-390.jpg",
+      "width": 390,
+      "height": 844,
+      "sha256": "bca3f7cbce7362009cefbf8d0ce37d7fb5cfa0ff7215077b27c63fea0f675946"
+    },
+    {
+      "path": "crm/form-expense-1440.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "244667a07d3926b89ad4dba8c7161a77b9616c062df2889485852a944b8fde8f"
+    },
+    {
+      "path": "crm/form-expense-390.jpg",
+      "width": 390,
+      "height": 844,
+      "sha256": "00b2f88f6846d0a109be95b2af53c2b9c7a22a7e57ceeb36e7a6784a20b7ed22"
+    },
+    {
+      "path": "crm/form-leave_create-1440.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "f3a40c61780afaf48507343335a7e5b3f415ff7975375d72b7a1600a6828079a"
+    },
+    {
+      "path": "crm/form-leave_create-390.jpg",
+      "width": 390,
+      "height": 844,
+      "sha256": "cc71781999b716be2325c496a0bdf98a47a6657962f383b691806e1ff280acc1"
+    },
+    {
+      "path": "crm/form-pnr-1440.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "8b2644d2c187ab8d4e1e2393d3711a7ac616d18976b59eb3be785c312f9f1d64"
+    },
+    {
+      "path": "crm/form-pnr-390.jpg",
+      "width": 390,
+      "height": 844,
+      "sha256": "d9392a18165503782f0b29bc0c5f1eebe67a40b023e6003bbd0591b99c4bbe44"
+    },
+    {
+      "path": "crm/form-proposal-1440.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "d03f2ac7620a76fad9dc2e0e40dd987c5f4abb88f5d6237c4a6b5f025702f027"
+    },
+    {
+      "path": "crm/form-proposal-390.jpg",
+      "width": 390,
+      "height": 844,
+      "sha256": "00a0b31b488d59a7355099f7432640148e083dfd7a9b5385146da038d10d1f20"
+    },
+    {
+      "path": "crm/form-query-1440.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "18384460ee21ef93c8c36c6c2b3e8e637023d718a783eda2ba1799bbee4011e3"
+    },
+    {
+      "path": "crm/form-query-390.jpg",
+      "width": 390,
+      "height": 844,
+      "sha256": "7b0cfd36a6bd7bec8f87985748c8d71721b356390b861f8ecccad1885bebcbf9"
+    },
+    {
+      "path": "crm/form-ticket-1440.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "b24cd3a3747cf0926bd525350fa98dcb6877019fd7672f8e26c33b819e72149f"
+    },
+    {
+      "path": "crm/form-ticket-390.jpg",
+      "width": 390,
+      "height": 844,
+      "sha256": "6f96d295b2d5d6284c51c65dbbe2e0f30d0c34677e8851a91aec09388fa42fbe"
+    },
+    {
+      "path": "crm/form-traveller-1440.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "eb4e1cd233f05a4ed8e388922596630d8df5da03bc971df51df00de4007291f3"
+    },
+    {
+      "path": "crm/form-traveller-390.jpg",
+      "width": 390,
+      "height": 844,
+      "sha256": "bf84dc7b130d09909ff5cad4c8aa5c777fed2ce96e264cdfd382cd657802f855"
+    },
+    {
+      "path": "crm/jobDetail-1440-before.jpg",
+      "width": 1440,
+      "height": 1454,
+      "sha256": "23989b59cc149b3bd9d254772fa1b044e7ec3043da777a5cd0f78c85d7085758"
+    },
+    {
+      "path": "crm/jobDetail-1440.jpg",
+      "width": 1440,
+      "height": 1428,
+      "sha256": "36c7a3b95c38b980abb612888f1380870ee5a861cb4e0460e3efc26069fee720"
+    },
+    {
+      "path": "crm/jobDetail-390.jpg",
+      "width": 390,
+      "height": 2544,
+      "sha256": "ac8e344654ccbe7dba06743fe608b7162382c751d9a3dd41a93bece4b0a256b7"
+    },
+    {
+      "path": "crm/jobDetail-expanded-1440.jpg",
+      "width": 1440,
+      "height": 1428,
+      "sha256": "620f7718903c377d4e3fc7f09865fb2ad874c1bad1c95e0384872c433673c158"
+    },
+    {
+      "path": "crm/postTour-1440.jpg",
+      "width": 1440,
+      "height": 1119,
+      "sha256": "fdebe7acdb343d7fc869a0c0d24b2e1a715c92cd0ba43138f6bdbcca97c4d687"
+    },
+    {
+      "path": "crm/postTour-390.jpg",
+      "width": 390,
+      "height": 1701,
+      "sha256": "35282818ae38be783327f67dd07cf1e17a15edac1cf96f5fbd52d48c62d560d8"
+    },
+    {
+      "path": "crm/proposal-1440-before.jpg",
+      "width": 1440,
+      "height": 1001,
+      "sha256": "f6f20fd1b8432ef519087885fc3790f103a1bd26ec60d57847dfe3a9fed5f435"
+    },
+    {
+      "path": "crm/proposal-360.jpg",
+      "width": 360,
+      "height": 780,
+      "sha256": "7291e7b2676aed5116c5db4d81cb83567fd26badf7da689dea90798f21d9bc5c"
+    },
+    {
+      "path": "crm/proposal-actions-1440.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "d6b7c56fae4c1d728c120d09512837a5d4047fbc6e140c084ac6018f3d915518"
+    },
+    {
+      "path": "crm/proposal-bottom-mobile.jpg",
+      "width": 390,
+      "height": 844,
+      "sha256": "676fa992abccc2188eeac63460af4419e7edd73391f646b72763bb0d10334a0e"
+    },
+    {
+      "path": "crm/proposal-desktop.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "d03f2ac7620a76fad9dc2e0e40dd987c5f4abb88f5d6237c4a6b5f025702f027"
+    },
+    {
+      "path": "crm/proposal-error-390.jpg",
+      "width": 390,
+      "height": 844,
+      "sha256": "b04044eb7fe1fb8dd556cfc9788b0e0545ffe42a36ccd3586309a4afa79268b6"
+    },
+    {
+      "path": "crm/proposal-mobile.jpg",
+      "width": 390,
+      "height": 844,
+      "sha256": "00a0b31b488d59a7355099f7432640148e083dfd7a9b5385146da038d10d1f20"
+    },
+    {
+      "path": "crm/proposal-saving-390.jpg",
+      "width": 390,
+      "height": 844,
+      "sha256": "e53ceea177dc06cbe770eee558e2ae4c7fd3ed1695a7efc57cbb5d3f34ef1e61"
+    },
+    {
+      "path": "crm/proposals-1440.jpg",
+      "width": 1440,
+      "height": 1001,
+      "sha256": "142edd4019bcfdb48965349ba71fae54699b2d3be6ef0a44dcb7cf55cdace007"
+    },
+    {
+      "path": "crm/proposals-390.jpg",
+      "width": 390,
+      "height": 1253,
+      "sha256": "8c1aa62351c8dabfcf9fbf6a8dc3481393975d5314a2362b459f8445360be839"
+    },
+    {
+      "path": "crm/queries-1440-before.jpg",
+      "width": 1440,
+      "height": 1001,
+      "sha256": "3a2e1d7ff4de9582cc6469f19b27534ff1f5f4186c38149961b347a59c4f9e01"
+    },
+    {
+      "path": "crm/queries-1440.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "0db21af940535d74e0335d424efd777b56c301dfa0e1484e3c11010169ddce01"
+    },
+    {
+      "path": "crm/queries-desktop.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "0db21af940535d74e0335d424efd777b56c301dfa0e1484e3c11010169ddce01"
+    },
+    {
+      "path": "crm/queries-empty-1440.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "533ee1d95b63a0b855e84ae7d016ecfb4bd3b1f25a21048952a977213fd1bd0a"
+    },
+    {
+      "path": "crm/queries-loading-1440.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "b890ffeb50fc7537cb35e411d045b186329835a3a7d608ca463e37d3218b29df"
+    },
+    {
+      "path": "crm/queries-opened-desktop.jpg",
+      "width": 1440,
+      "height": 1000,
+      "sha256": "9e1d8aeeaf1e5c1672bd1689acf9adce255c20dc65b3b948ed50fa576c7a5fbe"
+    },
+    {
+      "path": "crm/sidebar-mobile.jpg",
+      "width": 390,
+      "height": 844,
+      "sha256": "a8f87c4ba3c3a6a8d6a1b59ed0323f706acbb14e8f9b2d3950512e39f9dff18b"
+    },
+    {
+      "path": "crm/staffTravel-1440.jpg",
+      "width": 1440,
+      "height": 1001,
+      "sha256": "32e7ec8571c65256925f593dd66c8b4f920909dd861c5b5b684f21da866198a5"
+    },
+    {
+      "path": "crm/staffTravel-390-before.jpg",
+      "width": 390,
+      "height": 845,
+      "sha256": "0153dad296e975ad214eae760f47c1ae18cb5c138a293c52af981ee945d1a5f0"
+    },
+    {
+      "path": "crm/staffTravel-390.jpg",
+      "width": 390,
+      "height": 866,
+      "sha256": "6eb70ef3696d53459b7e9bcc46e1201cfdf7c16bfd6c32bff94059bc3918e0b7"
+    },
+    {
+      "path": "crm/tickets-1440.jpg",
+      "width": 1440,
+      "height": 1001,
+      "sha256": "8d3b0ea8a0562a3cd5580ebe6c85c06f3c4d3c933192b0c39c0e04c7a1ac5bce"
+    },
+    {
+      "path": "crm/tickets-390.jpg",
+      "width": 390,
+      "height": 1927,
+      "sha256": "51185f9c96a12513a94af9b6f47800bb1a6ba72512b6a1ee004a1485a99cb6fe"
+    },
+    {
+      "path": "crm/travel-failure-390.jpg",
+      "width": 390,
+      "height": 844,
+      "sha256": "f02ed7ca59accf958af19ca3f328394e0719a1b39d6bc1e073aa2ca46f81084b"
+    },
+    {
+      "path": "crm/travel-person-after.jpg",
+      "width": 390,
+      "height": 844,
+      "sha256": "f013fee3d19d41f4e58a53636ad996551877b99aa36c063c70731d9cb26a8554"
+    },
+    {
+      "path": "crm/travel-person-before.jpg",
+      "width": 390,
+      "height": 844,
+      "sha256": "46501f49c5d8911056f8907ab37e30a48ab79f97ad3156036f84ec5fc2178a5c"
+    }
+  ],
+  "postTourFixture": "Corrected to actual nested job and numeric timestamp return contract before final capture. Earlier blank capture excluded.",
+  "pendingSave": "Actual linked-query checkboxes disabled; failure restored editing and values. StaffTravel Person was enabled before, disabled after; failure retained draft.",
+  "modal": "390x844 and360x780 viewport, root scroll locked, internal scroll reaches itinerary above footer, keyboard wraps, Escape idle only.",
+  "tables": "Opaque pinned cells; Stage ahead of secondary columns; Columns and scroll controls share44px toolbar. Inner horizontal scrolling intentional.",
+  "limits": [
+    "No native Next.js server acceptance",
+    "No live credentials, records, emails, provider or target deployment",
+    "Historical before fixtures may be less populated than final fixtures; compare layout rather than business outcomes"
+  ],
+  "jobCard": "Collapsed checklist no longer stretches; expanded actual task board inspected with retained tasks. Synthetic Job Card uses confirmed Query and Sent Proposal.",
+  "states": "Query Loading records progressbar and separate No active queries empty state captured. No new records or submissions.",
+  "removedPresentationAssets": {
+    "count": 9,
+    "reason": "Director review now shows Citius screenshots only. Historical image evidence remains in the earlier published revision; functional observations and source hashes are retained."
+  }
+}

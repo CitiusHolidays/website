@@ -72,7 +72,10 @@ describe("Record visibility", () => {
 describe("Notification delivery", () => {
   test("NotifyStaffMember targets staff id for bell when auth relinks", async () => {
     const tables = {
+      notificationEmailDeliveries: [],
       notificationEmailEventOrigins: [],
+      notificationEmailEventSummaries: [],
+      notificationEmailOutbox: [],
       notifications: [],
       notificationTargetCounts: [],
       operationalControlStates: [
@@ -153,12 +156,20 @@ describe("Notification delivery", () => {
       recipientStaffId: staffId,
       recipientUserId: "user_a",
     });
-    expect(scheduled).toHaveLength(1);
+    expect(tables.notificationEmailOutbox).toHaveLength(1);
+    expect(tables.notificationEmailOutbox[0]).toMatchObject({
+      recipient: "staff@example.com",
+      status: "pending",
+    });
+    expect(scheduled).toHaveLength(2);
   });
 
   test("NotifyStaffMember keeps additional email roles compatible with role-default delivery", async () => {
     const tables = {
+      notificationEmailDeliveries: [],
       notificationEmailEventOrigins: [],
+      notificationEmailEventSummaries: [],
+      notificationEmailOutbox: [],
       notifications: [],
       notificationTargetCounts: [],
       operationalControlStates: [
@@ -236,7 +247,12 @@ describe("Notification delivery", () => {
     });
 
     expect(tables.notifications).toHaveLength(1);
-    expect(scheduled).toHaveLength(1);
+    expect(tables.notificationEmailOutbox).toHaveLength(1);
+    expect(tables.notificationEmailOutbox[0]).toMatchObject({
+      recipient: "staff@example.com",
+      status: "pending",
+    });
+    expect(scheduled).toHaveLength(2);
   });
 });
 

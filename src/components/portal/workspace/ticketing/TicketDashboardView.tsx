@@ -1,6 +1,8 @@
 "use client";
 
 import { FileText, Plane, RefreshCw, Ticket, Users } from "lucide-react";
+import { useEffect } from "react";
+import { reportPortalDestinationReady } from "@/lib/portal/portalDestinationReady";
 import { LoadingPanel } from "../portalAdminHelpers";
 import type { TicketDashboardViewProps } from "../portalViewTypes";
 import { StatCard } from "../portalWorkspaceListUi";
@@ -15,6 +17,11 @@ export function TicketDashboardView({
   removeTicket,
   removeManyTickets,
 }: TicketDashboardViewProps) {
+  useEffect(() => {
+    if (summary) {
+      reportPortalDestinationReady("/portal/ticketing");
+    }
+  }, [summary]);
   if (!summary) {
     return <LoadingPanel />;
   }

@@ -17,6 +17,7 @@ export interface NotificationEmailSendMessage extends NotificationEmailMessage {
 
 export interface NotificationEmailSendOptions {
   idempotencyKey: string;
+  signal?: AbortSignal;
 }
 
 export interface NotificationEmailProviderError {
@@ -25,12 +26,14 @@ export interface NotificationEmailProviderError {
 }
 
 export interface NotificationEmailSendResult {
+  data?: { id: string } | null;
   error?: NotificationEmailProviderError | null;
 }
 
 export interface NotificationEmailDeliveryConfig {
   maxAttempts: number;
   minIntervalMs: number;
+  requestTimeoutMs?: number;
 }
 
 export interface NotificationEmailDeliveryResult {
@@ -50,10 +53,13 @@ export type NotificationEmailDeliveryStatus =
   | "exhausted";
 
 export interface NotificationEmailDeliveryStatusEvent {
+  ambiguous?: boolean;
   attempts: number;
   error?: NotificationEmailProviderError;
   idempotencyKey: string;
+  providerEmailId?: string;
   recipient: string;
+  retryable?: boolean;
   status: NotificationEmailDeliveryStatus;
 }
 
@@ -93,7 +99,11 @@ function isRateLimitError(error: NotificationEmailProviderError) {
 }
 
 function isRetryableProviderError(error: NotificationEmailProviderError) {
-  return isRateLimitError(error) || (isRuntimeNumber(error.statusCode) && error.statusCode >= 500);
+  return (
+    isRateLimitError(error) ||
+    error.name === "concurrent_idempotent_requests" ||
+    (isRuntimeNumber(error.statusCode) && error.statusCode >= 500)
+  );
 }
 
 function isAmbiguousNetworkError(error: NotificationEmailProviderError) {
@@ -108,7 +118,10 @@ interface ProviderFailureDetails {
 }
 
 function deliveryFailure(error: NotificationEmailProviderError) {
-  const ambiguous = isAmbiguousNetworkError(error);
+  const ambiguous =
+    isAmbiguousNetworkError(error) ||
+    error.name === "invalid_provider_response" ||
+    (isRuntimeNumber(error.statusCode) && error.statusCode >= 500);
   const providerDetails: ProviderFailureDetails = {};
   if (error.name) {
     providerDetails.providerName = error.name;
@@ -167,18 +180,18 @@ function sendEmailAttempt(input: {
         isRuntimeObject(error) && error !== null ? error : { name: String(error) }
       );
     },
-    try: async () => {
+    try: async (signal) => {
       const result = await input.sendEmail(
         {
           ...input.message,
           to: [input.recipient],
         },
-        { idempotencyKey: input.idempotencyKey }
+        { idempotencyKey: input.idempotencyKey, signal }
       );
       if (result.error) {
         throw new NotificationEmailProviderResponseFailure(result.error);
       }
-      return true;
+      return result.data?.id;
     },
   });
 }
@@ -216,7 +229,16 @@ function sendEmailWithRetry(input: {
           idempotencyKey: input.idempotencyKey,
           recipient: input.recipient,
           status: "sending",
-        }).pipe(Effect.andThen(sendEmailAttempt(input)))
+        }).pipe(
+          Effect.andThen(
+            sendEmailAttempt(input).pipe(
+              Effect.timeoutOrElse({
+                duration: input.config.requestTimeoutMs ?? 10_000,
+                orElse: () => Effect.fail(deliveryFailure({ name: "TimeoutError" })),
+              })
+            )
+          )
+        )
       ),
       Effect.tapError((failure) =>
         Ref.get(attempts).pipe(
@@ -244,21 +266,24 @@ function sendEmailWithRetry(input: {
           Ref.get(attempts).pipe(
             Effect.flatMap((attemptNumber) =>
               statusEffect(input.onStatus, {
+                ambiguous: failure.ambiguous,
                 attempts: attemptNumber,
                 error: providerErrorFromFailure(failure),
                 idempotencyKey: input.idempotencyKey,
                 recipient: input.recipient,
+                retryable: failure.retryable,
                 status: "exhausted",
               })
             ),
             Effect.as(false)
           ),
-        onSuccess: () =>
+        onSuccess: (providerEmailId) =>
           Ref.get(attempts).pipe(
             Effect.flatMap((attemptNumber) =>
               statusEffect(input.onStatus, {
                 attempts: attemptNumber,
                 idempotencyKey: input.idempotencyKey,
+                providerEmailId,
                 recipient: input.recipient,
                 status: "sent",
               })

@@ -8,11 +8,14 @@ beforeAll(() => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
     Object.assign(fromPartial<object>(definition.handler), { _handler: definition.handler });
   mock.module("../_generated/server", () => ({
+    internalAction: registeredFunction,
     internalMutation: registeredFunction,
+    internalQuery: registeredFunction,
     mutation: registeredFunction,
     query: registeredFunction,
   }));
   mock.module("../_generated/api", () => ({
+    components: { rateLimiter: {} },
     internal: {
       crm: {
         commercialFiles: {
@@ -255,7 +258,7 @@ describe("LeaveCreateApproval", () => {
         }),
         expect.objectContaining({
           recipientUserId: "auth_hr",
-          title: "Leave submitted (HR copy)",
+          title: "Leave submitted for HR review",
         }),
       ])
     );

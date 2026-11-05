@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "../_generated/api";
 import schema from "../schema";
 import { modules } from "../test.setup";
+import { getNotificationHref } from "./notificationPaths";
 
 const ACTOR = "auth_job_card_integration";
 const FIXED_NOW = new Date("2026-08-12T12:00:00.000Z");
@@ -281,3 +282,61 @@ describe("registered Job Card mutation boundary", () => {
     });
   });
 });
+
+const ownerNoticeCases = [
+  {
+    field: "operationsOwnerId",
+    mutation: api.crm.jobCards.assignOperationsOwner,
+    role: "Operations",
+    title: "Operations assignment",
+  },
+  {
+    field: "contractingOwnerId",
+    mutation: api.crm.jobCards.assignContractingOwner,
+    role: "Contracting",
+    title: "Contracting assignment",
+  },
+  {
+    field: "ticketingOwnerId",
+    mutation: api.crm.ticketing.assignTicketingOwner,
+    role: "Ticketing",
+    title: "Ticketing assignment",
+  },
+] as const;
+
+test.each(ownerNoticeCases)(
+  "the assigned $role recipient opens their Job Card, not an assignment form",
+  async ({ mutation, role, title, field }) => {
+    const t = createHarness();
+    const jobCardId = await seedEditableJobCard(t);
+    const staffId = await t.run((ctx) =>
+      ctx.db.insert("staffUsers", {
+        active: true,
+        authUserId: "assigned-owner",
+        createdAt: FIXED_NOW.getTime(),
+        email: "assigned-owner@example.invalid",
+        emailNormalized: "assigned-owner@example.invalid",
+        name: "Assigned Owner",
+        roles: [role],
+        updatedAt: FIXED_NOW.getTime(),
+      })
+    );
+    const actor = t.withIdentity({
+      email: "job-card-integration@citius-e2e.test",
+      issuer: "https://auth.citius.test",
+      subject: ACTOR,
+      tokenIdentifier: `https://auth.citius.test|${ACTOR}`,
+    });
+    await actor.mutation(mutation, { jobCardId, staffId });
+    const notices = await t.run((ctx) => ctx.db.query("notifications").collect());
+    expect(notices).toHaveLength(1);
+    expect(getNotificationHref(notices[0])).toBe(`/portal/job-cards?open=jobCard&id=${jobCardId}`);
+    expect(notices[0]).toMatchObject({ recipientStaffId: staffId, title });
+    const emails = await t.run((ctx) => ctx.db.query("notificationEmailOutbox").collect());
+    expect(emails).toHaveLength(1);
+    expect(emails[0]).toMatchObject({
+      recipient: "assigned-owner@example.invalid",
+      recipientPurposes: [{ field, kind: "assignment" }],
+    });
+  }
+);

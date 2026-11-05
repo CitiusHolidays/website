@@ -2,6 +2,7 @@ import { getListFilterConfig } from "@/lib/portal/listFilterConfig";
 import { EMPTY_DATE_RANGE, filterByDateRange } from "@/lib/portal/periodFilter";
 import { filterRows, pipeViewRows } from "@/lib/portal/pipeViewRows";
 import { buildViewResultCountMap, getViewResultCount } from "@/lib/portal/viewResultCounts";
+import type { PortalNotificationRow } from "./portalViewTypes";
 import type {
   DateRangeState,
   ListFiltersState,
@@ -25,7 +26,7 @@ interface BuildPortalWorkspaceRowsInput {
   leaves: readonly (WorkspaceListRow | null | undefined)[] | null | undefined;
   listFilterConfig: unknown;
   listFilters: ListFiltersState;
-  notifications: readonly (WorkspaceListRow | null | undefined)[] | null | undefined;
+  notifications: readonly (PortalNotificationRow | null | undefined)[] | null | undefined;
   pnrs: readonly (WorkspaceListRow | null | undefined)[] | null | undefined;
   proposals: readonly (WorkspaceProposalRow | null | undefined)[] | null | undefined;
   queries: readonly (WorkspaceQueryRow | null | undefined)[] | null | undefined;
@@ -83,7 +84,8 @@ export function buildPortalWorkspaceRows({
     invoices: filterByDateRange(compactRows(invoices), dateRange, "createdAt"),
     jobCards: filterByDateRange(compactRows(jobCards), dateRange, "createdAt"),
     leaves: filterByDateRange(compactRows(leaves), dateRange, "createdAt"),
-    notifications: filterByDateRange(compactRows(notifications), dateRange, "createdAt"),
+    // A date filter carried from another workspace must not hide unread inbox items.
+    notifications: compactRows(notifications),
     pnrs: filterByDateRange(compactRows(pnrs), dateRange, "createdAt"),
     proposals: filterByDateRange(compactRows(proposals), dateRange, "createdAt"),
     queries: filterByDateRange(compactRows(queries), dateRange, "createdAt"),

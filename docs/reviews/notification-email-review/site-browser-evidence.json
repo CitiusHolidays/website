@@ -1,0 +1,2159 @@
+{
+  "passed": true,
+  "sourceBase": "9d7ad28081bff75d26bf5255ca7e2fb3b1026fcb",
+  "scope": "Actual source components and CSS with synthetic data. Next navigation/image, auth and API transport are substitutes. No signed-in, provider or native Next server acceptance.",
+  "baseline": {
+    "passed": true,
+    "source": "9d7ad28081bff75d26bf5255ca7e2fb3b1026fcb",
+    "reproduced": [
+      "U01 hidden filter reset",
+      "U02 stale profile on edit after props refresh",
+      "U03 edits accepted during send then discarded on success"
+    ],
+    "mockTransport": true,
+    "errors": []
+  },
+  "changedJourneys": {
+    "passed": true,
+    "widths": [1440, 390, 360],
+    "checks": [
+      "U01 collapsed and expanded filter recovery, one reset, keyboard activation",
+      "U02 latest profile, Enter validation and save, pending protection, exact API body, drafts and failed/completed saves retained across Account tabs",
+      "U03 pending protection, failed recovery and retry with same payload/key",
+      "U04 mobile form comes before all three retained office maps",
+      "dark preference, reduced motion and 20px root text overflow"
+    ],
+    "mockTransport": true,
+    "errors": []
+  },
+  "services": {
+    "passed": true,
+    "checks": [
+      "Retained all 11 circular service choices",
+      "Every choice and label within viewport at 320,360,390,400,500,768,1440",
+      "Desktop focus/Enter and mobile activation show the same details",
+      "390px 20px root text"
+    ],
+    "results": [
+      {
+        "width": 1440,
+        "before": [
+          {
+            "label": "Maps to MICE service",
+            "left": 684,
+            "right": 756
+          },
+          {
+            "label": "Maps to VISA Assistance service",
+            "left": 821.3790283203125,
+            "right": 921.3790283203125
+          },
+          {
+            "label": "Maps to Event Management service",
+            "left": 924.697021484375,
+            "right": 1024.697021484375
+          },
+          {
+            "label": "Maps to International Travel service",
+            "left": 947.1500244140625,
+            "right": 1047.1500244140625
+          },
+          {
+            "label": "Maps to Domestic Travel service",
+            "left": 881.6099853515625,
+            "right": 981.6099853515625
+          },
+          {
+            "label": "Maps to Travel Insurance service",
+            "left": 748.885009765625,
+            "right": 848.885009765625
+          },
+          {
+            "label": "Maps to Branding service",
+            "left": 605.114990234375,
+            "right": 677.114990234375
+          },
+          {
+            "label": "Maps to Celebrity Management service",
+            "left": 458.3900146484375,
+            "right": 558.3900146484375
+          },
+          {
+            "label": "Maps to Sporting Events service",
+            "left": 392.8500061035156,
+            "right": 492.8500061035156
+          },
+          {
+            "label": "Maps to Onsite Travel Desk service",
+            "left": 415.302978515625,
+            "right": 515.302978515625
+          },
+          {
+            "label": "Maps to Spiritual Trails service",
+            "left": 518.6209716796875,
+            "right": 618.6209716796875
+          }
+        ],
+        "after": [
+          {
+            "label": "Learn about MICE",
+            "left": 684,
+            "right": 756
+          },
+          {
+            "label": "Learn about VISA Assistance",
+            "left": 821.3790283203125,
+            "right": 921.3790283203125
+          },
+          {
+            "label": "Learn about Event Management",
+            "left": 924.697021484375,
+            "right": 1024.697021484375
+          },
+          {
+            "label": "Learn about International Travel",
+            "left": 947.1500244140625,
+            "right": 1047.1500244140625
+          },
+          {
+            "label": "Learn about Domestic Travel",
+            "left": 881.6099853515625,
+            "right": 981.6099853515625
+          },
+          {
+            "label": "Learn about Travel Insurance",
+            "left": 748.885009765625,
+            "right": 848.885009765625
+          },
+          {
+            "label": "Learn about Branding",
+            "left": 605.114990234375,
+            "right": 677.114990234375
+          },
+          {
+            "label": "Learn about Celebrity Management",
+            "left": 458.3900146484375,
+            "right": 558.3900146484375
+          },
+          {
+            "label": "Learn about Sporting Events",
+            "left": 392.8500061035156,
+            "right": 492.8500061035156
+          },
+          {
+            "label": "Learn about Onsite Travel Desk",
+            "left": 415.302978515625,
+            "right": 515.302978515625
+          },
+          {
+            "label": "Learn about Spiritual Trails",
+            "left": 518.6209716796875,
+            "right": 618.6209716796875
+          }
+        ]
+      },
+      {
+        "width": 768,
+        "before": [
+          {
+            "label": "Maps to MICE service",
+            "left": 352,
+            "right": 416
+          },
+          {
+            "label": "Maps to VISA Assistance service",
+            "left": 463.7539978027344,
+            "right": 563.7540283203125
+          },
+          {
+            "label": "Maps to Event Management service",
+            "left": 552.31201171875,
+            "right": 652.31201171875
+          },
+          {
+            "label": "Maps to International Travel service",
+            "left": 571.5570068359375,
+            "right": 671.5570068359375
+          },
+          {
+            "label": "Maps to Domestic Travel service",
+            "left": 515.3800048828125,
+            "right": 615.3800048828125
+          },
+          {
+            "label": "Maps to Travel Insurance service",
+            "left": 401.6159973144531,
+            "right": 501.6159973144531
+          },
+          {
+            "label": "Maps to Branding service",
+            "left": 284.3840026855469,
+            "right": 348.3840026855469
+          },
+          {
+            "label": "Maps to Celebrity Management service",
+            "left": 152.6199951171875,
+            "right": 252.6199951171875
+          },
+          {
+            "label": "Maps to Sporting Events service",
+            "left": 96.4429931640625,
+            "right": 196.4429931640625
+          },
+          {
+            "label": "Maps to Onsite Travel Desk service",
+            "left": 115.68798828125,
+            "right": 215.68798828125
+          },
+          {
+            "label": "Maps to Spiritual Trails service",
+            "left": 206.78506469726562,
+            "right": 301.7069396972656
+          }
+        ],
+        "after": [
+          {
+            "label": "Learn about MICE",
+            "left": 352,
+            "right": 416
+          },
+          {
+            "label": "Learn about VISA Assistance",
+            "left": 463.7539978027344,
+            "right": 563.7540283203125
+          },
+          {
+            "label": "Learn about Event Management",
+            "left": 552.31201171875,
+            "right": 652.31201171875
+          },
+          {
+            "label": "Learn about International Travel",
+            "left": 571.5570068359375,
+            "right": 671.5570068359375
+          },
+          {
+            "label": "Learn about Domestic Travel",
+            "left": 515.3800048828125,
+            "right": 615.3800048828125
+          },
+          {
+            "label": "Learn about Travel Insurance",
+            "left": 401.6159973144531,
+            "right": 501.6159973144531
+          },
+          {
+            "label": "Learn about Branding",
+            "left": 284.3840026855469,
+            "right": 348.3840026855469
+          },
+          {
+            "label": "Learn about Celebrity Management",
+            "left": 152.6199951171875,
+            "right": 252.6199951171875
+          },
+          {
+            "label": "Learn about Sporting Events",
+            "left": 96.4429931640625,
+            "right": 196.4429931640625
+          },
+          {
+            "label": "Learn about Onsite Travel Desk",
+            "left": 115.68798828125,
+            "right": 215.68798828125
+          },
+          {
+            "label": "Learn about Spiritual Trails",
+            "left": 206.78506469726562,
+            "right": 301.7069396972656
+          }
+        ]
+      },
+      {
+        "width": 500,
+        "before": [
+          {
+            "label": "Maps to MICE service",
+            "left": 226,
+            "right": 274
+          },
+          {
+            "label": "Maps to VISA Assistance service",
+            "left": 318.12799072265625,
+            "right": 398.12799072265625
+          },
+          {
+            "label": "Maps to Event Management service",
+            "left": 391.9259948730469,
+            "right": 471.9259948730469
+          },
+          {
+            "label": "Maps to International Travel service",
+            "left": 407.9639892578125,
+            "right": 487.9639892578125
+          },
+          {
+            "label": "Maps to Domestic Travel service",
+            "left": 361.1499938964844,
+            "right": 441.1499938964844
+          },
+          {
+            "label": "Maps to Travel Insurance service",
+            "left": 266.34698486328125,
+            "right": 346.34698486328125
+          },
+          {
+            "label": "Maps to Branding service",
+            "left": 167.8483123779297,
+            "right": 219.4576873779297
+          },
+          {
+            "label": "Maps to Celebrity Management service",
+            "left": 58.850006103515625,
+            "right": 138.85000610351562
+          },
+          {
+            "label": "Maps to Sporting Events service",
+            "left": 12.035995483398438,
+            "right": 92.03599548339844
+          },
+          {
+            "label": "Maps to Onsite Travel Desk service",
+            "left": 28.074005126953125,
+            "right": 108.07400512695312
+          },
+          {
+            "label": "Maps to Spiritual Trails service",
+            "left": 101.87200927734375,
+            "right": 181.87200927734375
+          }
+        ],
+        "after": [
+          {
+            "label": "Learn about MICE",
+            "left": 226,
+            "right": 274
+          },
+          {
+            "label": "Learn about VISA Assistance",
+            "left": 307.31500244140625,
+            "right": 387.31500244140625
+          },
+          {
+            "label": "Learn about Event Management",
+            "left": 373.7340087890625,
+            "right": 453.7340087890625
+          },
+          {
+            "label": "Learn about International Travel",
+            "left": 388.1679992675781,
+            "right": 468.1679992675781
+          },
+          {
+            "label": "Learn about Domestic Travel",
+            "left": 346.0350036621094,
+            "right": 426.0350036621094
+          },
+          {
+            "label": "Learn about Travel Insurance",
+            "left": 260.7120056152344,
+            "right": 340.7120056152344
+          },
+          {
+            "label": "Learn about Branding",
+            "left": 173.48330688476562,
+            "right": 225.09268188476562
+          },
+          {
+            "label": "Learn about Celebrity Management",
+            "left": 73.96499633789062,
+            "right": 153.96499633789062
+          },
+          {
+            "label": "Learn about Sporting Events",
+            "left": 31.832000732421875,
+            "right": 111.83200073242188
+          },
+          {
+            "label": "Learn about Onsite Travel Desk",
+            "left": 46.26600646972656,
+            "right": 126.26600646972656
+          },
+          {
+            "label": "Learn about Spiritual Trails",
+            "left": 112.68499755859375,
+            "right": 192.68499755859375
+          }
+        ]
+      },
+      {
+        "width": 400,
+        "before": [
+          {
+            "label": "Maps to MICE service",
+            "left": 176,
+            "right": 224
+          },
+          {
+            "label": "Maps to VISA Assistance service",
+            "left": 257.31500244140625,
+            "right": 337.31500244140625
+          },
+          {
+            "label": "Maps to Event Management service",
+            "left": 323.7340087890625,
+            "right": 403.7340087890625
+          },
+          {
+            "label": "Maps to International Travel service",
+            "left": 338.1679992675781,
+            "right": 418.1679992675781
+          },
+          {
+            "label": "Maps to Domestic Travel service",
+            "left": 296.0350036621094,
+            "right": 376.0350036621094
+          },
+          {
+            "label": "Maps to Travel Insurance service",
+            "left": 210.71200561523438,
+            "right": 290.7120056152344
+          },
+          {
+            "label": "Maps to Branding service",
+            "left": 123.48330688476562,
+            "right": 175.09268188476562
+          },
+          {
+            "label": "Maps to Celebrity Management service",
+            "left": 23.964996337890625,
+            "right": 103.96499633789062
+          },
+          {
+            "label": "Maps to Sporting Events service",
+            "left": -18.167999267578125,
+            "right": 61.832000732421875
+          },
+          {
+            "label": "Maps to Onsite Travel Desk service",
+            "left": -3.7339935302734375,
+            "right": 76.26600646972656
+          },
+          {
+            "label": "Maps to Spiritual Trails service",
+            "left": 62.68499755859375,
+            "right": 142.68499755859375
+          }
+        ],
+        "after": [
+          {
+            "label": "Learn about MICE",
+            "left": 176,
+            "right": 224
+          },
+          {
+            "label": "Learn about VISA Assistance",
+            "left": 235.69000244140625,
+            "right": 315.69000244140625
+          },
+          {
+            "label": "Learn about Event Management",
+            "left": 287.3479919433594,
+            "right": 367.3479919433594
+          },
+          {
+            "label": "Learn about International Travel",
+            "left": 298.57501220703125,
+            "right": 378.57501220703125
+          },
+          {
+            "label": "Learn about Domestic Travel",
+            "left": 265.80499267578125,
+            "right": 345.80499267578125
+          },
+          {
+            "label": "Learn about Travel Insurance",
+            "left": 199.4429931640625,
+            "right": 279.4429931640625
+          },
+          {
+            "label": "Learn about Branding",
+            "left": 134.7523193359375,
+            "right": 186.3616943359375
+          },
+          {
+            "label": "Learn about Celebrity Management",
+            "left": 54.19500732421875,
+            "right": 134.19500732421875
+          },
+          {
+            "label": "Learn about Sporting Events",
+            "left": 21.425003051757812,
+            "right": 101.42500305175781
+          },
+          {
+            "label": "Learn about Onsite Travel Desk",
+            "left": 32.652008056640625,
+            "right": 112.65200805664062
+          },
+          {
+            "label": "Learn about Spiritual Trails",
+            "left": 84.30999755859375,
+            "right": 164.30999755859375
+          }
+        ]
+      },
+      {
+        "width": 390,
+        "before": [
+          {
+            "label": "Maps to MICE service",
+            "left": 171,
+            "right": 219
+          },
+          {
+            "label": "Maps to VISA Assistance service",
+            "left": 252.31500244140625,
+            "right": 332.31500244140625
+          },
+          {
+            "label": "Maps to Event Management service",
+            "left": 318.7340087890625,
+            "right": 398.7340087890625
+          },
+          {
+            "label": "Maps to International Travel service",
+            "left": 333.1679992675781,
+            "right": 413.1679992675781
+          },
+          {
+            "label": "Maps to Domestic Travel service",
+            "left": 291.0350036621094,
+            "right": 371.0350036621094
+          },
+          {
+            "label": "Maps to Travel Insurance service",
+            "left": 205.71200561523438,
+            "right": 285.7120056152344
+          },
+          {
+            "label": "Maps to Branding service",
+            "left": 118.48330688476562,
+            "right": 170.09268188476562
+          },
+          {
+            "label": "Maps to Celebrity Management service",
+            "left": 18.964996337890625,
+            "right": 98.96499633789062
+          },
+          {
+            "label": "Maps to Sporting Events service",
+            "left": -23.167999267578125,
+            "right": 56.832000732421875
+          },
+          {
+            "label": "Maps to Onsite Travel Desk service",
+            "left": -8.733993530273438,
+            "right": 71.26600646972656
+          },
+          {
+            "label": "Maps to Spiritual Trails service",
+            "left": 57.68499755859375,
+            "right": 137.68499755859375
+          }
+        ],
+        "after": [
+          {
+            "label": "Learn about MICE",
+            "left": 171,
+            "right": 219
+          },
+          {
+            "label": "Learn about VISA Assistance",
+            "left": 219.8769989013672,
+            "right": 299.87701416015625
+          },
+          {
+            "label": "Learn about Event Management",
+            "left": 264.156005859375,
+            "right": 344.156005859375
+          },
+          {
+            "label": "Learn about International Travel",
+            "left": 273.77899169921875,
+            "right": 353.77899169921875
+          },
+          {
+            "label": "Learn about Domestic Travel",
+            "left": 245.69000244140625,
+            "right": 325.69000244140625
+          },
+          {
+            "label": "Learn about Travel Insurance",
+            "left": 188.80799865722656,
+            "right": 268.8079833984375
+          },
+          {
+            "label": "Learn about Branding",
+            "left": 135.38731384277344,
+            "right": 186.99668884277344
+          },
+          {
+            "label": "Learn about Celebrity Management",
+            "left": 64.30999755859375,
+            "right": 144.30999755859375
+          },
+          {
+            "label": "Learn about Sporting Events",
+            "left": 36.22100830078125,
+            "right": 116.22100830078125
+          },
+          {
+            "label": "Learn about Onsite Travel Desk",
+            "left": 45.843994140625,
+            "right": 125.843994140625
+          },
+          {
+            "label": "Learn about Spiritual Trails",
+            "left": 90.12300109863281,
+            "right": 170.1230010986328
+          }
+        ]
+      },
+      {
+        "width": 360,
+        "before": [
+          {
+            "label": "Maps to MICE service",
+            "left": 156,
+            "right": 204
+          },
+          {
+            "label": "Maps to VISA Assistance service",
+            "left": 237.31500244140625,
+            "right": 317.31500244140625
+          },
+          {
+            "label": "Maps to Event Management service",
+            "left": 303.7340087890625,
+            "right": 383.7340087890625
+          },
+          {
+            "label": "Maps to International Travel service",
+            "left": 318.1679992675781,
+            "right": 398.1679992675781
+          },
+          {
+            "label": "Maps to Domestic Travel service",
+            "left": 276.0350036621094,
+            "right": 356.0350036621094
+          },
+          {
+            "label": "Maps to Travel Insurance service",
+            "left": 190.71200561523438,
+            "right": 270.7120056152344
+          },
+          {
+            "label": "Maps to Branding service",
+            "left": 103.48330688476562,
+            "right": 155.09268188476562
+          },
+          {
+            "label": "Maps to Celebrity Management service",
+            "left": 3.964996337890625,
+            "right": 83.96499633789062
+          },
+          {
+            "label": "Maps to Sporting Events service",
+            "left": -38.167999267578125,
+            "right": 41.832000732421875
+          },
+          {
+            "label": "Maps to Onsite Travel Desk service",
+            "left": -23.733993530273438,
+            "right": 56.26600646972656
+          },
+          {
+            "label": "Maps to Spiritual Trails service",
+            "left": 42.68499755859375,
+            "right": 122.68499755859375
+          }
+        ],
+        "after": [
+          {
+            "label": "Learn about MICE",
+            "left": 156,
+            "right": 204
+          },
+          {
+            "label": "Learn about VISA Assistance",
+            "left": 204.8769989013672,
+            "right": 284.87701416015625
+          },
+          {
+            "label": "Learn about Event Management",
+            "left": 249.156005859375,
+            "right": 329.156005859375
+          },
+          {
+            "label": "Learn about International Travel",
+            "left": 258.77899169921875,
+            "right": 338.77899169921875
+          },
+          {
+            "label": "Learn about Domestic Travel",
+            "left": 230.69000244140625,
+            "right": 310.69000244140625
+          },
+          {
+            "label": "Learn about Travel Insurance",
+            "left": 173.80799865722656,
+            "right": 253.80799865722656
+          },
+          {
+            "label": "Learn about Branding",
+            "left": 120.38731384277344,
+            "right": 171.99668884277344
+          },
+          {
+            "label": "Learn about Celebrity Management",
+            "left": 49.30999755859375,
+            "right": 129.30999755859375
+          },
+          {
+            "label": "Learn about Sporting Events",
+            "left": 21.22100830078125,
+            "right": 101.22100830078125
+          },
+          {
+            "label": "Learn about Onsite Travel Desk",
+            "left": 30.843994140625,
+            "right": 110.843994140625
+          },
+          {
+            "label": "Learn about Spiritual Trails",
+            "left": 75.12300109863281,
+            "right": 155.1230010986328
+          }
+        ]
+      },
+      {
+        "width": 320,
+        "before": [
+          {
+            "label": "Maps to MICE service",
+            "left": 136,
+            "right": 184
+          },
+          {
+            "label": "Maps to VISA Assistance service",
+            "left": 217.31500244140625,
+            "right": 297.31500244140625
+          },
+          {
+            "label": "Maps to Event Management service",
+            "left": 283.7340087890625,
+            "right": 363.7340087890625
+          },
+          {
+            "label": "Maps to International Travel service",
+            "left": 298.1679992675781,
+            "right": 378.1679992675781
+          },
+          {
+            "label": "Maps to Domestic Travel service",
+            "left": 256.0350036621094,
+            "right": 336.0350036621094
+          },
+          {
+            "label": "Maps to Travel Insurance service",
+            "left": 170.71200561523438,
+            "right": 250.71200561523438
+          },
+          {
+            "label": "Maps to Branding service",
+            "left": 83.48330688476562,
+            "right": 135.09268188476562
+          },
+          {
+            "label": "Maps to Celebrity Management service",
+            "left": -16.035003662109375,
+            "right": 63.964996337890625
+          },
+          {
+            "label": "Maps to Sporting Events service",
+            "left": -58.167999267578125,
+            "right": 21.832000732421875
+          },
+          {
+            "label": "Maps to Onsite Travel Desk service",
+            "left": -43.73399353027344,
+            "right": 36.26600646972656
+          },
+          {
+            "label": "Maps to Spiritual Trails service",
+            "left": 22.68499755859375,
+            "right": 102.68499755859375
+          }
+        ],
+        "after": [
+          {
+            "label": "Learn about MICE",
+            "left": 136,
+            "right": 184
+          },
+          {
+            "label": "Learn about VISA Assistance",
+            "left": 174.06399536132812,
+            "right": 254.06399536132812
+          },
+          {
+            "label": "Learn about Event Management",
+            "left": 210.96299743652344,
+            "right": 290.9630126953125
+          },
+          {
+            "label": "Learn about International Travel",
+            "left": 218.98199462890625,
+            "right": 298.98199462890625
+          },
+          {
+            "label": "Learn about Domestic Travel",
+            "left": 195.5749969482422,
+            "right": 275.57501220703125
+          },
+          {
+            "label": "Learn about Travel Insurance",
+            "left": 148.17300415039062,
+            "right": 228.17300415039062
+          },
+          {
+            "label": "Learn about Branding",
+            "left": 106.02230834960938,
+            "right": 157.63168334960938
+          },
+          {
+            "label": "Learn about Celebrity Management",
+            "left": 44.42500305175781,
+            "right": 124.42500305175781
+          },
+          {
+            "label": "Learn about Sporting Events",
+            "left": 21.01800537109375,
+            "right": 101.01800537109375
+          },
+          {
+            "label": "Learn about Onsite Travel Desk",
+            "left": 29.037002563476562,
+            "right": 109.03700256347656
+          },
+          {
+            "label": "Learn about Spiritual Trails",
+            "left": 65.93600463867188,
+            "right": 145.93600463867188
+          }
+        ]
+      }
+    ],
+    "errors": []
+  },
+  "unchangedComponents": {
+    "sourceBase": "9d7ad28081bff75d26bf5255ca7e2fb3b1026fcb",
+    "mockTransport": true,
+    "nextNavigationMock": true,
+    "nextImageMock": true,
+    "authenticatedAcceptance": false,
+    "results": [
+      {
+        "name": "home",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": [
+          "Your next great journey starts here.",
+          "Trending Now",
+          "What We Do",
+          "Why companies choose Citius",
+          "Corporate Clients",
+          "Industry Recognition"
+        ],
+        "text": "Your next great journey\nstarts here.\n\nCrafted by experts. Designed for you.\n\nPlan Your Trip\nExplore Services\nTrending Now\n\nTop destinations for meetings, incentives, conferences, a",
+        "links": [
+          {
+            "label": "Plan Your Trip",
+            "href": "/contact"
+          },
+          {
+            "label": "Explore Services",
+            "href": "/services"
+          },
+          {
+            "label": "Explore all services",
+            "href": "/services"
+          },
+          {
+            "label": "Start Planning Now",
+            "href": "/contact"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "about",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": [
+          "About Citius Holidays",
+          "Our Team",
+          "In Loving Memory of Shri Arpan Mitra",
+          "Our Directors",
+          "Our Beliefs",
+          "Our Values"
+        ],
+        "text": "About Citius Holidays\nOur Team\n\nOur team handles MICE programmes, corporate travel, and leisure routes across India and abroad \u2014 with offices in Mumbai, Kolkata, and Bangalore.\n\nIn",
+        "links": [],
+        "errors": []
+      },
+      {
+        "name": "gallery",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": ["Gallery"],
+        "text": "Gallery\n\nPhotos from Citius MICE programmes, corporate events, and travel routes.",
+        "links": [],
+        "errors": []
+      },
+      {
+        "name": "mice",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": [
+          "Corporate eventsplanned around your brief",
+          "Start with the outcome, not a package",
+          "Four formats. One operating standard.",
+          "From first brief to on-ground delivery.",
+          "A glimpse into our events.",
+          "Bring us the brief. We'll shape the proposal."
+        ],
+        "text": "Corporate events\nplanned around your brief\n\nMeetings, incentives, conferences, and exhibitions. One accountable team owns the programme, travel details, and on-ground support.\n\nFif",
+        "links": [
+          {
+            "label": "Request a Proposal",
+            "href": "/contact?intent=mice-proposal"
+          },
+          {
+            "label": "View More",
+            "href": "/gallery"
+          },
+          {
+            "label": "Request a Proposal",
+            "href": "/contact?intent=mice-proposal"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "policies",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": [
+          "Legal & Policies",
+          "Terms & Conditions",
+          "Have questions about our policies?"
+        ],
+        "text": "Legal & Policies\n\nThese policies govern bookings, cancellations, and travel with Citius Holidays. Read each section before you confirm a programme.\n\nTERMS & CONDITIONS\nBILLING POLI",
+        "links": [
+          {
+            "label": "Terms & Conditions",
+            "href": "/policies?view=terms"
+          },
+          {
+            "label": "Billing Policy",
+            "href": "/policies?view=billing"
+          },
+          {
+            "label": "info@citiusholidays.com",
+            "href": "mailto:info@citiusholidays.com"
+          },
+          {
+            "label": "+91 90387 65012",
+            "href": "tel:+919038765012"
+          },
+          {
+            "label": "Contact Support",
+            "href": "/contact"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "journal",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": [
+          "Citius Journal",
+          "A journey through Kyoto",
+          "Recent stories"
+        ],
+        "text": "Citius Journal\n\nTravel notes, destination guides, and field stories from the Citius team.\n\n01\n18/09/2026\nA journey through Kyoto\nRead the latest story\nRecent stories\n\n0 stories",
+        "links": [
+          {
+            "label": "0118/09/2026A journey through KyotoRead the latest story",
+            "href": "/blog/sample-kyoto"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "article",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": ["A journey through Kyoto"],
+        "text": "Back to posts\nA journey through Kyoto\n1 min read\n18/09/2026\n\nSample article content for layout review. No customer information.\n\nBack to all posts",
+        "links": [
+          {
+            "label": "Back to posts",
+            "href": "/blog"
+          },
+          {
+            "label": "Back to all posts",
+            "href": "/blog"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "pilgrimage",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": [
+          "Seek Stillness",
+          "The 2026 Kailash Mansarovar Collection",
+          "Two Ways to Kailash",
+          "Pilgrimage routes",
+          "The Path Along the Yatra",
+          "Yatri Testimonials"
+        ],
+        "text": "CITIUS SPIRITUAL TRAILS\nSeek Stillness\n\nStillness before the mountain\n\nPlay slideshow\n\nCITIUS SPIRITUAL TRAILS\n\nCITIUS SPIRITUAL TRAILS\nThe 2026 Kailash\nMansarovar Collection\n\nFlag",
+        "links": [
+          {
+            "label": "14-Day YatraComplete pilgrimage with Kora , tap for full pageOpen trail ",
+            "href": "/pilgrimage/kailash-mansarovar-14day"
+          },
+          {
+            "label": "2N/3D AerialDivine darshan without trek , tap for full pageOpen trail ",
+            "href": "/pilgrimage/kailash-aerial-3day"
+          },
+          {
+            "label": "14-Day YatraThe Complete JourneyView full itinerary ",
+            "href": "/pilgrimage/kailash-mansarovar-14day"
+          },
+          {
+            "label": "2N/3D AerialSky Path DarshanView full itinerary ",
+            "href": "/pilgrimage/kailash-aerial-3day"
+          },
+          {
+            "label": "Ex-Kathmandu | 14 Days | Max Altitude 5,650mKailash Mansarovar Yatra 2026A Sacred Himalayan Expedition of Inner TransformationView trail",
+            "href": "/pilgrimage/kailash-mansarovar-14day"
+          },
+          {
+            "label": "Ex-Lucknow | 2N/3D | Aerial Altitude 32,000 ftKailash Mansarovar Aerial View TourEx-Lucknow | 2N/3D aerial darshan | Altitude 32,000 ftView trail",
+            "href": "/pilgrimage/kailash-aerial-3day"
+          },
+          {
+            "label": "Coming soonComing soon | 2026North TrailFocused on the north face experience \u2014 itinerary launching soon.View trail",
+            "href": "/pilgrimage/kora-north-trail"
+          },
+          {
+            "label": "Coming soonComing soon | 2026East TrailEastern approach \u2014 details coming soon.View trail",
+            "href": "/pilgrimage/kora-east-trail"
+          },
+          {
+            "label": "Coming soonComing soon | 2026West TrailWestern emphasis \u2014 itinerary in development.View trail",
+            "href": "/pilgrimage/kora-west-trail"
+          },
+          {
+            "label": "Coming soonComing soon | 2026South TrailSouthern route focus \u2014 launching soon.View trail",
+            "href": "/pilgrimage/kora-south-trail"
+          },
+          {
+            "label": "Coming soonComing soon | 2026Sacred FestivalsTimed journeys aligned with auspicious dates \u2014 programmes under design.View trail",
+            "href": "/pilgrimage/sacred-festivals"
+          },
+          {
+            "label": "Coming soonComing soon | EnquireCorporate RetreatLeadership and team programmes with pilgrimage routes \u2014 custom planning.View trail",
+            "href": "/pilgrimage/corporate-retreat"
+          },
+          {
+            "label": "Compare the two routes",
+            "href": "#journey-details"
+          },
+          {
+            "label": "Request Detailed Brochure",
+            "href": "/contact"
+          },
+          {
+            "label": "Request Callback",
+            "href": "/contact?intent=pilgrimage-callback"
+          },
+          {
+            "label": "Enquire",
+            "href": "/contact?intent=pilgrimage-enquiry"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "trail",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": ["Kailash Mansarovar Aerial View Tour"],
+        "text": "EX-LUCKNOW | 2N/3D | AERIAL ALTITUDE 32,000 FT\n\nKailash Mansarovar Aerial View Tour\n\nEx-Lucknow | 2N/3D aerial darshan | Altitude 32,000 ft\n\nFor senior yatris, solo travellers, wom",
+        "links": [
+          {
+            "label": "Request Detailed Brochure",
+            "href": "/contact"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "sacred",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": ["Which river city wakes like this?"],
+        "text": "Sacred Bharat\n\nDetail 1\nPenyulap \u00b7 CC BY-SA 3.0\nWhich river city wakes like this?\nVaranasi\nHaridwar\nUjjain\nNashik\nFive visual details \u00b7 No login\nby Citius Holidays\nContent record \u00b7",
+        "links": [
+          {
+            "label": "Penyulap \u00b7 CC BY-SA 3.0",
+            "href": "https://commons.wikimedia.org/wiki/File:Boat_ride_at_sunrise,_on_the_Ganges,_Varanasi.jpg"
+          },
+          {
+            "label": "by Citius Holidays",
+            "href": "/"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "booth",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": ["Photo booth", "Preview your photo"],
+        "text": "Language / \u092d\u093e\u0937\u093e\nEnglish\n\u0939\u093f\u0928\u094d\u0926\u0940\nPhoto booth\nChoose your scene\nPilgrimage\nTravel\nKashi\nAyodhya\nKedarnath\nPreview your photo\nPhoto format\nPost \u00b7 4:5\nStory \u00b7 9:16\nAdd your photo\nChoose",
+        "links": [
+          {
+            "label": "",
+            "href": "/"
+          },
+          {
+            "label": "Policies & privacy",
+            "href": "/policies"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "boothClosed",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": ["Photo booth", "The photo booth is closed"],
+        "text": "Language / \u092d\u093e\u0937\u093e\nEnglish\n\u0939\u093f\u0928\u094d\u0926\u0940\nPhoto booth\nThe photo booth is closed\n\nYou can still explore Citius trips using the links below.\n\nExplore Citius Holidays\nExplore pilgrimage journeys",
+        "links": [
+          {
+            "label": "",
+            "href": "/"
+          },
+          {
+            "label": "Explore Citius Holidays",
+            "href": "/"
+          },
+          {
+            "label": "Explore pilgrimage journeys",
+            "href": "/pilgrimage"
+          },
+          {
+            "label": "Policies & privacy",
+            "href": "/policies"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "feedback",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": ["Feedback form unavailable"],
+        "text": "Skip to feedback\nBack to website\nFeedback form unavailable\n\nOpen the full feedback link sent by your tour team.\n\nTry again",
+        "links": [
+          {
+            "label": "",
+            "href": "/"
+          },
+          {
+            "label": "Back to website",
+            "href": "/"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "staffLogin",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": ["Citius Connect"],
+        "text": "\u2190 Back to website\nCitius Connect\n\nUse your staff account to open the Citius Connect Staff Workspace.\n\nContinue with Google\nor\nEmail Address\nPassword\nForgot password?\nSign in",
+        "links": [
+          {
+            "label": "",
+            "href": "/"
+          },
+          {
+            "label": "\u2190 Back to website",
+            "href": "/"
+          },
+          {
+            "label": "Forgot password?",
+            "href": "/auth/forgot-password"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "guestLogin",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": ["Welcome back"],
+        "text": "\u2190 Back to website\nWelcome back\n\nView the journeys linked to your Customer Travel Account and manage your profile.\n\nContinue with Google\nor\nEmail Address\nPassword\nForgot password?\nS",
+        "links": [
+          {
+            "label": "",
+            "href": "/"
+          },
+          {
+            "label": "\u2190 Back to website",
+            "href": "/"
+          },
+          {
+            "label": "Forgot password?",
+            "href": "/auth/forgot-password"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "vendorLogin",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": ["Vendor sign in"],
+        "text": "\u2190 Back to website\nVendor sign in\n\nUse your supplier account to manage documents and coordination.\n\nContinue with Google\nor\nEmail Address\nPassword\nForgot password?\nSign in",
+        "links": [
+          {
+            "label": "",
+            "href": "/"
+          },
+          {
+            "label": "\u2190 Back to website",
+            "href": "/"
+          },
+          {
+            "label": "Forgot password?",
+            "href": "/auth/forgot-password"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "forgot",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": ["Reset password"],
+        "text": "\u2190 Back to website\nReset password\n\nEnter your email and we\u2019ll send a secure link to choose a new password.\n\nEmail address\nSend reset link\nBack to sign in",
+        "links": [
+          {
+            "label": "",
+            "href": "/"
+          },
+          {
+            "label": "\u2190 Back to website",
+            "href": "/"
+          },
+          {
+            "label": "Back to sign in",
+            "href": "/auth/guest"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "reset",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": ["Set new password"],
+        "text": "\u2190 Back to website\nSet new password\n\nChoose a new password with at least eight characters.\n\nNew password\nConfirm new password\nSet password\nRequest a new link",
+        "links": [
+          {
+            "label": "",
+            "href": "/"
+          },
+          {
+            "label": "\u2190 Back to website",
+            "href": "/"
+          },
+          {
+            "label": "Request a new link",
+            "href": "/auth/forgot-password"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "vendor",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": ["Welcome, Avery"],
+        "text": "Skip to main content\n\nCITIUS HOLIDAYS\n\nVendor Portal\n\nSign Out\n\nCOMING SOON\n\nWelcome, Avery\n\nThe vendor portal is being prepared. This page will host supplier onboarding, contract ",
+        "links": [
+          {
+            "label": "Skip to main content",
+            "href": "#vendor-main"
+          },
+          {
+            "label": "Citius HolidaysVendor Portal",
+            "href": "/"
+          },
+          {
+            "label": "Back to website",
+            "href": "/"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "home",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": [
+          "Your next great journey starts here.",
+          "Trending Now",
+          "What We Do",
+          "Why companies choose Citius",
+          "Corporate Clients",
+          "Industry Recognition"
+        ],
+        "text": "Your next great journey\nstarts here.\n\nCrafted by experts. Designed for you.\n\nPlan Your Trip\nExplore Services\nTrending Now\n\nTop destinations for meetings, incentives, conferences, a",
+        "links": [
+          {
+            "label": "Plan Your Trip",
+            "href": "/contact"
+          },
+          {
+            "label": "Explore Services",
+            "href": "/services"
+          },
+          {
+            "label": "Explore all services",
+            "href": "/services"
+          },
+          {
+            "label": "Start Planning Now",
+            "href": "/contact"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "about",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": [
+          "About Citius Holidays",
+          "Our Team",
+          "In Loving Memory of Shri Arpan Mitra",
+          "Our Directors",
+          "Our Beliefs",
+          "Our Values"
+        ],
+        "text": "About Citius Holidays\nOur Team\n\nOur team handles MICE programmes, corporate travel, and leisure routes across India and abroad \u2014 with offices in Mumbai, Kolkata, and Bangalore.\n\nIn",
+        "links": [],
+        "errors": []
+      },
+      {
+        "name": "gallery",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": ["Gallery"],
+        "text": "Gallery\n\nPhotos from Citius MICE programmes, corporate events, and travel routes.",
+        "links": [],
+        "errors": []
+      },
+      {
+        "name": "mice",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": [
+          "Corporate eventsplanned around your brief",
+          "Start with the outcome, not a package",
+          "Four formats. One operating standard.",
+          "From first brief to on-ground delivery.",
+          "A glimpse into our events.",
+          "Bring us the brief. We'll shape the proposal."
+        ],
+        "text": "Corporate events\nplanned around your brief\n\nMeetings, incentives, conferences, and exhibitions. One accountable team owns the programme, travel details, and on-ground support.\n\nFif",
+        "links": [
+          {
+            "label": "Request a Proposal",
+            "href": "/contact?intent=mice-proposal"
+          },
+          {
+            "label": "View More",
+            "href": "/gallery"
+          },
+          {
+            "label": "Request a Proposal",
+            "href": "/contact?intent=mice-proposal"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "policies",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": [
+          "Legal & Policies",
+          "Terms & Conditions",
+          "Have questions about our policies?"
+        ],
+        "text": "Legal & Policies\n\nThese policies govern bookings, cancellations, and travel with Citius Holidays. Read each section before you confirm a programme.\n\nTERMS & CONDITIONS\nBILLING POLI",
+        "links": [
+          {
+            "label": "Terms & Conditions",
+            "href": "/policies?view=terms"
+          },
+          {
+            "label": "Billing Policy",
+            "href": "/policies?view=billing"
+          },
+          {
+            "label": "info@citiusholidays.com",
+            "href": "mailto:info@citiusholidays.com"
+          },
+          {
+            "label": "+91 90387 65012",
+            "href": "tel:+919038765012"
+          },
+          {
+            "label": "Contact Support",
+            "href": "/contact"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "journal",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": [
+          "Citius Journal",
+          "A journey through Kyoto",
+          "Recent stories"
+        ],
+        "text": "Citius Journal\n\nTravel notes, destination guides, and field stories from the Citius team.\n\n01\n18/09/2026\nA journey through Kyoto\nRead the latest story\nRecent stories\n\n0 stories",
+        "links": [
+          {
+            "label": "0118/09/2026A journey through KyotoRead the latest story",
+            "href": "/blog/sample-kyoto"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "article",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": ["A journey through Kyoto"],
+        "text": "Back to posts\nA journey through Kyoto\n1 min read\n18/09/2026\n\nSample article content for layout review. No customer information.\n\nBack to all posts",
+        "links": [
+          {
+            "label": "Back to posts",
+            "href": "/blog"
+          },
+          {
+            "label": "Back to all posts",
+            "href": "/blog"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "pilgrimage",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": [
+          "Seek Stillness",
+          "The 2026 Kailash Mansarovar Collection",
+          "Two Ways to Kailash",
+          "Pilgrimage routes",
+          "The Path Along the Yatra",
+          "Yatri Testimonials"
+        ],
+        "text": "CITIUS SPIRITUAL TRAILS\nSeek Stillness\n\nStillness before the mountain\n\nPlay slideshow\nCITIUS SPIRITUAL TRAILS\nThe 2026 Kailash Mansarovar Collection\n\nFlagship yatra and aerial dars",
+        "links": [
+          {
+            "label": "14-Day YatraComplete pilgrimage with Kora , tap for full pageOpen trail ",
+            "href": "/pilgrimage/kailash-mansarovar-14day"
+          },
+          {
+            "label": "2N/3D AerialDivine darshan without trek , tap for full pageOpen trail ",
+            "href": "/pilgrimage/kailash-aerial-3day"
+          },
+          {
+            "label": "14-Day YatraThe Complete JourneyView full itinerary ",
+            "href": "/pilgrimage/kailash-mansarovar-14day"
+          },
+          {
+            "label": "2N/3D AerialSky Path DarshanView full itinerary ",
+            "href": "/pilgrimage/kailash-aerial-3day"
+          },
+          {
+            "label": "Ex-Kathmandu | 14 Days | Max Altitude 5,650mKailash Mansarovar Yatra 2026A Sacred Himalayan Expedition of Inner TransformationView trail",
+            "href": "/pilgrimage/kailash-mansarovar-14day"
+          },
+          {
+            "label": "Ex-Lucknow | 2N/3D | Aerial Altitude 32,000 ftKailash Mansarovar Aerial View TourEx-Lucknow | 2N/3D aerial darshan | Altitude 32,000 ftView trail",
+            "href": "/pilgrimage/kailash-aerial-3day"
+          },
+          {
+            "label": "Coming soonComing soon | 2026North TrailFocused on the north face experience \u2014 itinerary launching soon.View trail",
+            "href": "/pilgrimage/kora-north-trail"
+          },
+          {
+            "label": "Coming soonComing soon | 2026East TrailEastern approach \u2014 details coming soon.View trail",
+            "href": "/pilgrimage/kora-east-trail"
+          },
+          {
+            "label": "Coming soonComing soon | 2026West TrailWestern emphasis \u2014 itinerary in development.View trail",
+            "href": "/pilgrimage/kora-west-trail"
+          },
+          {
+            "label": "Coming soonComing soon | 2026South TrailSouthern route focus \u2014 launching soon.View trail",
+            "href": "/pilgrimage/kora-south-trail"
+          },
+          {
+            "label": "Coming soonComing soon | 2026Sacred FestivalsTimed journeys aligned with auspicious dates \u2014 programmes under design.View trail",
+            "href": "/pilgrimage/sacred-festivals"
+          },
+          {
+            "label": "Coming soonComing soon | EnquireCorporate RetreatLeadership and team programmes with pilgrimage routes \u2014 custom planning.View trail",
+            "href": "/pilgrimage/corporate-retreat"
+          },
+          {
+            "label": "Compare the two routes",
+            "href": "#journey-details"
+          },
+          {
+            "label": "Request Detailed Brochure",
+            "href": "/contact"
+          },
+          {
+            "label": "Request Callback",
+            "href": "/contact?intent=pilgrimage-callback"
+          },
+          {
+            "label": "Enquire",
+            "href": "/contact?intent=pilgrimage-enquiry"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "trail",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": ["Kailash Mansarovar Aerial View Tour"],
+        "text": "EX-LUCKNOW | 2N/3D | AERIAL ALTITUDE 32,000 FT\n\nKailash Mansarovar Aerial View Tour\n\nEx-Lucknow | 2N/3D aerial darshan | Altitude 32,000 ft\n\nFor senior yatris, solo travellers, wom",
+        "links": [
+          {
+            "label": "Request Detailed Brochure",
+            "href": "/contact"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "sacred",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": ["Which river city wakes like this?"],
+        "text": "Sacred Bharat\n\nDetail 1\nPenyulap \u00b7 CC BY-SA 3.0\nWhich river city wakes like this?\nVaranasi\nHaridwar\nUjjain\nNashik\nFive visual details \u00b7 No login\nby Citius Holidays\nContent record \u00b7",
+        "links": [
+          {
+            "label": "Penyulap \u00b7 CC BY-SA 3.0",
+            "href": "https://commons.wikimedia.org/wiki/File:Boat_ride_at_sunrise,_on_the_Ganges,_Varanasi.jpg"
+          },
+          {
+            "label": "by Citius Holidays",
+            "href": "/"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "booth",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": ["Photo booth", "Preview your photo"],
+        "text": "Language / \u092d\u093e\u0937\u093e\nEnglish\n\u0939\u093f\u0928\u094d\u0926\u0940\nPhoto booth\nChoose your scene\nPilgrimage\nTravel\nKashi\nAyodhya\nKedarnath\nPreview your photo\nPhoto format\nPost \u00b7 4:5\nStory \u00b7 9:16\nAdd your photo\nChoose",
+        "links": [
+          {
+            "label": "",
+            "href": "/"
+          },
+          {
+            "label": "Policies & privacy",
+            "href": "/policies"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "boothClosed",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": ["Photo booth", "The photo booth is closed"],
+        "text": "Language / \u092d\u093e\u0937\u093e\nEnglish\n\u0939\u093f\u0928\u094d\u0926\u0940\nPhoto booth\nThe photo booth is closed\n\nYou can still explore Citius trips using the links below.\n\nExplore Citius Holidays\nExplore pilgrimage journeys",
+        "links": [
+          {
+            "label": "",
+            "href": "/"
+          },
+          {
+            "label": "Explore Citius Holidays",
+            "href": "/"
+          },
+          {
+            "label": "Explore pilgrimage journeys",
+            "href": "/pilgrimage"
+          },
+          {
+            "label": "Policies & privacy",
+            "href": "/policies"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "feedback",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": ["Feedback form unavailable"],
+        "text": "Skip to feedback\nBack to website\nFeedback form unavailable\n\nOpen the full feedback link sent by your tour team.\n\nTry again",
+        "links": [
+          {
+            "label": "",
+            "href": "/"
+          },
+          {
+            "label": "Back to website",
+            "href": "/"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "staffLogin",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": ["Citius Connect"],
+        "text": "\u2190 Back to website\nCitius Connect\n\nUse your staff account to open the Citius Connect Staff Workspace.\n\nContinue with Google\nor\nEmail Address\nPassword\nForgot password?\nSign in",
+        "links": [
+          {
+            "label": "",
+            "href": "/"
+          },
+          {
+            "label": "\u2190 Back to website",
+            "href": "/"
+          },
+          {
+            "label": "Forgot password?",
+            "href": "/auth/forgot-password"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "guestLogin",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": ["Welcome back"],
+        "text": "\u2190 Back to website\nWelcome back\n\nView the journeys linked to your Customer Travel Account and manage your profile.\n\nContinue with Google\nor\nEmail Address\nPassword\nForgot password?\nS",
+        "links": [
+          {
+            "label": "",
+            "href": "/"
+          },
+          {
+            "label": "\u2190 Back to website",
+            "href": "/"
+          },
+          {
+            "label": "Forgot password?",
+            "href": "/auth/forgot-password"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "vendorLogin",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": ["Vendor sign in"],
+        "text": "\u2190 Back to website\nVendor sign in\n\nUse your supplier account to manage documents and coordination.\n\nContinue with Google\nor\nEmail Address\nPassword\nForgot password?\nSign in",
+        "links": [
+          {
+            "label": "",
+            "href": "/"
+          },
+          {
+            "label": "\u2190 Back to website",
+            "href": "/"
+          },
+          {
+            "label": "Forgot password?",
+            "href": "/auth/forgot-password"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "forgot",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": ["Reset password"],
+        "text": "\u2190 Back to website\nReset password\n\nEnter your email and we\u2019ll send a secure link to choose a new password.\n\nEmail address\nSend reset link\nBack to sign in",
+        "links": [
+          {
+            "label": "",
+            "href": "/"
+          },
+          {
+            "label": "\u2190 Back to website",
+            "href": "/"
+          },
+          {
+            "label": "Back to sign in",
+            "href": "/auth/guest"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "reset",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": ["Set new password"],
+        "text": "\u2190 Back to website\nSet new password\n\nChoose a new password with at least eight characters.\n\nNew password\nConfirm new password\nSet password\nRequest a new link",
+        "links": [
+          {
+            "label": "",
+            "href": "/"
+          },
+          {
+            "label": "\u2190 Back to website",
+            "href": "/"
+          },
+          {
+            "label": "Request a new link",
+            "href": "/auth/forgot-password"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "vendor",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": ["Welcome, Avery"],
+        "text": "Skip to main content\n\nCITIUS HOLIDAYS\n\nVendor Portal\n\nSign Out\n\nCOMING SOON\n\nWelcome, Avery\n\nThe vendor portal is being prepared. This page will host supplier onboarding, contract ",
+        "links": [
+          {
+            "label": "Skip to main content",
+            "href": "#vendor-main"
+          },
+          {
+            "label": "Citius HolidaysVendor Portal",
+            "href": "/"
+          },
+          {
+            "label": "Back to website",
+            "href": "/"
+          }
+        ],
+        "errors": []
+      }
+    ],
+    "passed": true,
+    "scope": "Unchanged component review; Services final state is covered separately below."
+  },
+  "customStaffComponents": {
+    "sourceBase": "9d7ad28081bff75d26bf5255ca7e2fb3b1026fcb",
+    "mockTransport": true,
+    "nextNavigationMock": true,
+    "nextImageMock": true,
+    "authenticatedAcceptance": false,
+    "results": [
+      {
+        "name": "staffTravel",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": [
+          "Travel schedule",
+          "Add travel",
+          "Current and upcoming travel"
+        ],
+        "text": "Skip to main content\nRoles: Admin\nAdmin\nAvery Rao\navery@example.invalid\nOverview\nDashboard\nEnquiries\nProposals\nProposals\nJob Cards\nTicketing\nOperations\nFinance\nAdmin\nSystem\nNotific",
+        "links": [
+          {
+            "label": "Skip to main content",
+            "href": "#portal-main"
+          },
+          {
+            "label": "",
+            "href": "/portal"
+          },
+          {
+            "label": "Dashboard",
+            "href": "/portal"
+          },
+          {
+            "label": "Proposals",
+            "href": "/portal/proposals"
+          },
+          {
+            "label": "Notifications",
+            "href": "/portal/activity"
+          },
+          {
+            "label": "Settings",
+            "href": "/portal/settings"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "externalManagers",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": ["External tour managers", "Add external tour manager"],
+        "text": "Skip to main content\nRoles: Admin\nAdmin\nAvery Rao\navery@example.invalid\nOverview\nDashboard\nEnquiries\nProposals\nProposals\nJob Cards\nTicketing\nOperations\nFinance\nAdmin\nSystem\nNotific",
+        "links": [
+          {
+            "label": "Skip to main content",
+            "href": "#portal-main"
+          },
+          {
+            "label": "",
+            "href": "/portal"
+          },
+          {
+            "label": "Dashboard",
+            "href": "/portal"
+          },
+          {
+            "label": "Proposals",
+            "href": "/portal/proposals"
+          },
+          {
+            "label": "Notifications",
+            "href": "/portal/activity"
+          },
+          {
+            "label": "Settings",
+            "href": "/portal/settings"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "postTour",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": ["Post-tour feedback", "Latest traveller responses"],
+        "text": "Skip to main content\nRoles: Admin\nAdmin\nAvery Rao\navery@example.invalid\nOverview\nDashboard\nEnquiries\nProposals\nProposals\nJob Cards\nTicketing\nOperations\nFinance\nAdmin\nSystem\nNotific",
+        "links": [
+          {
+            "label": "Skip to main content",
+            "href": "#portal-main"
+          },
+          {
+            "label": "",
+            "href": "/portal"
+          },
+          {
+            "label": "Dashboard",
+            "href": "/portal"
+          },
+          {
+            "label": "Proposals",
+            "href": "/portal/proposals"
+          },
+          {
+            "label": "Notifications",
+            "href": "/portal/activity"
+          },
+          {
+            "label": "Settings",
+            "href": "/portal/settings"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "jobDetail",
+        "width": 1440,
+        "scrollWidth": 1440,
+        "heading": [
+          "JC-0264",
+          "Tour context",
+          "Post-tour feedback",
+          "Checklist tasks",
+          "Blockers",
+          "Next actions"
+        ],
+        "text": "Skip to main content\nRoles: Admin\nAdmin\nAvery Rao\navery@example.invalid\nOverview\nDashboard\nEnquiries\nProposals\nProposals\nJob Cards\nTicketing\nOperations\nFinance\nAdmin\nSystem\nNotific",
+        "links": [
+          {
+            "label": "Skip to main content",
+            "href": "#portal-main"
+          },
+          {
+            "label": "",
+            "href": "/portal"
+          },
+          {
+            "label": "Dashboard",
+            "href": "/portal"
+          },
+          {
+            "label": "Proposals",
+            "href": "/portal/proposals"
+          },
+          {
+            "label": "Notifications",
+            "href": "/portal/activity"
+          },
+          {
+            "label": "Settings",
+            "href": "/portal/settings"
+          },
+          {
+            "label": "Back to Job Cards",
+            "href": "/portal/job-cards"
+          },
+          {
+            "label": "Open feedback for JC-0264",
+            "href": "/portal/post-tour-feedback?jobCardId=review-job"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "staffTravel",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": [
+          "Travel schedule",
+          "Add travel",
+          "Current and upcoming travel"
+        ],
+        "text": "Skip to main content\nRoles: Admin\nAdmin\nTravel schedule\n\nSee who is away, where they are going and when they return.\n\nTeam travel\nMy trips\nAdd travel\nAdd travel\nDestination\nFrom\nTh",
+        "links": [
+          {
+            "label": "Skip to main content",
+            "href": "#portal-main"
+          },
+          {
+            "label": "",
+            "href": "/portal"
+          },
+          {
+            "label": "Dashboard",
+            "href": "/portal"
+          },
+          {
+            "label": "Proposals",
+            "href": "/portal/proposals"
+          },
+          {
+            "label": "Notifications",
+            "href": "/portal/activity"
+          },
+          {
+            "label": "Settings",
+            "href": "/portal/settings"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "externalManagers",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": ["External tour managers", "Add external tour manager"],
+        "text": "Skip to main content\nRoles: Admin\nAdmin\nExternal tour managers\n\nKeep contact details and tour experience in one place, ready for the next assignment.\n\nInclude inactive profiles\nAdd",
+        "links": [
+          {
+            "label": "Skip to main content",
+            "href": "#portal-main"
+          },
+          {
+            "label": "",
+            "href": "/portal"
+          },
+          {
+            "label": "Dashboard",
+            "href": "/portal"
+          },
+          {
+            "label": "Proposals",
+            "href": "/portal/proposals"
+          },
+          {
+            "label": "Notifications",
+            "href": "/portal/activity"
+          },
+          {
+            "label": "Settings",
+            "href": "/portal/settings"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "postTour",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": ["Post-tour feedback", "Latest traveller responses"],
+        "text": "Skip to main content\nRoles: Admin\nAdmin\nPost-tour feedback\n\nCollect traveller comments and photos after each tour. Share a feedback link and keep every response with its Job Card.\n",
+        "links": [
+          {
+            "label": "Skip to main content",
+            "href": "#portal-main"
+          },
+          {
+            "label": "",
+            "href": "/portal"
+          },
+          {
+            "label": "Dashboard",
+            "href": "/portal"
+          },
+          {
+            "label": "Proposals",
+            "href": "/portal/proposals"
+          },
+          {
+            "label": "Notifications",
+            "href": "/portal/activity"
+          },
+          {
+            "label": "Settings",
+            "href": "/portal/settings"
+          }
+        ],
+        "errors": []
+      },
+      {
+        "name": "jobDetail",
+        "width": 390,
+        "scrollWidth": 390,
+        "heading": [
+          "JC-0264",
+          "Tour context",
+          "Post-tour feedback",
+          "Checklist tasks",
+          "Blockers",
+          "Next actions"
+        ],
+        "text": "Skip to main content\nRoles: Admin\nAdmin\nBack to Job Cards\nJC-0264\n\nCedar Labs \u00b7 Kyoto \u00b7 03/11/2026 \u2013 10/11/2026\n\nActive\nContracting: Unassigned\nTour context\nJOB CARD\nJC-0264\nCLIENT",
+        "links": [
+          {
+            "label": "Skip to main content",
+            "href": "#portal-main"
+          },
+          {
+            "label": "",
+            "href": "/portal"
+          },
+          {
+            "label": "Dashboard",
+            "href": "/portal"
+          },
+          {
+            "label": "Proposals",
+            "href": "/portal/proposals"
+          },
+          {
+            "label": "Notifications",
+            "href": "/portal/activity"
+          },
+          {
+            "label": "Settings",
+            "href": "/portal/settings"
+          },
+          {
+            "label": "Back to Job Cards",
+            "href": "/portal/job-cards"
+          },
+          {
+            "label": "Open feedback for JC-0264",
+            "href": "/portal/post-tour-feedback?jobCardId=review-job"
+          }
+        ],
+        "errors": []
+      }
+    ]
+  },
+  "sourceSha256": {
+    "src/app/(authenticated)/account/page.client.js": "e7246c0926c0da8acdddd0264a63d3bdc51fe34a69b817442aa964a57c6c9359",
+    "src/app/(public)/contact/page.client.js": "05713f3e5d86392cf597d02406ad5aaafc853c913686b0dc624d645cfb393d02",
+    "src/components/portal/PortalListToolbar.js": "1ebfec53bf58c5e07573a543ca7534f3ece094aa036096ee56961cff6c109dde",
+    "src/components/account/AccountProfilePanel.js": "2a91f220afc5ffcc48cd8801bb2b5d53a343ae32546fe9c892387180847ec92d",
+    "src/components/account/AccountUi.js": "efe7a74ff3e5d8f81531935673b620d286bf3b030dec527133a55b53f2855b2e",
+    "src/components/ui/ModernContactForm.js": "f17b3c22ad6a0b96a1d9daa69dc845e3dc2817c103a38e8461d768436a827449",
+    "src/components/ui/CircularServicesMenu.js": "bf11c1c60a7b5f56a392fed32d09e30e83393c98d3efd114511bf9c9862ae692",
+    "src/app/globals.css": "fb9c3de1161ddd78293b942eef1f2e31a782b26d1c2aa479ed4242ba47a730b6"
+  },
+  "beforeSourceSha256": {
+    "src/app/(authenticated)/account/page.client.js": "77877dedfb38d3e9e1b5a47a249030d75b4d9faefa59c45f1c045542f34f602c",
+    "src/app/(public)/contact/page.client.js": "86fa300067f1bbc6ad698a282ca09af9e558cd84a2ba7dbb0560ea2f02ac3b35",
+    "src/components/portal/PortalListToolbar.js": "321d38e7cbcf1d88d2e4d366e510b3a922a1d13ad2708f60a8c5920ddf379441",
+    "src/components/account/AccountProfilePanel.js": "d7608bf6f82b8c37928769fe8311ed33f6002296b060c06456688e77f1e62855",
+    "src/components/account/AccountUi.js": "45fcdf52c88365103dafbd8740e9a0a5a51962f1a66ff039eaa38c5adff77618",
+    "src/components/ui/ModernContactForm.js": "d7f2fa0726f085d2fd206d88dced4c9bb248b6384861eda3eaaa1fb80ea7842c",
+    "src/components/ui/CircularServicesMenu.js": "6c7cf3cd4423b05ef9caceb011363395402e9c9d03dcffe15d6b9e6eb780a910",
+    "src/app/globals.css": "fb9c3de1161ddd78293b942eef1f2e31a782b26d1c2aa479ed4242ba47a730b6"
+  },
+  "imagesSha256": {
+    "u01-before-mobile.png": "3f27e66941e1e492da37ea15490b728190a7f1c3885c5c22a4bc7e6688a5b17a",
+    "u01-after-mobile.png": "15069f223f2db12c8092d62508c784196cc3cd3e4f5f3edf36539eef1d3f30b1",
+    "u01-before-desktop.png": "d4dc4f7d2104c9ab970addc28a157539d9f5eb8be04c8290b37736def880f91f",
+    "u01-after-desktop.png": "b34c1b1bcfd2eeb95e3b48ed02fe514c923b2661c4c7f991c687e0d07aa61495",
+    "u02-before-mobile.png": "b94e800ca61e90c5721f1670cf5dc8f6afc6d9db5fe7ed248d42cebe02e3444f",
+    "u02-after-mobile.png": "271c332d3e335ca34c416781d99ebe175f169282cc6ebe08c2f986fd7d51a93f",
+    "u02-saving-mobile.png": "1488fe156adb5ad0656420fb880cb66543ac473bc4530a203697fd2ee5820c0a",
+    "u02-before-desktop.png": "10e82d47c809e3d62a6e376cc2142698027fff4a26fcff7f35c04d31e22d4ad1",
+    "u02-after-desktop.png": "94f877f23885ab8867b9ad03cffd51041444b5f1534a40fd66db598d30e9729d",
+    "u03-sending-before-mobile.png": "45b781659c1ed4fe212e6a3eb284313483f8196b33a3393e6fcd1bb83dad3bcc",
+    "u03-sending-mobile.png": "52c3afca86d49c4e8d48cb5f9e7928ac005a871f9c74c52fa7de16c6bd4fe986",
+    "u03-after-desktop.png": "14efaed9cd2fd3807e0de64f2dc1cf314dec4a1e638eada3f6569e0636db35fb",
+    "u03-before-desktop.png": "14efaed9cd2fd3807e0de64f2dc1cf314dec4a1e638eada3f6569e0636db35fb",
+    "u04-before-mobile.png": "9d27e3fee4285fb4859269b589326e11078c439192e048e75f3b6816892316ee",
+    "u04-after-mobile.png": "afe5e482275ae0f4eed3e9a1885e46b9480c14a01041548233ed568156770320",
+    "u05-before-390.png": "f62131cdaa58b6d49da63f505234e6033a96b36440c87ce9747636584c968700",
+    "u05-after-390.png": "b23375de9329c8d9374d76bef21e420c97490236151a63f7c156ad4f5c90be58",
+    "u05-before-1440.png": "7567c3f7ea30539a4776db5285c3ac5a45bedba0053ba39d4edbd91b8b0f18f2",
+    "u05-after-1440.png": "bdbee5b7628e63b67f53abd1318dfa63b74e865b30571c3e8a5b82342b948ec3"
+  }
+}

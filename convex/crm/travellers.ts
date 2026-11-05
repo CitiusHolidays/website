@@ -4,6 +4,7 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, mutation, query } from "../_generated/server";
+import { guestContactArgs, guestContactPatch } from "../lib/guestContacts";
 import { resolveRoomCategory } from "../lib/roomTypes";
 import { roomTypeValidator } from "../lib/roomTypeValidators";
 import type { RuntimeObject } from "../lib/runtimeValues";
@@ -136,8 +137,10 @@ const publicTraveller = (
   callingStatus: traveller.callingStatus,
   cancellation: travellerFlag(traveller.cancellation),
   clientName: travellerText(job?.clientName),
+  contactNo: traveller.contactNo ?? "",
   createdAt: new Date(traveller.createdAt).toISOString(),
   domesticTravelRequired: travellerFlag(traveller.domesticTravelRequired),
+  email: traveller.email ?? "",
   extensionOfTour: travellerFlag(traveller.extensionOfTour),
   foodPreference: traveller.foodPreference,
   fullName: traveller.fullName,
@@ -151,6 +154,10 @@ const publicTraveller = (
   jobCardId: traveller.jobCardId,
   jobCode: travellerText(job?.jobCode),
   lastMinuteDrop: travellerFlag(traveller.lastMinuteDrop),
+  marketingConsent: traveller.marketingConsent ?? "not_recorded",
+  marketingConsentNote: traveller.marketingConsentNote ?? "",
+  marketingConsentRecordedAt: traveller.marketingConsentRecordedAt ?? null,
+  marketingConsentRecordedBy: traveller.marketingConsentRecordedBy ?? "",
   passportExpiryDate,
   passportStatus: travellerText(traveller.passportStatus),
   paymentType: traveller.paymentType,
@@ -174,7 +181,9 @@ const publicTraveller = (
 interface TravellerCreateArgs {
   arrivingEarly?: boolean;
   biometricAppointmentDate?: string;
+  contactNo?: string;
   domesticTravelRequired?: boolean;
+  email?: string;
   extensionOfTour?: boolean;
   foodPreference: Doc<"travellers">["foodPreference"];
   fullName: string;
@@ -184,6 +193,8 @@ interface TravellerCreateArgs {
   guestType: Doc<"travellers">["guestType"];
   hotelAllocation?: string;
   jobCardId: string;
+  marketingConsent?: "not_recorded" | "granted" | "withdrawn";
+  marketingConsentNote?: string;
   passportStatus?: string;
   paymentType: Doc<"travellers">["paymentType"];
   roomType: Doc<"travellers">["roomType"];
@@ -213,6 +224,7 @@ function buildTravellerCreateRow(
     : "Not Required";
   return {
     jobCardId,
+    ...guestContactPatch(args, access.authUserId ?? "unknown", now),
     ...propertiesWhen(travelBatchId, () => ({ travelBatchId })),
     arrivingEarly: travellerFlag(args.arrivingEarly),
     biometricAppointmentDate: travellerText(args.biometricAppointmentDate),
@@ -607,6 +619,7 @@ export const getListRow = query({
 
 export const create = mutation({
   args: {
+    ...guestContactArgs,
     arrivingEarly: v.optional(v.boolean()),
     biometricAppointmentDate: v.optional(v.string()),
     domesticTravelRequired: v.optional(v.boolean()),
@@ -690,6 +703,7 @@ export const create = mutation({
 
 export const update = mutation({
   args: {
+    ...guestContactArgs,
     arrivingEarly: v.optional(v.boolean()),
     biometricAppointmentDate: v.optional(v.string()),
     domesticTravelRequired: v.optional(v.boolean()),
@@ -734,7 +748,10 @@ export const update = mutation({
     }
 
     const now = Date.now();
-    const patch: RuntimeObject = { updatedAt: now };
+    const patch: RuntimeObject = {
+      ...guestContactPatch(args, access.authUserId ?? "unknown", now, traveller),
+      updatedAt: now,
+    };
     if (args.travelBatchId !== undefined) {
       const normalized = await normalizeTravelBatchForJob(
         ctx,

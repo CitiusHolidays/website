@@ -67,8 +67,9 @@ export async function handleAssignTicketingOwner(
         body: `You were assigned as ticketing owner for ${job.jobCode}.`,
         entityId: jobCardId,
         entityType: "jobCard",
-        title: "Assign ticketing owner",
+        title: "Ticketing assignment",
       },
+      emailRecipientPurpose: { field: "ticketingOwnerId", kind: "assignment" },
       emailTargets: { kind: "staff", staffIds: [staffId] },
     }),
   ]);

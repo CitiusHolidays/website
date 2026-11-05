@@ -9,7 +9,9 @@ export function EntityModalFieldSection({ children, columns = 2, description, ti
           {description}
         </p>
       ) : null}
-      <div className={columns === 1 ? "grid grid-cols-1 gap-4" : "grid gap-4 md:grid-cols-2"}>
+      <div
+        className={columns === 1 ? "mt-4 grid grid-cols-1 gap-4" : "mt-4 grid gap-4 md:grid-cols-2"}
+      >
         {children}
       </div>
     </fieldset>

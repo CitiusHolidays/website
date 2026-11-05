@@ -23,24 +23,45 @@ export const JOB_CARD_MODALS = new Set([
  * @typedef {{ id: string, queryId?: string, queryIds?: string[], updatedAt?: string | number | Date }} LinkedProposal
  */
 
+function focusedCreationQuery(queryId, queries, focusedQueryDetail) {
+  if (!focusedQueryDetail) {
+    return queries.find((query) => query.id === queryId);
+  }
+  return focusedQueryDetail.id === queryId && focusedQueryDetail.row?.id === queryId
+    ? focusedQueryDetail.row
+    : undefined;
+}
+
 /**
- * @param {{ form: Record<string, any>, modal: string | null, proposals?: LinkedProposal[], queries?: Record<string, any>[] }} args
+ * @param {{ form: Record<string, any>, modal: string | null, proposals?: LinkedProposal[], queries?: Record<string, any>[], focusedQueryDetail?: { id: string, row?: Record<string, any> | null } | null }} args
  */
-export function jobCardProposalLinkPatch({ form, modal, queries = [] }) {
+export function jobCardProposalLinkPatch({ form, modal, queries = [], focusedQueryDetail }) {
   if (modal !== "jobCard" || form.entityId || !form.queryId) {
     return null;
   }
-  const linkedQuery = queries.find((query) => query.id === form.queryId);
-  if (!linkedQuery) {
+  const linkedQuery = focusedCreationQuery(form.queryId, queries, focusedQueryDetail);
+  if (focusedQueryDetail?.id === form.queryId && focusedQueryDetail.row === null) {
+    return form._confirmedOfferState === "missing"
+      ? null
+      : { _confirmedOfferState: "missing", approxMargin: "", profitPerPax: "", proposalId: "" };
+  }
+  if (!linkedQuery || linkedQuery.confirmedOffer === undefined) {
     return form._confirmedOfferState === "loading" ? null : { _confirmedOfferState: "loading" };
   }
   if (!linkedQuery.confirmedOffer) {
     return form._confirmedOfferState === "missing"
       ? null
-      : { _confirmedOfferState: "missing", proposalId: "" };
+      : { _confirmedOfferState: "missing", approxMargin: "", profitPerPax: "", proposalId: "" };
   }
   if (form._confirmedOfferQueryId === form.queryId) {
-    return null;
+    return form._confirmedOfferState === "ready"
+      ? null
+      : {
+          _confirmedOfferState: "ready",
+          approxMargin: String(linkedQuery.confirmedOffer.approxMargin ?? ""),
+          profitPerPax: String(linkedQuery.confirmedOffer.profitPerPax),
+          proposalId: linkedQuery.confirmedOffer.proposalId,
+        };
   }
   const patch = applyQueryLink(form, linkedQuery);
   patch._confirmedOfferQueryId = form.queryId;
@@ -132,7 +153,20 @@ function applyInitialQueryLink(next, type, queries) {
   }
 }
 
-function applyInitialJobCardLink(next, type, jobCards) {
+function applyInitialJobCardLink(next, type, jobCards, jobCardFilter) {
+  if (
+    JOB_CARD_MODALS.has(type) &&
+    !next.entityId &&
+    !next.jobCardId &&
+    !next.travellerId &&
+    !next.pnrId &&
+    !(type === "expense" && next.expenseType === "office")
+  ) {
+    const filteredJob = jobCards.find((job) => job.id === jobCardFilter);
+    if (filteredJob) {
+      Object.assign(next, applyJobCardLink(next, filteredJob, type, { onlyEmpty: true }));
+    }
+  }
   if (JOB_CARD_MODALS.has(type) && !next.jobCardId && jobCards?.length === 1) {
     Object.assign(next, applyJobCardLink(next, jobCards[0], type, { onlyEmpty: true }));
   }
@@ -202,6 +236,7 @@ export function createInitialModalForm({
   initialForm,
   queries = [],
   jobCards = [],
+  jobCardFilter = "",
   travellers = [],
   travellersWithoutVisa = [],
   pnrs = [],
@@ -211,7 +246,7 @@ export function createInitialModalForm({
   const next = { ...initialForm, ...initial };
   initializeProposalSelection(next, type);
   applyInitialQueryLink(next, type, queries);
-  applyInitialJobCardLink(next, type, jobCards);
+  applyInitialJobCardLink(next, type, jobCards, jobCardFilter);
   applyInitialTravellerLink(next, type, travellers, travellersWithoutVisa);
   applyInitialPnrLink(next, type, pnrs);
   applyInitialVisaLink(next, type, visas);

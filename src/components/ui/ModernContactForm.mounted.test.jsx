@@ -10,6 +10,7 @@ const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   url: "https://citiusholidays.com/contact?intent=pilgrimage-callback",
 });
 const originalFetch = globalThis.fetch;
+const originalSetTimeout = globalThis.setTimeout;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 beforeAll(async () => {
@@ -32,6 +33,7 @@ afterAll(() => dom.window.close());
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
+  globalThis.setTimeout = originalSetTimeout;
   document.body.replaceChildren();
 });
 
@@ -45,6 +47,90 @@ function setInputValue(input, value) {
 }
 
 describe("Mounted contact intent", () => {
+  test("Protects submitted values during sends and retries, including a previous recovery timer", async () => {
+    const recoveryTimers = [];
+    globalThis.setTimeout = (callback, delay, ...args) => {
+      if (delay === 3000) {
+        recoveryTimers.push(callback);
+        return 0;
+      }
+      return originalSetTimeout(callback, delay, ...args);
+    };
+    let finish;
+    globalThis.fetch = mock(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        })
+    );
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(() => root.render(<ModernContactForm initialValues={{ destination: "Kyoto" }} />));
+    await act(() => {
+      setInputValue(container.querySelector('input[name="name"]'), "Avery Rao");
+      setInputValue(container.querySelector('input[name="email"]'), "avery@example.invalid");
+      setInputValue(container.querySelector('input[name="subject"]'), "Kyoto enquiry");
+      setInputValue(container.querySelector('textarea[name="message"]'), "Please contact me.");
+      container.querySelector('input[name="consent"]').click();
+    });
+    const submit = () =>
+      container
+        .querySelector("form")
+        .dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
+    await act(() => {
+      submit();
+      submit();
+    });
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    for (const field of container.querySelectorAll("input, textarea")) {
+      expect(field.disabled).toBe(true);
+    }
+    expect(container.querySelector("form").getAttribute("aria-busy")).toBe("true");
+    await act(async () => {
+      finish(Response.json({ error: "Temporary outage" }, { status: 503 }));
+      await Promise.resolve();
+    });
+    expect(container.querySelector('textarea[name="message"]').value).toBe("Please contact me.");
+    expect(container.querySelector('input[name="destination"]').value).toBe("Kyoto");
+    for (const field of container.querySelectorAll("input, textarea")) {
+      expect(field.disabled).toBe(false);
+    }
+    await act(() => {
+      submit();
+      submit();
+    });
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    await act(() => recoveryTimers[0]());
+    for (const field of container.querySelectorAll("input, textarea")) {
+      expect(field.disabled).toBe(true);
+    }
+    expect(container.querySelector("form").getAttribute("aria-busy")).toBe("true");
+    const [first, second] = globalThis.fetch.mock.calls;
+    expect(first[0]).toBe("/api/inbound-intents");
+    expect(second[0]).toBe("/api/inbound-intents");
+    expect(second[1].headers["Idempotency-Key"]).toBe(first[1].headers["Idempotency-Key"]);
+    expect(JSON.parse(second[1].body)).toEqual(JSON.parse(first[1].body));
+    expect(JSON.parse(first[1].body)).toMatchObject({
+      clientName: "Avery Rao",
+      consent: true,
+      contactEmail: "avery@example.invalid",
+      destination: "Kyoto",
+      notes: "Subject: Kyoto enquiry\n\nPlease contact me.",
+      source: "Website",
+    });
+    await act(async () => {
+      finish(Response.json({ accepted: true }, { status: 201 }));
+      await Promise.resolve();
+    });
+    expect(container.querySelector('textarea[name="message"]').value).toBe("");
+    expect(container.querySelector('input[name="consent"]').checked).toBe(false);
+    expect(container.querySelector('[role="status"]').textContent).toContain(
+      "Your enquiry was received"
+    );
+    await act(() => root.unmount());
+  });
+
   test("Intent values are visible in the existing form and remain editable", async () => {
     const container = document.createElement("div");
     document.body.append(container);

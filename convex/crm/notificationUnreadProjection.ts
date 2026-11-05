@@ -1,4 +1,5 @@
 import { ConvexError } from "convex/values";
+import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 
@@ -255,6 +256,23 @@ export async function deleteNotificationWithProjection(
   }
   await unprojectNotification(ctx, notification);
   await ctx.db.delete("notifications", notification._id);
+  await deleteNavigationSeenPage(ctx, notification._id);
+}
+
+export async function deleteNavigationSeenPage(
+  ctx: MutationCtx,
+  notificationId: Id<"notifications">
+) {
+  const rows = await ctx.db
+    .query("portalNavigationActivity")
+    .withIndex("by_notificationId", (q) => q.eq("notificationId", notificationId))
+    .take(200);
+  await Promise.all(rows.map((row) => ctx.db.delete("portalNavigationActivity", row._id)));
+  if (rows.length === 200) {
+    await ctx.scheduler.runAfter(0, internal.crm.navShortcuts.cleanupSeenForNotification, {
+      notificationId,
+    });
+  }
 }
 
 export async function notificationUnreadProjectionIsReady(ctx: QueryCtx | MutationCtx) {

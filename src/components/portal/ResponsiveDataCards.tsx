@@ -123,17 +123,13 @@ export function ResponsiveDataCards<Row extends PortalDataRow>({
   const actions = columns.filter(isActionColumn);
 
   return (
-    <div className="space-y-3 md:hidden">
+    <div className="divide-y divide-brand-border border-brand-border border-y md:hidden">
       {rows.map((row) => {
         const appendedActions =
           mobileCardRender && appendColumnActions ? renderedEntries(row, actions) : [];
         const attention = rowAttention?.(row);
         return (
-          <div
-            className="rounded-2xl border border-brand-border bg-white p-4 shadow-brand-dark/5 shadow-sm"
-            data-attention={attention?.tone}
-            key={row.id}
-          >
+          <div className="bg-white py-5" data-attention={attention?.tone} key={row.id}>
             {attention ? <span className="sr-only">{attention.label}</span> : null}
             <div className={selectionControl ? "flex items-start gap-3" : ""}>
               {selectionControl?.(row)}

@@ -32,11 +32,11 @@ describe("DeliverNotificationEmailsSequentially", () => {
       recipients: ["accounts@example.com"],
       sendEmail: (email, options) => {
         attempts.push(email.to);
-        return notificationEmailIdempotencyKey("notifications_123", "accounts@example.com").then(
-          (expectedKey) => {
-            expect(options.idempotencyKey).toBe(expectedKey);
-            return attempts.length === 1 ? { error: { statusCode: 429 } } : { error: null };
-          }
+        expect(options.idempotencyKey).toBe(
+          "crm-notification/notifications_123/d6055aa20109f8418d23019156659f78"
+        );
+        return Promise.resolve(
+          attempts.length === 1 ? { error: { statusCode: 429 } } : { error: null }
         );
       },
     });
@@ -218,5 +218,79 @@ describe("DeliverNotificationEmailsSequentially", () => {
     expect(key).toStartWith("contact-form/submission-123/");
     expect(key).not.toContain("Traveller");
     expect(key).not.toContain("@");
+  });
+
+  test("Normalizes recipients to a fixed SHA-256 identity while preserving event and namespace", async () => {
+    // SHA-256 fixtures were calculated independently of the delivery implementation.
+    const digest = "471d061e69509fc971b07f871aac6ea9";
+    const keys = await Promise.all(
+      ["traveller@example.com", "Traveller@Example.com", "  TRAVELLER@example.com\n"].map(
+        (recipient) => notificationEmailIdempotencyKey("submission-123", recipient, "contact-form")
+      )
+    );
+    const expected = `contact-form/submission-123/${digest}`;
+    expect(keys).toEqual([expected, expected, expected]);
+    expect(await notificationEmailIdempotencyKey("submission-456", "traveller@example.com")).toBe(
+      `crm-notification/submission-456/${digest}`
+    );
+  });
+});
+
+describe("provider interruption and idempotency responses", () => {
+  test("aborts a stalled request at the deadline and reports uncertainty", async () => {
+    const statuses: import("./notificationEmailDelivery").NotificationEmailDeliveryStatusEvent[] =
+      [];
+    let aborted = false;
+    const program = Effect.gen(function* () {
+      const fiber = yield* Effect.forkChild(
+        notificationEmailDeliveryProgram({
+          config: { maxAttempts: 1, minIntervalMs: 0, requestTimeoutMs: 25 },
+          eventId: "timeout",
+          message,
+          onStatus: (event) => {
+            statuses.push(event);
+          },
+          recipients: ["spoc@example.invalid"],
+          sendEmail: (_message, options) =>
+            new Promise((_resolve, reject) => {
+              options.signal?.addEventListener("abort", () => {
+                aborted = true;
+                reject(new DOMException("Aborted", "AbortError"));
+              });
+            }),
+        })
+      );
+      yield* TestClock.adjust(Duration.millis(25));
+      return yield* Fiber.join(fiber);
+    }).pipe(Effect.provide(TestClock.layer()));
+    expect(await Effect.runPromise(program)).toEqual({ sent: 0, skipped: 1 });
+    expect(aborted).toBe(true);
+    expect(statuses.at(-1)).toMatchObject({
+      ambiguous: true,
+      attempts: 1,
+      retryable: true,
+      status: "exhausted",
+    });
+  });
+
+  test.each([
+    ["concurrent_idempotent_requests", 2, 1],
+    ["invalid_idempotent_request", 1, 0],
+  ])("classifies 409 %s independently", async (name, expectedAttempts, expectedAccepted) => {
+    let attempts = 0;
+    const result = await deliverNotificationEmailsSequentially({
+      config: { maxAttempts: 2, minIntervalMs: 0 },
+      eventId: "conflict",
+      message,
+      recipients: ["spoc@example.invalid"],
+      sendEmail: () => {
+        attempts += 1;
+        return Promise.resolve(
+          attempts === 1 ? { error: { name, statusCode: 409 } } : { data: { id: "receipt" } }
+        );
+      },
+    });
+    expect(attempts).toBe(expectedAttempts);
+    expect(result.sent).toBe(expectedAccepted);
   });
 });

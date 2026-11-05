@@ -18,8 +18,10 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "d93102e33251f571b4b6558a6f0d2daac6d8aedb8c208eb28ca378f9cf9bd055";
+const EXPECTED_CAPABILITY_HASH = "5909948089190212fb6bd6a7c4c1d49f66193bd8af8c02fef05d265a055fe65b";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
+
+const ADMIN_ONLY_CAPABILITIES = new Set(["crm/postTourReports.archive"]);
 
 const ADMIN_ONLY_MODULES = new Set([
   "crm/leaveApprovers",
@@ -72,7 +74,7 @@ function classify(module: string, name: string, kind: string): CapabilityClass {
   if (SERVER_ONLY_CAPABILITIES.has(identity)) {
     return "server-only";
   }
-  if (ADMIN_ONLY_MODULES.has(module)) {
+  if (ADMIN_ONLY_MODULES.has(module) || ADMIN_ONLY_CAPABILITIES.has(identity)) {
     return "admin-only";
   }
   return "public-product";
@@ -114,6 +116,192 @@ describe("Convex capability inventory", () => {
     const capabilities = discoverCapabilities();
     expect(capabilities.length).toBeGreaterThan(200);
     expect(capabilityHash(capabilities)).toBe(EXPECTED_CAPABILITY_HASH);
+  });
+
+  test("classifies scoped navigation reads and acknowledgements as product capabilities, with retention private", () => {
+    const capabilities = discoverCapabilities().filter(
+      ({ module }) => module === "crm/navShortcuts"
+    );
+    expect(capabilities).toContainEqual({
+      classification: "public-product",
+      kind: "query",
+      module: "crm/navShortcuts",
+      name: "workState",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "public-product",
+      kind: "mutation",
+      module: "crm/navShortcuts",
+      name: "acknowledgeActivity",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "internal",
+      kind: "internalMutation",
+      module: "crm/navShortcuts",
+      name: "cleanupSeenForNotification",
+    });
+  });
+
+  test("Classifies the staff travel schedule and external tour-manager directory as staff product capabilities", () => {
+    const capabilities = discoverCapabilities();
+    const travel = capabilities.filter(
+      ({ module }) => module === "crm/staffTravel" || module === "crm/externalTourManagerProfiles"
+    );
+    expect(travel).toHaveLength(14);
+    expect(travel.every(({ classification }) => classification === "public-product")).toBe(true);
+    for (const [module, names] of [
+      ["crm/staffTravel", ["create", "update", "cancel"]],
+      ["crm/externalTourManagerProfiles", ["create", "update"]],
+    ] as const) {
+      for (const name of names) {
+        expect(travel).toContainEqual({
+          classification: "public-product",
+          kind: "mutation",
+          module,
+          name,
+        });
+      }
+    }
+  });
+
+  test("classifies structured report reading/preparation as staff product APIs and archive as Admin-only", () => {
+    const reports = discoverCapabilities().filter(({ module }) => module === "crm/postTourReports");
+    expect(reports).toEqual([
+      {
+        classification: "admin-only",
+        kind: "mutation",
+        module: "crm/postTourReports",
+        name: "archive",
+      },
+      {
+        classification: "public-product",
+        kind: "mutation",
+        module: "crm/postTourReports",
+        name: "saveDraft",
+      },
+      {
+        classification: "public-product",
+        kind: "mutation",
+        module: "crm/postTourReports",
+        name: "submit",
+      },
+      {
+        classification: "public-product",
+        kind: "query",
+        module: "crm/postTourReports",
+        name: "workspace",
+      },
+    ]);
+  });
+
+  test("Classifies staff feedback endpoints as product capabilities and storage helpers as internal", () => {
+    const capabilities = discoverCapabilities();
+    const feedback = capabilities.filter(
+      ({ module }) => module === "crm/postTourFeedback" || module === "crm/postTourFeedbackActions"
+    );
+    expect(feedback).toHaveLength(13);
+    for (const [name, kind] of [
+      ["list", "query"],
+      ["listJobs", "query"],
+      ["getJobContext", "query"],
+      ["create", "mutation"],
+      ["update", "mutation"],
+      ["remove", "mutation"],
+      ["removePhoto", "mutation"],
+    ]) {
+      expect(feedback).toContainEqual({
+        classification: "public-product",
+        kind,
+        module: "crm/postTourFeedback",
+        name,
+      });
+    }
+    for (const name of ["getPhotoFile", "getPhotoThumbnail"]) {
+      expect(feedback).toContainEqual({
+        classification: "public-product",
+        kind: "action",
+        module: "crm/postTourFeedbackActions",
+        name,
+      });
+    }
+    for (const [name, kind] of [
+      ["verifyPhotoUpload", "internalQuery"],
+      ["savePhoto", "internalMutation"],
+      ["photoRecord", "internalQuery"],
+    ]) {
+      expect(feedback).toContainEqual({
+        classification: "internal",
+        kind,
+        module: "crm/postTourFeedback",
+        name,
+      });
+    }
+    expect(feedback).toContainEqual({
+      classification: "internal",
+      kind: "internalAction",
+      module: "crm/postTourFeedbackActions",
+      name: "validateAndSavePhoto",
+    });
+    expect(capabilities).toContainEqual({
+      classification: "internal",
+      kind: "internalMutation",
+      module: "crm/rateLimitMaintenance",
+      name: "consumePostTourMediaRead",
+    });
+  });
+
+  test("Classifies scoped traveller feedback functions separately from private storage helpers", () => {
+    const capabilities = discoverCapabilities();
+    const feedback = capabilities.filter(({ module }) => module.startsWith("crm/travelerFeedback"));
+    expect(feedback).toHaveLength(14);
+    for (const name of ["listRequests", "getRequestAccess", "listResponses"]) {
+      expect(feedback).toContainEqual({
+        classification: "public-product",
+        kind: "query",
+        module: "crm/travelerFeedback",
+        name,
+      });
+    }
+    for (const name of ["createRequest", "getPhotoFile", "getPhotoThumbnail"]) {
+      expect(feedback).toContainEqual({
+        classification: "public-product",
+        kind: "action",
+        module: "crm/travelerFeedbackActions",
+        name,
+      });
+    }
+    for (const name of [
+      "issueRequest",
+      "openForm",
+      "submitResponse",
+      "authorizePhoto",
+      "savePhoto",
+    ]) {
+      expect(feedback).toContainEqual({
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/travelerFeedback",
+        name,
+      });
+    }
+    expect(feedback).toContainEqual({
+      classification: "internal",
+      kind: "internalQuery",
+      module: "crm/travelerFeedback",
+      name: "photoRecord",
+    });
+    expect(feedback).toContainEqual({
+      classification: "public-product",
+      kind: "mutation",
+      module: "crm/travelerFeedback",
+      name: "revokeRequest",
+    });
+    expect(feedback).toContainEqual({
+      classification: "internal",
+      kind: "internalAction",
+      module: "crm/travelerFeedbackActions",
+      name: "normalizeAndSavePhoto",
+    });
   });
 
   test("Classifies document preview access as public product and preparation as internal", () => {
@@ -771,4 +959,14 @@ describe("Convex capability inventory", () => {
       name: "purgeEdition001Event",
     });
   });
+});
+
+test("notification recovery workers are internal capabilities", () => {
+  const entries = discoverCapabilities().filter(
+    (entry) =>
+      entry.module === "crm/notificationEmailOutbox" ||
+      (entry.module === "crm/notificationEmails" && entry.name === "dispatchNotificationEmail")
+  );
+  expect(entries).toHaveLength(6);
+  expect(entries.every((entry) => entry.classification === "internal")).toBe(true);
 });

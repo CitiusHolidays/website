@@ -24,6 +24,11 @@ const stageDefinitions = [
   ["hotels", "hotels", "hotel"],
   ["roomingListEntries", "roomingListEntries", "roomingListEntry"],
   ["tourManagerAssignments", "tourManagerAssignments", "tourManager"],
+  ["postTourFeedbackPhotos", "postTourFeedbackPhotos", "postTourFeedbackPhoto"],
+  ["postTourFeedback", "postTourFeedback", "postTourFeedback"],
+  ["travelerFeedbackPhotos", "travelerFeedbackPhotos", "travelerFeedbackPhoto"],
+  ["travelerFeedbackResponses", "travelerFeedbackResponses", "travelerFeedbackResponse"],
+  ["travelerFeedbackRequests", "travelerFeedbackRequests", "travelerFeedbackRequest"],
   ["vendors", "vendors", "vendor"],
   ["itineraries", "itineraries", "itinerary"],
   ["eventFlows", "eventFlows", "eventFlow"],
@@ -219,6 +224,8 @@ function incrementStageCount(
     : [...stageCounts, { count, stage }];
 }
 
+const FEEDBACK_PHOTO_STAGES = new Set(["postTourFeedbackPhotos", "travelerFeedbackPhotos"]);
+
 export const continueApprovalCleanup = internalMutation({
   args: {
     approvalEntityId: v.string(),
@@ -298,6 +305,12 @@ export const continueJobCardCascade = internalMutation({
       const metricSource = metricSourceForCascadeStage(args.stage);
       await Promise.all(
         rows.map(async (row) => {
+          if (FEEDBACK_PHOTO_STAGES.has(args.stage) && "storageId" in row) {
+            await deleteStorageFile(ctx, row.storageId, "post-tour photo");
+            if ("thumbnailStorageId" in row) {
+              await deleteStorageFile(ctx, row.thumbnailStorageId, "post-tour thumbnail");
+            }
+          }
           if (args.stage === "travellers") {
             await registerWorker(
               ctx,

@@ -68,9 +68,11 @@ function Harness({
   form = {},
   isSaving = false,
   modalType = "proposal",
+  queries = [],
   onClose,
   onSubmit,
   onUpdateForm = doNothing,
+  saveFlash = false,
 }) {
   const [modal, setModal] = useState(null);
   const close = () => {
@@ -95,6 +97,8 @@ function Harness({
         patchForm={doNothing}
         pendingExpenseProofFiles={[]}
         pendingQueryFiles={[]}
+        queries={queries}
+        saveFlash={saveFlash}
         setPendingQueryFiles={doNothing}
         submit={onSubmit}
         updateForm={onUpdateForm}
@@ -274,8 +278,86 @@ describe("Mounted entity modal shell", () => {
     act(() => {
       dialog.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     });
-    expect(submits).toBe(1);
+    expect(submits).toBe(0);
 
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("Keeps pending and saved forms stable until the command settles", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    let closes = 0;
+    const props = {
+      form: { clientName: "Cedar Labs" },
+      onClose: () => {
+        closes += 1;
+      },
+      onSubmit: doNothing,
+      queries: [
+        { clientName: "Synthetic A", id: "query-a", queryCode: "Q-A" },
+        { clientName: "Synthetic B", id: "query-b", queryCode: "Q-B" },
+      ],
+    };
+    await renderHarness(root, props);
+    await act(async () => container.querySelector('[data-testid="entity-trigger"]').click());
+    await flushDialogFrame();
+    const verifyPending = async (state) => {
+      await renderHarness(root, { ...props, ...state });
+      const dialog = document.querySelector('[role="dialog"]');
+      expect(dialog.getAttribute("aria-busy")).toBe("true");
+      expect(dialog.querySelector("input").matches(":disabled")).toBe(true);
+      const choices = [...dialog.querySelectorAll('[role="checkbox"]')];
+      expect(choices).toHaveLength(2);
+      expect(
+        choices.every(
+          (choice) => choice.getAttribute("aria-disabled") === "true" || choice.matches(":disabled")
+        )
+      ).toBe(true);
+      expect(dialog.querySelector('[data-testid="portal-entity-modal-save"]').disabled).toBe(true);
+      expect(dialog.querySelector('[data-testid="portal-entity-modal-cancel"]').disabled).toBe(
+        true
+      );
+      expect(dialog.querySelector('[aria-label="Close dialog"]').disabled).toBe(true);
+      act(() => {
+        document.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+      });
+      expect(closes).toBe(0);
+      expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+    };
+    await verifyPending({ isSaving: true });
+    await verifyPending({ saveFlash: true });
+    await renderHarness(root, props);
+    expect(document.querySelector('[role="dialog"] input').matches(":disabled")).toBe(false);
+    await act(async () =>
+      document.querySelector('[data-testid="portal-entity-modal-cancel"]').click()
+    );
+    expect(closes).toBe(1);
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("Pending Staff saves disable role and additional-alert choices without changing their values", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const changes = [];
+    await renderHarness(root, {
+      form: { emailAlertRoles: ["Sales"], staffName: "Synthetic staff", staffRoles: ["Admin"] },
+      isSaving: true,
+      modalType: "staff",
+      onClose: doNothing,
+      onSubmit: doNothing,
+      onUpdateForm: (...args) => changes.push(args),
+    });
+    await act(async () => container.querySelector('[data-testid="entity-trigger"]').click());
+    await flushDialogFrame();
+    const choices = [...document.querySelectorAll('[role="dialog"] [role="checkbox"]')];
+    expect(choices.length).toBeGreaterThan(20);
+    expect(choices.every((choice) => choice.getAttribute("aria-disabled") === "true")).toBe(true);
+    await act(async () => choices[0].click());
+    expect(changes).toEqual([]);
     await act(async () => root.unmount());
     container.remove();
   });

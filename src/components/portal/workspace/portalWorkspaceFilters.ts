@@ -1,4 +1,3 @@
-import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import { hasActiveListFilters } from "@/lib/portal/listFilters";
 import { EMPTY_DATE_RANGE } from "@/lib/portal/periodFilter";
 import { VIEWS_WITH_JOB_CARD_FILTER } from "@/lib/portal/pipeViewRows";
@@ -37,7 +36,6 @@ interface BuildPortalWorkspaceFiltersInput extends FilterSnapshot {
   listFilterConfig: SavedViewFilterConfig[] | undefined;
   pathname: string;
   removeSavedView: MutationLike<{ savedViewId: string }>;
-  router: AppRouterInstance;
   savedViews: readonly SavedViewRecord[] | null | undefined;
   searchParams: URLSearchParams;
   setDateRange: (value: StateUpdate<DateRangeState>) => void;
@@ -142,7 +140,6 @@ export function buildPortalWorkspaceFilters({
   listFilters,
   pathname,
   removeSavedView,
-  router,
   savedViews,
   search,
   searchParams,
@@ -155,19 +152,19 @@ export function buildPortalWorkspaceFilters({
   view,
 }: BuildPortalWorkspaceFiltersInput) {
   const replaceFilterUrl = (nextFilters: FilterSnapshot) => {
-    if (!allowed) {
+    if (!allowed || window.location.pathname !== pathname) {
       return;
     }
     const params = serializeWorkspaceUrlFilterState(nextFilters, listFilterConfig, {
       preserveRouteContext: true,
-      searchParams,
+      searchParams: new URLSearchParams(window.location.search),
     });
     const qs = params.toString();
     const nextUrl = qs ? `${pathname}?${qs}` : pathname;
-    const currentQs = searchParams.toString();
+    const currentQs = new URLSearchParams(window.location.search).toString();
     const currentUrl = currentQs ? `${pathname}?${currentQs}` : pathname;
     if (nextUrl !== currentUrl) {
-      router.replace(nextUrl, { scroll: false });
+      window.history.replaceState(null, "", `${nextUrl}${window.location.hash}`);
     }
   };
 
@@ -226,6 +223,22 @@ export function buildPortalWorkspaceFilters({
         next[field] = value;
       } else {
         delete next[field];
+      }
+      replaceFilterUrl({ dateRange, jobCardFilter, listFilters: next, search });
+      return next;
+    });
+  };
+
+  const setQueryHistoryScope = (scope: "active" | "lost") => {
+    setListFilters((current) => {
+      const {
+        salesStatus: _sales,
+        contractingStatus: _contracting,
+        leadStage: _stage,
+        ...next
+      } = current;
+      if (scope === "lost") {
+        next[view === "contracting" ? "contractingStatus" : "salesStatus"] = "Order Lost";
       }
       replaceFilterUrl({ dateRange, jobCardFilter, listFilters: next, search });
       return next;
@@ -300,6 +313,7 @@ export function buildPortalWorkspaceFilters({
     setDateRangeWithUrl,
     setJobCardFilterWithUrl,
     setListFilterValue,
+    setQueryHistoryScope,
     setSearchWithUrl,
     showJobCardFilter,
     toggleSavedViewFavorite,

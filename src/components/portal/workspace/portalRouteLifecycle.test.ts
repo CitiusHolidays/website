@@ -132,3 +132,20 @@ test("Event management requires a resolved capability and closes on live revocat
   ).toBe(false);
   expect(getPortalDataDependencies({ view: "event-photo-booth" }).size).toBe(0);
 });
+
+test("the actual inbox route gate allows staff without granting audit permissions", () => {
+  expect(
+    canAccessPortalRoute({
+      access: { allowed: true, permissions: [], roles: ["Contracting"] },
+      has: () => false,
+      view: "activity",
+    })
+  ).toBe(true);
+  expect(
+    canAccessPortalRoute({
+      access: { allowed: false, permissions: [], roles: ["Contracting"] },
+      has: () => true,
+      view: "activity",
+    })
+  ).toBe(false);
+});

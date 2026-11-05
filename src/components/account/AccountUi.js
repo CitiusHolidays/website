@@ -594,7 +594,9 @@ export function ProfileAlert({ type = "success", message }) {
 }
 
 export function ProfileInput({
+  autoComplete,
   label,
+  name,
   value,
   onChange,
   placeholder,
@@ -606,9 +608,11 @@ export function ProfileInput({
   return (
     <Field label={label} surface="account">
       <Input
+        autoComplete={autoComplete}
         className={disabled ? undefined : "bg-white"}
         disabled={disabled}
         id={fieldId}
+        name={name}
         onChange={handleChange}
         placeholder={placeholder}
         surface="account"

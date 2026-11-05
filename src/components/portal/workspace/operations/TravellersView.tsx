@@ -2,6 +2,7 @@
 
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
+import { buildThankYouDraft } from "@/lib/portal/guestContactPresentation";
 import {
   formatPassportExpiryLabel,
   getPassportExpiryInfo,
@@ -26,10 +27,36 @@ function TravellerMobileCard({ row }: { row: TravellerRow }) {
       <div className="text-brand-muted text-xs">
         {row.jobCode} · {row.travelHub || "No hub"} · {travelBatchDisplayLabel(row)}
       </div>
+      <GuestContactDetails row={row} />
       <div className="flex flex-wrap gap-2 pt-1">
         <StatusBadge domain="visa" status={row.visaStatus} />
         <Badge label={formatPassportExpiryLabel(expiry)} tone={passportExpiryTone(expiry)} />
       </div>
+    </div>
+  );
+}
+
+const CONSENT_LABELS = new Map([
+  ["granted", "Opted in"],
+  ["not_recorded", "Not recorded"],
+  ["withdrawn", "Withdrawn"],
+]);
+
+function GuestContactDetails({ row }: { row: TravellerRow }) {
+  const draft = buildThankYouDraft(row);
+  return (
+    <div className="min-w-48 space-y-1 text-xs">
+      <div className="break-all">{row.contactNo || "No cell number"}</div>
+      <div className="break-all">{row.email || "No email"}</div>
+      <div className="text-brand-muted">
+        Promotional permission:{" "}
+        {CONSENT_LABELS.get(row.marketingConsent || "not_recorded") || "Not recorded"}
+      </div>
+      {draft ? (
+        <a className="inline-flex min-h-11 items-center text-citius-blue underline" href={draft}>
+          Draft thank-you email
+        </a>
+      ) : null}
     </div>
   );
 }
@@ -50,7 +77,9 @@ function TravellerRowActions({
     openModal("traveller", {
       arrivingEarly: row.arrivingEarly ? "Yes" : "No",
       biometricAppointmentDate: row.biometricAppointmentDate,
+      contactNo: row.contactNo || "",
       domesticTravelRequired: row.domesticTravelRequired ? "Yes" : "No",
+      email: row.email || "",
       entityId: String(row.id),
       extensionOfTour: row.extensionOfTour ? "Yes" : "No",
       foodPreference: row.foodPreference,
@@ -61,6 +90,8 @@ function TravellerRowActions({
       guestType: row.guestType,
       hotelAllocation: row.hotelAllocation,
       jobCardId: row.jobCardId,
+      marketingConsent: row.marketingConsent || "not_recorded",
+      marketingConsentNote: row.marketingConsentNote || "",
       notes: row.specialRequests || "",
       passportStatus: row.passportStatus,
       paymentType: row.paymentType,
@@ -125,6 +156,11 @@ export function TravellersView({
             label: "Name",
             render: (row: TravellerRow) => strong(row.fullName),
             sortValue: (row: TravellerRow) => row.fullName,
+          },
+          {
+            id: "guest-contact",
+            label: "Guest contact",
+            render: (row: TravellerRow) => <GuestContactDetails row={row} />,
           },
           {
             hideable: true,

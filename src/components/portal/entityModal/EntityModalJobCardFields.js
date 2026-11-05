@@ -13,6 +13,7 @@ export function EntityModalJobCardFields({
   const confirmedProposal = proposals.find(
     (proposal) => String(proposal.id) === String(form.proposalId)
   );
+  const creationOfferReady = form._confirmedOfferState === "ready";
   return (
     <>
       {modal === "jobCard" && (
@@ -101,21 +102,44 @@ export function EntityModalJobCardFields({
           <div className="rounded-xl border border-brand-border bg-brand-light/60 px-4 py-3 text-brand-muted text-sm md:col-span-2">
             Commercial amounts come from the Confirmed Offer and cannot be changed on the Job Card.
           </div>
-          <Input label="Land Cost per Person" readOnly type="number" value={form.landCostPerPax} />
-          <Input label="Airfare per Person" readOnly type="number" value={form.airfarePerPax} />
-          <Input label="Visa Cost per Person" readOnly type="number" value={form.visaCostPerPax} />
+          <Input
+            label="Land Cost per Person"
+            readOnly
+            type="number"
+            value={form.landCostPerPax ?? ""}
+          />
+          <Input
+            label="Airfare per Person"
+            readOnly
+            type="number"
+            value={form.airfarePerPax ?? ""}
+          />
+          <Input
+            label="Visa Cost per Person"
+            readOnly
+            type="number"
+            value={form.visaCostPerPax ?? ""}
+          />
           <Input
             label="Selling Price per Person (pre-tax)"
             readOnly
             type="number"
-            value={form.sellingPricePerPax}
+            value={form.sellingPricePerPax ?? ""}
           />
           <Input
             label="Profit per Person (pre-tax)"
             readOnly
             type="number"
-            value={form.profitPerPax}
+            value={form.entityId || creationOfferReady ? form.profitPerPax : ""}
           />
+          {!form.entityId && (
+            <Input
+              label="Approx. Margin (INR)"
+              readOnly
+              type="number"
+              value={creationOfferReady ? (form.approxMargin ?? "") : ""}
+            />
+          )}
         </>
       )}
     </>

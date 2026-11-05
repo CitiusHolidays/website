@@ -106,7 +106,7 @@ test.describe
       });
       await page.goto("/portal");
       await page.getByRole("button", { exact: true, name: "Enquiries" }).click();
-      const queriesLink = page.getByRole("link", { exact: true, name: "All Sales Queries" });
+      const queriesLink = page.locator('a.portal-nav-link[href="/portal/queries"]');
       await expect(queriesLink).toBeVisible();
 
       await page.evaluate(() => performance.clearMarks());
@@ -137,9 +137,7 @@ test.describe
 
       await page.goBack();
       await expect(page).toHaveURL(PORTAL_DASHBOARD_URL_PATTERN);
-      await expect(
-        page.getByRole("link", { exact: true, name: "All Sales Queries" })
-      ).toBeVisible();
+      await expect(page.locator('a.portal-nav-link[href="/portal/queries"]')).toBeVisible();
       await page.goForward();
       await expect(page).toHaveURL(PORTAL_QUERIES_URL_PATTERN);
       await expect(
@@ -245,10 +243,9 @@ test.describe
         ""
       );
       await saveEntityModal(page);
-      await expect(row.getByText(/linked to jc-/i)).toBeVisible({ timeout: 15_000 });
-      const jobCodeText = await row.locator("text=/JC-/").first().textContent();
-      e2eChain.jobCode = jobCodeText?.match(/JC-\d+-[A-Z]+/)?.[0] || "";
-      expect(e2eChain.jobCode).toMatch(/JC-\d+-ES/);
+      await expect(row.getByText(/linked to JC\/ES\//i)).toBeVisible({ timeout: 15_000 });
+      e2eChain.jobCode = (await row.getByRole("status").textContent())?.trim() ?? "";
+      expect(e2eChain.jobCode).toMatch(/^JC\/ES\/\d{3}\/\d{2}-\d{2}$/);
       await context.close();
 
       const { context: adminContext, page: adminPage } = await openPortalAs(browser, "admin");

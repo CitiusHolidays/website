@@ -29,6 +29,14 @@ explicit director override actions described below.
 | Contracting / Operations / Sales Cement | Cement and Cement Bidding work in the matching department. | Base Cement roles receive query-type record scope. |
 | Director Cement | Director overrides for Cement operations. | Uses the restricted director permission set and currently bypasses Cement query-type filtering. |
 
+Post-tour feedback is a staff-wide read exception: active provisioned staff can
+read reports, their photos, and limited JC context. It grants no full JC or
+traveller-contact access. Assigned tour managers create entries; authors retain
+edit/delete access while assigned; Admin and director roles can moderate.
+Guest contacts retain existing traveller permissions and JC scope. See
+[post-tour feedback and guest contacts](POST_TOUR_FEEDBACK.md) for the precise
+upload, privacy, consent and release rules.
+
 ## Permission rules
 
 - `Admin` and `Directors` each receive every current permission.
@@ -72,7 +80,7 @@ director permissions, team-picker permissions, and shared team-role lists.
 
 Coarse `manage:*` permissions gate API entry points, but proposal/query/job-card mutations also enforce assignment rules:
 
-- **Proposal edit/send** — Contracting SPOC, collaborators, department heads, directors, and the **assigned Ticketing SPOC** on a linked query may edit proposal costing (`canEditProposalRecord` in `convex/crm/lib.ts`). Head of Ticketing remains view-only unless they are the assigned ticketing owner.
+- **Proposal edit/send** — Contracting SPOC, collaborators, department heads, directors, and the **assigned Ticketing SPOC** on a linked query may edit proposal costing (`canEditProposalRecord` in `convex/crm/lib.ts`). Head of Ticketing has the proposal-management permission needed to work after taking a Ticketing assignment. The existing record guard still requires assigned Ticketing ownership or another existing edit entitlement.
 - **Query visibility** — Department heads (including **Accounts Head**) can see queries in their oversight scope. Accounts and Finance still only see confirmed orders unless they are also assigned owners.
 - **Job card creation** — Accounts, Accounts Head, director roles (`Admin`, `Directors`, `Director Cement`), and allowlisted Accounts staff may create job cards from confirmed queries.
 
@@ -100,7 +108,29 @@ bell without email use the explicit no-email target instead of relying on an emp
 
 Sales query intake is narrower than the base expansion table: new or submitted queries notify the assigned Contracting/Ticketing SPOCs plus the relevant assignment heads. They do not create bell or email alerts for the entire Contracting team.
 
+Query intake copies active Directors and Admin as Management, as required by the Activity Flow. This does not make Director Cement or additional email-alert subscriptions Management. It does not add Management to leave or private-workflow audiences.
+
+Ticket-attention alerts and all eight workflow reminders use exact staff recipients through `notificationWorkAudience.ts`. They select current SPOCs and the relevant heads, with head oversight when no SPOC is assigned. Additional email-alert roles, generic department expansion and saved whole-team reminder settings cannot widen these audiences. The same work-purpose contract rechecks delayed sends and retries. The director review documents each rule under R10 and R13.
+
+
 Delivery oversight is a separate permission, `view:emailDeliveryStatus`. Department heads, Admin,
 Directors, and Director Cement can see privacy-safe queued/retry/sent/exhausted counts in Activity;
 recipient addresses and provider response bodies are never exposed. Base department roles do not
 inherit this summary surface.
+
+## Travel visibility and traveller feedback
+
+Active staff can view shared travel plans and safe post-tour traveller responses. JC links in travel retain ordinary JC scope. Staff manage their own travel; HR, Operations Head and directors/admins manage others. External tour-manager contacts retain VIEW_TOUR_MANAGERS; Operations Head and directors/admins maintain them. Feedback request creation/revocation requires ordinary JC scope plus an existing management permission. Public feedback links grant submission only, without staff, Account or Journey access. See [Team travel](TEAM_TRAVEL.md) and [Traveller feedback](TRAVELER_FEEDBACK.md).
+
+
+## Structured internal tour reports
+
+The six-section internal report uses the existing assigned Tour Manager policy,
+assigned Operations/Operations Cement owner and Operations Head. Existing JC and
+Cement scope remains. Directors/Admin alone do not gain preparation rights.
+Current preparers and Admin can read drafts; all provisioned active CRM staff
+can read submitted report snapshots without full JC/customer access. Only Admin
+can archive/restore this new report. Legacy note moderation and traveller
+request/consent permissions are unchanged. Submission alerts use actual Directors,
+Finance Head function and related Sales/Contracting owners, with no automatic
+Admin or team expansion. See [the report contract](POST_TOUR_FEEDBACK.md).

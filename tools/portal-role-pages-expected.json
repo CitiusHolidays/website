@@ -1,54 +1,306 @@
 {
   "Sales": {
-    "allowed": ["dashboard", "queries", "pipeline", "proposals", "expenses", "employees-on-leave", "office-check-in"],
-    "denied": ["contracting", "ticketing", "finance", "job-cards", "travellers", "settings", "activity", "team"]
+    "allowed": [
+      "post-tour-feedback",
+      "dashboard",
+      "queries",
+      "pipeline",
+      "proposals",
+      "expenses",
+      "employees-on-leave",
+      "travel-schedule",
+      "activity",
+      "office-check-in"
+    ],
+    "denied": [
+      "contracting",
+      "ticketing",
+      "finance",
+      "job-cards",
+      "travellers",
+      "settings",
+      "team",
+      "external-tour-managers"
+    ]
   },
   "Sales Head": {
-    "allowed": ["dashboard", "queries", "pipeline", "proposals", "expenses", "team", "employees-on-leave", "activity", "office-check-in"],
-    "denied": ["contracting", "ticketing", "finance", "settings"]
+    "allowed": [
+      "post-tour-feedback",
+      "dashboard",
+      "queries",
+      "pipeline",
+      "proposals",
+      "expenses",
+      "team",
+      "employees-on-leave",
+      "activity",
+      "travel-schedule",
+      "office-check-in"
+    ],
+    "denied": [
+      "contracting",
+      "ticketing",
+      "finance",
+      "settings",
+      "external-tour-managers"
+    ]
   },
   "Contracting": {
-    "allowed": ["dashboard", "queries", "pipeline", "contracting", "proposals", "job-cards", "expenses", "employees-on-leave", "office-check-in"],
-    "denied": ["ticketing", "finance", "settings", "activity", "team"]
+    "allowed": [
+      "post-tour-feedback",
+      "dashboard",
+      "queries",
+      "pipeline",
+      "contracting",
+      "proposals",
+      "job-cards",
+      "expenses",
+      "employees-on-leave",
+      "travel-schedule",
+      "activity",
+      "office-check-in"
+    ],
+    "denied": [
+      "ticketing",
+      "finance",
+      "settings",
+      "team",
+      "external-tour-managers"
+    ]
   },
   "Contracting Head": {
-    "allowed": ["dashboard", "queries", "pipeline", "contracting", "proposals", "job-cards", "expenses", "team", "employees-on-leave", "activity", "office-check-in"],
-    "denied": ["ticketing", "finance", "settings"]
+    "allowed": [
+      "post-tour-feedback",
+      "dashboard",
+      "queries",
+      "pipeline",
+      "contracting",
+      "proposals",
+      "job-cards",
+      "expenses",
+      "team",
+      "employees-on-leave",
+      "activity",
+      "travel-schedule",
+      "office-check-in"
+    ],
+    "denied": [
+      "ticketing",
+      "finance",
+      "settings",
+      "external-tour-managers"
+    ]
   },
   "Accounts Head": {
-    "allowed": ["dashboard", "queries", "accounts-job-cards", "job-cards", "finance", "expenses", "reports", "team", "employees-on-leave", "activity", "office-check-in"],
-    "denied": ["contracting", "ticketing", "settings"]
+    "allowed": [
+      "post-tour-feedback",
+      "dashboard",
+      "queries",
+      "accounts-job-cards",
+      "job-cards",
+      "finance",
+      "expenses",
+      "reports",
+      "team",
+      "employees-on-leave",
+      "activity",
+      "travel-schedule",
+      "office-check-in"
+    ],
+    "denied": [
+      "contracting",
+      "ticketing",
+      "settings",
+      "external-tour-managers"
+    ]
   },
   "Accounts": {
-    "allowed": ["dashboard", "accounts-job-cards", "job-cards", "finance", "expenses", "reports", "employees-on-leave", "office-check-in"],
-    "denied": ["queries", "contracting", "ticketing", "settings", "activity", "team"]
+    "allowed": [
+      "post-tour-feedback",
+      "dashboard",
+      "accounts-job-cards",
+      "job-cards",
+      "finance",
+      "expenses",
+      "reports",
+      "employees-on-leave",
+      "travel-schedule",
+      "activity",
+      "office-check-in"
+    ],
+    "denied": [
+      "queries",
+      "contracting",
+      "ticketing",
+      "settings",
+      "team",
+      "external-tour-managers"
+    ]
   },
   "Operations": {
-    "allowed": ["dashboard", "job-cards", "travellers", "passport", "visa", "hotels", "tour-managers", "ticketing", "flights", "expenses", "employees-on-leave", "office-check-in"],
-    "denied": ["queries", "contracting", "finance", "settings", "activity", "team"]
+    "allowed": [
+      "post-tour-feedback",
+      "dashboard",
+      "job-cards",
+      "travellers",
+      "passport",
+      "visa",
+      "hotels",
+      "tour-managers",
+      "ticketing",
+      "flights",
+      "expenses",
+      "employees-on-leave",
+      "travel-schedule",
+      "external-tour-managers",
+      "activity",
+      "office-check-in"
+    ],
+    "denied": [
+      "queries",
+      "contracting",
+      "finance",
+      "settings",
+      "team"
+    ]
   },
   "Operations Head": {
-    "allowed": ["dashboard", "queries", "pipeline", "contracting", "proposals", "accounts-job-cards", "job-cards", "travellers", "passport", "visa", "hotels", "ticketing", "flights", "tour-managers", "expenses", "finance", "team", "employees-on-leave", "activity", "office-check-in"],
-    "denied": ["settings"]
+    "allowed": [
+      "post-tour-feedback",
+      "dashboard",
+      "queries",
+      "pipeline",
+      "contracting",
+      "proposals",
+      "accounts-job-cards",
+      "job-cards",
+      "travellers",
+      "passport",
+      "visa",
+      "hotels",
+      "ticketing",
+      "flights",
+      "tour-managers",
+      "expenses",
+      "finance",
+      "team",
+      "employees-on-leave",
+      "activity",
+      "travel-schedule",
+      "external-tour-managers",
+      "office-check-in"
+    ],
+    "denied": [
+      "settings"
+    ]
   },
   "Ticketing": {
-    "allowed": ["dashboard", "queries", "proposals", "job-cards", "travellers", "ticketing", "flights", "tickets", "seat-allocation", "tour-managers", "expenses", "employees-on-leave", "office-check-in"],
-    "denied": ["pipeline", "contracting", "finance", "settings", "activity", "team"]
+    "allowed": [
+      "post-tour-feedback",
+      "dashboard",
+      "queries",
+      "proposals",
+      "job-cards",
+      "travellers",
+      "ticketing",
+      "flights",
+      "tickets",
+      "seat-allocation",
+      "tour-managers",
+      "expenses",
+      "employees-on-leave",
+      "travel-schedule",
+      "external-tour-managers",
+      "activity",
+      "office-check-in"
+    ],
+    "denied": [
+      "pipeline",
+      "contracting",
+      "finance",
+      "settings",
+      "team"
+    ]
   },
   "Head of Ticketing": {
-    "allowed": ["dashboard", "queries", "proposals", "job-cards", "travellers", "ticketing", "flights", "tickets", "seat-allocation", "tour-managers", "expenses", "team", "employees-on-leave", "activity", "office-check-in"],
-    "denied": ["pipeline", "contracting", "finance", "settings"]
+    "allowed": [
+      "post-tour-feedback",
+      "dashboard",
+      "queries",
+      "proposals",
+      "job-cards",
+      "travellers",
+      "ticketing",
+      "flights",
+      "tickets",
+      "seat-allocation",
+      "tour-managers",
+      "expenses",
+      "team",
+      "employees-on-leave",
+      "activity",
+      "travel-schedule",
+      "external-tour-managers",
+      "office-check-in"
+    ],
+    "denied": [
+      "pipeline",
+      "contracting",
+      "finance",
+      "settings"
+    ]
   },
   "Tour Manager": {
-    "allowed": ["dashboard", "job-cards", "travellers", "passport", "visa", "ticketing", "tour-managers", "expenses", "employees-on-leave", "office-check-in"],
-    "denied": ["queries", "contracting", "finance", "settings", "activity", "team"]
+    "allowed": [
+      "post-tour-feedback",
+      "dashboard",
+      "job-cards",
+      "travellers",
+      "passport",
+      "visa",
+      "ticketing",
+      "tour-managers",
+      "expenses",
+      "employees-on-leave",
+      "travel-schedule",
+      "external-tour-managers",
+      "activity",
+      "office-check-in"
+    ],
+    "denied": [
+      "queries",
+      "contracting",
+      "finance",
+      "settings",
+      "team"
+    ]
   },
   "Finance": {
-    "allowed": ["dashboard", "job-cards", "finance", "expenses", "approvals", "reports", "employees-on-leave", "office-check-in"],
-    "denied": ["queries", "contracting", "ticketing", "settings", "activity", "team"]
+    "allowed": [
+      "post-tour-feedback",
+      "dashboard",
+      "job-cards",
+      "finance",
+      "expenses",
+      "approvals",
+      "reports",
+      "employees-on-leave",
+      "travel-schedule",
+      "activity",
+      "office-check-in"
+    ],
+    "denied": [
+      "queries",
+      "contracting",
+      "ticketing",
+      "settings",
+      "team",
+      "external-tour-managers"
+    ]
   },
   "Directors": {
     "allowed": [
+      "post-tour-feedback",
       "dashboard",
       "queries",
       "pipeline",
@@ -73,32 +325,125 @@
       "employees-on-leave",
       "settings",
       "activity",
+      "travel-schedule",
+      "external-tour-managers",
       "office-check-in"
     ],
     "denied": []
   },
   "Admin": {
-    "allowed": ["dashboard", "queries", "settings", "finance", "ticketing", "expenses", "employees-on-leave", "activity", "office-check-in"],
+    "allowed": [
+      "post-tour-feedback",
+      "dashboard",
+      "queries",
+      "settings",
+      "finance",
+      "ticketing",
+      "expenses",
+      "employees-on-leave",
+      "activity",
+      "travel-schedule",
+      "external-tour-managers",
+      "office-check-in"
+    ],
     "denied": []
   },
   "HR": {
-    "allowed": ["dashboard", "expenses", "team", "employees-on-leave", "approvals", "activity", "office-check-in"],
-    "denied": ["settings", "queries", "contracting", "ticketing"]
+    "allowed": [
+      "post-tour-feedback",
+      "dashboard",
+      "expenses",
+      "team",
+      "employees-on-leave",
+      "approvals",
+      "activity",
+      "travel-schedule",
+      "office-check-in"
+    ],
+    "denied": [
+      "settings",
+      "queries",
+      "contracting",
+      "ticketing",
+      "external-tour-managers"
+    ]
   },
   "Sales Cement": {
-    "allowed": ["dashboard", "queries", "pipeline", "proposals", "expenses", "employees-on-leave", "office-check-in"],
-    "denied": ["contracting", "ticketing", "finance", "job-cards", "settings", "activity", "team"]
+    "allowed": [
+      "post-tour-feedback",
+      "dashboard",
+      "queries",
+      "pipeline",
+      "proposals",
+      "expenses",
+      "employees-on-leave",
+      "travel-schedule",
+      "activity",
+      "office-check-in"
+    ],
+    "denied": [
+      "contracting",
+      "ticketing",
+      "finance",
+      "job-cards",
+      "settings",
+      "team",
+      "external-tour-managers"
+    ]
   },
   "Contracting Cement": {
-    "allowed": ["dashboard", "queries", "pipeline", "contracting", "proposals", "job-cards", "expenses", "employees-on-leave", "office-check-in"],
-    "denied": ["ticketing", "finance", "settings", "activity", "team"]
+    "allowed": [
+      "post-tour-feedback",
+      "dashboard",
+      "queries",
+      "pipeline",
+      "contracting",
+      "proposals",
+      "job-cards",
+      "expenses",
+      "employees-on-leave",
+      "travel-schedule",
+      "activity",
+      "office-check-in"
+    ],
+    "denied": [
+      "ticketing",
+      "finance",
+      "settings",
+      "team",
+      "external-tour-managers"
+    ]
   },
   "Operations Cement": {
-    "allowed": ["dashboard", "job-cards", "travellers", "passport", "visa", "hotels", "tour-managers", "ticketing", "flights", "expenses", "employees-on-leave", "office-check-in"],
-    "denied": ["queries", "contracting", "finance", "settings", "activity", "team"]
+    "allowed": [
+      "post-tour-feedback",
+      "dashboard",
+      "job-cards",
+      "travellers",
+      "passport",
+      "visa",
+      "hotels",
+      "tour-managers",
+      "ticketing",
+      "flights",
+      "expenses",
+      "employees-on-leave",
+      "travel-schedule",
+      "external-tour-managers",
+      "activity",
+      "office-check-in"
+    ],
+    "denied": [
+      "queries",
+      "contracting",
+      "finance",
+      "settings",
+      "team"
+    ]
   },
   "Director Cement": {
     "allowed": [
+      "post-tour-feedback",
       "dashboard",
       "queries",
       "pipeline",
@@ -122,8 +467,12 @@
       "team",
       "employees-on-leave",
       "activity",
+      "travel-schedule",
+      "external-tour-managers",
       "office-check-in"
     ],
-    "denied": ["settings"]
+    "denied": [
+      "settings"
+    ]
   }
 }

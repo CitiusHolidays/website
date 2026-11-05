@@ -18,6 +18,8 @@ beforeAll(() => {
   globalThis.Node = dom.window.Node;
   globalThis.Event = dom.window.Event;
   globalThis.KeyboardEvent = dom.window.KeyboardEvent;
+  dom.window.HTMLElement.prototype.attachEvent = () => undefined;
+  dom.window.HTMLElement.prototype.detachEvent = () => undefined;
 });
 
 afterEach(() => {

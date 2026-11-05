@@ -46,6 +46,10 @@ const nextConfig = {
         ],
         source: "/images/event-photo-booth/:path*",
       },
+      {
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+        source: "/images/email/citius-logo-v1.jpg",
+      },
       // Authenticated and session-aware routes must never be stored by a CDN
       // or replayed across users. Keep this explicit even when Cache Components
       // is enabled; request-time rendering and response caching are separate

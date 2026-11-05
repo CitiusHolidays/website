@@ -1,16 +1,29 @@
 import {
   buildModalInitial,
+  getDeepLinkQueryId,
   isDeepLinkDataReady,
   resolveDeepLink,
 } from "@/lib/portal/notificationTargets";
 import { serializeUrlFilterState } from "@/lib/portal/urlFilterState";
 
-/** Applies `?open=` / `?id=` notification deep links once CRM list data is ready. */
+function focusedQueryRows(targetId, detail) {
+  if (
+    detail.id !== targetId ||
+    detail.row === undefined ||
+    (detail.row && String(detail.row.id) !== targetId)
+  ) {
+    return;
+  }
+  return detail.row ? [detail.row] : [];
+}
+
+/** Applies `?open=` / `?id=` notification deep links once required record data is ready. */
 export function syncNotificationDeepLink({
   searchParams,
   allowed,
   canFetch,
   queries,
+  queryDeepLinkDetail,
   proposals,
   jobCards,
   tickets,
@@ -46,13 +59,19 @@ export function syncNotificationDeepLink({
     return;
   }
 
+  const focusedQueryId = getDeepLinkQueryId({ id, open, queryId });
+  const queryRows =
+    focusedQueryId && queryDeepLinkDetail
+      ? focusedQueryRows(focusedQueryId, queryDeepLinkDetail)
+      : queries;
+
   const deepLinkCollections = {
     approvals,
     expenses,
     jobCards,
     leaves,
     proposals,
-    queries,
+    queries: queryRows,
     tickets,
   };
 

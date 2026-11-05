@@ -1,0 +1,754 @@
+{
+  "schemaVersion": 1,
+  "sourceBase": "050b337408f5b5d3642adcfebbc291ac0b10ac19",
+  "scope": "Every changed src implementation file plus actual transactional-mail entry points. Inherited shared behavior is mapped explicitly; this is not all-route browser acceptance.",
+  "changedSrcImplementationCount": 51,
+  "mailEntryPointCount": 6,
+  "sources": [
+    {
+      "path": "src/app/(authenticated)/account/page.client.js",
+      "sha256": "e7246c0926c0da8acdddd0264a63d3bdc51fe34a69b817442aa964a57c6c9359",
+      "group": "account",
+      "pictures": [
+        "actual/customer-profile-draft-desktop.png",
+        "actual/customer-profile-draft-phone.png",
+        "u02-saving-mobile.png"
+      ],
+      "proofAndLimits": "Actual signed-in draft values, tab continuity and cancellation; mounted pending, success, validation and failure behavior. No live profile save in the final screenshot test."
+    },
+    {
+      "path": "src/app/(public)/contact/page.client.js",
+      "sha256": "05713f3e5d86392cf597d02406ad5aaafc853c913686b0dc624d645cfb393d02",
+      "group": "contact",
+      "pictures": [
+        "u03-after-desktop.png",
+        "u03-sending-mobile.png",
+        "u04-after-mobile.png"
+      ],
+      "proofAndLimits": "Actual components with substituted network. Explicit consented payload, pending edit protection, retry identity and failure recovery tests."
+    },
+    {
+      "path": "src/app/globals.css",
+      "sha256": "1bc28b652b0fb102121a6555b080f690f7deebaf533d85b98bcf0d25170c8ecb",
+      "group": "sharedStyles",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/queries-phone.png",
+        "crm/proposal-mobile.jpg",
+        "crm/jobDetail-1440.jpg",
+        "u02-after-mobile.png"
+      ],
+      "proofAndLimits": "Shared style/field foundation is exercised by the named actual components; public, Account and Staff presentations remain distinct."
+    },
+    {
+      "path": "src/components/account/AccountProfilePanel.js",
+      "sha256": "2a91f220afc5ffcc48cd8801bb2b5d53a343ae32546fe9c892387180847ec92d",
+      "group": "account",
+      "pictures": [
+        "actual/customer-profile-draft-desktop.png",
+        "actual/customer-profile-draft-phone.png",
+        "u02-saving-mobile.png"
+      ],
+      "proofAndLimits": "Actual signed-in draft values, tab continuity and cancellation; mounted pending, success, validation and failure behavior. No live profile save in the final screenshot test."
+    },
+    {
+      "path": "src/components/account/AccountUi.js",
+      "sha256": "efe7a74ff3e5d8f81531935673b620d286bf3b030dec527133a55b53f2855b2e",
+      "group": "account",
+      "pictures": [
+        "actual/customer-profile-draft-desktop.png",
+        "actual/customer-profile-draft-phone.png",
+        "u02-saving-mobile.png"
+      ],
+      "proofAndLimits": "Actual signed-in draft values, tab continuity and cancellation; mounted pending, success, validation and failure behavior. No live profile save in the final screenshot test."
+    },
+    {
+      "path": "src/components/portal/NotificationInbox.tsx",
+      "sha256": "54d07c2bd66edaf06457fb1dc7cd0302d438e2030147ee9ce469392705cd9cb4",
+      "group": "inbox",
+      "pictures": [
+        "actual/inbox-unread-desktop.png",
+        "actual/inbox-all-phone.png",
+        "actual/inbox-bell-desktop.png",
+        "inbox/inbox-empty-phone.png",
+        "inbox/inbox-loading-phone.png",
+        "inbox/inbox-error-phone.png",
+        "inbox/inbox-admin-desktop.png"
+      ],
+      "proofAndLimits": "Actual local signed-in selected read, later arrival, deep link and exact twelve-profile audience. Empty/loading/error/provider-status samples use component substitutes. Policy guarantees have independent backend tests."
+    },
+    {
+      "path": "src/components/portal/PortalChromeContext.tsx",
+      "sha256": "5f2f40a350272cc4e73378a289ddb53cce5da89e4b62e0da5fc51a2c9a38ba75",
+      "group": "chrome",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/queries-phone.png",
+        "actual/commands-desktop.png",
+        "actual/commands-phone.png",
+        "actual/account-menu-desktop.png",
+        "actual/inbox-sidebar-new-desktop.png",
+        "actual/sidebar-count-activity-phone.png"
+      ],
+      "proofAndLimits": "Actual signed-in shell, commands, popover, phone cards and per-person count/activity. Scope, race, readiness, refresh and staff-switch regressions are tested separately."
+    },
+    {
+      "path": "src/components/portal/PortalCommandPalette.js",
+      "sha256": "e303330fea9a0bb1856ddeac27b3c472e6056842b95bbf21bb94be7657d138d7",
+      "group": "chrome",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/queries-phone.png",
+        "actual/commands-desktop.png",
+        "actual/commands-phone.png",
+        "actual/account-menu-desktop.png",
+        "actual/inbox-sidebar-new-desktop.png",
+        "actual/sidebar-count-activity-phone.png"
+      ],
+      "proofAndLimits": "Actual signed-in shell, commands, popover, phone cards and per-person count/activity. Scope, race, readiness, refresh and staff-switch regressions are tested separately."
+    },
+    {
+      "path": "src/components/portal/PortalListToolbar.js",
+      "sha256": "4a15d9b086e99960329b835de01f3cfb68e2bc4cdadc6e3884c712976fb0c906",
+      "group": "table",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/queries-phone.png",
+        "actual/columns-desktop.png",
+        "u01-after-desktop.png",
+        "crm/proposal-actions-1440.jpg"
+      ],
+      "proofAndLimits": "Shared table/toolbar and mobile cards; pinned-cell opacity, intentional inner scroll, reset/preserved record link and exact row-action tests. Empty and loading component examples are in the walkthrough."
+    },
+    {
+      "path": "src/components/portal/PortalModalForm.js",
+      "sha256": "4b8ad03101d86e7462407c332d84f57d115fa2040898b98077f96bd1a4e031b3",
+      "group": "form",
+      "pictures": [
+        "crm/form-query-1440.jpg",
+        "crm/proposal-mobile.jpg",
+        "crm/proposal-bottom-mobile.jpg",
+        "crm/proposal-saving-390.jpg",
+        "crm/proposal-error-390.jpg",
+        "crm/form-traveller-390.jpg",
+        "actual/hotel-form-phone.png",
+        "actual/seat-form-phone.png",
+        "actual/visa-form-phone.png"
+      ],
+      "proofAndLimits": "Actual shared form components, plus signed-in open/cancel cases. Explicit save, field validation, pending custom controls, unchanged payload and failed-draft recovery tests. No claim of every inherited form accepted individually."
+    },
+    {
+      "path": "src/components/portal/PortalNavWork.tsx",
+      "sha256": "71a4b519260c22b01623d23461036f18a22c75f7beed6dfade60d15d4c3a8fab",
+      "group": "chrome",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/queries-phone.png",
+        "actual/commands-desktop.png",
+        "actual/commands-phone.png",
+        "actual/account-menu-desktop.png",
+        "actual/inbox-sidebar-new-desktop.png",
+        "actual/sidebar-count-activity-phone.png"
+      ],
+      "proofAndLimits": "Actual signed-in shell, commands, popover, phone cards and per-person count/activity. Scope, race, readiness, refresh and staff-switch regressions are tested separately."
+    },
+    {
+      "path": "src/components/portal/PortalPopover.tsx",
+      "sha256": "5599c975ffd73f5b37c76905e52f0e6e33f8db5ca5ec7eff83ab948faf1d14ef",
+      "group": "chrome",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/queries-phone.png",
+        "actual/commands-desktop.png",
+        "actual/commands-phone.png",
+        "actual/account-menu-desktop.png",
+        "actual/inbox-sidebar-new-desktop.png",
+        "actual/sidebar-count-activity-phone.png"
+      ],
+      "proofAndLimits": "Actual signed-in shell, commands, popover, phone cards and per-person count/activity. Scope, race, readiness, refresh and staff-switch regressions are tested separately."
+    },
+    {
+      "path": "src/components/portal/PortalShell.tsx",
+      "sha256": "08b65f395192069f0d83eb1689a6b4e83bca35a1db1af04c4ac813aa02eae6b1",
+      "group": "chrome",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/queries-phone.png",
+        "actual/commands-desktop.png",
+        "actual/commands-phone.png",
+        "actual/account-menu-desktop.png",
+        "actual/inbox-sidebar-new-desktop.png",
+        "actual/sidebar-count-activity-phone.png"
+      ],
+      "proofAndLimits": "Actual signed-in shell, commands, popover, phone cards and per-person count/activity. Scope, race, readiness, refresh and staff-switch regressions are tested separately."
+    },
+    {
+      "path": "src/components/portal/QueryRowActions.tsx",
+      "sha256": "f525225680eabfa10034e2f6cb5bf6fcb8a2c8b43f99592e61cd2f17eead863d",
+      "group": "table",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/queries-phone.png",
+        "actual/columns-desktop.png",
+        "u01-after-desktop.png",
+        "crm/proposal-actions-1440.jpg"
+      ],
+      "proofAndLimits": "Shared table/toolbar and mobile cards; pinned-cell opacity, intentional inner scroll, reset/preserved record link and exact row-action tests. Empty and loading component examples are in the walkthrough."
+    },
+    {
+      "path": "src/components/portal/ResponsiveDataCards.tsx",
+      "sha256": "a9745a2855e584efb8dc9ea27a0fad6ff6f36009d44284378b796ae1aaeae0c8",
+      "group": "table",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/queries-phone.png",
+        "actual/columns-desktop.png",
+        "u01-after-desktop.png",
+        "crm/proposal-actions-1440.jpg"
+      ],
+      "proofAndLimits": "Shared table/toolbar and mobile cards; pinned-cell opacity, intentional inner scroll, reset/preserved record link and exact row-action tests. Empty and loading component examples are in the walkthrough."
+    },
+    {
+      "path": "src/components/portal/SelectableDataTable.tsx",
+      "sha256": "45ed42759b02c7b402468c165b1eaaf83f33c5a003771374c42eefaf65c19bb4",
+      "group": "table",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/queries-phone.png",
+        "actual/columns-desktop.png",
+        "u01-after-desktop.png",
+        "crm/proposal-actions-1440.jpg"
+      ],
+      "proofAndLimits": "Shared table/toolbar and mobile cards; pinned-cell opacity, intentional inner scroll, reset/preserved record link and exact row-action tests. Empty and loading component examples are in the walkthrough."
+    },
+    {
+      "path": "src/components/portal/entityModal/EntityModalFieldSection.js",
+      "sha256": "5c6c94783c476b2e04069b8b8d5e5c35a016087e037a3649314553d6934ed23a",
+      "group": "form",
+      "pictures": [
+        "crm/form-query-1440.jpg",
+        "crm/proposal-mobile.jpg",
+        "crm/proposal-bottom-mobile.jpg",
+        "crm/proposal-saving-390.jpg",
+        "crm/proposal-error-390.jpg",
+        "crm/form-traveller-390.jpg",
+        "actual/hotel-form-phone.png",
+        "actual/seat-form-phone.png",
+        "actual/visa-form-phone.png"
+      ],
+      "proofAndLimits": "Actual shared form components, plus signed-in open/cancel cases. Explicit save, field validation, pending custom controls, unchanged payload and failed-draft recovery tests. No claim of every inherited form accepted individually."
+    },
+    {
+      "path": "src/components/portal/entityModal/EntityModalProposalFields.js",
+      "sha256": "0adf2a46f2689822e050c96168e60ec7dc68c2add658b3b0b144e21dce840b9d",
+      "group": "form",
+      "pictures": [
+        "crm/form-query-1440.jpg",
+        "crm/proposal-mobile.jpg",
+        "crm/proposal-bottom-mobile.jpg",
+        "crm/proposal-saving-390.jpg",
+        "crm/proposal-error-390.jpg",
+        "crm/form-traveller-390.jpg",
+        "actual/hotel-form-phone.png",
+        "actual/seat-form-phone.png",
+        "actual/visa-form-phone.png"
+      ],
+      "proofAndLimits": "Actual shared form components, plus signed-in open/cancel cases. Explicit save, field validation, pending custom controls, unchanged payload and failed-draft recovery tests. No claim of every inherited form accepted individually."
+    },
+    {
+      "path": "src/components/portal/entityModal/EntityModalShell.js",
+      "sha256": "4050f4716f7e79fa74fc4c849a8f6d0e321dad6e6e4fc4f74ede3e84b7182f85",
+      "group": "form",
+      "pictures": [
+        "crm/form-query-1440.jpg",
+        "crm/proposal-mobile.jpg",
+        "crm/proposal-bottom-mobile.jpg",
+        "crm/proposal-saving-390.jpg",
+        "crm/proposal-error-390.jpg",
+        "crm/form-traveller-390.jpg",
+        "actual/hotel-form-phone.png",
+        "actual/seat-form-phone.png",
+        "actual/visa-form-phone.png"
+      ],
+      "proofAndLimits": "Actual shared form components, plus signed-in open/cancel cases. Explicit save, field validation, pending custom controls, unchanged payload and failed-draft recovery tests. No claim of every inherited form accepted individually."
+    },
+    {
+      "path": "src/components/portal/entityModal/EntityModalStaffFields.js",
+      "sha256": "81c23e27535af5c956f8a33d9ff507c68e38861ff3b78f58d5e614449b98f3ec",
+      "group": "staffFields",
+      "pictures": [
+        "crm/form-assignQueryTeams-390.jpg",
+        "crm/proposal-saving-390.jpg"
+      ],
+      "proofAndLimits": "Shared field presentation and disabled-control state are pictured. Staff role/extra-alert multiselect disabling has mounted regression proof. No separate personnel form or authority redesign; no personnel save was performed."
+    },
+    {
+      "path": "src/components/portal/entityModal/EntityModalTravellerFields.js",
+      "sha256": "c00d0d4123ad8a41e41b784a5e54ab0e3bdc47bc649b1a6eddf045e2cec6de07",
+      "group": "form",
+      "pictures": [
+        "crm/form-query-1440.jpg",
+        "crm/proposal-mobile.jpg",
+        "crm/proposal-bottom-mobile.jpg",
+        "crm/proposal-saving-390.jpg",
+        "crm/proposal-error-390.jpg",
+        "crm/form-traveller-390.jpg",
+        "actual/hotel-form-phone.png",
+        "actual/seat-form-phone.png",
+        "actual/visa-form-phone.png"
+      ],
+      "proofAndLimits": "Actual shared form components, plus signed-in open/cancel cases. Explicit save, field validation, pending custom controls, unchanged payload and failed-draft recovery tests. No claim of every inherited form accepted individually."
+    },
+    {
+      "path": "src/components/portal/jobCard/JobCardCommandCenter.js",
+      "sha256": "4ced5e2fc8ca3eda9a44fdbb1b75bf01da428774dbafe9115352bb456655340f",
+      "group": "jobCard",
+      "pictures": [
+        "crm/jobDetail-1440.jpg",
+        "crm/jobDetail-expanded-1440.jpg",
+        "crm/jobDetail-390.jpg"
+      ],
+      "proofAndLimits": "Populated real command-centre component with synthetic API; final signed-in Job Card creation and traveller flow. Readiness/checklist/access contracts retain tests."
+    },
+    {
+      "path": "src/components/portal/portalChromeState.ts",
+      "sha256": "18d41c5a7e11ca2f60857eb79fd446f48dcaadcffac12da38bb4522e5ce33bb8",
+      "group": "chrome",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/queries-phone.png",
+        "actual/commands-desktop.png",
+        "actual/commands-phone.png",
+        "actual/account-menu-desktop.png",
+        "actual/inbox-sidebar-new-desktop.png",
+        "actual/sidebar-count-activity-phone.png"
+      ],
+      "proofAndLimits": "Actual signed-in shell, commands, popover, phone cards and per-person count/activity. Scope, race, readiness, refresh and staff-switch regressions are tested separately."
+    },
+    {
+      "path": "src/components/portal/postTour/PostTourFeedbackView.tsx",
+      "sha256": "65818d90c2022e15c0a5cd145cbd66b36bf826e9cff72311cfc5cd98a0b4d4a3",
+      "group": "postTour",
+      "pictures": ["crm/postTour-1440.jpg", "crm/postTour-390.jpg"],
+      "proofAndLimits": "Actual populated custom component with synthetic responses. Selectors move out of nested cards; existing feedback/token/submission semantics remain."
+    },
+    {
+      "path": "src/components/portal/postTour/PostTourFeedbackWorkspace.tsx",
+      "sha256": "f6152759e99bf0f125c3bd6ae712281ddaf548228b65474492f7c12a61a207b7",
+      "group": "postTour",
+      "pictures": ["crm/postTour-1440.jpg", "crm/postTour-390.jpg"],
+      "proofAndLimits": "Actual populated custom component with synthetic responses. Selectors move out of nested cards; existing feedback/token/submission semantics remain."
+    },
+    {
+      "path": "src/components/portal/travel/StaffTravelWorkspace.tsx",
+      "sha256": "8033b1bace9b8594c55c541565a7dfc7e6be142750619f7f26ddf6f33e70f109",
+      "group": "travel",
+      "pictures": [
+        "crm/staffTravel-1440.jpg",
+        "crm/staffTravel-390.jpg",
+        "crm/travel-person-after.jpg",
+        "crm/travel-failure-390.jpg",
+        "crm/externalManagers-1440.jpg",
+        "crm/externalManagers-390.jpg"
+      ],
+      "proofAndLimits": "Actual custom components with deferred or failed synthetic mutation. Selected person pauses with draft; failure retains values. Existing backend permission/ownership tests."
+    },
+    {
+      "path": "src/components/portal/travel/TravelWorkspaceUi.tsx",
+      "sha256": "f278bb8715d1fd539347773ff6f92db4587734232dd5890d60866c6311dce59c",
+      "group": "travel",
+      "pictures": [
+        "crm/staffTravel-1440.jpg",
+        "crm/staffTravel-390.jpg",
+        "crm/travel-person-after.jpg",
+        "crm/travel-failure-390.jpg",
+        "crm/externalManagers-1440.jpg",
+        "crm/externalManagers-390.jpg"
+      ],
+      "proofAndLimits": "Actual custom components with deferred or failed synthetic mutation. Selected person pauses with draft; failure retains values. Existing backend permission/ownership tests."
+    },
+    {
+      "path": "src/components/portal/travel/travelPresentation.ts",
+      "sha256": "2b9cc7a7966449949fad552f678f5c16b3778b6d26b2a5da6c600b54459234d6",
+      "group": "travel",
+      "pictures": [
+        "crm/staffTravel-1440.jpg",
+        "crm/staffTravel-390.jpg",
+        "crm/travel-person-after.jpg",
+        "crm/travel-failure-390.jpg",
+        "crm/externalManagers-1440.jpg",
+        "crm/externalManagers-390.jpg"
+      ],
+      "proofAndLimits": "Actual custom components with deferred or failed synthetic mutation. Selected person pauses with draft; failure retains values. Existing backend permission/ownership tests."
+    },
+    {
+      "path": "src/components/portal/usePortalWorkspaceState.ts",
+      "sha256": "f92c6da05a4dd02922c9d3a568d40a85a9d8d8a5fc69b3b9eef9dc9276b7dbac",
+      "group": "sharedBehavior",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/sidebar-count-activity-phone.png",
+        "crm/proposal-saving-390.jpg"
+      ],
+      "proofAndLimits": "No standalone page or distinct visual state for this shared lifecycle/type/policy file. Corresponding rendered UI is pictured; direct behavior, race, permission and payload tests supply proof."
+    },
+    {
+      "path": "src/components/portal/workspace/ContractingView.tsx",
+      "sha256": "878fef36e8940348bb5bb36b49bf3728f4115a8534861cb03c4b6ee02d194d1e",
+      "group": "commercial",
+      "pictures": [
+        "crm/contracting-1440.jpg",
+        "crm/contracting-390.jpg",
+        "crm/proposals-1440.jpg",
+        "crm/proposals-390.jpg",
+        "crm/proposal-actions-1440.jpg",
+        "actual/inbox-query-deep-link-desktop.png"
+      ],
+      "proofAndLimits": "Actual populated components and final signed-in Query through confirmed-offer chain. Exact record/revision targets, pricing and stage ownership remain tested."
+    },
+    {
+      "path": "src/components/portal/workspace/PortalWorkspaceHeader.tsx",
+      "sha256": "27b29bee153f7a1a5cf48aeaa09ca024b5799690ef64b19b54381e5b28620a09",
+      "group": "table",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/queries-phone.png",
+        "actual/columns-desktop.png",
+        "u01-after-desktop.png",
+        "crm/proposal-actions-1440.jpg"
+      ],
+      "proofAndLimits": "Shared table/toolbar and mobile cards; pinned-cell opacity, intentional inner scroll, reset/preserved record link and exact row-action tests. Empty and loading component examples are in the walkthrough."
+    },
+    {
+      "path": "src/components/portal/workspace/ProposalsView.tsx",
+      "sha256": "82909b0d1bd4ac58dc46ad7eef6001c604867e9e6a0d5270a4f3b1a4bd577650",
+      "group": "commercial",
+      "pictures": [
+        "crm/contracting-1440.jpg",
+        "crm/contracting-390.jpg",
+        "crm/proposals-1440.jpg",
+        "crm/proposals-390.jpg",
+        "crm/proposal-actions-1440.jpg",
+        "actual/inbox-query-deep-link-desktop.png"
+      ],
+      "proofAndLimits": "Actual populated components and final signed-in Query through confirmed-offer chain. Exact record/revision targets, pricing and stage ownership remain tested."
+    },
+    {
+      "path": "src/components/portal/workspace/QueriesView.tsx",
+      "sha256": "36d0d1c416394fecbf0232c6f7aafa4f38c3dcd8eeef55c1d0273e5c660a216e",
+      "group": "commercial",
+      "pictures": [
+        "crm/contracting-1440.jpg",
+        "crm/contracting-390.jpg",
+        "crm/proposals-1440.jpg",
+        "crm/proposals-390.jpg",
+        "crm/proposal-actions-1440.jpg",
+        "actual/inbox-query-deep-link-desktop.png"
+      ],
+      "proofAndLimits": "Actual populated components and final signed-in Query through confirmed-offer chain. Exact record/revision targets, pricing and stage ownership remain tested."
+    },
+    {
+      "path": "src/components/portal/workspace/admin/ActivityView.tsx",
+      "sha256": "7d07e4d8e7b113d0715c99d9e6847a769dc79bf91f0aaef39f9207156bf41afd",
+      "group": "inbox",
+      "pictures": [
+        "actual/inbox-unread-desktop.png",
+        "actual/inbox-all-phone.png",
+        "actual/inbox-bell-desktop.png",
+        "inbox/inbox-empty-phone.png",
+        "inbox/inbox-loading-phone.png",
+        "inbox/inbox-error-phone.png",
+        "inbox/inbox-admin-desktop.png"
+      ],
+      "proofAndLimits": "Actual local signed-in selected read, later arrival, deep link and exact twelve-profile audience. Empty/loading/error/provider-status samples use component substitutes. Policy guarantees have independent backend tests."
+    },
+    {
+      "path": "src/components/portal/workspace/operations/JobCardsView.tsx",
+      "sha256": "f5ab8227b397caa940649b559d3b95fd585aca7c4ab163c4ef9da9bc2830957f",
+      "group": "jobCard",
+      "pictures": [
+        "crm/jobDetail-1440.jpg",
+        "crm/jobDetail-expanded-1440.jpg",
+        "crm/jobDetail-390.jpg"
+      ],
+      "proofAndLimits": "Populated real command-centre component with synthetic API; final signed-in Job Card creation and traveller flow. Readiness/checklist/access contracts retain tests."
+    },
+    {
+      "path": "src/components/portal/workspace/portalRouteLifecycle.tsx",
+      "sha256": "fcd80ce4c7cadda463d837717c59ddfc2122cca795434e182275b85bd1abfad1",
+      "group": "sharedBehavior",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/sidebar-count-activity-phone.png",
+        "crm/proposal-saving-390.jpg"
+      ],
+      "proofAndLimits": "No standalone page or distinct visual state for this shared lifecycle/type/policy file. Corresponding rendered UI is pictured; direct behavior, race, permission and payload tests supply proof."
+    },
+    {
+      "path": "src/components/portal/workspace/portalViewTypes.ts",
+      "sha256": "066e908512d3344f6d684f7a95bdc99b189035d1c48b73e9a68800e1b29f23f0",
+      "group": "sharedBehavior",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/sidebar-count-activity-phone.png",
+        "crm/proposal-saving-390.jpg"
+      ],
+      "proofAndLimits": "No standalone page or distinct visual state for this shared lifecycle/type/policy file. Corresponding rendered UI is pictured; direct behavior, race, permission and payload tests supply proof."
+    },
+    {
+      "path": "src/components/portal/workspace/portalWorkspaceRows.ts",
+      "sha256": "7a0c4aafd4b71f10177943edd8a0edaf461cae54c5142cbe76f826f0d66c9fb6",
+      "group": "sharedBehavior",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/sidebar-count-activity-phone.png",
+        "crm/proposal-saving-390.jpg"
+      ],
+      "proofAndLimits": "No standalone page or distinct visual state for this shared lifecycle/type/policy file. Corresponding rendered UI is pictured; direct behavior, race, permission and payload tests supply proof."
+    },
+    {
+      "path": "src/components/portal/workspace/ticketing/TicketDashboardView.tsx",
+      "sha256": "c56ec163931ab9ba42da9b1c06944a690314fed60f5bfb074f6cef5f70b0042f",
+      "group": "ticketing",
+      "pictures": [
+        "actual/ticketing-overview-desktop.png",
+        "actual/ticketing-overview-phone.png",
+        "crm/tickets-1440.jpg",
+        "crm/tickets-390.jpg",
+        "crm/form-ticket-390.jpg",
+        "crm/form-pnr-390.jpg"
+      ],
+      "proofAndLimits": "Actual signed-in empty overview and separate populated component lists/forms. Earlier ticket create/edit browser proof, loaded readiness and action/scope tests remain. Final selected run created no ticket."
+    },
+    {
+      "path": "src/components/portal/workspace/ticketing/TicketsView.tsx",
+      "sha256": "b722b9a4282d7961ced09b83f1af31ecc8b776b2991fb6010685b8d6a61254f7",
+      "group": "ticketing",
+      "pictures": [
+        "actual/ticketing-overview-desktop.png",
+        "actual/ticketing-overview-phone.png",
+        "crm/tickets-1440.jpg",
+        "crm/tickets-390.jpg",
+        "crm/form-ticket-390.jpg",
+        "crm/form-pnr-390.jpg"
+      ],
+      "proofAndLimits": "Actual signed-in empty overview and separate populated component lists/forms. Earlier ticket create/edit browser proof, loaded readiness and action/scope tests remain. Final selected run created no ticket."
+    },
+    {
+      "path": "src/components/portal/workspace/usePortalWorkspaceData.ts",
+      "sha256": "8a00304cf28e520469097052e75c5d0d9e317d4190c465c08076ef8d5ff9f492",
+      "group": "sharedBehavior",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/sidebar-count-activity-phone.png",
+        "crm/proposal-saving-390.jpg"
+      ],
+      "proofAndLimits": "No standalone page or distinct visual state for this shared lifecycle/type/policy file. Corresponding rendered UI is pictured; direct behavior, race, permission and payload tests supply proof."
+    },
+    {
+      "path": "src/components/ui/CircularServicesMenu.js",
+      "sha256": "bf11c1c60a7b5f56a392fed32d09e30e83393c98d3efd114511bf9c9862ae692",
+      "group": "services",
+      "pictures": ["u05-after-1440.png", "u05-after-390.png"],
+      "proofAndLimits": "Actual component at narrow/desktop widths, enlarged text and keyboard activation; circular design retained."
+    },
+    {
+      "path": "src/components/ui/ModernContactForm.js",
+      "sha256": "f17b3c22ad6a0b96a1d9daa69dc845e3dc2817c103a38e8461d768436a827449",
+      "group": "contact",
+      "pictures": [
+        "u03-after-desktop.png",
+        "u03-sending-mobile.png",
+        "u04-after-mobile.png"
+      ],
+      "proofAndLimits": "Actual components with substituted network. Explicit consented payload, pending edit protection, retry identity and failure recovery tests."
+    },
+    {
+      "path": "src/components/ui/application-field-variants.ts",
+      "sha256": "207e10b86bc8c5a01691a7c8a6debed5d659dcc6762ed1958dfe698532250c9b",
+      "group": "sharedStyles",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/queries-phone.png",
+        "crm/proposal-mobile.jpg",
+        "crm/jobDetail-1440.jpg",
+        "u02-after-mobile.png"
+      ],
+      "proofAndLimits": "Shared style/field foundation is exercised by the named actual components; public, Account and Staff presentations remain distinct."
+    },
+    {
+      "path": "src/emails/ContactFormEmail.js",
+      "sha256": "1629c57bb5d94c91622f364397c971fa5054fb1b5d95ac4990517056ea2ae2b2",
+      "group": "email",
+      "pictures": [
+        "emails/query-desktop.png",
+        "emails/query-phone.png",
+        "emails/verification-phone.png",
+        "emails/password_reset-phone.png",
+        "emails/contact-phone.png",
+        "emails/long-phone.png",
+        "emails/minimal-phone.png"
+      ],
+      "proofAndLimits": "All 23 variants at desktop/phone widths in email-review.md. Real template render, escaping, optional values, safe URL, readable text, deterministic output, privacy/transport contracts. Real local auth callback stopped at provider_not_configured. Zero provider calls from render capture."
+    },
+    {
+      "path": "src/lib/portal/constants.js",
+      "sha256": "279452a5a8b275fc9c3fcf2ffaf77019d73b94db22cf364cfbd57c284395b84f",
+      "group": "sharedBehavior",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/sidebar-count-activity-phone.png",
+        "crm/proposal-saving-390.jpg"
+      ],
+      "proofAndLimits": "No standalone page or distinct visual state for this shared lifecycle/type/policy file. Corresponding rendered UI is pictured; direct behavior, race, permission and payload tests supply proof."
+    },
+    {
+      "path": "src/lib/portal/modalLifecycle.js",
+      "sha256": "428a93cec84460724d8106b22b85aa67410aa96c7e1b2ccb09b30a467c1c3944",
+      "group": "sharedBehavior",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/sidebar-count-activity-phone.png",
+        "crm/proposal-saving-390.jpg"
+      ],
+      "proofAndLimits": "No standalone page or distinct visual state for this shared lifecycle/type/policy file. Corresponding rendered UI is pictured; direct behavior, race, permission and payload tests supply proof."
+    },
+    {
+      "path": "src/lib/portal/permissions.js",
+      "sha256": "06d43dd85558d5a2d4711687ead986d4fc3e914aef5f556fcaecda44470b5db7",
+      "group": "sharedBehavior",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/sidebar-count-activity-phone.png",
+        "crm/proposal-saving-390.jpg"
+      ],
+      "proofAndLimits": "No standalone page or distinct visual state for this shared lifecycle/type/policy file. Corresponding rendered UI is pictured; direct behavior, race, permission and payload tests supply proof."
+    },
+    {
+      "path": "src/lib/portal/portalDataGrid.ts",
+      "sha256": "c619a4d86f298bac1d82fecc7c0df8853f2b42bb8a6c977576c40b44295a5f10",
+      "group": "sharedBehavior",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/sidebar-count-activity-phone.png",
+        "crm/proposal-saving-390.jpg"
+      ],
+      "proofAndLimits": "No standalone page or distinct visual state for this shared lifecycle/type/policy file. Corresponding rendered UI is pictured; direct behavior, race, permission and payload tests supply proof."
+    },
+    {
+      "path": "src/lib/portal/portalDestinationReady.ts",
+      "sha256": "38a8a162e73f6ea944387f3df4ddab801971eafa3a09fc4226d37187370dbf69",
+      "group": "sharedBehavior",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/sidebar-count-activity-phone.png",
+        "crm/proposal-saving-390.jpg"
+      ],
+      "proofAndLimits": "No standalone page or distinct visual state for this shared lifecycle/type/policy file. Corresponding rendered UI is pictured; direct behavior, race, permission and payload tests supply proof."
+    },
+    {
+      "path": "src/lib/portal/portalRouteManifest.ts",
+      "sha256": "436ec790822dc2cee9494cd5d433e82ecfba2c84d30dd94c472e7019efabf9b2",
+      "group": "sharedBehavior",
+      "pictures": [
+        "actual/queries-desktop.png",
+        "actual/sidebar-count-activity-phone.png",
+        "crm/proposal-saving-390.jpg"
+      ],
+      "proofAndLimits": "No standalone page or distinct visual state for this shared lifecycle/type/policy file. Corresponding rendered UI is pictured; direct behavior, race, permission and payload tests supply proof."
+    },
+    {
+      "path": "convex/lib/transactionalEmail.tsx",
+      "sha256": "9396213091dfa29cee66bab799280ffe12a05015af05887a317e1ab787da342f",
+      "group": "email",
+      "pictures": [
+        "emails/query-desktop.png",
+        "emails/query-phone.png",
+        "emails/verification-phone.png",
+        "emails/password_reset-phone.png",
+        "emails/contact-phone.png",
+        "emails/long-phone.png",
+        "emails/minimal-phone.png"
+      ],
+      "proofAndLimits": "All 23 variants at desktop/phone widths in email-review.md. Real template render, escaping, optional values, safe URL, readable text, deterministic output, privacy/transport contracts. Real local auth callback stopped at provider_not_configured. Zero provider calls from render capture."
+    },
+    {
+      "path": "convex/lib/authEmailHtml.ts",
+      "sha256": "9a8e1a987954912edbe7ba6521c630a4965615c47c3e8eb752ed268a0bbf4709",
+      "group": "email",
+      "pictures": [
+        "emails/query-desktop.png",
+        "emails/query-phone.png",
+        "emails/verification-phone.png",
+        "emails/password_reset-phone.png",
+        "emails/contact-phone.png",
+        "emails/long-phone.png",
+        "emails/minimal-phone.png"
+      ],
+      "proofAndLimits": "All 23 variants at desktop/phone widths in email-review.md. Real template render, escaping, optional values, safe URL, readable text, deterministic output, privacy/transport contracts. Real local auth callback stopped at provider_not_configured. Zero provider calls from render capture."
+    },
+    {
+      "path": "convex/crm/notificationEmailContent.ts",
+      "sha256": "0c3f1b0f15d7429c5eb1948f65dc4aca14e566762d1fe4ff7f34a7c0267e1eb5",
+      "group": "email",
+      "pictures": [
+        "emails/query-desktop.png",
+        "emails/query-phone.png",
+        "emails/verification-phone.png",
+        "emails/password_reset-phone.png",
+        "emails/contact-phone.png",
+        "emails/long-phone.png",
+        "emails/minimal-phone.png"
+      ],
+      "proofAndLimits": "All 23 variants at desktop/phone widths in email-review.md. Real template render, escaping, optional values, safe URL, readable text, deterministic output, privacy/transport contracts. Real local auth callback stopped at provider_not_configured. Zero provider calls from render capture."
+    },
+    {
+      "path": "convex/crm/notificationEmails.ts",
+      "sha256": "443152d6bfd074d8cac0fa598b5d9af7b1f0d5f1226a55d25516a4826d0e45fc",
+      "group": "email",
+      "pictures": [
+        "emails/query-desktop.png",
+        "emails/query-phone.png",
+        "emails/verification-phone.png",
+        "emails/password_reset-phone.png",
+        "emails/contact-phone.png",
+        "emails/long-phone.png",
+        "emails/minimal-phone.png"
+      ],
+      "proofAndLimits": "All 23 variants at desktop/phone widths in email-review.md. Real template render, escaping, optional values, safe URL, readable text, deterministic output, privacy/transport contracts. Real local auth callback stopped at provider_not_configured. Zero provider calls from render capture."
+    },
+    {
+      "path": "convex/betterAuth/auth.ts",
+      "sha256": "6f23af4a12c65d0f3ee8b3fb81f5a2324ee4c157e402dba3c6c28cac97ba0172",
+      "group": "email",
+      "pictures": [
+        "emails/query-desktop.png",
+        "emails/query-phone.png",
+        "emails/verification-phone.png",
+        "emails/password_reset-phone.png",
+        "emails/contact-phone.png",
+        "emails/long-phone.png",
+        "emails/minimal-phone.png"
+      ],
+      "proofAndLimits": "All 23 variants at desktop/phone widths in email-review.md. Real template render, escaping, optional values, safe URL, readable text, deterministic output, privacy/transport contracts. Real local auth callback stopped at provider_not_configured. Zero provider calls from render capture."
+    },
+    {
+      "path": "convex/crm/lib/productionTestExecution.ts",
+      "sha256": "eee6121aa7697d03de04cb636e973f8cae882ad5f4f2b6f4d9d74a4d760da4c3",
+      "group": "email",
+      "pictures": [
+        "emails/query-desktop.png",
+        "emails/query-phone.png",
+        "emails/verification-phone.png",
+        "emails/password_reset-phone.png",
+        "emails/contact-phone.png",
+        "emails/long-phone.png",
+        "emails/minimal-phone.png"
+      ],
+      "proofAndLimits": "All 23 variants at desktop/phone widths in email-review.md. Real template render, escaping, optional values, safe URL, readable text, deterministic output, privacy/transport contracts. Real local auth callback stopped at provider_not_configured. Zero provider calls from render capture."
+    }
+  ],
+  "stateInventory": "screenshot-walkthrough.md#picture-and-state-inventory",
+  "nonVisualBackendPolicy": "Recipient selection, retry, idempotency, auth-token construction, controls and races have no screenshot proof. Registered exact-audience, transport, schema-backed and controlled-mutation evidence is retained.",
+  "unchangedRoutes": "site-coverage.json records checked/unchanged/limited routes. No duplicate images are required for an unchanged route."
+}

@@ -38,6 +38,7 @@ export const PORTAL_NAV_ICONS = {
   "/portal/employees-on-leave": CalendarDays,
   "/portal/event-photo-booth": Camera,
   "/portal/expenses": ReceiptIndianRupee,
+  "/portal/external-tour-managers": ContactRound,
   "/portal/finance": WalletCards,
   "/portal/flights": Plane,
   "/portal/hotels": BedDouble,
@@ -46,6 +47,7 @@ export const PORTAL_NAV_ICONS = {
   "/portal/office-check-in": ClockCheck,
   "/portal/passport": BookOpen,
   "/portal/pipeline": Kanban,
+  "/portal/post-tour-feedback": ClipboardList,
   "/portal/proposals": FileText,
   "/portal/queries": ClipboardList,
   "/portal/reports": ChartNoAxesCombined,
@@ -55,6 +57,7 @@ export const PORTAL_NAV_ICONS = {
   "/portal/ticketing": Gauge,
   "/portal/tickets": TicketCheck,
   "/portal/tour-managers": ContactRound,
+  "/portal/travel-schedule": CalendarDays,
   "/portal/travellers": UsersRound,
   "/portal/visa": Stamp,
 } satisfies Record<string, LucideIcon>;

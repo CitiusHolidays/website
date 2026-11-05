@@ -1,4 +1,4 @@
-import { Cause, Context, Effect, Exit, Schema } from "effect";
+import { Cause, Clock, Context, Effect, Exit, Ref, Schema } from "effect";
 import {
   SCHEDULED_JOBS,
   type ScheduledJob,
@@ -163,12 +163,12 @@ interface ProbeOutcome {
 
 function unregisteredRecipeResult(
   recipeId: ProductionTestRecipeId,
-  startedAt: number
+  durationMs: number
 ): ProductionTestRecipeResult {
   return {
     cleanup: "passed",
     detail: "Recipe is not registered.",
-    durationMs: Date.now() - startedAt,
+    durationMs,
     label: recipeId,
     recipeId,
     recordedEffects: [],
@@ -187,7 +187,7 @@ function unregisteredRecipeResult(
 function failedRecipeResult(
   recipe: ProductionTestRecipe,
   recipeId: ProductionTestRecipeId,
-  startedAt: number,
+  durationMs: number,
   outcome: Exit.Exit<ProbeOutcome, unknown>,
   cleanup: Exit.Exit<void, unknown>
 ): ProductionTestRecipeResult {
@@ -196,7 +196,7 @@ function failedRecipeResult(
   return {
     cleanup: cleanupStatus,
     detail,
-    durationMs: Date.now() - startedAt,
+    durationMs,
     label: recipe.label,
     recipeId,
     recordedEffects: [],
@@ -233,7 +233,7 @@ function failedRecipeResult(
 function completedRecipeResult(
   recipe: ProductionTestRecipe,
   recipeId: ProductionTestRecipeId,
-  startedAt: number,
+  durationMs: number,
   outcome: ProbeOutcome,
   cleanup: Exit.Exit<void, unknown>
 ): ProductionTestRecipeResult {
@@ -241,7 +241,7 @@ function completedRecipeResult(
   return {
     cleanup: cleanupStatus,
     detail: outcome.detail,
-    durationMs: Date.now() - startedAt,
+    durationMs,
     label: recipe.label,
     recipeId,
     recordedEffects: outcome.recordedEffects,
@@ -284,16 +284,30 @@ function runProductionTestRecipe(
   timeoutMs: number
 ): Effect.Effect<ProductionTestRecipeResult> {
   return Effect.gen(function* () {
-    const startedAt = Date.now();
     const recipe = RECIPE_BY_ID.get(recipeId);
     if (!recipe) {
-      return unregisteredRecipeResult(recipeId, startedAt);
+      return unregisteredRecipeResult(recipeId, 0);
     }
-    const outcome = yield* Effect.exit(probe.run(recipe).pipe(Effect.timeout(timeoutMs)));
-    const cleanup = yield* Effect.exit(probe.cleanup(recipe));
+    const startedAt = yield* Clock.monotonicTimeNanos;
+    const cleanupResult = yield* Ref.make<Exit.Exit<void, RecipeProbeFailure | Cause.TimeoutError>>(
+      Exit.void
+    );
+    const outcome = yield* Effect.suspend(() => probe.run(recipe)).pipe(
+      Effect.timeout(timeoutMs),
+      Effect.exit,
+      Effect.ensuring(
+        Effect.suspend(() => probe.cleanup(recipe)).pipe(
+          Effect.timeout(timeoutMs),
+          Effect.exit,
+          Effect.flatMap((result) => Ref.set(cleanupResult, result))
+        )
+      )
+    );
+    const cleanup = yield* Ref.get(cleanupResult);
+    const durationMs = Number((yield* Clock.monotonicTimeNanos) - startedAt) / 1_000_000;
     return Exit.isFailure(outcome)
-      ? failedRecipeResult(recipe, recipeId, startedAt, outcome, cleanup)
-      : completedRecipeResult(recipe, recipeId, startedAt, outcome.value, cleanup);
+      ? failedRecipeResult(recipe, recipeId, durationMs, outcome, cleanup)
+      : completedRecipeResult(recipe, recipeId, durationMs, outcome.value, cleanup);
   });
 }
 

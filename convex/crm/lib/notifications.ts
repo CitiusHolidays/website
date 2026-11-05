@@ -2,8 +2,14 @@ import { internal } from "../../_generated/api";
 import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx } from "../../_generated/server";
 import { hasOwnKey } from "../../lib/runtimeValues";
+import { projectNavigationActivity } from "../navigationActivityProjection";
 import { deleteNotificationPage, queueEntityNotificationCleanup } from "../notificationCleanup";
+import {
+  enqueueNotificationEmailOutbox,
+  type NotificationEmailEnvelope,
+} from "../notificationEmailOutbox";
 import { projectNotificationInsert } from "../notificationUnreadProjection";
+import { type NotificationWorkKey, notificationWorkAudience } from "../notificationWorkAudience";
 import { hasActiveE2eRun, insertWithE2eOwnership } from "./e2eOwnership";
 import {
   type OperationalControlKey,
@@ -108,6 +114,7 @@ const workflowNotificationRuns = new WeakMap<
 export type BellNotificationTargets =
   | { kind: "roles"; roles: string[] }
   | { kind: "staff"; staffIds: Id<"staffUsers">[] }
+  | { kind: "exactStaff"; staffIds: Id<"staffUsers">[] }
   | { fallbackRoles?: string[]; kind: "matching"; matches: NotificationStaffMatcher };
 
 export type EmailNotificationTargets =
@@ -121,6 +128,7 @@ export interface WorkflowNotificationPlan {
   bellTargets: BellNotificationTargets;
   content: NotificationInput;
   emailDelayMs?: number;
+  emailRecipientPurpose?: NotificationEmailEnvelope["recipientPurpose"];
   emailTargets: EmailNotificationTargets;
   operationalControls?: {
     additionalEmailKey?: OperationalControlKey;
@@ -161,6 +169,7 @@ export function prepareWorkflowNotificationBoundary(plan: WorkflowNotificationPl
 }
 
 interface PreparedWorkflowNotification {
+  activeStaff: NotificationStaff[];
   additionalEmailControl: ResolvedOperationalControl;
   additionalRecipients: Set<string>;
   audienceStaffIds: Set<Id<"staffUsers">>;
@@ -179,8 +188,9 @@ async function queueNotificationEmail(
   eventId: string | undefined,
   input: NotificationInput,
   options?: {
+    controlKeys?: OperationalControlKey[];
     emailDelayMs?: number;
-    emailRoles?: string[];
+    recipientPurpose?: NotificationEmailEnvelope["recipientPurpose"];
   }
 ) {
   if (recipients.size === 0 || !eventId) {
@@ -189,17 +199,19 @@ async function queueNotificationEmail(
   if (await hasActiveE2eRun(ctx)) {
     return false;
   }
-  await ctx.scheduler.runAfter(
-    options?.emailDelayMs ?? 0,
-    internal.crm.notificationEmails.sendNotificationEmail,
+  await enqueueNotificationEmailOutbox(
+    ctx,
     {
       body: input.body,
+      controlKeys: options?.controlKeys,
       entityId: notificationEntityId(input.entityId),
       entityType: input.entityType,
       eventId: String(eventId),
+      recipientPurpose: options?.recipientPurpose,
       recipients: Array.from(recipients),
       title: input.title,
-    }
+    },
+    options?.emailDelayMs ?? 0
   );
   return true;
 }
@@ -237,6 +249,11 @@ async function workflowEffectDigest(
     body: plan.content.body,
     emailControlKey: plan.operationalControls?.emailKey,
     emailDelayMs: plan.emailDelayMs,
+    emailRecipientPurpose:
+      plan.emailRecipientPurpose ??
+      (plan.emailTargets.kind === "roles"
+        ? { kind: "roles", roles: expandNotificationEmailRoles(plan.emailTargets.roles) }
+        : undefined),
     emailRecipients: Array.from(workflowRecipients).sort((left, right) =>
       left.localeCompare(right)
     ),
@@ -314,7 +331,8 @@ function roleBellRows(
 
 function directStaffBellRows(
   staffRows: NotificationStaff[],
-  base: ReturnType<typeof notificationBellBase>
+  base: ReturnType<typeof notificationBellBase>,
+  exactStaff = false
 ) {
   const notifiedUserIds = new Set<string>();
   const staffRoleKeys = new Set<string>();
@@ -331,6 +349,10 @@ function directStaffBellRows(
         recipientStaffId: member._id,
         recipientUserId: member.authUserId,
       });
+      continue;
+    }
+    if (exactStaff) {
+      rows.push({ ...base, recipientStaffId: member._id });
       continue;
     }
     for (const role of member.roles) {
@@ -383,7 +405,7 @@ function notificationBellRows(
     return roleBellRows(targets.roles, base);
   }
   const targetStaff = staffForBellTargets(activeStaff, targets);
-  const rows = directStaffBellRows(targetStaff, base);
+  const rows = directStaffBellRows(targetStaff, base, targets.kind === "exactStaff");
   if (targets.kind === "matching") {
     rows.push(...fallbackBellRows(targetStaff, targets.fallbackRoles ?? [], base));
   }
@@ -511,6 +533,7 @@ async function prepareWorkflowNotification(
     ? requestedAdditionalRecipients
     : new Set<string>();
   return {
+    activeStaff,
     additionalEmailControl,
     additionalRecipients,
     audienceStaffIds,
@@ -561,6 +584,7 @@ async function replayedWorkflowNotificationResult(
 async function publishWorkflowNotificationOnce(ctx: MutationCtx, plan: WorkflowNotificationPlan) {
   const createdAt = Date.now();
   const {
+    activeStaff,
     additionalEmailControl,
     additionalRecipients,
     audienceStaffIds,
@@ -608,6 +632,11 @@ async function publishWorkflowNotificationOnce(ctx: MutationCtx, plan: WorkflowN
       return await insertWithE2eOwnership(ctx, "notifications", { ...row, ...projection });
     })
   );
+  await projectNavigationActivity(
+    ctx,
+    bellRows.map((row, index) => ({ ...row, _id: notificationIds[index] })),
+    activeStaff
+  );
   const emailEventId = notificationIds[0] ? String(notificationIds[0]) : effectId;
   if (emailRecipients.size > 0) {
     await recordNotificationEmailOrigin(
@@ -619,9 +648,32 @@ async function publishWorkflowNotificationOnce(ctx: MutationCtx, plan: WorkflowN
       audienceUserIds
     );
   }
-  const scheduled = await queueNotificationEmail(ctx, emailRecipients, emailEventId, plan.content, {
-    emailDelayMs: plan.emailDelayMs,
-  });
+  const workflowScheduled = await queueNotificationEmail(
+    ctx,
+    workflowRecipients,
+    emailEventId,
+    plan.content,
+    {
+      controlKeys: [emailControl.key],
+      emailDelayMs: plan.emailDelayMs,
+      recipientPurpose:
+        plan.emailRecipientPurpose ??
+        (plan.emailTargets.kind === "roles"
+          ? { kind: "roles", roles: expandNotificationEmailRoles(plan.emailTargets.roles) }
+          : undefined),
+    }
+  );
+  const additionalScheduled = await queueNotificationEmail(
+    ctx,
+    additionalRecipients,
+    emailEventId,
+    plan.content,
+    {
+      controlKeys: [additionalEmailControl.key],
+      emailDelayMs: plan.emailDelayMs,
+    }
+  );
+  const scheduled = workflowScheduled || additionalScheduled;
   const workflowRecipientCount = workflowRecipients.size;
   const emailDisposition = notificationEffectDisposition(
     emailControl.enabled,
@@ -705,6 +757,29 @@ export async function publishWorkflowNotification(
       runs.delete(effectId);
     }
   }
+}
+
+export async function publishWorkNotification(
+  ctx: MutationCtx,
+  key: NotificationWorkKey,
+  content: NotificationInput
+) {
+  if (!(content.entityId && content.entityType)) {
+    throw new Error("WORK_NOTIFICATION_ENTITY_REQUIRED");
+  }
+  const staff = await notificationWorkAudience(
+    ctx,
+    key,
+    content.entityType,
+    String(content.entityId)
+  );
+  const staffIds = staff.map((member) => member._id);
+  return await publishWorkflowNotification(ctx, {
+    bellTargets: { kind: "exactStaff", staffIds },
+    content,
+    emailRecipientPurpose: { key, kind: "work" },
+    emailTargets: { kind: "staff", staffIds },
+  });
 }
 
 /** @deprecated Use publishWorkflowNotification with explicit channel targets. */

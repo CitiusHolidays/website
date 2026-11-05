@@ -354,7 +354,7 @@ describe("Protected inbound intent Convex boundaries", () => {
 
   test("Creates a durable Website lead before scheduling Sales and contact-inbox email", async () => {
     process.env.INBOUND_INTENT_GATEWAY_SECRET = "expected-secret";
-    const { ctx, scheduled, tables } = makeContext({
+    const { ctx, tables } = makeContext({
       crmHandoffEvents: [],
       inboundIntentRateLimits: [],
       inboundQueryIntents: [],
@@ -385,8 +385,8 @@ describe("Protected inbound intent Convex boundaries", () => {
       inboundIntentId: "inboundQueryIntents_1",
       source: "Website",
     });
-    expect(scheduled).toHaveLength(1);
-    expect(scheduled[0].args.recipients).toEqual(
+    expect(tables.notificationEmailOutbox).toHaveLength(2);
+    expect(tables.notificationEmailOutbox.map((row) => row.recipient)).toEqual(
       expect.arrayContaining(["info@citius.in", "sales@example.com"])
     );
 
@@ -496,7 +496,8 @@ describe("Protected inbound intent Convex boundaries", () => {
     expect(tables.inboundQueryIntents[0].notes).toBeUndefined();
     expect(tables.crmHandoffEvents).toHaveLength(1);
     expect(tables.notifications).toHaveLength(2);
-    expect(scheduled).toHaveLength(1);
+    expect(tables.notificationEmailOutbox).toHaveLength(1);
+    expect(scheduled).toHaveLength(2);
 
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const emailDetails = await fromAny<any, unknown>(getNotificationEmailDetails)._handler(ctx, {

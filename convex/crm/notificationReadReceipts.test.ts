@@ -38,6 +38,7 @@ function makeCtx() {
     ],
     notificationTargetCounts: [],
     notificationUnreadProjectionReadiness: [],
+    portalNavigationActivity: [],
     staffUsers: [
       {
         _id: "staff_a",

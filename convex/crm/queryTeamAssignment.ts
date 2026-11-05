@@ -13,6 +13,7 @@ import {
   TICKETING_TEAM_ROLES,
 } from "./lib";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
+import { publishWorkNotification } from "./lib/notifications";
 import { refreshProposalLinkProjections } from "./proposalLinkProjection";
 
 const TICKETING_SCOPE_VALUES = ["Domestic", "International", "Both", "Not required"] as const;
@@ -105,20 +106,6 @@ function hasExistingAssignment(query: {
   return Boolean(query.contractingOwnerId || query.ticketingOwnerId || query.ticketingScope);
 }
 
-function relevantAssignmentHeadRoles(args: {
-  ticketingScope?: TicketingScope;
-  ticketingAssigned: boolean;
-}) {
-  const roles = ["Contracting Head", "Operations Head"];
-  if (
-    args.ticketingAssigned ||
-    (args.ticketingScope !== undefined && args.ticketingScope !== "Not required")
-  ) {
-    roles.push("Head of Ticketing");
-  }
-  return roles;
-}
-
 function assertAssignmentAccess(
   access: PortalAccess,
   current: Parameters<typeof hasExistingAssignment>[0],
@@ -177,7 +164,11 @@ async function notifyAssignedStaff(
       body: `You were assigned as ${team} SPOC for ${queryCode}.`,
       entityId: queryId,
       entityType: "query",
-      title: isContracting ? "Assign contracting owner" : "Assign ticketing owner",
+      title: isContracting ? "Contracting assignment" : "Ticketing assignment",
+    },
+    emailRecipientPurpose: {
+      field: isContracting ? "contractingOwnerId" : "ticketingOwnerId",
+      kind: "assignment",
     },
     emailTargets: { kind: "staff", staffIds: [assignment.staffId] },
   });
@@ -287,10 +278,6 @@ export async function applyQueryTeamAssignments(
   }
   await Promise.all(directNotifications);
 
-  const headRoles = relevantAssignmentHeadRoles({
-    ticketingAssigned: Boolean(ticketing),
-    ticketingScope,
-  });
   const ticketingAssignmentRequired =
     isSalesAssignmentAccess(access) &&
     !ticketing &&
@@ -301,21 +288,11 @@ export async function applyQueryTeamAssignments(
   } else if (isSalesAssignmentAccess(access)) {
     assignmentTitle = "Query team assigned by Sales";
   }
-  await publishWorkflowNotification(ctx, {
-    bellTargets: { kind: "roles", roles: headRoles },
-    content: {
-      body: `${current.queryCode} was assigned to ${contracting?.staff.name.trim() || current.contractingOwnerName || "a Contracting SPOC"}${
-        ticketingScope ? ` with Ticketing Scope: ${ticketingScope}` : ""
-      }.`,
-      entityId: queryId,
-      entityType: "query",
-      title: assignmentTitle,
-    },
-    // One actionable Head of Ticketing email covers the initial unassigned intake.
-    // Selected SPOCs continue to receive their direct assignment email above.
-    emailTargets: ticketingAssignmentRequired
-      ? { kind: "roles", roles: ["Head of Ticketing"] }
-      : { kind: "none" },
+  await publishWorkNotification(ctx, "query_intake", {
+    body: `${current.queryCode} was assigned to ${contracting?.staff.name.trim() || current.contractingOwnerName || "a Contracting SPOC"}${ticketingScope ? ` with Ticketing Scope: ${ticketingScope}` : ""}.`,
+    entityId: queryId,
+    entityType: "query",
+    title: assignmentTitle,
   });
 
   return { id: queryId };

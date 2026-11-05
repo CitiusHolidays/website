@@ -44,6 +44,11 @@ export function pipeViewRows(
   }
 ) {
   let result = filterByDateRange(rows || [], dateRange, dateField);
+  if (view === "queries" || view === "contracting") {
+    const archived =
+      listFilters?.[view === "contracting" ? "contractingStatus" : "salesStatus"] === "Order Lost";
+    result = result.filter((row) => (row.salesStatus === "Order Lost") === archived);
+  }
   if (VIEWS_WITH_JOB_CARD_FILTER.has(view)) {
     result = filterByJobCard(result, jobCardFilter);
   }
@@ -51,7 +56,11 @@ export function pipeViewRows(
     result = attachPassportExpiryUrgency(result);
   }
   if (filterConfig?.length) {
-    result = applyListFilters(result, listFilters, filterConfig);
+    const activeConfig =
+      view === "contracting" && listFilters?.contractingStatus === "Order Lost"
+        ? filterConfig.filter((def) => def.field !== "contractingStatus")
+        : filterConfig;
+    result = applyListFilters(result, listFilters, activeConfig);
   }
   if (search?.trim() && searchKeys?.length) {
     result = filterRows(result, search, searchKeys);

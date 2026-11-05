@@ -8,7 +8,7 @@ The complete local change summary and dated evidence snapshots are in
 result for their stated date and commit; they are not current proof. Vercel/Convex deployment and
 live browser checks remain separate external activation work.
 
-The current `main` checkpoint is `7fa38a0` (Staff Workspace scale and retry safety). Its bounded
+The historical `7fa38a0` checkpoint introduced Staff Workspace scale and retry safety. Its bounded
 route budgets, source-hash freshness rule, replay-safe command IDs, durable import/export operations,
 and notification delivery ledger are described in
 [`docs/STAFF_WORKSPACE_PERFORMANCE.md`](docs/STAFF_WORKSPACE_PERFORMANCE.md).
@@ -34,11 +34,14 @@ preview or production frontend origin. `NODE_ENV`, `VERCEL_ENV`, and local `CONV
 normally supplied by the platform or Convex CLI rather than entered by hand.
 
 The Vercel build entrypoint preserves the existing Preview deploy path. For a Production build, it
-requires Vercel's exact 40-character `VERCEL_GIT_COMMIT_SHA`, deploys Convex first, and then updates
-that selected Convex deployment's `OPERATIONAL_CONTROL_SOURCE_REVISION` and
-`VERCEL_ENV=production` together. GitHub's prebuilt Production workflow supplies the gated SHA
-explicitly because prebuilt builds cannot assume Vercel system variables. The human-recognizable
-`OPERATIONAL_CONTROL_TARGET_ID` remains one-time target configuration.
+requires Vercel's exact 40-character `VERCEL_GIT_COMMIT_SHA`, runs the integrated frontend build and
+Convex deployment command, then updates that selected Convex deployment's
+`OPERATIONAL_CONTROL_SOURCE_REVISION` and `VERCEL_ENV=production` together. That final environment
+write is separate from deploying code and needs the corresponding capability on the selected
+credential. The credential guidance below distinguishes that requirement from hosted verification.
+GitHub's prebuilt Production workflow supplies the gated SHA explicitly because prebuilt builds
+cannot assume Vercel system variables. The human-recognizable `OPERATIONAL_CONTROL_TARGET_ID`
+remains one-time target configuration.
 
 Before activation, compare the key names in the manifest with Vercel Preview, Vercel Production,
 the Convex preview defaults, and the Convex production deployment. Compare names and presence only;
@@ -187,25 +190,60 @@ of them is active.
 The protected Vercel build command in `vercel.json` is:
 
 ```bash
-bunx convex deploy --cmd 'bun run build'
+bun config/release/vercel-convex-deploy.ts
 ```
 
-The same command selects its target through `CONVEX_DEPLOY_KEY`:
+The wrapper invokes `bunx convex deploy --cmd 'bun run build'`. The pinned Convex 1.46.0 CLI runs
+`bun run build` with the selected Convex URLs, then pushes the backend. The package build runs
+Convex code generation and typechecking before `next build`. Vercel publishes the frontend only
+after its build command succeeds, so compatible backend code is active before the new frontend is
+served. Both deployments are part of the same Git-triggered release path.
 
-- Vercel **Production** gets a production deploy key scoped only to Production and granted
-  `deployment:deploy`—not data, log, or environment-management access.
+`CONVEX_DEPLOY_KEY` selects the Convex target:
+
+- Vercel **Production** uses its existing production deployment-scoped credential. The complete
+  wrapper performs code deployment and a release-identity environment update. Repository source
+  does not establish the configured key's type or granted actions; preserve the existing credential
+  while reviewing this candidate.
 - Vercel **Preview** gets a project preview deploy key scoped only to Preview. Convex creates or
   reuses the branch preview deployment, whose data, functions, crons, and configuration are separate
   from production.
 - Never expose either key to the browser, commit it, or share the production key with Preview.
 
-The CI workflow pulls the target-specific Vercel environment before `vercel build`, so this command
-continues to receive the Preview or Production Convex deploy key from that target rather than from
-repository source. This follows Convex's current [Vercel hosting](https://docs.convex.dev/production/hosting/vercel),
+The Production wrapper already on `main` runs `bunx convex env set --force` after the integrated
+build/deploy command to stamp `OPERATIONAL_CONTROL_SOURCE_REVISION` and `VERCEL_ENV=production`.
+Convex lists code deployment and environment modification as separate
+[role actions](https://docs.convex.dev/team-management/role-actions): `deployment:deploy` and
+`deployment:env:write`. Its [deploy-key documentation](https://docs.convex.dev/cli/deploy-key-types)
+allows selecting a key's permitted actions. The label "production deploy key" alone does not prove
+that the configured key is restricted to deploying code.
+
+The earlier deploy-only instruction did not describe every operation in this existing wrapper.
+That documentation mismatch is not evidence that the established pipeline fails. No live
+permission rejection has been observed here. If the metadata update is rejected, the wrapper
+fails the Vercel build after the backend command may already have succeeded; the local fake-CLI
+test proves this conditional failure handling, not the production key's permissions.
+
+Keep the established integrated pipeline and credential unchanged for this candidate. Verify the
+intended hosted target and existing successful build/metadata outcome through authorized evidence.
+Do not widen permissions, rotate keys, remove the stamp, or introduce a release-identity redesign
+solely to reconcile the old documentation. Live Feature Controls and Production Test Lab use that
+identity for target checks and audit evidence. If a future decision intentionally restricts the
+credential to `deployment:deploy` alone, separately review how to preserve accurate identity
+without an environment write before making that restriction.
+
+The optional CI workflow pulls the target-specific Vercel environment before `vercel build`, so
+the wrapper receives the Preview or Production Convex deploy key from that target. The integrated
+command follows Convex's [Vercel hosting](https://docs.convex.dev/production/hosting/vercel),
 [deploy command](https://docs.convex.dev/cli/reference/deploy), and
-[deploy-key](https://docs.convex.dev/cli/deploy-key-types) contracts. A Vercel dashboard build-command
-override can supersede repository settings, so confirm the observed command in one Preview build
-before production activation.
+[deploy-key](https://docs.convex.dev/cli/deploy-key-types) contracts.
+
+Vercel's checked-in `buildCommand` overrides the dashboard Build Command when this configuration
+file is used, according to [Vercel's configuration reference](https://vercel.com/docs/project-configuration/vercel-json#buildcommand).
+Before release, verify the actual Vercel project, connected repository, Production branch, root
+directory, candidate revision, and observed build command. Confirm that its Production Convex
+target is the intended deployment without retrieving or displaying deploy-key values. Source
+configuration alone does not establish those project associations.
 
 ## Activation checklist
 
@@ -215,19 +253,24 @@ before production activation.
    [`docs/WORKING_TREE_CHANGES.md`](docs/WORKING_TREE_CHANGES.md) only as dated historical context.
 4. Configure manifest keys independently for Preview and Production; verify auth callback origins,
    mail sender/domain, payment webhooks, CAPTCHA, and Convex runtime values.
-5. Configure the `preview` and `production` GitHub environments with least-privilege
-   `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` secrets. Protect Production with required
-   reviewers and restrict it to `main`.
+5. Only if the optional GitHub deployment workflow is explicitly selected, configure its
+   `preview` and `production` environments with scoped `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and
+   `VERCEL_PROJECT_ID` secrets. Protect Production with required reviewers and restrict it to
+   `main`. This setup is not required for the native Vercel Git deployment path.
 6. Make `Target-neutral quality` the exact required GitHub check for pull requests and `main`, then
    verify cancelled, skipped, and missing results do not satisfy the rule.
 7. Keep `VERCEL_CI_PREVIEW_ENABLED` and `VERCEL_CI_PRODUCTION_ENABLED` false while native Vercel Git
    deployment remains the selected independent build path.
-8. Run and inspect a Vercel Preview. Verify its frontend points to the preview Convex deployment and
+8. Retain the separately authorized build and smoke evidence for the selected release path.
+   When using Preview evidence, verify its frontend points to the preview Convex deployment and
    that it does not contain production data.
 9. Run any reviewed one-time migration against the intended deployment explicitly. Never infer the
    target from a local shell session.
-10. With fresh Production approval, set `VERCEL_CI_PRODUCTION_ENABLED=true`; promote only after local
-   quality gates, signed-in workflow checks, and Preview smoke tests are green.
+10. With fresh Production approval, release through the established deployment path after
+    exact-candidate quality, workflow, and authorized hosted-target verification.
+    Keep optional CI flags false for native Git deployment. Enabling the optional workflow requires
+    its own approval; it stages Production artifacts with `--skip-domain` and does not authorize
+    domain promotion.
 11. After production activation, verify auth, one read/write CRM smoke path, mail, payment webhook
    health, AI terminal states, logs, and scheduled jobs without using destructive test data.
 
@@ -248,7 +291,8 @@ not as the normal rollback path.
 
 ## Live settings still unknown
 
-Until separately inspected, the repository does not confirm Vercel environment presence or
-dashboard overrides, Convex key scope and preview defaults, backup schedules, GitHub branch rules,
+Until separately inspected, the repository does not confirm Vercel project/root-directory
+associations or environment presence, Convex key scope and preview defaults, backup schedules,
+GitHub branch rules,
 custom-domain/auth callback settings, webhook endpoints, or provider-side activation. These are
 manual/external release steps, not evidence gaps that local code can truthfully close.

@@ -7,7 +7,18 @@ import {
   importRoomSummaryValidator,
   travelBatchSummaryTransitionValidator,
 } from "./lib/importContractValidators";
+import { notificationEmailOutboxFields } from "./lib/notificationEmailValidators";
+import {
+  postTourCategoryValidator,
+  postTourRatingValidator,
+} from "./lib/postTourFeedbackValidators";
+import { postTourReportContentValidator } from "./lib/postTourReportContent";
 import { roomTypeValidator } from "./lib/roomTypeValidators";
+import {
+  staffTravelStatusValidator,
+  tourExperienceSourceValidator,
+} from "./lib/teamTravelValidators";
+import { travelerCommentsValidator } from "./lib/travelerFeedbackValidators";
 
 const bookingStatus = v.union(
   v.literal("pending"),
@@ -1411,6 +1422,118 @@ export default defineSchema({
     .index("by_createdAt", ["createdAt"])
     .searchIndex("search_list", { searchField: "listSearchText" }),
 
+  travelerFeedbackRequests: defineTable({
+    createdAt: v.number(),
+    createdBy: v.string(),
+    createdByStaffId: v.optional(v.id("staffUsers")),
+    expiresAt: v.number(),
+    formWindowCount: v.optional(v.number()),
+    formWindowStartedAt: v.optional(v.number()),
+    jobCardId: v.id("jobCards"),
+    photoWindowCount: v.optional(v.number()),
+    photoWindowStartedAt: v.optional(v.number()),
+    publicTripLabel: v.string(),
+    responseCount: v.number(),
+    revokedAt: v.optional(v.number()),
+    revokedBy: v.optional(v.string()),
+    submissionWindowCount: v.optional(v.number()),
+    submissionWindowStartedAt: v.optional(v.number()),
+    tokenHash: v.string(),
+  })
+    .index("by_jobCardId", ["jobCardId"])
+    .index("by_tokenHash", ["tokenHash"])
+    .index("by_createdBy_and_createdAt", ["createdBy", "createdAt"])
+    .index("by_revokedBy_and_revokedAt", ["revokedBy", "revokedAt"]),
+
+  travelerFeedbackResponses: defineTable({
+    comments: travelerCommentsValidator,
+    createdAt: v.number(),
+    jobCardId: v.id("jobCards"),
+    payloadHash: v.string(),
+    photoCount: v.number(),
+    requestId: v.id("travelerFeedbackRequests"),
+    respondentEmail: v.string(),
+    respondentName: v.string(),
+    responseTokenHash: v.string(),
+  })
+    .index("by_createdAt", ["createdAt"])
+    .index("by_jobCardId", ["jobCardId"])
+    .index("by_requestId", ["requestId"])
+    .index("by_responseTokenHash", ["responseTokenHash"]),
+
+  travelerFeedbackPhotos: defineTable({
+    category: postTourCategoryValidator,
+    contentDigest: v.optional(v.string()),
+    createdAt: v.number(),
+    fileName: v.string(),
+    fileSize: v.number(),
+    jobCardId: v.id("jobCards"),
+    mimeType: v.string(),
+    requestId: v.id("travelerFeedbackRequests"),
+    responseId: v.id("travelerFeedbackResponses"),
+    storageId: v.id("_storage"),
+    thumbnailStorageId: v.id("_storage"),
+  })
+    .index("by_jobCardId", ["jobCardId"])
+    .index("by_responseId", ["responseId"])
+    .index("by_responseId_contentDigest", ["responseId", "contentDigest"])
+    .index("by_requestId", ["requestId"])
+    .index("by_storageId", ["storageId"])
+    .index("by_thumbnailStorageId", ["thumbnailStorageId"]),
+
+  postTourReports: defineTable({
+    archivedAt: v.optional(v.number()),
+    archivedByStaffId: v.optional(v.id("staffUsers")),
+    content: postTourReportContentValidator,
+    createdAt: v.number(),
+    createdByName: v.string(),
+    createdByStaffId: v.id("staffUsers"),
+    jobCardId: v.id("jobCards"),
+    previousStatus: v.optional(v.union(v.literal("draft"), v.literal("submitted"))),
+    revision: v.number(),
+    status: v.union(v.literal("draft"), v.literal("submitted"), v.literal("archived")),
+    submissionAlertsCancelled: v.optional(v.boolean()),
+    submittedAt: v.optional(v.number()),
+    submittedByName: v.optional(v.string()),
+    submittedByStaffId: v.optional(v.id("staffUsers")),
+    updatedAt: v.number(),
+  })
+    .index("by_jobCardId", ["jobCardId"])
+    .index("by_jobCardId_status", ["jobCardId", "status"]),
+
+  postTourFeedback: defineTable({
+    authorAuthUserId: v.string(),
+    authorName: v.string(),
+    authorStaffId: v.id("staffUsers"),
+    category: postTourCategoryValidator,
+    comment: v.string(),
+    createdAt: v.number(),
+    jobCardId: v.id("jobCards"),
+    lastEditedBy: v.optional(v.string()),
+    lastEditedByName: v.optional(v.string()),
+    updatedAt: v.number(),
+    vendorName: v.string(),
+    vendorRating: postTourRatingValidator,
+  })
+    .index("by_jobCardId", ["jobCardId"])
+    .index("by_createdAt", ["createdAt"]),
+
+  postTourFeedbackPhotos: defineTable({
+    createdAt: v.number(),
+    feedbackId: v.id("postTourFeedback"),
+    fileName: v.string(),
+    fileSize: v.number(),
+    jobCardId: v.id("jobCards"),
+    mimeType: v.string(),
+    storageId: v.id("_storage"),
+    thumbnailStorageId: v.id("_storage"),
+    uploadedBy: v.string(),
+  })
+    .index("by_feedbackId", ["feedbackId"])
+    .index("by_jobCardId", ["jobCardId"])
+    .index("by_storageId", ["storageId"])
+    .index("by_thumbnailStorageId", ["thumbnailStorageId"]),
+
   mealPreferences: defineTable({
     createdAt: v.number(),
     flightMealCode: v.optional(v.string()),
@@ -1420,6 +1543,12 @@ export default defineSchema({
     travellerId: v.id("travellers"),
     updatedAt: v.number(),
   }).index("by_travellerId", ["travellerId"]),
+
+  // Private work queue. Only internal functions read addresses and frozen messages.
+  // Public delivery summaries remain in the opaque delivery ledger.
+  notificationEmailOutbox: defineTable(notificationEmailOutboxFields)
+    .index("by_deliveryKey", ["idempotencyKey"])
+    .index("by_eventId", ["eventId"]),
 
   // Privacy-safe per-recipient delivery state for CRM email. Recipient
   // addresses are never stored here; the hash is derived from the provider
@@ -1504,6 +1633,17 @@ export default defineSchema({
     updatedAt: v.number(),
     version: v.number(),
   }).index("by_key", ["key"]),
+
+  // Per-person navigation acknowledgement is independent of inbox read state.
+  portalNavigationActivity: defineTable({
+    href: v.string(),
+    notificationId: v.id("notifications"),
+    seenAt: v.optional(v.number()),
+    staffId: v.id("staffUsers"),
+    updatedAt: v.number(),
+  })
+    .index("by_staffId_and_href", ["staffId", "href"])
+    .index("by_notificationId", ["notificationId"]),
 
   notifications: defineTable({
     body: v.string(),
@@ -2687,6 +2827,44 @@ export default defineSchema({
     .index("by_startDate", ["startDate"])
     .index("by_createdAt", ["createdAt"]),
 
+  staffTravelPlans: defineTable({
+    createdAt: v.number(),
+    createdBy: v.string(),
+    destination: v.string(),
+    endDate: v.string(),
+    jobCardId: v.optional(v.id("jobCards")),
+    staffId: v.id("staffUsers"),
+    startDate: v.string(),
+    status: staffTravelStatusValidator,
+    updatedAt: v.number(),
+    updatedBy: v.string(),
+  })
+    .index("by_staffId_and_createdAt", ["staffId", "createdAt"])
+    .index("by_status_and_endDate", ["status", "endDate"]),
+
+  externalTourManagerProfiles: defineTable({
+    active: v.boolean(),
+    createdAt: v.number(),
+    createdBy: v.string(),
+    destinations: v.array(v.string()),
+    email: v.string(),
+    emailNormalized: v.string(),
+    experienceSummary: v.string(),
+    experienceYears: v.union(v.number(), v.null()),
+    name: v.string(),
+    phone: v.string(),
+    phoneNormalized: v.string(),
+    reportedPastTours: v.union(v.number(), v.null()),
+    reportedPastToursNote: v.string(),
+    reportedPastToursSource: tourExperienceSourceValidator,
+    updatedAt: v.number(),
+    updatedBy: v.string(),
+  })
+    .index("by_active_and_name", ["active", "name"])
+    .index("by_name", ["name"])
+    .index("by_emailNormalized", ["emailNormalized"])
+    .index("by_phoneNormalized", ["phoneNormalized"]),
+
   staffUsers: defineTable({
     active: v.boolean(),
     authUserId: v.optional(v.string()),
@@ -2763,6 +2941,7 @@ export default defineSchema({
     createdAt: v.number(),
     createdBy: v.string(),
     email: v.optional(v.string()),
+    externalProfileId: v.optional(v.id("externalTourManagerProfiles")),
     jobCardId: v.optional(v.id("jobCards")),
     languages: v.optional(v.array(v.string())),
     name: v.string(),
@@ -2777,6 +2956,12 @@ export default defineSchema({
     .index("by_jobCardId", ["jobCardId"])
     .index("by_travelBatchId", ["travelBatchId"])
     .index("by_jobCardId_and_travelBatchId", ["jobCardId", "travelBatchId"])
+    .index("by_externalProfileId", ["externalProfileId"])
+    .index("by_externalProfileId_and_jobCardId_and_travelBatchId", [
+      "externalProfileId",
+      "jobCardId",
+      "travelBatchId",
+    ])
     .index("by_status", ["status"])
     .index("by_createdAt", ["createdAt"]),
 
@@ -2838,6 +3023,7 @@ export default defineSchema({
     createdAt: v.number(),
     createdBy: v.string(),
     domesticTravelRequired: v.optional(v.boolean()),
+    email: v.optional(v.string()),
     extensionOfTour: v.optional(v.boolean()),
     foodPreference,
     fullName: v.string(),
@@ -2852,6 +3038,12 @@ export default defineSchema({
     jobCardId: v.id("jobCards"),
     lastMinuteDrop: v.optional(v.boolean()),
     listSearchText: v.optional(v.string()),
+    marketingConsent: v.optional(
+      v.union(v.literal("not_recorded"), v.literal("granted"), v.literal("withdrawn"))
+    ),
+    marketingConsentNote: v.optional(v.string()),
+    marketingConsentRecordedAt: v.optional(v.number()),
+    marketingConsentRecordedBy: v.optional(v.string()),
     passportExpiryDate: v.optional(v.string()),
     passportStatus: v.optional(v.string()),
     paymentType,

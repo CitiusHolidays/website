@@ -32,6 +32,8 @@ const DYNAMIC_SOURCE_ENV_KEYS = new Set(["BETTER_AUTH_URL", "SITE_URL"]);
 const ENV_KEY_PATTERN = /^[A-Z][A-Z0-9_]*$/;
 const ENV_ENTRY_PATTERN = /^([A-Z][A-Z0-9_]*)=(.*)$/;
 const ENV_REFERENCE_PATTERN = /\b(?:process\.env|env)\.([A-Z][A-Z0-9_]*)\b/g;
+const DOCUMENTED_BUILD_COMMAND =
+  /The protected Vercel build command in `vercel\.json` is:\s*```bash\n([^\n]+)\n```/;
 
 function extension(path: string) {
   const dot = path.lastIndexOf(".");
@@ -105,6 +107,9 @@ describe("Release command contract", () => {
       buildCommand?: string;
     }>(JSON.parse(readFileSync(join(ROOT, "vercel.json"), "utf8")));
     expect(vercel.buildCommand).toBe(releaseContract.convexAwareBuildCommand);
+    const releaseGuide = readFileSync(join(ROOT, "RELEASE.md"), "utf8");
+    const documentedCommand = releaseGuide.match(DOCUMENTED_BUILD_COMMAND)?.[1];
+    expect(documentedCommand).toBe(vercel.buildCommand);
   });
 
   test("Keeps production Next builds and functions on the Node runtime", () => {

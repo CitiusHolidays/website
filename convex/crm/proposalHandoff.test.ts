@@ -445,3 +445,34 @@ describe("Proposal Handoff", () => {
     expect(tables.activityLogs.filter((entry) => entry.action === "sent_to_sales")).toHaveLength(1);
   });
 });
+
+test.each(["auth_sales", "staff_sales"])(
+  "proposal handoff resolves %s to only the assigned Sales SPOC",
+  async (ownerId) => {
+    const { ctx, tables } = makeProposalHandoffCtx();
+    const { normalizeId } = ctx.db;
+    ctx.db.normalizeId = (table, id) =>
+      table === "staffUsers" && !tables.staffUsers.some((staff) => staff._id === id)
+        ? null
+        : normalizeId(table, id);
+    tables.queries[0].salesOwnerId = ownerId;
+    tables.staffUsers.push({
+      _id: "staff_other_sales",
+      active: true,
+      authUserId: "auth_other_sales",
+      email: "unassigned-sales@example.invalid",
+      name: "Other Sales",
+      roles: ["Sales"],
+    });
+    // SAFETY: This fixture controls the registered Convex handler and its database boundary.
+    await fromAny<any, unknown>(sendToSales)._handler(ctx, {
+      commandId: "88888888-8888-4888-8888-888888888888",
+      proposalId: "proposals_2",
+      proposalRevision: 1,
+      queryId: "queries_1",
+    });
+    expect(tables.notificationEmailOutbox.map((row) => row.recipient)).toEqual(["sales@citius.in"]);
+    expect(tables.notifications).toHaveLength(1);
+    expect(tables.notifications[0]).toMatchObject({ recipientStaffId: "staff_sales" });
+  }
+);

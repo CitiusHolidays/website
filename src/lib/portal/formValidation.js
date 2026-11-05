@@ -3,6 +3,8 @@ import { assertDateRangeOrder, getDateRangeError } from "@/lib/portal/dateValida
 import { canHeadAssignQueryTeams, isSalesQueryAssigner } from "@/lib/portal/permissions";
 import { getExpenseSplitTotal } from "@/lib/portal/workflow";
 
+const GUEST_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 export class PortalValidationError extends Error {
   constructor(field, message) {
     super(message);
@@ -160,6 +162,16 @@ function validateJobCard(form) {
 }
 
 function validateTraveller(form) {
+  const email = String(form.email || "").trim();
+  if (email && !GUEST_EMAIL_PATTERN.test(email)) {
+    failField("email", "Enter a valid email address.");
+  }
+  if (form.marketingConsent === "granted" && !String(form.marketingConsentNote || "").trim()) {
+    failField(
+      "marketingConsentNote",
+      "Record consent evidence before marking promotional permission granted."
+    );
+  }
   if (!String(form.fullName ?? "").trim()) {
     throw new Error("Traveller name is required.");
   }

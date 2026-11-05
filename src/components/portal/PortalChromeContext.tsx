@@ -30,13 +30,16 @@ interface PortalChromeQuickActionSyncProps {
 
 export function PortalChromeProvider({ navShortcuts, children }: PortalChromeProviderProps) {
   const [quickAction, setQuickAction] = useState<PortalChromeQuickAction | null>(null);
+  const [commandSearch, setCommandSearch] = useState<{ open: () => void } | null>(null);
   const [savedViewActions, setSavedViewActions] = useState<PortalChromeSavedViewActions | null>(
     null
   );
   const value = {
+    commandSearch,
     navShortcuts,
     quickAction,
     savedViewActions,
+    setCommandSearch,
     setQuickAction,
     setSavedViewActions,
   };

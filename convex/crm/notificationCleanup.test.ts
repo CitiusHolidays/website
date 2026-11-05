@@ -169,9 +169,11 @@ describe("Indexed notification cleanup", () => {
                   ? readRows.filter((row) => row.notificationId === filters.notificationId)
                   : [],
               take: (limit: number) => {
-                takeCalls.push(limit);
+                if (table === "notifications") {
+                  takeCalls.push(limit);
+                }
                 return Promise.resolve(
-                  rows
+                  (table === "notifications" ? rows : [])
                     .filter(
                       (row) =>
                         row.entityType === filters.entityType && row.entityId === filters.entityId

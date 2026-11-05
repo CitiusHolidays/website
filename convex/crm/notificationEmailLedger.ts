@@ -306,6 +306,68 @@ export function shouldApplyDeliveryOutcome(
   return DELIVERY_STATUS_RANK[incoming.status] >= DELIVERY_STATUS_RANK[existing.status];
 }
 
+export interface NotificationDeliveryOutcomeInput {
+  attempts: number;
+  eventId: string;
+  failureCode?: string;
+  idempotencyKey: string;
+  providerStatus?: number;
+  recipientHash: string;
+  status: DeliveryStatus;
+}
+
+export async function recordNotificationDeliveryOutcome(
+  ctx: MutationCtx,
+  args: NotificationDeliveryOutcomeInput
+) {
+  if (!Number.isInteger(args.attempts) || args.attempts < 0 || args.attempts > 100) {
+    throw new ConvexError("Invalid notification email attempt count");
+  }
+  if (!RECIPIENT_HASH_PATTERN.test(args.recipientHash)) {
+    throw new ConvexError("Invalid notification email recipient hash");
+  }
+  const now = Date.now();
+  const existing = await ctx.db
+    .query("notificationEmailDeliveries")
+    .withIndex("by_deliveryKey", (q) => q.eq("idempotencyKey", args.idempotencyKey))
+    .unique();
+
+  if (existing && existing.eventId !== args.eventId) {
+    throw new ConvexError("NOTIFICATION_EMAIL_EVENT_ID_MISMATCH");
+  }
+
+  if (
+    existing &&
+    !shouldApplyDeliveryOutcome(existing, { attempts: args.attempts, status: args.status })
+  ) {
+    return existing._id;
+  }
+
+  const patch = {
+    attempts: Math.max(existing?.attempts ?? 0, args.attempts),
+    eventId: args.eventId,
+    failureCode: args.failureCode,
+    providerStatus: args.providerStatus,
+    recipientHash: args.recipientHash,
+    status: args.status,
+    updatedAt: now,
+    ...propertiesWhen(args.status === "sent", () => ({ sentAt: existing?.sentAt ?? now })),
+    summaryProjectedEventId: args.eventId,
+    summaryProjectedStatus: args.status,
+  };
+  await applyDeliverySummaryProjection(ctx, existing, args, now);
+  if (existing) {
+    await ctx.db.patch("notificationEmailDeliveries", existing._id, patch);
+    return existing._id;
+  }
+
+  return await ctx.db.insert("notificationEmailDeliveries", {
+    ...patch,
+    createdAt: now,
+    idempotencyKey: args.idempotencyKey,
+  });
+}
+
 export const recordDeliveryOutcome = internalMutation({
   args: {
     attempts: v.number(),
@@ -316,54 +378,7 @@ export const recordDeliveryOutcome = internalMutation({
     recipientHash: v.string(),
     status: deliveryStatus,
   },
-  handler: async (ctx, args) => {
-    if (!Number.isInteger(args.attempts) || args.attempts < 0 || args.attempts > 100) {
-      throw new ConvexError("Invalid notification email attempt count");
-    }
-    if (!RECIPIENT_HASH_PATTERN.test(args.recipientHash)) {
-      throw new ConvexError("Invalid notification email recipient hash");
-    }
-    const now = Date.now();
-    const existing = await ctx.db
-      .query("notificationEmailDeliveries")
-      .withIndex("by_deliveryKey", (q) => q.eq("idempotencyKey", args.idempotencyKey))
-      .unique();
-
-    if (existing && existing.eventId !== args.eventId) {
-      throw new ConvexError("NOTIFICATION_EMAIL_EVENT_ID_MISMATCH");
-    }
-
-    if (
-      existing &&
-      !shouldApplyDeliveryOutcome(existing, { attempts: args.attempts, status: args.status })
-    ) {
-      return existing._id;
-    }
-
-    const patch = {
-      attempts: Math.max(existing?.attempts ?? 0, args.attempts),
-      eventId: args.eventId,
-      failureCode: args.failureCode,
-      providerStatus: args.providerStatus,
-      recipientHash: args.recipientHash,
-      status: args.status,
-      updatedAt: now,
-      ...propertiesWhen(args.status === "sent", () => ({ sentAt: existing?.sentAt ?? now })),
-      summaryProjectedEventId: args.eventId,
-      summaryProjectedStatus: args.status,
-    };
-    await applyDeliverySummaryProjection(ctx, existing, args, now);
-    if (existing) {
-      await ctx.db.patch("notificationEmailDeliveries", existing._id, patch);
-      return existing._id;
-    }
-
-    return await ctx.db.insert("notificationEmailDeliveries", {
-      ...patch,
-      createdAt: now,
-      idempotencyKey: args.idempotencyKey,
-    });
-  },
+  handler: (ctx, args) => recordNotificationDeliveryOutcome(ctx, args),
   returns: v.id("notificationEmailDeliveries"),
 });
 

@@ -88,6 +88,15 @@ function getDeepLinkCollectionKeys(modal) {
   }
 }
 
+export function getDeepLinkQueryId({ open, id, queryId }) {
+  if (queryId) {
+    return queryId;
+  }
+  return open !== "jobCard" && getDeepLinkCollectionKeys(open).includes("queries")
+    ? id || null
+    : null;
+}
+
 export function isDeepLinkDataReady(modal, collections) {
   const keys = getDeepLinkCollectionKeys(modal);
   if (keys.length === 0) {
@@ -184,6 +193,7 @@ function buildJobCardInitial({ entityId, queryId }, collections) {
       return null;
     }
     return {
+      _creationNotificationQueryId: row.id,
       clientName: row.clientName,
       confirmedPax: String(row.paxCount),
       destination: row.destination,

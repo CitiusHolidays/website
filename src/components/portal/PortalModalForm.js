@@ -154,7 +154,7 @@ function Input({
   if (type === "date") {
     return (
       <label className="block" htmlFor={fieldId}>
-        <span className="mb-1 block font-semibold text-brand-muted text-xs">
+        <span className="mb-1.5 block font-medium text-brand-dark text-sm">
           {label}
           {required ? (
             <>
@@ -171,7 +171,7 @@ function Input({
           aria-invalid={Boolean(error) || undefined}
           className="w-full"
           id={fieldId}
-          inputClassName="!bg-brand-light focus:!bg-white"
+          inputClassName="!bg-white"
           onChange={changeValue}
           placeholder={placeholder || "DD/MM/YYYY"}
           required={required}
@@ -188,7 +188,7 @@ function Input({
   }
   return (
     <label className="block" htmlFor={fieldId}>
-      <span className="mb-1 block font-semibold text-brand-muted text-xs">
+      <span className="mb-1.5 block font-medium text-brand-dark text-sm">
         {label}
         {required ? (
           <>
@@ -239,7 +239,7 @@ function Select({
   );
   return (
     <div className="block">
-      <label className="mb-1 block font-semibold text-brand-muted text-xs" htmlFor={fieldId}>
+      <label className="mb-1.5 block font-medium text-brand-dark text-sm" htmlFor={fieldId}>
         {label}
         {required ? (
           <>
@@ -271,7 +271,7 @@ function Select({
   );
 }
 
-function MultiSelectOption({ option, selected, onChange }) {
+function MultiSelectOption({ option, selected, onChange, disabled }) {
   const handleCheckedChange = (checked) => {
     const next = new Set(selected);
     if (checked) {
@@ -286,6 +286,7 @@ function MultiSelectOption({ option, selected, onChange }) {
       aria-label={isRuntimeString(option.label) ? option.label : option.value}
       checked={selected.has(option.value)}
       className="flex items-center gap-2 rounded-md border border-brand-border bg-brand-light px-3 py-2 text-sm"
+      disabled={disabled}
       onCheckedChange={handleCheckedChange}
     >
       {option.label}
@@ -293,7 +294,7 @@ function MultiSelectOption({ option, selected, onChange }) {
   );
 }
 
-function MultiSelect({ formField = "", help, label, onChange, options, value }) {
+function MultiSelect({ disabled = false, formField = "", help, label, onChange, options, value }) {
   const normalized = options.map((option) =>
     isRuntimeString(option) ? { label: option, value: option } : option
   );
@@ -301,11 +302,12 @@ function MultiSelect({ formField = "", help, label, onChange, options, value }) 
   const changeValue = useFormFieldChange(onChange, formField);
   return (
     <div className="md:col-span-2">
-      <span className="mb-2 block font-semibold text-brand-muted text-xs">{label}</span>
+      <span className="mb-2 block font-medium text-brand-dark text-sm">{label}</span>
       {help ? <p className="mb-2 text-brand-muted text-xs leading-relaxed">{help}</p> : null}
       <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {normalized.map((option) => (
           <MultiSelectOption
+            disabled={disabled}
             key={option.value}
             onChange={changeValue}
             option={option}
@@ -332,7 +334,7 @@ function Textarea({ error = "", fieldKey = "", formField = "", label, value, onC
 
   return (
     <label className="block md:col-span-2" htmlFor={fieldId}>
-      <span className="mb-1 block font-semibold text-brand-muted text-xs">{label}</span>
+      <span className="mb-1.5 block font-medium text-brand-dark text-sm">{label}</span>
       <StaffTextarea
         aria-describedby={errorId}
         aria-invalid={Boolean(error) || undefined}

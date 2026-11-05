@@ -6,6 +6,7 @@ export interface ListFiltersState {
 }
 
 export type PortalWorkspaceForm = Partial<PortalFormState> & {
+  _creationNotificationQueryId?: string;
   _confirmedOfferQueryId?: string;
   _confirmedOfferState?: "loading" | "missing" | "ready";
   _focusedDetailState?: "loading" | "missing" | "ready";

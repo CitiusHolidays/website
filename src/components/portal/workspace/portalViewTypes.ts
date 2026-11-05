@@ -22,6 +22,7 @@ export interface PortalQueryListRow {
   confirmedAt?: string | null;
   confirmedOffer?: {
     airfarePerPax: number;
+    approxMargin: number | null;
     confirmedPax: number;
     destination: string;
     landCostPerPax: number;
@@ -154,7 +155,9 @@ export interface QueriesViewProps {
   getFinalizedPdfUrl: PortalWorkspaceState["getFinalizedPdfUrl"];
   getQueryAttachmentUrl: PortalWorkspaceState["getQueryAttachmentUrl"];
   has: PortalPermissionChecker;
+  historyScope?: "active" | "lost";
   loading?: boolean;
+  onHistoryScopeChange?: (scope: "active" | "lost") => void;
   openModal: PortalModalOpener;
   removeQuery: PortalWorkspaceState["removeQuery"];
   rows: PortalQueryListRow[];
@@ -169,7 +172,9 @@ export interface ContractingViewProps {
   getFinalizedPdfUrl: PortalWorkspaceState["getFinalizedPdfUrl"];
   getQueryAttachmentUrl: PortalWorkspaceState["getQueryAttachmentUrl"];
   has: PortalPermissionChecker;
+  historyScope?: "active" | "lost";
   loading?: boolean;
+  onHistoryScopeChange?: (scope: "active" | "lost") => void;
   openModal: PortalModalOpener;
   removeQuery: PortalWorkspaceState["removeQuery"];
   rows: PortalQueryListRow[];
@@ -315,7 +320,9 @@ export interface PortalTravellerListRow {
   biometricAppointmentDate?: string;
   callingStatus?: string;
   clientName?: string;
+  contactNo?: string;
   domesticTravelRequired?: boolean;
+  email?: string;
   extensionOfTour?: boolean;
   foodPreference?: string;
   fullName: string;
@@ -327,6 +334,8 @@ export interface PortalTravellerListRow {
   id: Key;
   jobCardId?: string;
   jobCode?: string;
+  marketingConsent?: string;
+  marketingConsentNote?: string;
   notes?: string;
   passportExpiryDate?: string;
   passportStatus?: string;
@@ -892,6 +901,7 @@ export interface ActivityViewProps {
   };
   markNotificationRead: PortalWorkspaceState["markNotificationRead"];
   notifications: PortalNotificationRow[];
+  notificationsLoading?: boolean;
   removeNotification: PortalWorkspaceState["removeNotification"];
 }
 

@@ -98,6 +98,7 @@ export const listPage = query({
     contractingStatus: v.optional(contractingStatusValidator),
     createdAtFrom: v.optional(v.number()),
     createdAtTo: v.optional(v.number()),
+    historyScope: v.optional(v.union(v.literal("active"), v.literal("lost"))),
     leadStage: v.optional(leadStageValidator),
     paginationOpts: paginationOptsValidator,
     queryType: v.optional(queryTypeValidator),
