@@ -42,6 +42,21 @@ function formatTimestamp(value?: number) {
   return value ? INDIA_DATE_TIME_FORMAT.format(value) : "—";
 }
 
+const FULL_SOURCE_REVISION = /^[0-9a-f]{40}$/i;
+
+/** A full 40-character source revision shows its 7-character prefix; other identities stay whole. */
+export function shortRevision(revision: string) {
+  return FULL_SOURCE_REVISION.test(revision) ? revision.slice(0, 7) : revision;
+}
+
+function targetSummary(identity: OperationalTargetIdentity) {
+  return [
+    identity.targetEnvironment,
+    identity.targetDeployment,
+    `rev ${shortRevision(identity.targetRevision)}`,
+  ].join(" · ");
+}
+
 function stateLabel(state: StoredControlState) {
   if (state === "default" || state === "safe_default") {
     return "Normal behavior";
@@ -500,6 +515,25 @@ function resultTone(status: ProductionTestResult["status"]) {
   return "bg-red-100 text-red-900";
 }
 
+type ChangeSetResultTone = "failed" | "success";
+
+export function changeSetResultTone(status: OperationalChangeSet["status"]): ChangeSetResultTone {
+  return status === "restoration_failed" ? "failed" : "success";
+}
+
+const RESULT_TONE_CLASSES = {
+  failed: {
+    card: "border-red-300 bg-red-50",
+    icon: "text-red-800",
+    list: "border-red-200",
+  },
+  success: {
+    card: "border-emerald-300 bg-emerald-50",
+    icon: "text-emerald-800",
+    list: "border-emerald-200",
+  },
+} satisfies Record<ChangeSetResultTone, Record<"card" | "icon" | "list", string>>;
+
 export function LatestChangeReceipt({
   changeSet,
   controlLabels,
@@ -510,36 +544,40 @@ export function LatestChangeReceipt({
   if (!changeSet) {
     return null;
   }
+  const tone = changeSetResultTone(changeSet.status);
+  const toneClasses = RESULT_TONE_CLASSES[tone];
+  const ResultIcon = tone === "failed" ? CircleAlert : Check;
+  const reversed = changeSet.status === "restored" || changeSet.status === "undone";
   return (
-    <section className="rounded-xl border border-emerald-300 bg-emerald-50 p-4" role="status">
+    <section
+      className={cn("rounded-xl border p-4", toneClasses.card)}
+      data-result-tone={tone}
+      role="status"
+    >
       <div className="flex items-start gap-3">
-        <Check aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-emerald-800" />
+        <ResultIcon aria-hidden="true" className={cn("mt-0.5 size-5 shrink-0", toneClasses.icon)} />
         <div className="min-w-0">
           <h3 className="font-heading font-semibold text-brand-dark text-lg">
-            Most recent operational result
+            {changeSetActivityLabel(changeSet.status)}
           </h3>
           <p className="mt-1 text-brand-muted text-sm">
-            {changeSetActivityLabel(changeSet.status)} by{" "}
-            {changeSet.resolvedByName ?? changeSet.appliedByName} on{" "}
-            {formatTimestamp(changeSet.restoredAt ?? changeSet.appliedAt)}.
+            Most recent result · {changeSet.resolvedByName ?? changeSet.appliedByName} ·{" "}
+            {formatTimestamp(changeSet.restoredAt ?? changeSet.appliedAt)}
           </p>
+          {tone === "failed" ? (
+            <p className="mt-2 text-red-900 text-sm">
+              Automatic restoration changed nothing. Check these controls and apply a new change if
+              they still need restoring.
+            </p>
+          ) : null}
         </div>
       </div>
-      <ul className="mt-3 space-y-1 rounded-lg border border-emerald-200 bg-white p-3 text-sm">
+      <ul className={cn("mt-3 space-y-1 rounded-lg border bg-white p-3 text-sm", toneClasses.list)}>
         {changeSet.changes.map((change) => (
           <li key={change.key}>
             {controlLabels.get(change.key) ?? change.key}:{" "}
-            {stateLabel(
-              changeSet.status === "restored" || changeSet.status === "undone"
-                ? change.after.state
-                : change.before.state
-            )}{" "}
-            →{" "}
-            {stateLabel(
-              changeSet.status === "restored" || changeSet.status === "undone"
-                ? change.before.state
-                : change.after.state
-            )}
+            {stateLabel(reversed ? change.after.state : change.before.state)} →{" "}
+            {stateLabel(reversed ? change.before.state : change.after.state)}
           </li>
         ))}
       </ul>
@@ -549,16 +587,22 @@ export function LatestChangeReceipt({
           {changeSet.resolutionReason}
         </p>
       ) : null}
-      <p className="mt-2 break-all text-brand-muted text-xs">
-        {changeSet.targetEnvironment} · {changeSet.targetDeployment} · {changeSet.targetRevision}
-      </p>
-      <p className="mt-1 break-all text-brand-muted text-xs">
-        Change set {changeSet._id} · Audit {changeSet.auditEventId}
-        {changeSet.resolutionAuditEventId
-          ? ` · Resolution audit ${changeSet.resolutionAuditEventId}`
-          : ""}
+      <p className="mt-2 text-brand-muted text-xs">
+        {targetSummary(changeSet)}
         {changeSet.restorationAt ? ` · Restores ${formatTimestamp(changeSet.restorationAt)}` : ""}
       </p>
+      <details className="mt-1 text-xs">
+        <summary className="flex min-h-11 cursor-pointer items-center text-brand-muted">
+          Record IDs
+        </summary>
+        <p className="break-all text-brand-muted">
+          Full revision {changeSet.targetRevision} · Change set {changeSet._id} · Audit{" "}
+          {changeSet.auditEventId}
+          {changeSet.resolutionAuditEventId
+            ? ` · Resolution audit ${changeSet.resolutionAuditEventId}`
+            : ""}
+        </p>
+      </details>
     </section>
   );
 }

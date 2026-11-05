@@ -4,6 +4,7 @@ import { act } from "react";
 
 let createRoot;
 let ChangeSetReviewPanel;
+let LatestChangeReceipt;
 let OperationalActivity;
 let OperationalControlCatalog;
 let OperationalTargetBanner;
@@ -25,6 +26,7 @@ beforeAll(async () => {
   ({ createRoot } = await import("react-dom/client"));
   ({
     ChangeSetReviewPanel,
+    LatestChangeReceipt,
     OperationalActivity,
     OperationalControlCatalog,
     OperationalTargetBanner,
@@ -491,6 +493,60 @@ describe("Mounted live feature control sections", () => {
     expect(view.container.querySelectorAll("article")).toHaveLength(3);
     expect(view.container.textContent).not.toContain("Roll back");
     await view.unmount();
+  });
+
+  test("renders the latest result by its real outcome, so a failed restoration never reads as success", async () => {
+    const baseChangeSet = {
+      _id: "operationalControlChangeSets_latest",
+      appliedAt: Date.parse("2026-08-20T12:00:00.000Z"),
+      appliedByName: "Admin User",
+      auditEventId: "operationalControlAuditEvents_apply",
+      changeCount: 1,
+      changes: [
+        {
+          after: { state: "disabled" },
+          before: { state: "default" },
+          key: "inbound.sales_bell",
+        },
+      ],
+      reason: "Investigate notification delivery.",
+      restorationAt: Date.parse("2026-08-20T14:00:00.000Z"),
+      status: "applied",
+      targetDeployment: "preview-control-check",
+      targetEnvironment: "preview",
+      targetRevision: "abc1234",
+      undoAvailable: true,
+    };
+    const failed = await mount(
+      <LatestChangeReceipt
+        changeSet={{
+          ...baseChangeSet,
+          resolutionAuditEventId: "operationalControlAuditEvents_restore_failed",
+          resolutionReason: "A newer change touched Inbound Sales bell, so nothing was restored.",
+          resolvedByName: "Automatic restoration",
+          status: "restoration_failed",
+        }}
+        controlLabels={controlLabels}
+      />
+    );
+    const failedCard = failed.container.firstElementChild;
+    expect(failedCard?.className).not.toContain("emerald");
+    expect(failed.container.querySelector(".lucide-check")).toBeNull();
+    expect(failedCard?.getAttribute("data-result-tone")).toBe("failed");
+    expect(failed.container.textContent).toContain("Automatic restoration needs attention");
+    // The failed restoration did not run, so the controls are still in their applied state.
+    expect(failed.container.textContent).toContain("Inbound Sales bell: Normal behavior → Paused");
+    expect(failed.container.textContent).toContain("nothing was restored");
+    await failed.unmount();
+
+    const applied = await mount(
+      <LatestChangeReceipt changeSet={baseChangeSet} controlLabels={controlLabels} />
+    );
+    expect(applied.container.firstElementChild?.getAttribute("data-result-tone")).toBe("success");
+    // Target identity stays on the card; raw record IDs stay in the DOM for audit lookup.
+    expect(applied.container.textContent).toContain("preview-control-check");
+    expect(applied.container.textContent).toContain("operationalControlChangeSets_latest");
+    await applied.unmount();
   });
 
   test("requires a fresh reason and exact-target review before the one-shot undo", async () => {
