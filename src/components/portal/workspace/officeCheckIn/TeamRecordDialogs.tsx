@@ -5,105 +5,69 @@ import { useMutation } from "convex/react";
 import {
   type ChangeEvent,
   type FormEvent,
-  type ReactNode,
   type RefObject,
+  useEffect,
   useId,
   useRef,
   useState,
 } from "react";
 import { usePortalToast } from "@/components/portal/PortalToast";
-import {
-  ControlledDialog,
-  ControlledDialogClose,
-  ControlledDialogTitle,
-} from "@/components/ui/application-dialog";
+import { ControlledDialogClose, ControlledDialogTitle } from "@/components/ui/application-dialog";
 import {
   formatOfficeDateTime,
   formatOfficeTime,
   formatWorkDate,
   officeTimeToTimestamp,
   reasonProblem,
+  teamStatusFor,
   timestampToClockTime,
 } from "@/lib/officeCheckIn/presentation";
 import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
-import { PORTAL_Z } from "@/lib/portal/zIndex";
 import { formatConvexError } from "../portalWorkspaceListHelpers";
-import { FieldError, OutcomeBadge, ReasonField, SignalList } from "./OfficeCheckInParts";
+import {
+  DialogBody,
+  DialogFooter,
+  FIELD_HINT,
+  FIELD_LABEL,
+  FieldError,
+  OfficeDialog,
+  ReasonField,
+  ServerError,
+  SignalList,
+  ToneBadge,
+} from "./OfficeCheckInParts";
 import type { CheckInRecord, TeamDayRow } from "./officeCheckInTypes";
 
-export type TeamRecordDialogKind = "correct" | "manual" | "review";
-
 export interface TeamRecordDialogTarget {
-  kind: TeamRecordDialogKind;
   row: TeamDayRow;
-  timeZone: string;
   workDate: string;
 }
 
-const FIELD_LABEL = "font-medium text-brand-dark text-sm";
+type Mode = "correct" | "details" | "manual" | "review";
 
-function DialogFrame({
-  busy,
-  children,
-  onClose,
-  open,
-}: {
-  busy: boolean;
-  children: ReactNode;
-  onClose: () => void;
-  open: boolean;
-}) {
-  const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) {
-      onClose();
-    }
-  };
-  return (
-    <ControlledDialog
-      backdropClassName="absolute inset-0 bg-brand-dark/55"
-      closeDisabled={busy}
-      escapeDisabled={busy}
-      onOpenChange={handleOpenChange}
-      open={open}
-      popupClassName="relative max-h-[calc(100dvh-2rem)] w-full max-w-lg overflow-y-auto rounded-2xl border border-brand-border bg-white p-6 shadow-xl"
-      viewportClassName={`fixed inset-0 ${PORTAL_Z.entityModal} grid place-items-center p-4`}
-    >
-      {children}
-    </ControlledDialog>
-  );
-}
-
-function DialogActions({ busy, submitLabel }: { busy: boolean; submitLabel: string }) {
-  const text = busy ? "Saving…" : submitLabel;
-  return (
-    <div className="mt-6 flex flex-wrap justify-end gap-2">
-      <ControlledDialogClose className="portal-outline-btn" disabled={busy} type="button">
-        Cancel
-      </ControlledDialogClose>
-      <button
-        aria-busy={busy || undefined}
-        className="portal-primary-btn"
-        disabled={busy}
-        type="submit"
-      >
-        {text}
-      </button>
-    </div>
-  );
-}
-
-function ServerError({ message }: { message: string }) {
-  if (!message) {
-    return null;
+/** Opens straight into the one job a row most likely needs. */
+function initialMode(row: TeamDayRow): Mode {
+  const record = row.checkIn;
+  if (!record) {
+    return row.canReview ? "manual" : "details";
   }
-  return (
-    <p
-      className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm"
-      role="alert"
-    >
-      {message}
-    </p>
-  );
+  if (row.canReview && record.source === "self" && record.admission === "pending_review") {
+    return "review";
+  }
+  return "details";
+}
+
+function reviewNote(record: CheckInRecord) {
+  if (record.source === "manager_entry") {
+    return record.review
+      ? `Entered by ${record.review.reviewerName}. Reason: ${record.review.reason}`
+      : "Entered by a manager. There's no device evidence for a manual entry.";
+  }
+  if (record.review) {
+    const verb = record.review.decision === "accepted" ? "Accepted" : "Rejected";
+    return `${verb} by ${record.review.reviewerName}. Reason: ${record.review.reason}`;
+  }
+  return null;
 }
 
 function RecordHistory({
@@ -114,18 +78,15 @@ function RecordHistory({
   timeZone: string;
 }) {
   const events = useQuery(api.crm.officeCheckIns.history, { checkInId });
-  if (events === undefined) {
-    return <p className="text-brand-muted text-xs">Loading history…</p>;
-  }
-  if (events.length === 0) {
+  if (!events || events.length === 0) {
     return null;
   }
   return (
-    <details className="rounded-xl border border-brand-border/70 px-3 py-2">
-      <summary className="cursor-pointer font-medium text-brand-dark text-xs">
-        Record history ({events.length})
+    <details className="group">
+      <summary className="inline-flex min-h-10 cursor-pointer items-center text-citius-blue text-sm">
+        History ({events.length})
       </summary>
-      <ul className="mt-2 grid gap-2">
+      <ul className="mt-1 grid gap-2">
         {events.map((event) => (
           <li className="text-brand-muted text-xs" key={event.id}>
             <span className="tabular-nums">{formatOfficeDateTime(event.at, timeZone)}</span> ·{" "}
@@ -138,21 +99,39 @@ function RecordHistory({
   );
 }
 
+/** What happened that day, in plain words: status, times, each signal, any review. */
 function RecordSummary({ record, timeZone }: { record: CheckInRecord; timeZone: string }) {
+  const status = teamStatusFor(record);
+  const note = reviewNote(record);
   return (
-    <div className="mt-4 grid gap-3 rounded-xl bg-brand-light/60 p-4">
-      <div className="flex flex-wrap items-center gap-3 text-sm">
-        <span className="tabular-nums">
-          In {formatOfficeTime(record.clockInAt, timeZone)} · Out{" "}
+    <div className="grid gap-3 rounded-xl bg-brand-light/60 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <span className="font-heading font-semibold text-brand-dark text-lg tabular-nums">
+          {formatOfficeTime(record.clockInAt, timeZone)} →{" "}
           {formatOfficeTime(record.clockOutAt, timeZone)}
         </span>
-        {record.source === "self" ? <OutcomeBadge outcome={record.clockIn.outcome} /> : null}
+        <ToneBadge label={status.label} tone={status.tone} />
       </div>
-      {record.source === "self" ? (
-        <SignalList record={record.clockIn} />
-      ) : (
-        <p className="text-brand-muted text-xs">Manager entry. No device evidence.</p>
-      )}
+      {record.source === "self" ? <SignalList record={record.clockIn} /> : null}
+      {record.clockOut && record.clockOut.outcome !== "pass" ? (
+        <div className="grid gap-2">
+          <p className="font-medium text-brand-dark text-sm">At clock-out</p>
+          <SignalList record={record.clockOut} />
+        </div>
+      ) : null}
+      {note ? <p className="text-brand-dark text-sm">{note}</p> : null}
+      {record.correctedAt ? <p className={FIELD_HINT}>A manager corrected these times.</p> : null}
+    </div>
+  );
+}
+
+function DialogHeading({ subtitle, title }: { subtitle: string; title: string }) {
+  return (
+    <div className="mb-4">
+      <ControlledDialogTitle className="font-heading font-semibold text-citius-blue text-lg">
+        {title}
+      </ControlledDialogTitle>
+      <p className="mt-1 text-brand-muted text-sm">{subtitle}</p>
     </div>
   );
 }
@@ -178,33 +157,85 @@ function useDialogSubmit(onBusyChange: (busy: boolean) => void) {
   return { busy, run, serverError };
 }
 
-interface FormProps {
+/** Moves focus into a form that replaced the details view. */
+function useFocusOnMount(ref: RefObject<HTMLElement | null>, enabled: boolean) {
+  useEffect(() => {
+    if (enabled) {
+      ref.current?.focus();
+    }
+  }, [enabled, ref]);
+}
+
+function FormActions({
+  busy,
+  onBack,
+  submitLabel,
+}: {
+  busy: boolean;
+  onBack: (() => void) | null;
+  submitLabel: string;
+}) {
+  const label = busy ? "Saving…" : submitLabel;
+  return (
+    <DialogFooter>
+      {onBack ? (
+        <button className="portal-outline-btn" disabled={busy} onClick={onBack} type="button">
+          Back
+        </button>
+      ) : (
+        <ControlledDialogClose className="portal-outline-btn" disabled={busy} type="button">
+          Cancel
+        </ControlledDialogClose>
+      )}
+      <button
+        aria-busy={busy || undefined}
+        className="portal-primary-btn"
+        disabled={busy}
+        type="submit"
+      >
+        {label}
+      </button>
+    </DialogFooter>
+  );
+}
+
+interface ModeProps {
+  context: DialogContext;
+  focusFirst: boolean;
+  onBack: (() => void) | null;
+}
+
+interface DialogContext {
+  heading: { subtitle: string; title: string };
   onBusyChange: (busy: boolean) => void;
   onDone: () => void;
-  target: TeamRecordDialogTarget;
+  row: TeamDayRow;
+  workDate: string;
 }
 
 type ReviewDecision = "accepted" | "rejected";
 
-function ReviewForm({ onBusyChange, onDone, target }: FormProps) {
+function ReviewMode({ context, focusFirst, onBack }: ModeProps) {
   const toast = usePortalToast();
   const review = useMutation(api.crm.officeCheckIns.review);
-  const { busy, run, serverError } = useDialogSubmit(onBusyChange);
+  const { busy, run, serverError } = useDialogSubmit(context.onBusyChange);
   const [decision, setDecision] = useState<ReviewDecision | null>(null);
   const [reason, setReason] = useState("");
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const [reasonError, setReasonError] = useState<string | null>(null);
   const reasonRef = useRef<HTMLTextAreaElement | null>(null);
   const decisionRef = useRef<HTMLInputElement | null>(null);
+  useFocusOnMount(decisionRef, focusFirst);
   const id = useId();
-  const record = target.row.checkIn;
+  const { row } = context;
+  const record = row.checkIn;
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!record) {
       return;
     }
-    const nextDecisionError = decision ? null : "Choose whether to accept or reject this check-in.";
+    const nextDecisionError = decision ? null : "Choose whether this check-in counts.";
     const nextReasonError = reasonProblem(reason);
     setDecisionError(nextDecisionError);
     setReasonError(nextReasonError);
@@ -218,8 +249,8 @@ function ReviewForm({ onBusyChange, onDone, target }: FormProps) {
     }
     await run(async () => {
       await review({ checkInId: record._id, decision, reason: reason.trim() });
-      toast.success(`Review saved for ${target.row.name}.`);
-      onDone();
+      toast.success(`Review saved for ${row.name}.`);
+      context.onDone();
     }, "Couldn't save the review. Try again.");
   };
 
@@ -232,53 +263,56 @@ function ReviewForm({ onBusyChange, onDone, target }: FormProps) {
     return null;
   }
   return (
-    <form noValidate onSubmit={submit}>
-      <ControlledDialogTitle className="font-heading font-semibold text-citius-blue text-lg">
-        Review {target.row.name}'s check-in
-      </ControlledDialogTitle>
-      <p className="mt-1 text-brand-muted text-sm">
-        {formatWorkDate(target.workDate)} · times in {target.timeZone}. A check result is evidence,
-        not proof of where someone was.
-      </p>
-      <RecordSummary record={record} timeZone={target.timeZone} />
-      <fieldset
-        aria-describedby={decisionError ? `${id}-decision-error` : undefined}
-        className="mt-5 grid gap-2"
-      >
-        <legend className={FIELD_LABEL}>Decision</legend>
-        <label className="flex min-h-10 items-center gap-2 text-brand-dark text-sm">
-          <input
-            checked={decision === "accepted"}
-            className="size-4 accent-citius-blue"
-            name="decision"
-            onChange={choose}
-            ref={decisionRef}
-            type="radio"
-            value="accepted"
+    <form className="flex min-h-0 flex-1 flex-col" noValidate onSubmit={submit}>
+      <DialogBody>
+        <DialogHeading {...context.heading} />
+        <RecordSummary record={record} timeZone={row.timeZone} />
+        <fieldset
+          aria-describedby={decisionError ? `${id}-decision-error` : undefined}
+          className="mt-5 grid gap-1"
+        >
+          <legend className={`${FIELD_LABEL} mb-1`}>Does this check-in count?</legend>
+          <label className="flex min-h-10 items-center gap-2 text-brand-dark text-sm">
+            <input
+              checked={decision === "accepted"}
+              className="size-4 accent-citius-blue"
+              name="decision"
+              onChange={choose}
+              ref={decisionRef}
+              type="radio"
+              value="accepted"
+            />
+            Yes, accept it
+          </label>
+          <label className="flex min-h-10 items-center gap-2 text-brand-dark text-sm">
+            <input
+              checked={decision === "rejected"}
+              className="size-4 accent-citius-blue"
+              name="decision"
+              onChange={choose}
+              type="radio"
+              value="rejected"
+            />
+            No, reject it
+          </label>
+          <FieldError id={`${id}-decision-error`} message={decisionError} />
+        </fieldset>
+        <div className="mt-4">
+          <ReasonField
+            error={reasonError}
+            inputRef={reasonRef}
+            onChange={setReason}
+            value={reason}
           />
-          Accept: the check-in counts
-        </label>
-        <label className="flex min-h-10 items-center gap-2 text-brand-dark text-sm">
-          <input
-            checked={decision === "rejected"}
-            className="size-4 accent-citius-blue"
-            name="decision"
-            onChange={choose}
-            type="radio"
-            value="rejected"
-          />
-          Reject: the check-in doesn't count
-        </label>
-        <FieldError id={`${id}-decision-error`} message={decisionError} />
-      </fieldset>
-      <div className="mt-4">
-        <ReasonField error={reasonError} inputRef={reasonRef} onChange={setReason} value={reason} />
-      </div>
-      <div className="mt-4">
-        <RecordHistory checkInId={record._id} timeZone={target.timeZone} />
-      </div>
-      <ServerError message={serverError} />
-      <DialogActions busy={busy} submitLabel="Save review" />
+        </div>
+        <div className="mt-3">
+          <RecordHistory checkInId={record._id} timeZone={row.timeZone} />
+        </div>
+        <div className="mt-3">
+          <ServerError message={serverError} />
+        </div>
+      </DialogBody>
+      <FormActions busy={busy} onBack={onBack} submitLabel="Save review" />
     </form>
   );
 }
@@ -305,14 +339,14 @@ function TimeField({
   const handleChange = (event: ChangeEvent<HTMLInputElement>) =>
     onChange(event.currentTarget.value);
   return (
-    <div className="grid gap-1.5">
+    <div className="grid content-start gap-1.5">
       <label className={FIELD_LABEL} htmlFor={`${id}-time`}>
         {label}
       </label>
       <input
         aria-describedby={describedBy || undefined}
         aria-invalid={error ? true : undefined}
-        className="portal-input tabular-nums aria-[invalid=true]:border-red-400"
+        className="portal-input text-base tabular-nums aria-[invalid=true]:border-red-400 sm:text-sm"
         id={`${id}-time`}
         onChange={handleChange}
         ref={inputRef}
@@ -320,7 +354,7 @@ function TimeField({
         value={value}
       />
       {hint ? (
-        <p className="text-brand-muted text-xs" id={`${id}-hint`}>
+        <p className={FIELD_HINT} id={`${id}-hint`}>
           {hint}
         </p>
       ) : null}
@@ -341,10 +375,10 @@ interface TimesErrors {
   reason: string | null;
 }
 
-function validateTimes(draft: TimesDraft, target: TeamRecordDialogTarget) {
-  const clockInAt = officeTimeToTimestamp(target.workDate, draft.clockIn, target.timeZone);
+function validateTimes(draft: TimesDraft, workDate: string, timeZone: string) {
+  const clockInAt = officeTimeToTimestamp(workDate, draft.clockIn, timeZone);
   const clockOutAt = draft.clockOut
-    ? officeTimeToTimestamp(target.workDate, draft.clockOut, target.timeZone)
+    ? officeTimeToTimestamp(workDate, draft.clockOut, timeZone)
     : null;
   const errors: TimesErrors = {
     clockIn: clockInAt === null ? "Enter the clock-in time as HH:MM." : null,
@@ -359,28 +393,27 @@ function validateTimes(draft: TimesDraft, target: TeamRecordDialogTarget) {
   return { clockInAt, clockOutAt, errors };
 }
 
-function TimesForm({
-  description,
+type SaveTimes = (input: {
+  clockInAt: number;
+  clockOutAt: number | null;
+  reason: string;
+}) => Promise<void>;
+
+function TimesMode({
+  context,
+  focusFirst,
+  intro,
+  initial,
+  onBack,
   onSave,
   submitLabel,
-  target,
-  title,
-  initial,
-  onBusyChange,
-}: {
-  description: string;
+}: ModeProps & {
   initial: TimesDraft;
-  onBusyChange: (busy: boolean) => void;
-  onSave: (input: {
-    clockInAt: number;
-    clockOutAt: number | null;
-    reason: string;
-  }) => Promise<void>;
+  intro: string;
+  onSave: SaveTimes;
   submitLabel: string;
-  target: TeamRecordDialogTarget;
-  title: string;
 }) {
-  const { busy, run, serverError } = useDialogSubmit(onBusyChange);
+  const { busy, run, serverError } = useDialogSubmit(context.onBusyChange);
   const [draft, setDraft] = useState(initial);
   const [errors, setErrors] = useState<TimesErrors>({
     clockIn: null,
@@ -389,12 +422,14 @@ function TimesForm({
   });
   const clockInRef = useRef<HTMLInputElement | null>(null);
   const reasonRef = useRef<HTMLTextAreaElement | null>(null);
+  useFocusOnMount(clockInRef, focusFirst);
+  const { row, workDate } = context;
   const setField = (field: keyof TimesDraft) => (value: string) =>
     setDraft((current) => ({ ...current, [field]: value }));
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const result = validateTimes(draft, target);
+    const result = validateTimes(draft, workDate, row.timeZone);
     setErrors(result.errors);
     if (result.errors.clockIn || result.errors.clockOut || result.clockInAt === null) {
       clockInRef.current?.focus();
@@ -412,103 +447,186 @@ function TimesForm({
   };
 
   return (
-    <form noValidate onSubmit={submit}>
-      <ControlledDialogTitle className="font-heading font-semibold text-citius-blue text-lg">
-        {title}
-      </ControlledDialogTitle>
-      <p className="mt-1 text-brand-muted text-sm">{description}</p>
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        <TimeField
-          error={errors.clockIn}
-          inputRef={clockInRef}
-          label="Clock-in time"
-          onChange={setField("clockIn")}
-          value={draft.clockIn}
-        />
-        <TimeField
-          error={errors.clockOut}
-          hint="Leave empty if they're still in the office."
-          label="Clock-out time"
-          onChange={setField("clockOut")}
-          value={draft.clockOut}
-        />
-      </div>
-      <div className="mt-4">
-        <ReasonField
-          error={errors.reason}
-          inputRef={reasonRef}
-          onChange={setField("reason")}
-          value={draft.reason}
-        />
-      </div>
-      <ServerError message={serverError} />
-      <DialogActions busy={busy} submitLabel={submitLabel} />
+    <form className="flex min-h-0 flex-1 flex-col" noValidate onSubmit={submit}>
+      <DialogBody>
+        <DialogHeading {...context.heading} />
+        {row.checkIn ? <RecordSummary record={row.checkIn} timeZone={row.timeZone} /> : null}
+        <p className="mt-4 text-brand-dark text-sm">{intro}</p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <TimeField
+            error={errors.clockIn}
+            inputRef={clockInRef}
+            label="Clock-in time"
+            onChange={setField("clockIn")}
+            value={draft.clockIn}
+          />
+          <TimeField
+            error={errors.clockOut}
+            hint="Leave empty if they're still in the office."
+            label="Clock-out time"
+            onChange={setField("clockOut")}
+            value={draft.clockOut}
+          />
+        </div>
+        <div className="mt-4">
+          <ReasonField
+            error={errors.reason}
+            inputRef={reasonRef}
+            onChange={setField("reason")}
+            value={draft.reason}
+          />
+        </div>
+        <div className="mt-3">
+          <ServerError message={serverError} />
+        </div>
+      </DialogBody>
+      <FormActions busy={busy} onBack={onBack} submitLabel={submitLabel} />
     </form>
   );
 }
 
-function CorrectForm({ onBusyChange, onDone, target }: FormProps) {
+function CorrectMode(props: ModeProps) {
   const toast = usePortalToast();
   const correctTimes = useMutation(api.crm.officeCheckIns.correctTimes);
-  const record = target.row.checkIn;
+  const { row } = props.context;
+  const record = row.checkIn;
   if (!record) {
     return null;
   }
-  const save = async (input: { clockInAt: number; clockOutAt: number | null; reason: string }) => {
+  const save: SaveTimes = async (input) => {
     await correctTimes({ checkInId: record._id, ...input });
-    toast.success(`Times corrected for ${target.row.name}.`);
-    onDone();
+    toast.success(`Times corrected for ${row.name}.`);
+    props.context.onDone();
   };
   return (
-    <>
-      <TimesForm
-        description={`${formatWorkDate(target.workDate)} · times in ${target.timeZone}.`}
-        initial={{
-          clockIn: timestampToClockTime(record.clockInAt, target.timeZone),
-          clockOut: timestampToClockTime(record.clockOutAt, target.timeZone),
-          reason: "",
-        }}
-        onBusyChange={onBusyChange}
-        onSave={save}
-        submitLabel="Save times"
-        target={target}
-        title={`Correct ${target.row.name}'s times`}
-      />
-      <div className="mt-4">
-        <RecordHistory checkInId={record._id} timeZone={target.timeZone} />
-      </div>
-    </>
-  );
-}
-
-function ManualEntryForm({ onBusyChange, onDone, target }: FormProps) {
-  const toast = usePortalToast();
-  const recordManualEntry = useMutation(api.crm.officeCheckIns.recordManualEntry);
-  const save = async (input: { clockInAt: number; clockOutAt: number | null; reason: string }) => {
-    await recordManualEntry({ staffId: target.row.staffId, workDate: target.workDate, ...input });
-    toast.success(`Entry recorded for ${target.row.name}.`);
-    onDone();
-  };
-  return (
-    <TimesForm
-      description={`${formatWorkDate(target.workDate)} · times in ${target.timeZone}. Use this when ${target.row.name} was in the office but couldn't check in. It's saved as a manager entry with no device evidence.`}
-      initial={{ clockIn: "", clockOut: "", reason: "" }}
-      onBusyChange={onBusyChange}
+    <TimesMode
+      {...props}
+      initial={{
+        clockIn: timestampToClockTime(record.clockInAt, row.timeZone),
+        clockOut: timestampToClockTime(record.clockOutAt, row.timeZone),
+        reason: "",
+      }}
+      intro="Change the times below. The device evidence stays as it was recorded."
       onSave={save}
-      submitLabel="Record entry"
-      target={target}
-      title={`Add an entry for ${target.row.name}`}
+      submitLabel="Save times"
     />
   );
 }
 
-const FORMS = {
-  correct: CorrectForm,
-  manual: ManualEntryForm,
-  review: ReviewForm,
-} satisfies Record<TeamRecordDialogKind, (props: FormProps) => ReactNode>;
+function ManualMode(props: ModeProps) {
+  const toast = usePortalToast();
+  const recordManualEntry = useMutation(api.crm.officeCheckIns.recordManualEntry);
+  const { row, workDate } = props.context;
+  const save: SaveTimes = async (input) => {
+    await recordManualEntry({ staffId: row.staffId, workDate, ...input });
+    toast.success(`Entry added for ${row.name}.`);
+    props.context.onDone();
+  };
+  return (
+    <TimesMode
+      {...props}
+      initial={{ clockIn: "", clockOut: "", reason: "" }}
+      intro={`${row.name} has no check-in for this day. If they were in the office but couldn't check in, add their times. It's saved as a manual entry with no device evidence.`}
+      onSave={save}
+      submitLabel="Add entry"
+    />
+  );
+}
 
-/** One dialog host for Review, Correct times and Add entry. Every save needs a reason. */
+function DetailsMode({
+  context,
+  onChoose,
+}: {
+  context: DialogContext;
+  onChoose: (mode: Mode) => void;
+}) {
+  const { row } = context;
+  const record = row.checkIn;
+  const canReview = Boolean(row.canReview && record?.source === "self");
+  const review = () => onChoose("review");
+  const correct = () => onChoose("correct");
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <DialogBody>
+        <DialogHeading {...context.heading} />
+        {record ? (
+          <>
+            <RecordSummary record={record} timeZone={row.timeZone} />
+            <div className="mt-3">
+              <RecordHistory checkInId={record._id} timeZone={row.timeZone} />
+            </div>
+          </>
+        ) : (
+          <p className="text-brand-dark text-sm">No check-in for this day.</p>
+        )}
+        {row.canReview ? null : (
+          <p className="mt-3 text-brand-muted text-sm">
+            You can't change this record. Your own check-ins are reviewed by your manager.
+          </p>
+        )}
+      </DialogBody>
+      <DialogFooter>
+        <ControlledDialogClose className="portal-outline-btn" type="button">
+          Close
+        </ControlledDialogClose>
+        {row.canReview && record ? (
+          <button className="portal-outline-btn" onClick={correct} type="button">
+            Correct times
+          </button>
+        ) : null}
+        {canReview ? (
+          <button className="portal-primary-btn" onClick={review} type="button">
+            Review
+          </button>
+        ) : null}
+      </DialogFooter>
+    </div>
+  );
+}
+
+function RecordDialogContent({
+  onBusyChange,
+  onDone,
+  target,
+}: {
+  onBusyChange: (busy: boolean) => void;
+  onDone: () => void;
+  target: TeamRecordDialogTarget;
+}) {
+  const { row, workDate } = target;
+  const firstMode = initialMode(row);
+  const [mode, setMode] = useState<Mode>(firstMode);
+  const office = row.officeName ? ` · ${row.officeName}` : "";
+  const context: DialogContext = {
+    heading: {
+      subtitle: `${formatWorkDate(workDate)}${office} · times in ${row.timeZone}`,
+      title: firstMode === "manual" ? `Add an entry for ${row.name}` : row.name,
+    },
+    onBusyChange,
+    onDone,
+    row,
+    workDate,
+  };
+  // Back returns to the details only when the dialog opened there or has a record to show.
+  const back = row.checkIn ? () => setMode("details") : null;
+  const switched = mode !== firstMode;
+  switch (mode) {
+    case "review":
+      return <ReviewMode context={context} focusFirst={switched} onBack={back} />;
+    case "correct":
+      return <CorrectMode context={context} focusFirst={switched} onBack={back} />;
+    case "manual":
+      return <ManualMode context={context} focusFirst={switched} onBack={null} />;
+    default:
+      return <DetailsMode context={context} onChoose={setMode} />;
+  }
+}
+
+/**
+ * The single dialog behind each team row's Open button. It shows the day's
+ * record and offers Review, Correct times or Add entry as the row allows.
+ * Every save needs a reason, which goes into the history.
+ */
 export function TeamRecordDialog({
   onClose,
   target,
@@ -517,17 +635,16 @@ export function TeamRecordDialog({
   target: TeamRecordDialogTarget | null;
 }) {
   const [busy, setBusy] = useState(false);
-  const Form = target ? FORMS[target.kind] : null;
   return (
-    <DialogFrame busy={busy} onClose={onClose} open={Boolean(target)}>
-      {target && Form ? (
-        <Form
-          key={`${target.kind}:${target.row.staffId}:${target.workDate}`}
+    <OfficeDialog busy={busy} onClose={onClose} open={Boolean(target)}>
+      {target ? (
+        <RecordDialogContent
+          key={`${target.row.staffId}:${target.workDate}`}
           onBusyChange={setBusy}
           onDone={onClose}
           target={target}
         />
       ) : null}
-    </DialogFrame>
+    </OfficeDialog>
   );
 }
