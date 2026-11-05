@@ -8,7 +8,6 @@ export type TeamDay = FunctionReturnType<typeof api.crm.officeCheckIns.teamDay>;
 export type TeamDayRow = TeamDay["rows"][number];
 export type OfficeCheckInOverview = FunctionReturnType<typeof api.crm.officeCheckInAdmin.overview>;
 export type OverviewOffice = OfficeCheckInOverview["offices"][number];
-export type OfficeRule = NonNullable<OverviewOffice["rule"]>;
 
 export interface OfficeCheckInAccess {
   roles?: string[];

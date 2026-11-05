@@ -124,6 +124,9 @@ beforeAll(async () => {
           return state.team;
         case "crm/officeCheckIns:history":
           return [];
+        case "crm/officeCheckInAdmin:overview":
+          state.overviewReads += 1;
+          return state.overview;
         default:
           return;
       }
@@ -142,7 +145,12 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  state = { status: myStatus(), team: { ...team(), rows: [] } };
+  state = {
+    overview: { offices: [], recentAudit: [], staff: [], unmatchedNetworks: [] },
+    overviewReads: 0,
+    status: myStatus(),
+    team: { ...team(), rows: [] },
+  };
   for (const fn of [review, correctTimes, recordManualEntry, toastSuccess, fetchMock]) {
     fn.mockClear();
   }
@@ -157,11 +165,11 @@ afterAll(() => {
   dom.window.close();
 });
 
-async function mount() {
+async function mount({ admin = false } = {}) {
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
-  const has = () => false;
+  const has = (permission) => admin && permission === "manage:staff";
   await act(async () =>
     root.render(<OfficeCheckInView access={{ roles: ["Sales"] }} allowed canFetch has={has} />)
   );
@@ -191,7 +199,9 @@ function postedBody() {
 describe("Office check-in: my day", () => {
   test("Clock in without a location rule sends not_requested and no IP", async () => {
     const view = await mount();
-    expect(view.container.textContent).toContain("This office checks the office network.");
+    expect(view.container.textContent).toContain(
+      "This office checks that you're on the office internet."
+    );
     expect(view.container.textContent).toContain("Nothing is blocked during the pilot.");
 
     await press(findButton(view.container, "Clock in"));
@@ -227,7 +237,7 @@ describe("Office check-in: my day", () => {
 
     expect(getCurrentPosition).not.toHaveBeenCalled();
     expect(view.container.textContent).toContain(
-      "your browser asks for your location once to compare it with the office area"
+      "Your browser asks for your location once, when you press the button."
     );
     expect(view.container.textContent).toContain("a manager reviews it before it counts");
 
@@ -263,7 +273,7 @@ describe("Office check-in: my day", () => {
     const view = await mount();
     const button = findButton(view.container, "Clock in");
     expect(document.getElementById(button.getAttribute("aria-describedby")).textContent).toContain(
-      "your browser asks for your location once"
+      "Your browser asks for your location once"
     );
 
     button.focus();
@@ -328,60 +338,98 @@ describe("Office check-in: my day", () => {
     await view.unmount();
   });
 
-  test("Offers Clock out with today's per-signal result once clocked in", async () => {
+  test("Offers Clock out with today's result once clocked in", async () => {
     state.status = myStatus({ today: checkIn("staff_me") });
     const view = await mount();
     expect(findButton(view.container, "Clock out")).toBeTruthy();
     expect(view.container.textContent).toContain("09:15");
-    expect(view.container.textContent).toContain(
-      "The request came from a recognised office network."
-    );
-    expect(view.container.textContent).toContain("Pass");
+    expect(view.container.textContent).toContain("Clock-in checkPass");
+    await view.unmount();
+  });
+
+  test("Explains a check that didn't pass in plain words", async () => {
+    state.status = myStatus({
+      today: checkIn("staff_me", { clockIn: verification("fail", "outside_allowlist") }),
+    });
+    const view = await mount();
+    expect(view.container.textContent).toContain("Not connected through the office internet.");
     await view.unmount();
   });
 });
 
-describe("Office check-in: today in the office", () => {
-  test("Hides the team table from people who oversee no one", async () => {
+describe("Office check-in: Today and Office setup", () => {
+  test("Shows no section switch to people who can't set up offices", async () => {
+    state.status = myStatus({ canOversee: true });
+    state.team = team();
     const view = await mount();
-    expect(view.container.textContent).not.toContain("Today in the office");
+    expect(findButton(view.container, "Office setup")).toBeUndefined();
+    expect(view.container.textContent).toContain("My day");
+    expect(state.overviewReads).toBe(0);
     await view.unmount();
   });
 
-  test("Renders each person's status and check result in words", async () => {
+  test("Lets an admin switch to Office setup, which reads the overview only then", async () => {
+    const view = await mount({ admin: true });
+    const setup = findButton(view.container, "Office setup");
+    expect(findButton(view.container, "Today").getAttribute("aria-pressed")).toBe("true");
+    expect(setup.getAttribute("aria-pressed")).toBe("false");
+    expect(state.overviewReads).toBe(0);
+
+    await press(setup);
+    expect(setup.getAttribute("aria-pressed")).toBe("true");
+    expect(view.container.textContent).toContain("Offices");
+    expect(view.container.textContent).not.toContain("My day");
+    expect(state.overviewReads).toBeGreaterThan(0);
+
+    await press(findButton(view.container, "Today"));
+    expect(view.container.textContent).toContain("My day");
+    await view.unmount();
+  });
+});
+
+describe("Office check-in: team today", () => {
+  test("Hides the team list from people who oversee no one", async () => {
+    const view = await mount();
+    expect(view.container.textContent).not.toContain("Team today");
+    await view.unmount();
+  });
+
+  test("Gives each person one status in words, times in and out, and one action", async () => {
     state.status = myStatus({ canOversee: true });
     state.team = team();
     const view = await mount();
     const table = view.container.querySelector("table");
-    const rowText = (name) =>
-      [...table.querySelectorAll("tbody tr")].find((row) => row.textContent.includes(name))
-        ?.textContent ?? "";
+    const rowFor = (name) =>
+      [...table.querySelectorAll("tbody tr")].find((row) => row.textContent.includes(name));
 
-    expect(view.container.textContent).toContain("Today in the office");
-    expect(rowText("Asha Rao")).toContain("Checked in");
-    expect(rowText("Asha Rao")).toContain("Pass");
-    expect(rowText("Vikram Shah")).toContain("Awaiting review");
-    expect(rowText("Vikram Shah")).toContain("Fail");
-    expect(rowText("Meera Iyer")).toContain("Checked out");
-    expect(rowText("Meera Iyer")).toContain("18:00");
-    expect(rowText("Dev Patel")).toContain("Not checked in");
-    expect(view.container.textContent).toContain(
-      "1 checked in · 1 checked out · 1 awaiting review · 1 not checked in"
-    );
+    expect(view.container.textContent).toContain("Team today");
+    expect(rowFor("Asha Rao").textContent).toContain("In · Pass");
+    expect(rowFor("Vikram Shah").textContent).toContain("Awaiting review");
+    expect(rowFor("Meera Iyer").textContent).toContain("Out · Pass");
+    expect(rowFor("Meera Iyer").textContent).toContain("09:15 → 18:00");
+    expect(rowFor("Dev Patel").textContent).toContain("Not in");
+    for (const name of ["Asha Rao", "Vikram Shah", "Meera Iyer", "Dev Patel"]) {
+      const buttons = rowFor(name).querySelectorAll("button");
+      expect(buttons).toHaveLength(1);
+      expect(buttons[0].getAttribute("aria-label")).toBe(`Open ${name}`);
+      expect(buttons[0].textContent).toBe("Open");
+    }
+    expect(view.container.textContent).toContain("1 in · 1 out · 1 awaiting review · 1 not in");
+    // One office: no office filter, and no department or office sublines.
+    expect(view.container.querySelector("#office-check-in-team-office")).toBeNull();
+    expect(table.textContent).not.toContain("Sales");
     await view.unmount();
   });
 
-  test("Review needs a reason before it saves", async () => {
+  test("Opens a pending check-in straight into a review that needs a reason", async () => {
     state.status = myStatus({ canOversee: true });
     state.team = team();
     const view = await mount();
 
-    await press(findButton(view.container, "Review Vikram Shah's check-in"));
+    await press(findButton(view.container, "Open Vikram Shah"));
     const dialog = document.querySelector('[role="dialog"]');
-    expect(dialog.textContent).toContain("Review Vikram Shah's check-in");
-    expect(dialog.textContent).toContain(
-      "The request didn't come from a recognised office network."
-    );
+    expect(dialog.textContent).toContain("Vikram Shah");
+    expect(dialog.textContent).toContain("Not connected through the office internet.");
 
     await act(() => {
       dialog.querySelector('input[value="accepted"]').click();
@@ -405,20 +453,46 @@ describe("Office check-in: today in the office", () => {
     await view.unmount();
   });
 
-  test("Manual entry converts office times and requires a reason", async () => {
+  test("Offers Review and Correct times from one record dialog", async () => {
     state.status = myStatus({ canOversee: true });
     state.team = team();
     const view = await mount();
 
-    await press(findButton(view.container, "Add entry for Dev Patel"));
+    await press(findButton(view.container, "Open Asha Rao"));
     const dialog = document.querySelector('[role="dialog"]');
+    expect(findButton(dialog, "Review")).toBeTruthy();
+    expect(findButton(dialog, "Correct times")).toBeTruthy();
+
+    await press(findButton(dialog, "Correct times"));
+    const [clockIn] = dialog.querySelectorAll('input[type="time"]');
+    expect(clockIn.value).toBe("09:15");
+    await act(async () => typeInto(dom, clockIn, "09:05"));
+    await act(async () => typeInto(dom, dialog.querySelector("textarea"), "Badge time was late"));
+    await press(findButton(dialog, "Save times"));
+    expect(correctTimes).toHaveBeenCalledWith({
+      checkInId: "officeCheckIns_staff_asha",
+      clockInAt: Date.UTC(2026, 10, 5, 3, 35),
+      clockOutAt: null,
+      reason: "Badge time was late",
+    });
+    await view.unmount();
+  });
+
+  test("Adds an entry for someone with no check-in, with a reason", async () => {
+    state.status = myStatus({ canOversee: true });
+    state.team = team();
+    const view = await mount();
+
+    await press(findButton(view.container, "Open Dev Patel"));
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog.textContent).toContain("Add an entry for Dev Patel");
     const [clockIn] = dialog.querySelectorAll('input[type="time"]');
     await act(async () => typeInto(dom, clockIn, "09:30"));
-    await press(findButton(dialog, "Record entry"));
+    await press(findButton(dialog, "Add entry"));
     expect(recordManualEntry).not.toHaveBeenCalled();
 
     await act(async () => typeInto(dom, dialog.querySelector("textarea"), "Badge reader was down"));
-    await press(findButton(dialog, "Record entry"));
+    await press(findButton(dialog, "Add entry"));
     expect(recordManualEntry).toHaveBeenCalledWith({
       clockInAt: Date.UTC(2026, 10, 5, 4, 0),
       clockOutAt: null,

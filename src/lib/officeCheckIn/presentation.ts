@@ -20,35 +20,59 @@ import type { OfficeCheckInErrorCode } from "./contracts";
 
 export type RuleRequirement = CheckInRequirement | "not_configured";
 
-export const REQUIREMENT_LABELS = {
-  geofence: "Location",
-  network: "Office network",
-  network_and_geofence: "Office network and location",
-  network_or_geofence: "Office network or location",
-} satisfies Record<CheckInRequirement, string>;
-
 /**
- * Admin-facing explanation for each requirement option. The editor follows it
- * with one sentence saying staff can't pick an easier method, so it isn't
- * repeated here.
+ * The four answers to "What should we check?", in the order the setup form
+ * lists them, each with a one-line explanation for the person choosing.
  */
-export const REQUIREMENT_HELP = {
-  geofence: "Checks the location the employee's device reports.",
-  network: "Checks the network the check-in request comes from.",
-  network_and_geofence: "Checks both every time. A check-in passes only when both pass.",
-  network_or_geofence: "Checks both every time and passes when either one passes.",
-} satisfies Record<CheckInRequirement, string>;
+export const REQUIREMENT_CHOICES = [
+  {
+    help: "Their phone or laptop must report a location within the radius of the office pin.",
+    label: "Location",
+    value: "geofence",
+  },
+  {
+    help: "They must be connected through one of the office's internet addresses.",
+    label: "Office internet",
+    value: "network",
+  },
+  {
+    help: "Passes when either the location or the office internet passes.",
+    label: "Either one",
+    value: "network_or_geofence",
+  },
+  {
+    help: "Passes only when the location and the office internet both pass.",
+    label: "Both",
+    value: "network_and_geofence",
+  },
+] as const satisfies readonly { help: string; label: string; value: CheckInRequirement }[];
+
+/** One line for an office card: what the office checks, in plain words. */
+export function describeOfficeCheck(requirement: RuleRequirement) {
+  switch (requirement) {
+    case "network":
+      return "Checks office internet";
+    case "geofence":
+      return "Checks location";
+    case "network_and_geofence":
+      return "Checks location and office internet";
+    case "network_or_geofence":
+      return "Checks location or office internet";
+    default:
+      return "Nothing to check yet";
+  }
+}
 
 export function describeRule(requirement: RuleRequirement) {
   switch (requirement) {
     case "network":
-      return "This office checks the office network.";
+      return "This office checks that you're on the office internet.";
     case "geofence":
       return "This office checks your location.";
     case "network_and_geofence":
-      return "This office checks the office network and your location.";
+      return "This office checks your location and that you're on the office internet.";
     case "network_or_geofence":
-      return "This office checks the office network or your location. Either one passing is enough.";
+      return "This office checks your location or the office internet. Either one is enough.";
     default:
       return "This office has no check-in rule yet. Your times are recorded and marked uncertain.";
   }
@@ -66,15 +90,9 @@ export const ENFORCEMENT_LABELS = {
 } satisfies Record<EnforcementMode, string>;
 
 export const NETWORK_KIND_LABELS = {
-  office: "Office",
+  office: "Office only",
   office_shared_with_vpn: "Office, shared with VPN",
-  vpn_or_proxy_exit: "VPN or proxy exit",
-} satisfies Record<NetworkEntryKind, string>;
-
-export const NETWORK_KIND_HELP = {
-  office: "Only office devices use this range. A match can pass.",
-  office_shared_with_vpn: "Office traffic and VPN users share it. A match stays uncertain.",
-  vpn_or_proxy_exit: "A VPN or proxy exit. A match stays uncertain.",
+  vpn_or_proxy_exit: "VPN or proxy",
 } satisfies Record<NetworkEntryKind, string>;
 
 export const OUTCOME_LABELS = {
@@ -93,25 +111,25 @@ export function describeNetworkReason(reason: NetworkReason, matchedLabel?: stri
   switch (reason) {
     case "matched_office":
       return matchedLabel
-        ? `The request came from a recognised office network (${matchedLabel}).`
-        : "The request came from a recognised office network.";
+        ? `Connected through the office internet (${matchedLabel}).`
+        : "Connected through the office internet.";
     case "shared_with_vpn":
-      return "The request came from a network shared with VPN users, so it can't place you in the office.";
+      return "Connected through an address the office shares with VPN users, so it can't confirm the office.";
     case "vpn_or_proxy_exit":
-      return "The request came through a VPN or proxy, so the network can't place you.";
+      return "Connected through a VPN or proxy, so the internet address can't confirm the office.";
     case "outside_allowlist":
-      return "The request didn't come from a recognised office network.";
+      return "Not connected through the office internet.";
     case "ip_unavailable":
-      return "The network couldn't be read for this check.";
+      return "The internet address couldn't be read for this check.";
     default:
-      return "No office networks are set up for this office yet.";
+      return "No office internet addresses are set up for this office yet.";
   }
 }
 
 export const NETWORK_REASON_SHORT = {
   ip_unavailable: "Not readable",
-  matched_office: "Office network",
-  no_networks_configured: "No ranges set up",
+  matched_office: "Office internet",
+  no_networks_configured: "No addresses set up",
   outside_allowlist: "Not on the office list",
   shared_with_vpn: "Shared with VPN",
   vpn_or_proxy_exit: "VPN or proxy exit",
@@ -127,19 +145,19 @@ const GEOLOCATION_ERROR_COPY = {
 export function describeGeofenceReason(reason: GeofenceReason, accuracyMeters?: number | null) {
   switch (reason) {
     case "inside":
-      return "Your device reported a location inside the office area.";
+      return "The device reported a location inside the office area.";
     case "outside":
-      return "Your device reported a location outside the office area.";
+      return "The device reported a location outside the office area.";
     case "boundary_uncertain":
-      return "Your device's location was too close to the edge of the office area to tell.";
+      return "The location was too close to the edge of the office area to tell.";
     case "accuracy_too_low":
       return accuracyMeters
-        ? `Your device's location wasn't precise enough (about ${Math.round(accuracyMeters)} m).`
-        : "Your device's location wasn't precise enough.";
+        ? `The location wasn't precise enough (about ${Math.round(accuracyMeters)} m).`
+        : "The location wasn't precise enough.";
     case "stale_reading":
-      return "Your device returned an old location reading.";
+      return "The device sent an old location reading.";
     case "invalid_reading":
-      return "Your device returned a location that couldn't be used.";
+      return "The device sent a location that couldn't be used.";
     case "not_provided":
       return "No location was sent with this check.";
     case "no_geofence_configured":
@@ -224,6 +242,44 @@ export const DAY_STATUS_TONES = {
   not_checked_in: "gray",
   rejected: "red",
 } satisfies Record<DayStatus, "amber" | "blue" | "gray" | "red">;
+
+export type StatusTone = "amber" | "blue" | "gray" | "green" | "red";
+
+export interface TeamStatus {
+  label: string;
+  tone: StatusTone;
+}
+
+export interface TeamStatusRecord extends DayStatusRecord {
+  clockIn: { outcome: SignalOutcome };
+  source: "manager_entry" | "self";
+}
+
+/**
+ * One status per person for the team list, always in words: where they are
+ * ("In", "Out", "Not in") and, for their own check-in, how the check went.
+ * Review states replace the presence word because they need the manager.
+ */
+export function teamStatusFor(record: TeamStatusRecord | null): TeamStatus {
+  if (!record) {
+    return { label: "Not in", tone: "gray" };
+  }
+  if (record.admission === "pending_review") {
+    return { label: "Awaiting review", tone: "amber" };
+  }
+  if (record.admission === "rejected") {
+    return { label: "Rejected", tone: "red" };
+  }
+  const presence = record.status === "open" ? "In" : "Out";
+  if (record.source === "manager_entry") {
+    return { label: `${presence} · Manual entry`, tone: "gray" };
+  }
+  const { outcome } = record.clockIn;
+  if (outcome === "pass") {
+    return { label: `${presence} · Pass`, tone: record.status === "open" ? "green" : "gray" };
+  }
+  return { label: `${presence} · ${OUTCOME_LABELS[outcome]}`, tone: OUTCOME_TONES[outcome] };
+}
 
 // ---------------------------------------------------------------------------
 // Dates and times (always in the office time zone)

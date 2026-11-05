@@ -1,137 +1,205 @@
 "use client";
 
 import { PortalDateInput } from "@/components/portal/PortalDateInput";
-import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
 import { Select } from "@/components/ui/application-select";
-import {
-  DAY_STATUS_LABELS,
-  type DayStatus,
-  dayStatusFor,
-  formatOfficeTime,
-  formatWorkDate,
-} from "@/lib/officeCheckIn/presentation";
+import { formatOfficeTime, formatWorkDate, teamStatusFor } from "@/lib/officeCheckIn/presentation";
 import { Panel } from "../portalWorkspaceListUi";
-import { DayStatusBadge, OutcomeBadge } from "./OfficeCheckInParts";
+import { ToneBadge } from "./OfficeCheckInParts";
 import type { TeamDay, TeamDayRow } from "./officeCheckInTypes";
-import type { TeamRecordDialogKind } from "./TeamRecordDialogs";
 
-type TeamTableRow = TeamDayRow & { dayStatus: DayStatus; id: string };
+type Presence = "awaiting" | "in" | "not_in" | "out" | "rejected";
 
-const SUMMARY_ORDER: DayStatus[] = [
-  "checked_in",
-  "checked_out",
-  "awaiting_review",
-  "rejected",
-  "not_checked_in",
+const PRESENCE_WORDS: [Presence, string][] = [
+  ["in", "in"],
+  ["out", "out"],
+  ["awaiting", "awaiting review"],
+  ["rejected", "rejected"],
+  ["not_in", "not in"],
 ];
 
-/** "4 checked in · 1 awaiting review · 6 not checked in", counted from the visible rows. */
-function summarizeTeamDay(rows: readonly { dayStatus: DayStatus }[]) {
-  const counts = new Map<DayStatus, number>();
-  for (const row of rows) {
-    counts.set(row.dayStatus, (counts.get(row.dayStatus) ?? 0) + 1);
+function presenceOf(row: TeamDayRow): Presence {
+  const record = row.checkIn;
+  if (!record) {
+    return "not_in";
   }
-  return SUMMARY_ORDER.flatMap((status) => {
-    const count = counts.get(status) ?? 0;
-    return count > 0 ? [`${count} ${DAY_STATUS_LABELS[status].toLowerCase()}`] : [];
-  }).join(" · ");
+  if (record.admission === "pending_review") {
+    return "awaiting";
+  }
+  if (record.admission === "rejected") {
+    return "rejected";
+  }
+  return record.status === "open" ? "in" : "out";
 }
 
-function RowActions({
-  onOpen,
-  row,
-}: {
-  onOpen: (kind: TeamRecordDialogKind, row: TeamDayRow) => void;
-  row: TeamTableRow;
-}) {
-  if (!row.canReview) {
+/** "3 in · 2 out · 1 awaiting review · 2 not in", counted from the rows on screen. */
+function summarize(rows: readonly TeamDayRow[]) {
+  const counts = new Map<Presence, number>();
+  for (const row of rows) {
+    const presence = presenceOf(row);
+    counts.set(presence, (counts.get(presence) ?? 0) + 1);
+  }
+  return PRESENCE_WORDS.flatMap(([presence, words]) => {
+    const count = counts.get(presence) ?? 0;
+    return count > 0 ? [`${count} ${words}`] : [];
+  });
+}
+
+/** Each count stays on one line, so a wrap never strands "in" from its number. */
+function SummaryText({ parts }: { parts: readonly string[] }) {
+  if (parts.length === 0) {
+    return "No one to show";
+  }
+  return parts.map((part, index) => (
+    <span className="whitespace-nowrap" key={part}>
+      {index > 0 ? " · " : ""}
+      {part}
+    </span>
+  ));
+}
+
+function timesFor(row: TeamDayRow) {
+  if (!row.checkIn) {
+    return "—";
+  }
+  const clockIn = formatOfficeTime(row.checkIn.clockInAt, row.timeZone);
+  const clockOut = formatOfficeTime(row.checkIn.clockOutAt, row.timeZone);
+  return `${clockIn} → ${clockOut}`;
+}
+
+function OpenButton({ onOpen, row }: { onOpen: (row: TeamDayRow) => void; row: TeamDayRow }) {
+  // Nothing to show or do for someone with no record you can't add to.
+  if (!(row.checkIn || row.canReview)) {
     return <span className="text-brand-muted">—</span>;
   }
-  if (!row.checkIn) {
-    const addEntry = () => onOpen("manual", row);
-    return (
-      <button
-        aria-label={`Add entry for ${row.name}`}
-        className="portal-small-btn"
-        onClick={addEntry}
-        type="button"
-      >
-        Add entry
-      </button>
-    );
-  }
-  const review = () => onOpen("review", row);
-  const correct = () => onOpen("correct", row);
+  const open = () => onOpen(row);
   return (
-    <div className="flex gap-2 whitespace-nowrap">
-      {row.checkIn.source === "self" ? (
-        <button
-          aria-label={`Review ${row.name}'s check-in`}
-          className="portal-small-btn"
-          onClick={review}
-          type="button"
-        >
-          Review
-        </button>
+    <button
+      aria-label={`Open ${row.name}`}
+      className="portal-small-btn"
+      onClick={open}
+      type="button"
+    >
+      Open
+    </button>
+  );
+}
+
+function NameCell({ row, showOffice }: { row: TeamDayRow; showOffice: boolean }) {
+  return (
+    <div className="min-w-0">
+      <div className="break-words font-semibold text-brand-dark text-sm">{row.name}</div>
+      {showOffice && row.officeName ? (
+        <div className="mt-0.5 truncate text-brand-muted text-xs">{row.officeName}</div>
       ) : null}
-      <button
-        aria-label={`Correct times for ${row.name}`}
-        className="portal-small-btn"
-        onClick={correct}
-        type="button"
-      >
-        Correct times
-      </button>
     </div>
   );
 }
 
-function CheckCell({ row }: { row: TeamTableRow }) {
-  if (!row.checkIn) {
-    return <span className="text-brand-muted">—</span>;
-  }
-  if (row.checkIn.source === "manager_entry") {
-    return <span className="whitespace-nowrap text-brand-muted text-xs">Manager entry</span>;
-  }
-  return <OutcomeBadge outcome={row.checkIn.clockIn.outcome} />;
+function TeamTable({
+  onOpen,
+  rows,
+  showOffice,
+}: {
+  onOpen: (row: TeamDayRow) => void;
+  rows: readonly TeamDayRow[];
+  showOffice: boolean;
+}) {
+  return (
+    <>
+      <table className="hidden w-full table-fixed border-collapse text-sm sm:table">
+        <thead>
+          <tr className="border-brand-border border-b text-brand-muted text-xs">
+            <th className="w-[42%] py-2 pe-4 text-start font-normal" scope="col">
+              Name
+            </th>
+            <th className="py-2 pe-4 text-start font-normal" scope="col">
+              Status
+            </th>
+            <th className="py-2 pe-4 text-end font-normal" scope="col">
+              In → out
+            </th>
+            <th className="w-24 py-2 text-end font-normal" scope="col">
+              <span className="sr-only">Action</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-brand-border/60">
+          {rows.map((row) => {
+            const status = teamStatusFor(row.checkIn);
+            return (
+              <tr key={row.staffId}>
+                <td className="py-2.5 pe-4 align-middle">
+                  <NameCell row={row} showOffice={showOffice} />
+                </td>
+                <td className="py-2.5 pe-4 align-middle">
+                  <ToneBadge label={status.label} tone={status.tone} />
+                </td>
+                <td className="whitespace-nowrap py-2.5 pe-4 text-end align-middle text-brand-dark tabular-nums">
+                  {timesFor(row)}
+                </td>
+                <td className="py-2.5 text-end align-middle">
+                  <OpenButton onOpen={onOpen} row={row} />
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <ul className="divide-y divide-brand-border/60 border-brand-border/60 border-y sm:hidden">
+        {rows.map((row) => {
+          const status = teamStatusFor(row.checkIn);
+          return (
+            <li className="flex items-center gap-3 py-3" key={row.staffId}>
+              <div className="grid min-w-0 flex-1 gap-1.5">
+                <NameCell row={row} showOffice={showOffice} />
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <ToneBadge label={status.label} tone={status.tone} />
+                  <span className="text-brand-muted text-xs tabular-nums">{timesFor(row)}</span>
+                </div>
+              </div>
+              <OpenButton onOpen={onOpen} row={row} />
+            </li>
+          );
+        })}
+      </ul>
+    </>
+  );
 }
 
 export function TeamDayPanel({
   officeId,
   onOfficeChange,
-  onOpenDialog,
+  onOpen,
   onWorkDateChange,
   team,
+  today,
   workDate,
 }: {
   officeId: string;
   onOfficeChange: (officeId: string) => void;
-  onOpenDialog: (kind: TeamRecordDialogKind, row: TeamDayRow) => void;
+  onOpen: (row: TeamDayRow) => void;
   onWorkDateChange: (workDate: string) => void;
   team: TeamDay | undefined;
+  today: string;
   workDate: string;
 }) {
-  const rows: TeamTableRow[] = (team?.rows ?? []).map((row) => ({
-    ...row,
-    dayStatus: dayStatusFor(row.checkIn),
-    id: row.staffId,
-  }));
-  const summary = summarizeTeamDay(rows);
+  const rows = team?.rows ?? [];
+  const offices = team?.offices ?? [];
+  // A chosen office stays visible so it can be cleared, even if the filtered
+  // result only names that one office.
+  const showOfficeFilter = offices.length > 1 || Boolean(officeId);
+  const showOffice = new Set(rows.map((row) => row.officeId)).size > 1;
   const officeOptions = [
     { label: "All offices", value: "" },
-    ...(team?.offices ?? []).map((office) => ({ label: office.name, value: office.id })),
+    ...offices.map((office) => ({ label: office.name, value: office.id })),
   ];
-  const handleDateChange = (value: string) => onWorkDateChange(value);
-  const time = (row: TeamTableRow, timestamp: number | undefined) =>
-    formatOfficeTime(timestamp, row.timeZone);
+  const title = workDate === today ? "Team today" : `Team on ${formatWorkDate(workDate)}`;
+  const summary = summarize(rows);
 
   return (
-    <Panel
-      subtitle="People you oversee, with each check-in's result. A result is evidence for review, not proof of presence."
-      title="Today in the office"
-    >
-      <div className="mb-4 flex flex-wrap items-end gap-3">
-        <div className="grid w-44 gap-1 text-brand-dark text-sm">
+    <Panel title={title}>
+      <div className="mb-3 grid grid-cols-2 items-end gap-3 sm:flex sm:flex-wrap">
+        <div className="grid min-w-0 gap-1 text-brand-dark text-sm sm:w-44">
           <label className="font-medium" htmlFor="office-check-in-team-date">
             Date
           </label>
@@ -139,101 +207,45 @@ export function TeamDayPanel({
             aria-label="Date"
             id="office-check-in-team-date"
             name="workDate"
-            onChange={handleDateChange}
+            onChange={onWorkDateChange}
             value={workDate}
           />
         </div>
-        <div className="grid min-w-48 gap-1 text-brand-dark text-sm">
-          <label className="font-medium" htmlFor="office-check-in-team-office">
-            Office
-          </label>
-          <Select
-            aria-label="Office"
-            className="portal-input"
-            id="office-check-in-team-office"
-            onValueChange={onOfficeChange}
-            options={officeOptions}
-            value={officeId}
-          />
-        </div>
-        <p className="pb-3 text-brand-muted text-xs tabular-nums" role="status">
-          {team ? `${formatWorkDate(team.workDate)}: ${summary || "no one to show"}` : "Loading…"}
+        {showOfficeFilter ? (
+          <div className="grid min-w-0 gap-1 text-brand-dark text-sm sm:min-w-48">
+            <label className="font-medium" htmlFor="office-check-in-team-office">
+              Office
+            </label>
+            <Select
+              aria-label="Office"
+              className="portal-input"
+              id="office-check-in-team-office"
+              onValueChange={onOfficeChange}
+              options={officeOptions}
+              value={officeId}
+            />
+          </div>
+        ) : null}
+        <p className="col-span-2 text-brand-muted text-sm tabular-nums sm:pb-3" role="status">
+          {team ? <SummaryText parts={summary} /> : "Loading…"}
         </p>
       </div>
       {team?.truncated ? (
         <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900 text-xs">
-          This list is incomplete because there are more records than one view can load. Filter by
+          This list is incomplete because there are more records than one view can load. Choose an
           office to see everyone.
         </p>
       ) : null}
-      <div className="overflow-hidden rounded-xl border border-brand-border bg-brand-surface">
-        <SelectableDataTable<TeamTableRow>
-          columns={[
-            {
-              id: "name",
-              kind: "identity",
-              label: "Name",
-              render: (row) => (
-                <div className="min-w-0">
-                  <div className="font-semibold text-brand-dark">{row.name}</div>
-                  {row.department ? (
-                    <div className="text-brand-muted text-xs">{row.department}</div>
-                  ) : null}
-                </div>
-              ),
-              sortValue: (row) => row.name,
-            },
-            {
-              id: "office",
-              label: "Office",
-              render: (row) => row.officeName ?? <span className="text-brand-muted">—</span>,
-              sortValue: (row) => row.officeName ?? "",
-            },
-            {
-              id: "status",
-              kind: "status",
-              label: "Status",
-              render: (row) => <DayStatusBadge status={row.dayStatus} />,
-              sortValue: (row) => DAY_STATUS_LABELS[row.dayStatus],
-            },
-            {
-              id: "check",
-              label: "Check",
-              render: (row) => <CheckCell row={row} />,
-              sortValue: (row) => row.checkIn?.clockIn.outcome ?? "",
-            },
-            {
-              align: "right",
-              id: "clock-in",
-              label: "In",
-              render: (row) => (
-                <span className="tabular-nums">{time(row, row.checkIn?.clockInAt)}</span>
-              ),
-              sortValue: (row) => row.checkIn?.clockInAt ?? 0,
-            },
-            {
-              align: "right",
-              id: "clock-out",
-              label: "Out",
-              render: (row) => (
-                <span className="tabular-nums">{time(row, row.checkIn?.clockOutAt)}</span>
-              ),
-              sortValue: (row) => row.checkIn?.clockOutAt ?? 0,
-            },
-            {
-              id: "actions",
-              kind: "action",
-              label: "Actions",
-              render: (row) => <RowActions onOpen={onOpenDialog} row={row} />,
-            },
-          ]}
-          empty={team ? "No one you oversee matches this date and office." : "Loading check-ins…"}
-          entityLabel="people"
-          rowLabel={(row) => row.name}
-          rows={rows}
-          selectable={false}
-        />
-      </div>
+      {team && rows.length === 0 ? (
+        <p className="rounded-xl border border-brand-border border-dashed px-3 py-3 text-brand-muted text-sm">
+          No one you oversee matches this date{officeId ? " and office" : ""}.
+        </p>
+      ) : (
+        <TeamTable onOpen={onOpen} rows={rows} showOffice={showOffice} />
+      )}
+      <p className="mt-3 text-brand-muted text-xs">
+        A check result is evidence for review, not proof of where someone was.
+      </p>
     </Panel>
   );
 }
