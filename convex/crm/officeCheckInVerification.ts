@@ -236,6 +236,8 @@ export function parseIp(raw: string): ParsedIp | null {
   if (!bytes) {
     return null;
   }
+  // A prefix test, not an equality test: the 12-byte mapped prefix is compared
+  // against the first 12 of 16 bytes, so the lengths differ by design.
   if (IPV4_MAPPED_PREFIX.every((value, index) => bytes[index] === value)) {
     return { bytes: bytes.slice(12), version: 4 };
   }
