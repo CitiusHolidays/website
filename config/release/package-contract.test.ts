@@ -31,16 +31,16 @@ describe("Package and test discovery contract", () => {
 
     expect(dependencies.next).toBe("16.3.3");
     expect(devDependencies["@next/playwright"]).toBe(dependencies.next);
-    expect(dependencies.sharp).toBe("0.35.4");
+    expect(dependencies.sharp).toBe("0.35.5");
     expect(overrides.sharp).toBe(dependencies.sharp);
     expect(dependencies.next).not.toContain("preview");
     expect(dependencies["next-sanity"]).toBeUndefined();
     expect(dependencies["@sanity/client"]).toBeDefined();
     expect(dependencies["@portabletext/react"]).toBeDefined();
     expect(dependencies.groq).toBeUndefined();
-    expect(dependencies["brace-expansion"]).toBe("1.1.18");
-    expect(dependencies.undici).toBe("7.29.0");
-    expect(dependencies.dompurify).toBe("3.4.13");
+    expect(dependencies["brace-expansion"]).toBe("1.1.21");
+    expect(dependencies.undici).toBe("7.30.2");
+    expect(dependencies.dompurify).toBe("3.4.17");
   });
 
   test("Keeps the standalone Sanity Studio on its reviewed runtime contract", () => {
@@ -86,7 +86,7 @@ describe("Package and test discovery contract", () => {
       "bun node_modules/oxlint/bin/oxlint --config oxlint.config.ts ."
     );
     expect(packageJson.devDependencies.husky).toBe("9.1.7");
-    expect(packageJson.devDependencies["lint-staged"]).toBe("17.3.0");
+    expect(packageJson.devDependencies["lint-staged"]).toBe("17.6.0");
     expect(packageJson.devDependencies.knip).toBe("6.32.2");
     expect(packageJson.devDependencies.jsdom).toBe("30.0.1");
     expect(packageJson.dependencies["isomorphic-dompurify"]).toBeUndefined();
