@@ -72,10 +72,10 @@ describe("Package and test discovery contract", () => {
       readFileSync(resolve(root, ".github/workflows/hosted-quality.yml"), "utf8")
     ).not.toContain("bun-version-file");
     expect(packageJson.scripts.doctor).toBe("react-doctor");
-    expect(packageJson.devDependencies["react-doctor"]).toBe("0.9.11");
+    expect(packageJson.devDependencies["react-doctor"]).toBe("0.9.22");
     expect(packageJson.dependencies.effect).toBe("4.1.2");
-    expect(packageJson.devDependencies.oxlint).toBe("1.78.0");
-    expect(packageJson.devDependencies["@oxlint/plugins"]).toBe("1.78.0");
+    expect(packageJson.devDependencies.oxlint).toBe("1.91.0");
+    expect(packageJson.devDependencies["@oxlint/plugins"]).toBe("1.91.0");
     expect(packageJson.devDependencies["@typescript/native"]).toBe("npm:typescript@7.0.2");
     expect(packageJson.devDependencies.typescript).toBe("6.0.3");
     expect(packageJson.scripts.lint).toBe("ultracite check && bun run lint:anti-slop");
@@ -87,7 +87,7 @@ describe("Package and test discovery contract", () => {
     );
     expect(packageJson.devDependencies.husky).toBe("9.1.7");
     expect(packageJson.devDependencies["lint-staged"]).toBe("17.6.0");
-    expect(packageJson.devDependencies.knip).toBe("6.32.2");
+    expect(packageJson.devDependencies.knip).toBe("6.44.1");
     expect(packageJson.devDependencies.jsdom).toBe("30.0.1");
     expect(packageJson.dependencies["isomorphic-dompurify"]).toBeUndefined();
     expect(existsSync(resolve(root, "src/lib/email/send.js"))).toBe(false);

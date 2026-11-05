@@ -1,6 +1,7 @@
 # React Doctor triage record
 
-This repository pins React Doctor `0.9.11`. The 2026-08-20 repository-wide review began from an
+This repository pins React Doctor `0.9.22`; the 2026-08-20 review below was made with `0.9.11`.
+That repository-wide review began from an
 ignore-free scan of 1,394 files: 614 diagnostics (20 errors and 594 warnings) across 210 files. The
 previous configuration displayed five warnings in four files and suppressed 609 diagnostics.
 
