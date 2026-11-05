@@ -21,7 +21,6 @@ import schema from "./schema";
 
 const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
 const TWENTY_FOUR_HOURS_IN_SECONDS = 24 * 60 * 60;
-const FIVE_MINUTES_IN_SECONDS = 5 * 60;
 
 function reportAuthEmailFailure(outcome: {
   correlationDigest?: string;
@@ -245,10 +244,6 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
     },
     secret,
     session: {
-      cookieCache: {
-        enabled: true,
-        maxAge: FIVE_MINUTES_IN_SECONDS,
-      },
       expiresIn: THIRTY_DAYS_IN_SECONDS,
       updateAge: TWENTY_FOUR_HOURS_IN_SECONDS,
     },

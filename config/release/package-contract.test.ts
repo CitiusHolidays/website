@@ -29,28 +29,28 @@ describe("Package and test discovery contract", () => {
   test("Pins stable Next and keeps patched multi-major dependency floors explicit", () => {
     const { dependencies, devDependencies, overrides } = readPackageJson();
 
-    expect(dependencies.next).toBe("16.3.3");
+    expect(dependencies.next).toBe("16.4.5");
     expect(devDependencies["@next/playwright"]).toBe(dependencies.next);
-    expect(dependencies.sharp).toBe("0.35.4");
+    expect(dependencies.sharp).toBe("0.35.5");
     expect(overrides.sharp).toBe(dependencies.sharp);
     expect(dependencies.next).not.toContain("preview");
     expect(dependencies["next-sanity"]).toBeUndefined();
     expect(dependencies["@sanity/client"]).toBeDefined();
     expect(dependencies["@portabletext/react"]).toBeDefined();
     expect(dependencies.groq).toBeUndefined();
-    expect(dependencies["brace-expansion"]).toBe("1.1.18");
-    expect(dependencies.undici).toBe("7.29.0");
-    expect(dependencies.dompurify).toBe("3.4.13");
+    expect(dependencies["brace-expansion"]).toBe("1.1.21");
+    expect(dependencies.undici).toBe("7.30.2");
+    expect(dependencies.dompurify).toBe("3.4.17");
   });
 
   test("Keeps the standalone Sanity Studio on its reviewed runtime contract", () => {
     const { dependencies, scripts } = readBlogPackageJson();
 
-    expect(dependencies.sanity).toBe("6.9.1");
-    expect(dependencies["@sanity/sdk"]).toBe("^2.19.0");
-    expect(dependencies["@sanity/vision"]).toBe("6.9.1");
-    expect(dependencies.react).toBe("19.2.8");
-    expect(dependencies["styled-components"]).toBe("6.5.1");
+    expect(dependencies.sanity).toBe("6.22.0");
+    expect(dependencies["@sanity/sdk"]).toBe("^3.12.0");
+    expect(dependencies["@sanity/vision"]).toBe("6.22.0");
+    expect(dependencies.react).toBe("19.3.1");
+    expect(dependencies["styled-components"]).toBe("6.6.0");
     expect(scripts.build).toBe("sanity build");
     expect(scripts.build).not.toContain("bun --bun");
   });
@@ -72,10 +72,10 @@ describe("Package and test discovery contract", () => {
       readFileSync(resolve(root, ".github/workflows/hosted-quality.yml"), "utf8")
     ).not.toContain("bun-version-file");
     expect(packageJson.scripts.doctor).toBe("react-doctor");
-    expect(packageJson.devDependencies["react-doctor"]).toBe("0.9.11");
-    expect(packageJson.dependencies.effect).toBe("4.0.5");
-    expect(packageJson.devDependencies.oxlint).toBe("1.78.0");
-    expect(packageJson.devDependencies["@oxlint/plugins"]).toBe("1.78.0");
+    expect(packageJson.devDependencies["react-doctor"]).toBe("0.9.22");
+    expect(packageJson.dependencies.effect).toBe("4.1.2");
+    expect(packageJson.devDependencies.oxlint).toBe("1.91.0");
+    expect(packageJson.devDependencies["@oxlint/plugins"]).toBe("1.91.0");
     expect(packageJson.devDependencies["@typescript/native"]).toBe("npm:typescript@7.0.2");
     expect(packageJson.devDependencies.typescript).toBe("6.0.3");
     expect(packageJson.scripts.lint).toBe("ultracite check && bun run lint:anti-slop");
@@ -86,9 +86,9 @@ describe("Package and test discovery contract", () => {
       "bun node_modules/oxlint/bin/oxlint --config oxlint.config.ts ."
     );
     expect(packageJson.devDependencies.husky).toBe("9.1.7");
-    expect(packageJson.devDependencies["lint-staged"]).toBe("17.3.0");
-    expect(packageJson.devDependencies.knip).toBe("6.32.2");
-    expect(packageJson.devDependencies.jsdom).toBe("30.0.1");
+    expect(packageJson.devDependencies["lint-staged"]).toBe("17.6.0");
+    expect(packageJson.devDependencies.knip).toBe("6.44.1");
+    expect(packageJson.devDependencies.jsdom).toBe("30.1.3");
     expect(packageJson.dependencies["isomorphic-dompurify"]).toBeUndefined();
     expect(existsSync(resolve(root, "src/lib/email/send.js"))).toBe(false);
     expect(readFileSync(resolve(root, "doctor.config.json"), "utf8")).not.toContain(
@@ -109,7 +109,7 @@ describe("Package and test discovery contract", () => {
     const packageJson = readPackageJson();
     const instrumentationPath = resolve(root, "src/lib/dev/react-inspection-client.ts");
 
-    expect(packageJson.devDependencies["react-grab"]).toBe("0.1.50");
+    expect(packageJson.devDependencies["react-grab"]).toBe("0.2.0");
     expect(packageJson.devDependencies["react-scan"]).toBe("0.5.7");
     expect(packageJson.scripts["dev:inspect"]).toBe(
       "CITIUS_REACT_INSPECTION=1 next dev --turbopack"

@@ -61,7 +61,7 @@ release scanners and codemods.
 
 Use [Rat Stack's agent guide](https://ratstack.sh/llms.txt) for discovery and its
 [source at `16db4de8`](https://github.com/joelhooks/rat-stack/tree/16db4de8b861c1fd0414b27481294a52769eef9c)
-as a reference. Citius now pins stable Effect `4.0.5`. Check
+as a reference. Citius now pins stable Effect `4.1.2`. Check
 installed `node_modules/effect/src` and `ai-docs` before borrowing APIs. This ADR,
 repository instructions, and existing Next.js/Convex architecture remain authoritative.
 
@@ -106,3 +106,10 @@ provider identities, cancellation, bounded timeout and cleanup outcomes. The com
 operational controls, and all 2,055 Bun tests. Application/Convex types,
 zero-warning lint and the existing coverage contract also pass. No provider call or Production
 Test Lab execution was used as upgrade evidence.
+
+## Effect 4.1 update (2026-11-05)
+
+As part of the user-requested dependency refresh, `effect` moves from exact `4.0.5` to exact
+`4.1.2`. The three runtime imports above need no import or API changes. Application/Convex types,
+all 2,208 Bun tests, all 275 schema-backed Convex tests, zero-warning lint and the coverage contract
+pass locally. No provider call or Production Test Lab execution was used as upgrade evidence.

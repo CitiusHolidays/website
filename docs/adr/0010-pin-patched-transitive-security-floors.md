@@ -22,10 +22,10 @@ use different export shapes, and the graph legitimately contains Undici 7 and
 
 ## Decision
 
-- Pin `brace-expansion@1.1.18` and `undici@7.29.0` as explicit security floors
+- Pin `brace-expansion@1.1.21` and `undici@7.30.2` as explicit security floors
   in the root manifest.
 - Keep the compatible patched lock resolutions for every installed major:
-  `brace-expansion` 1.1.18, 2.1.4, and 5.0.9; Undici 7.29.0 and 8.10.0.
+  `brace-expansion` 1.1.21, 2.1.7, and 5.0.12; Undici 7.30.2 and 8.12.4.
 - Verify reproducibility with `bun install --frozen-lockfile` and enforce the
   result with `bun audit --audit-level=high`.
 - Keep the separate `citius-blog` Sanity Studio independent; this decision
