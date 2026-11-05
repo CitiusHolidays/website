@@ -29,7 +29,7 @@ describe("Package and test discovery contract", () => {
   test("Pins stable Next and keeps patched multi-major dependency floors explicit", () => {
     const { dependencies, devDependencies, overrides } = readPackageJson();
 
-    expect(dependencies.next).toBe("16.3.3");
+    expect(dependencies.next).toBe("16.4.5");
     expect(devDependencies["@next/playwright"]).toBe(dependencies.next);
     expect(dependencies.sharp).toBe("0.35.5");
     expect(overrides.sharp).toBe(dependencies.sharp);
