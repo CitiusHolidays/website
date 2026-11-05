@@ -210,7 +210,8 @@ describe("office check-in retention purge", () => {
     expect(after.audit.map((row) => row._id).sort()).toEqual(
       [...ids.expiredConfiguration, ids.boundaryAttendance].sort()
     );
-    expect(after.audit.some((row) => ids.expiredAttendance.includes(row._id))).toBe(false);
+    const expiredAttendance = new Set(ids.expiredAttendance);
+    expect(after.audit.some((row) => expiredAttendance.has(row._id))).toBe(false);
     expect(after.checkIns.some((row) => row._id === ids.expiredCheckIn)).toBe(false);
   });
 

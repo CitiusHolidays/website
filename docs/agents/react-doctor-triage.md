@@ -48,6 +48,7 @@ limitations. Every override names the exact file and rule whose behavior was ins
 | Spreadsheet shell and Chatbot messages | prop-adjust/set-state findings | State represents an explicit exit-animation snapshot or screen-reader announcement, not renderable derived state. |
 | Passenger export | object URL finding | Every created download URL is revoked in the same action lifecycle. |
 | AI grounding benchmark | set/map lookup finding | The flagged expression is substring matching, not repeated membership lookup. |
+| Office check-in IP parsing | `js-length-check-first` | `parseIp` tests a 12-byte IPv4-mapped prefix against a 16-byte IPv6 address. Requiring equal lengths would stop mapped clients matching IPv4 office ranges; the IPv4-mapped cases in `officeCheckInVerification.test.ts` pin the prefix behavior. |
 | Tracked Convex subscriptions | crypto and compiler TODO findings | SHA-256 is a non-security dedupe fingerprint; the compiler limitation is a dynamic hook-spread registry with focused lifecycle tests. |
 | Better Auth delivery correlation | `url-prefilled-privileged-action` | The URL carries only a random opaque correlation. Staff-setup routing requires a matching server-written, expiring intent bound to the recipient digest and purpose; crafted URL values fall back to the ordinary verification/reset control in regression tests. |
 | Exact vendored Oxlint anti-slop source files | `unused-file` | Oxlint loads the plugin entrypoint and its rule modules through `oxlint.config.ts`; `bun run lint:anti-slop` is the executable contract. |

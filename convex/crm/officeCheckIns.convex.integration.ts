@@ -1037,6 +1037,51 @@ describe("Manager review, correction and manual entry", () => {
     );
   });
 
+  test("Review and manual entry refuse a caller without a staff record before any lookup", async () => {
+    const t = createHarness();
+    const { pending, staff } = await pendingDay(t);
+    process.env.PORTAL_BOOTSTRAP_ADMINS = BOOTSTRAP_EMAIL;
+    process.env.PORTAL_BOOTSTRAP_ADMINS_EXPIRES_AT = String(NOW.getTime() + 86_400_000);
+    const bootstrap = t.withIdentity({
+      email: BOOTSTRAP_EMAIL,
+      issuer: ISSUER,
+      subject: "bootstrap",
+      tokenIdentifier: `${ISSUER}|bootstrap`,
+    });
+    // Ids that were valid once, so a lookup would report "not found" or "forbidden".
+    const goneCheckIn = (await clockIn(t, "mumbai_rep", HOME_IP)).checkIn._id;
+    const goneStaff = await insertStaff(t, { roles: ["Sales"], subject: "gone" });
+    await t.run(async (ctx) => {
+      await ctx.db.delete("officeCheckIns", goneCheckIn);
+      await ctx.db.delete("staffUsers", goneStaff);
+    });
+    for (const checkInId of [pending._id, goneCheckIn]) {
+      await expect(
+        bootstrap.mutation(api.crm.officeCheckIns.review, {
+          checkInId,
+          decision: "accepted",
+          reason: "Break-glass review",
+        })
+      ).rejects.toThrow("NO_STAFF_PROFILE");
+    }
+    for (const staffId of [staff.delhiRep, goneStaff]) {
+      await expect(
+        bootstrap.mutation(api.crm.officeCheckIns.recordManualEntry, {
+          clockInAt: Date.parse("2026-03-29T03:30:00.000Z"),
+          clockOutAt: Date.parse("2026-03-29T12:30:00.000Z"),
+          reason: "Break-glass entry",
+          staffId,
+          workDate: "2026-03-29",
+        })
+      ).rejects.toThrow("NO_STAFF_PROFILE");
+    }
+    expect(await auditFor(t, "review_accepted")).toEqual([]);
+    expect(await auditFor(t, "manual_entry")).toEqual([]);
+    expect((await t.run(async (ctx) => ctx.db.get("officeCheckIns", pending._id)))?.review).toBe(
+      undefined
+    );
+  });
+
   test("Reopening a closed record is refused while the person has another open session", async () => {
     const t = createHarness();
     const { staff } = await seed(t);

@@ -438,8 +438,8 @@ export const teamDay = query({
   handler: async (ctx, args) => {
     const workDate = assertReferenceDate(args.workDate);
     const access = await requireStaff(ctx);
-    const actor = await actorStaff(ctx, access);
-    const [staff, offices, rules, records] = await Promise.all([
+    const [actor, staff, offices, rules, records] = await Promise.all([
+      actorStaff(ctx, access),
       ctx.db
         .query("staffUsers")
         .withIndex("by_active", (q) => q.eq("active", true))
@@ -461,30 +461,38 @@ export const teamDay = query({
         : overseen.flatMap((member) => (member.officeId ? [member.officeId] : []))
     );
     const rows = overseen
-      .filter((member) => !args.officeId || member.officeId === args.officeId)
-      .map((member) => {
+      .flatMap((member) => {
+        if (args.officeId && member.officeId !== args.officeId) {
+          return [];
+        }
         const checkIn = withoutNetworkPrefixes(recordsByStaff.get(member._id) ?? null);
         const officeId = checkIn?.officeId ?? member.officeId ?? null;
-        return {
-          canReview: true,
-          checkIn,
-          department: member.department ?? null,
-          name: member.name,
-          officeId,
-          officeName: officeId ? (officeNames.get(officeId) ?? null) : null,
-          staffId: member._id,
-          timeZone: (officeId && timeZones.get(officeId)) || DEFAULT_OFFICE_TIME_ZONE,
-        };
+        return [
+          {
+            canReview: true,
+            checkIn,
+            department: member.department ?? null,
+            name: member.name,
+            officeId,
+            officeName: officeId ? (officeNames.get(officeId) ?? null) : null,
+            staffId: member._id,
+            timeZone: (officeId && timeZones.get(officeId)) || DEFAULT_OFFICE_TIME_ZONE,
+          },
+        ];
       })
       .sort((left, right) => left.name.localeCompare(right.name));
     return {
-      offices: offices
-        .filter((office) => visibleOfficeIds.has(office._id))
-        .map((office) => ({
-          id: office._id,
-          name: office.name,
-          timeZone: timeZones.get(office._id) ?? DEFAULT_OFFICE_TIME_ZONE,
-        })),
+      offices: offices.flatMap((office) =>
+        visibleOfficeIds.has(office._id)
+          ? [
+              {
+                id: office._id,
+                name: office.name,
+                timeZone: timeZones.get(office._id) ?? DEFAULT_OFFICE_TIME_ZONE,
+              },
+            ]
+          : []
+      ),
       rows,
       truncated: staff.length === STAFF_SCAN_LIMIT || records.length === DAY_RECORD_LIMIT,
       workDate,
@@ -521,10 +529,10 @@ export const review = mutation({
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx);
     const reason = requireReason(args.reason);
-    const checkIn = await requireOverseenCheckIn(ctx, access, args.checkInId);
     if (!access.staffId) {
       throw new ConvexError("NO_STAFF_PROFILE");
     }
+    const checkIn = await requireOverseenCheckIn(ctx, access, args.checkInId);
     const now = Date.now();
     await ctx.db.patch("officeCheckIns", checkIn._id, {
       admission: args.decision === "accepted" ? "admitted" : "rejected",
@@ -606,10 +614,10 @@ export const correctTimes = mutation({
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx);
     const reason = requireReason(args.reason);
-    const checkIn = await requireOverseenCheckIn(ctx, access, args.checkInId);
     if (!access.staffId) {
       throw new ConvexError("NO_STAFF_PROFILE");
     }
+    const checkIn = await requireOverseenCheckIn(ctx, access, args.checkInId);
     if (args.clockOutAt === null && checkIn.status === "closed") {
       const otherOpen = await ctx.db
         .query("officeCheckIns")
@@ -673,10 +681,10 @@ export const recordManualEntry = mutation({
     if (workDate < retainedWorkDateFrom(Date.now())) {
       throw new ConvexError("That date is outside the 3-month check-in retention window.");
     }
-    const { subject } = await requireOverseenStaff(ctx, access, args.staffId);
     if (!access.staffId) {
       throw new ConvexError("NO_STAFF_PROFILE");
     }
+    const { subject } = await requireOverseenStaff(ctx, access, args.staffId);
     if (!subject.active) {
       throw new ConvexError("This staff member is inactive.");
     }
