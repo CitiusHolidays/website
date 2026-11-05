@@ -1,4 +1,4 @@
-import { defineArrayMember, defineType } from "sanity";
+import {defineArrayMember, defineField, defineType} from 'sanity'
 
 /**
  * This is the schema definition for the rich text fields used for
@@ -11,10 +11,10 @@ import { defineArrayMember, defineType } from "sanity";
  *  }
  */
 export default defineType({
-  name: "blockContent",
+  name: 'blockContent',
   of: [
     defineArrayMember({
-      lists: [{ title: "Bullet", value: "bullet" }],
+      lists: [{title: 'Bullet', value: 'bullet'}],
       // Marks let you mark up inline text in the block editor.
       marks: {
         // Annotations can be any object structure – e.g. a link or a footnote.
@@ -22,21 +22,21 @@ export default defineType({
           {
             fields: [
               {
-                name: "href",
-                title: "URL",
-                type: "url",
+                name: 'href',
+                title: 'URL',
+                type: 'url',
               },
             ],
-            name: "link",
-            title: "URL",
-            type: "object",
+            name: 'link',
+            title: 'URL',
+            type: 'object',
           },
         ],
         // Decorators usually describe a single property – e.g. a typographic
         // preference or highlighting by editors.
         decorators: [
-          { title: "Strong", value: "strong" },
-          { title: "Emphasis", value: "em" },
+          {title: 'Strong', value: 'strong'},
+          {title: 'Emphasis', value: 'em'},
         ],
       },
       // Styles let you set what your user can mark up blocks with. These
@@ -44,24 +44,46 @@ export default defineType({
       // you want and decide how you want to deal with it where you want to
       // use your content.
       styles: [
-        { title: "Normal", value: "normal" },
-        { title: "H1", value: "h1" },
-        { title: "H2", value: "h2" },
-        { title: "H3", value: "h3" },
-        { title: "H4", value: "h4" },
-        { title: "Quote", value: "blockquote" },
+        {title: 'Normal', value: 'normal'},
+        {title: 'H1', value: 'h1'},
+        {title: 'H2', value: 'h2'},
+        {title: 'H3', value: 'h3'},
+        {title: 'H4', value: 'h4'},
+        {title: 'Quote', value: 'blockquote'},
       ],
-      title: "Block",
-      type: "block",
+      title: 'Block',
+      type: 'block',
     }),
     // You can add additional types here. Note that you can't use
     // primitive types such as 'string' and 'number' in the same array
     // as a block type.
     defineArrayMember({
-      options: { hotspot: true },
-      type: "image",
+      fields: [
+        defineField({
+          description:
+            'Describe what the picture shows for people who cannot see it. If the image contains text, include that text.',
+          name: 'alt',
+          title: 'Alternative text',
+          type: 'string',
+          validation: (rule) =>
+            rule
+              .custom((value, context) =>
+                context.parent?.asset && !value?.trim()
+                  ? 'Add alternative text. Without it the site falls back to the caption or the story title.'
+                  : true,
+              )
+              .warning(),
+        }),
+        defineField({
+          name: 'caption',
+          title: 'Caption',
+          type: 'string',
+        }),
+      ],
+      options: {hotspot: true},
+      type: 'image',
     }),
   ],
-  title: "Block Content",
-  type: "array",
-});
+  title: 'Block Content',
+  type: 'array',
+})

@@ -37,6 +37,7 @@ describe("API observability inventory", () => {
       "engagement",
       "inbound",
       "payments",
+      "staff-attendance",
       "staff-files",
     ]);
     const allowedModes = new Set(["binary", "delegated", "json", "stream"]);

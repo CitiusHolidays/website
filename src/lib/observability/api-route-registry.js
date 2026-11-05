@@ -89,6 +89,11 @@ const ROUTE_DEFINITIONS = {
     methods: ["GET"],
     responseMode: "binary",
   },
+  "/api/portal/office-check-in": {
+    family: "staff-attendance",
+    methods: ["POST"],
+    responseMode: "json",
+  },
   "/api/portal/post-tour/photos": {
     family: "staff-files",
     methods: ["POST"],

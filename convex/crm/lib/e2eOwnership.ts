@@ -35,6 +35,8 @@ export const E2E_CLEANUP_TABLE_ORDER = {
   notificationEmailEventOrigins: 100,
   notificationReads: 100,
   notifications: 100,
+  officeCheckInAudit: 100,
+  officeCheckIns: 90,
   passengerExportOperations: 90,
   passengerExportSourceChunks: 100,
   passengerImportOperationBatches: 110,

@@ -28,6 +28,13 @@ export const PORTAL_E2E_MATRIX = {
   hotels: { cells: [{ action: "smoke", role: "operations" }] },
   "inbound-leads": { cells: [{ action: "readOnly", role: "sales" }] },
   "job-cards": { cells: [{ action: "readOnly", role: "operations" }] },
+  "office-check-in": {
+    cells: [
+      { action: "clockIn", role: "sales" },
+      { action: "review", role: "hr" },
+      { action: "configureRule", role: "admin" },
+    ],
+  },
   passport: { cells: [{ action: "uploadModal", role: "operations" }] },
   pipeline: {
     cells: [

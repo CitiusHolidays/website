@@ -9,7 +9,8 @@
       "expenses",
       "employees-on-leave",
       "travel-schedule",
-      "activity"
+      "activity",
+      "office-check-in"
     ],
     "denied": [
       "contracting",
@@ -33,7 +34,8 @@
       "team",
       "employees-on-leave",
       "activity",
-      "travel-schedule"
+      "travel-schedule",
+      "office-check-in"
     ],
     "denied": [
       "contracting",
@@ -55,7 +57,8 @@
       "expenses",
       "employees-on-leave",
       "travel-schedule",
-      "activity"
+      "activity",
+      "office-check-in"
     ],
     "denied": [
       "ticketing",
@@ -78,7 +81,8 @@
       "team",
       "employees-on-leave",
       "activity",
-      "travel-schedule"
+      "travel-schedule",
+      "office-check-in"
     ],
     "denied": [
       "ticketing",
@@ -100,7 +104,8 @@
       "team",
       "employees-on-leave",
       "activity",
-      "travel-schedule"
+      "travel-schedule",
+      "office-check-in"
     ],
     "denied": [
       "contracting",
@@ -120,7 +125,8 @@
       "reports",
       "employees-on-leave",
       "travel-schedule",
-      "activity"
+      "activity",
+      "office-check-in"
     ],
     "denied": [
       "queries",
@@ -147,7 +153,8 @@
       "employees-on-leave",
       "travel-schedule",
       "external-tour-managers",
-      "activity"
+      "activity",
+      "office-check-in"
     ],
     "denied": [
       "queries",
@@ -180,7 +187,8 @@
       "employees-on-leave",
       "activity",
       "travel-schedule",
-      "external-tour-managers"
+      "external-tour-managers",
+      "office-check-in"
     ],
     "denied": [
       "settings"
@@ -203,7 +211,8 @@
       "employees-on-leave",
       "travel-schedule",
       "external-tour-managers",
-      "activity"
+      "activity",
+      "office-check-in"
     ],
     "denied": [
       "pipeline",
@@ -231,7 +240,8 @@
       "employees-on-leave",
       "activity",
       "travel-schedule",
-      "external-tour-managers"
+      "external-tour-managers",
+      "office-check-in"
     ],
     "denied": [
       "pipeline",
@@ -254,7 +264,8 @@
       "employees-on-leave",
       "travel-schedule",
       "external-tour-managers",
-      "activity"
+      "activity",
+      "office-check-in"
     ],
     "denied": [
       "queries",
@@ -275,7 +286,8 @@
       "reports",
       "employees-on-leave",
       "travel-schedule",
-      "activity"
+      "activity",
+      "office-check-in"
     ],
     "denied": [
       "queries",
@@ -314,7 +326,8 @@
       "settings",
       "activity",
       "travel-schedule",
-      "external-tour-managers"
+      "external-tour-managers",
+      "office-check-in"
     ],
     "denied": []
   },
@@ -330,7 +343,8 @@
       "employees-on-leave",
       "activity",
       "travel-schedule",
-      "external-tour-managers"
+      "external-tour-managers",
+      "office-check-in"
     ],
     "denied": []
   },
@@ -343,7 +357,8 @@
       "employees-on-leave",
       "approvals",
       "activity",
-      "travel-schedule"
+      "travel-schedule",
+      "office-check-in"
     ],
     "denied": [
       "settings",
@@ -363,7 +378,8 @@
       "expenses",
       "employees-on-leave",
       "travel-schedule",
-      "activity"
+      "activity",
+      "office-check-in"
     ],
     "denied": [
       "contracting",
@@ -387,7 +403,8 @@
       "expenses",
       "employees-on-leave",
       "travel-schedule",
-      "activity"
+      "activity",
+      "office-check-in"
     ],
     "denied": [
       "ticketing",
@@ -413,7 +430,8 @@
       "employees-on-leave",
       "travel-schedule",
       "external-tour-managers",
-      "activity"
+      "activity",
+      "office-check-in"
     ],
     "denied": [
       "queries",
@@ -450,7 +468,8 @@
       "employees-on-leave",
       "activity",
       "travel-schedule",
-      "external-tour-managers"
+      "external-tour-managers",
+      "office-check-in"
     ],
     "denied": [
       "settings"

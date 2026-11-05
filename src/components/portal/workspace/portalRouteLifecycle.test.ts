@@ -15,7 +15,7 @@ describe("Portal route lifecycle manifest", () => {
     expect(families).toEqual(
       new Set(["administration", "core", "inbound", "operations", "pilot", "ticketing"])
     );
-    expect(Object.keys(PORTAL_ROUTES)).toHaveLength(26);
+    expect(Object.keys(PORTAL_ROUTES)).toHaveLength(27);
 
     for (const route of Object.values(PORTAL_ROUTES)) {
       expect(route.component).toBeTruthy();

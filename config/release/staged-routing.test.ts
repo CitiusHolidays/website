@@ -28,6 +28,11 @@ describe("Staged-file quality routing", () => {
     expect(commands.join("\n")).not.toContain("public/logo.png");
   });
 
+  test("Leaves Studio sources out of the root Biome check so one formatter owns them", () => {
+    const biome = JSON.parse(readFileSync(resolve(root, "biome.json"), "utf8"));
+    expect(biome.files.includes).toContain("!citius-blog");
+  });
+
   test("Quotes special filenames and safely skips unsupported or empty lists", () => {
     const special = resolve(root, "src/a file $(touch unsafe).ts");
     expect(createStagedCommands([special])).toEqual([

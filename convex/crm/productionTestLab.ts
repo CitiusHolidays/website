@@ -44,6 +44,7 @@ const recipeIdValidator = v.union(
   v.literal("scheduled_job:cleanup_portal_rate_limits"),
   v.literal("scheduled_job:cleanup_sacred_bharat_rate_limits"),
   v.literal("scheduled_job:purge_commercial_files"),
+  v.literal("scheduled_job:purge_office_check_ins"),
   v.literal("scheduled_job:reconcile_crm_metrics"),
   v.literal("scheduled_job:reconcile_list_search"),
   v.literal("scheduled_job:reconcile_proposal_links"),

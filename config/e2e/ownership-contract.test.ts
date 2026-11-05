@@ -29,6 +29,7 @@ const REVIEWED_NON_E2E_INSERT_OWNERS = [
   "convex/crm/notificationEmailLedger.ts",
   "convex/crm/notificationEmailOutbox.ts",
   "convex/crm/notificationUnreadProjection.ts",
+  "convex/crm/officeCheckInAdmin.ts",
   "convex/crm/ops.ts",
   "convex/crm/pnrCommands.ts",
   "convex/crm/productionTestLab.ts",

@@ -14,7 +14,7 @@ Preview result, and a Production result are separate evidence.
 
 ## Live Feature Controls
 
-The first catalog contains 26 independently recoverable controls:
+The first catalog contains 27 independently recoverable controls:
 
 - public Sacred Bharat / 001 availability;
 - inbound CRM intake, Sales bell, Sales email, and `info@citius.in` mailbox email;
@@ -23,7 +23,7 @@ The first catalog contains 26 independently recoverable controls:
 - Citius Concierge and Journey Planner provider requests;
 - Razorpay new-order creation (not verification, webhooks, or in-flight completion);
 - document-preview preparation; and
-- twelve individual scheduled jobs.
+- thirteen individual scheduled jobs.
 
 The catalog shows **Configured State** separately from **Blocked Capability**. A control can be
 configured as Available while a paused dependency prevents the capability from running. The
@@ -81,7 +81,7 @@ already has automated test coverage. The initial recipes are:
 - Razorpay new-order creation;
 - document-preview preparation;
 - Sacred Bharat publication; and
-- all twelve scheduled-job registrations.
+- all thirteen scheduled-job registrations.
 
 Effect v4 owns recipe sequencing, typed probe failures, controlled service layers, independent
 continuation, timeout/interruption, and cleanup. Each recipe checks the corresponding live gates,

@@ -163,6 +163,22 @@ const nextConfig = {
         ],
         source: "/(.*)",
       },
+      // Staff Workspace only: office check-in may ask for location, from this
+      // origin, when someone presses Clock in or Clock out. The portal
+      // navigates client-side, so the policy of whichever /portal document
+      // loaded first governs the check-in view; every /portal document
+      // (including /portal itself, matched by :path*) carries the same
+      // allowance. Must stay after "/(.*)" so it overrides that rule. Camera
+      // and microphone stay blocked; the public site keeps geolocation=().
+      {
+        headers: [
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(self)",
+          },
+        ],
+        source: "/portal/:path*",
+      },
       {
         headers: [
           {

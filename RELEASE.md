@@ -152,8 +152,8 @@ content-free evidence contract, restore-loss warning, and Production authority
 gate are defined in
 [`docs/migrations/rehearsal.md`](docs/migrations/rehearsal.md).
 
-`convex/crons.test.ts` is the local source proof for exactly twelve unique internal registrations:
-four UTC cron expressions and eight intervals, all with `{}` arguments. Its IST calendar
+`convex/crons.test.ts` is the local source proof for exactly thirteen unique internal registrations:
+five UTC cron expressions and eight intervals, all with `{}` arguments. Its IST calendar
 assertions prove the 31 March leave-lapse boundary. This does not prove the schedule is installed;
 after an authorized deployment, separately confirm names, targets, and schedules in the named
 Convex deployment dashboard.

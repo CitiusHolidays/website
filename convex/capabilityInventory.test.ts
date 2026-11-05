@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "d49878d4ad9c0e5a3cafa45a2090371cf8afefd81ef7573670371144a2259395";
+const EXPECTED_CAPABILITY_HASH = "5909948089190212fb6bd6a7c4c1d49f66193bd8af8c02fef05d265a055fe65b";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_CAPABILITIES = new Set(["crm/postTourReports.archive"]);
@@ -26,6 +26,7 @@ const ADMIN_ONLY_CAPABILITIES = new Set(["crm/postTourReports.archive"]);
 const ADMIN_ONLY_MODULES = new Set([
   "crm/leaveApprovers",
   "crm/leavePolicy",
+  "crm/officeCheckInAdmin",
   "crm/productionTestLab",
   "crm/settings",
   "crm/staffImport",
@@ -55,6 +56,8 @@ const SERVER_ONLY_CAPABILITIES = new Set([
   ...AI_SERVER_ONLY_CAPABILITIES,
   ...E2E_SERVER_ONLY_CAPABILITIES,
   ...PAYMENT_SERVER_ONLY_CAPABILITIES,
+  "crm/officeCheckIns.clockInViaGateway",
+  "crm/officeCheckIns.clockOutViaGateway",
   "crm/settings.resolveOperationalControlsForGateway",
   "sacredBharatEditionEvents.recordEdition001EventGateway",
   "eventPhotoBooth.recordMetricGateway",
@@ -874,6 +877,56 @@ describe("Convex capability inventory", () => {
         classification: "internal",
         kind: "internalMutation",
         module: "eventPhotoBooth",
+        name,
+      });
+    }
+  });
+
+  test("Classifies office check-in gateways as server-only and rule administration as admin-only", () => {
+    const capabilities = discoverCapabilities();
+    const checkIns = capabilities.filter(({ module }) => module.startsWith("crm/officeCheckIn"));
+    expect(checkIns).toHaveLength(14);
+    for (const name of ["clockInViaGateway", "clockOutViaGateway"]) {
+      expect(checkIns).toContainEqual({
+        classification: "server-only",
+        kind: "mutation",
+        module: "crm/officeCheckIns",
+        name,
+      });
+    }
+    for (const [name, kind] of [
+      ["myStatus", "query"],
+      ["teamDay", "query"],
+      ["history", "query"],
+      ["review", "mutation"],
+      ["correctTimes", "mutation"],
+      ["recordManualEntry", "mutation"],
+    ]) {
+      expect(checkIns).toContainEqual({
+        classification: "public-product",
+        kind,
+        module: "crm/officeCheckIns",
+        name,
+      });
+    }
+    for (const [name, kind] of [
+      ["overview", "query"],
+      ["createOffice", "mutation"],
+      ["saveRule", "mutation"],
+      ["assignStaffOffice", "mutation"],
+    ]) {
+      expect(checkIns).toContainEqual({
+        classification: "admin-only",
+        kind,
+        module: "crm/officeCheckInAdmin",
+        name,
+      });
+    }
+    for (const name of ["purgeExpired", "continuePurge"]) {
+      expect(checkIns).toContainEqual({
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/officeCheckInRetention",
         name,
       });
     }

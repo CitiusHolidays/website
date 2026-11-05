@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { officeCheckInTables } from "./crm/officeCheckInValidators";
 import { boothAvailability, boothCounts, boothScene } from "./lib/eventPhotoBoothValidators";
 import {
   importFailureValidator,
@@ -203,6 +204,7 @@ const productionTestRecipeIdValidator = v.union(
   v.literal("scheduled_job:cleanup_portal_rate_limits"),
   v.literal("scheduled_job:cleanup_sacred_bharat_rate_limits"),
   v.literal("scheduled_job:purge_commercial_files"),
+  v.literal("scheduled_job:purge_office_check_ins"),
   v.literal("scheduled_job:reconcile_crm_metrics"),
   v.literal("scheduled_job:reconcile_list_search"),
   v.literal("scheduled_job:reconcile_proposal_links"),
@@ -1976,6 +1978,20 @@ export default defineSchema({
     name: v.string(),
     updatedAt: v.number(),
   }).index("by_code", ["code"]),
+
+  officeCheckInAudit: defineTable(officeCheckInTables.officeCheckInAudit)
+    .index("by_checkInId", ["checkInId"])
+    .index("by_officeId_and_at", ["officeId", "at"])
+    .index("by_at", ["at"]),
+
+  officeCheckInRules: defineTable(officeCheckInTables.officeCheckInRules).index("by_officeId", [
+    "officeId",
+  ]),
+
+  officeCheckIns: defineTable(officeCheckInTables.officeCheckIns)
+    .index("by_staffId_and_workDate", ["staffId", "workDate"])
+    .index("by_officeId_and_workDate", ["officeId", "workDate"])
+    .index("by_workDate", ["workDate"]),
 
   passportDetails: defineTable({
     createdAt: v.number(),

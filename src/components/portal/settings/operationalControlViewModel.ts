@@ -16,6 +16,7 @@ export const OPERATIONAL_CONTROL_KEYS = [
   "jobs.cleanup_portal_rate_limits",
   "jobs.cleanup_sacred_bharat_rate_limits",
   "jobs.purge_commercial_files",
+  "jobs.purge_office_check_ins",
   "jobs.reconcile_crm_metrics",
   "jobs.reconcile_list_search",
   "jobs.reconcile_proposal_links",
@@ -75,6 +76,7 @@ export type ProductionTestRecipeId =
   | "scheduled_job:cleanup_portal_rate_limits"
   | "scheduled_job:cleanup_sacred_bharat_rate_limits"
   | "scheduled_job:purge_commercial_files"
+  | "scheduled_job:purge_office_check_ins"
   | "scheduled_job:reconcile_crm_metrics"
   | "scheduled_job:reconcile_list_search"
   | "scheduled_job:reconcile_proposal_links"

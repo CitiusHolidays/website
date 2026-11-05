@@ -210,6 +210,18 @@ describe("Portal permissions", () => {
     expect(pages).not.toContain("settings");
   });
 
+  test("Every staff role reaches Office check-in through the baseline permission", () => {
+    for (const role of Object.keys(roleExpectations)) {
+      expect(pagesForRoles([role]), `${role} should see Office check-in`).toContain(
+        "office-check-in"
+      );
+      expect(
+        canAccessPage({ permissions: getPermissionsForRoles([role]) }, "office-check-in")
+      ).toBe(true);
+    }
+    expect(pagesForRoles([])).not.toContain("office-check-in");
+  });
+
   test("Team directory is limited to admin directors hr and heads", () => {
     expect(pagesForRoles(["Sales"])).not.toContain("team");
     expect(pagesForRoles(["Contracting"])).not.toContain("team");
