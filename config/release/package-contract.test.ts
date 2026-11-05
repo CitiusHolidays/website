@@ -47,7 +47,7 @@ describe("Package and test discovery contract", () => {
     const { dependencies, scripts } = readBlogPackageJson();
 
     expect(dependencies.sanity).toBe("6.22.0");
-    expect(dependencies["@sanity/sdk"]).toBe("^2.21.0");
+    expect(dependencies["@sanity/sdk"]).toBe("^3.12.0");
     expect(dependencies["@sanity/vision"]).toBe("6.22.0");
     expect(dependencies.react).toBe("19.3.1");
     expect(dependencies["styled-components"]).toBe("6.6.0");
