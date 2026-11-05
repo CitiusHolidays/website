@@ -24,6 +24,7 @@ import {
   InboundLeadsView,
   JobCardsView,
   LeaveView,
+  OfficeCheckInView,
   PassportDocumentsView,
   PipelineView,
   PnrView,
@@ -276,6 +277,15 @@ function selectPortalRouteContent(
       );
     case "InboundLeadsView":
       return <InboundLeadsView allowed={workspace.allowed} canFetch={workspace.canFetch} />;
+    case "OfficeCheckInView":
+      return (
+        <OfficeCheckInView
+          access={workspace.access}
+          allowed={Boolean(workspace.allowed)}
+          canFetch={Boolean(workspace.canFetch)}
+          has={workspace.has}
+        />
+      );
     case "EventPhotoBoothView":
       return (
         <EventPhotoBoothView allowed={workspace.allowed} canFetch={Boolean(workspace.canFetch)} />

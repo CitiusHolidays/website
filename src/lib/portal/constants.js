@@ -470,6 +470,12 @@ export const PORTAL_NAV_GROUPS = [
         page: "employees-on-leave",
         permission: P.VIEW_LEAVE,
       },
+      {
+        href: "/portal/office-check-in",
+        label: "Office check-in",
+        page: "office-check-in",
+        permission: P.REQUEST_LEAVE,
+      },
     ],
     label: "Admin",
   },

@@ -20,6 +20,7 @@ export const operationalControlKeyValidator = v.union(
   v.literal("jobs.cleanup_portal_rate_limits"),
   v.literal("jobs.cleanup_sacred_bharat_rate_limits"),
   v.literal("jobs.purge_commercial_files"),
+  v.literal("jobs.purge_office_check_ins"),
   v.literal("jobs.reconcile_crm_metrics"),
   v.literal("jobs.reconcile_list_search"),
   v.literal("jobs.reconcile_proposal_links"),
@@ -49,6 +50,7 @@ export type OperationalControlKey =
   | "jobs.cleanup_portal_rate_limits"
   | "jobs.cleanup_sacred_bharat_rate_limits"
   | "jobs.purge_commercial_files"
+  | "jobs.purge_office_check_ins"
   | "jobs.reconcile_crm_metrics"
   | "jobs.reconcile_list_search"
   | "jobs.reconcile_proposal_links"
@@ -77,6 +79,7 @@ export const LEGACY_OPERATIONAL_CONTROL_REPLACEMENTS = {
     "jobs.cleanup_portal_rate_limits",
     "jobs.cleanup_sacred_bharat_rate_limits",
     "jobs.purge_commercial_files",
+    "jobs.purge_office_check_ins",
     "jobs.reconcile_crm_metrics",
     "jobs.reconcile_list_search",
     "jobs.reconcile_proposal_links",
@@ -314,6 +317,17 @@ export const OPERATIONAL_CONTROL_CATALOG = [
     enforcement: "Scheduled-job action gateway",
     key: "jobs.purge_commercial_files",
     label: "Commercial file purge",
+    standardEnabled: true,
+  },
+  {
+    availability: "available",
+    category: "Infrastructure",
+    dependencies: [],
+    description:
+      "Delete office check-ins and attendance audit events older than the 92-day retention window.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.purge_office_check_ins",
+    label: "Office check-in retention",
     standardEnabled: true,
   },
   {

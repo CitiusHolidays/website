@@ -79,6 +79,11 @@ const ROUTE_DEFINITIONS = {
     methods: ["GET"],
     responseMode: "binary",
   },
+  "/api/portal/office-check-in": {
+    family: "staff-attendance",
+    methods: ["POST"],
+    responseMode: "json",
+  },
   "/api/profile": {
     family: "account",
     methods: ["PUT"],

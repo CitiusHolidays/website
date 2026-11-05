@@ -49,6 +49,10 @@ export const SettingsView = lazyView(() => import("./admin/SettingsView"), "Sett
 export const TeamView = lazyView(() => import("./admin/TeamView"), "TeamView");
 export const ContractingView = lazyView(() => import("./ContractingView"), "ContractingView");
 export const InboundLeadsView = lazyView(() => import("./InboundLeadsView"), "InboundLeadsView");
+export const OfficeCheckInView = lazyView(
+  () => import("./officeCheckIn/OfficeCheckInView"),
+  "OfficeCheckInView"
+);
 export const EventPhotoBoothView = lazyView(
   () => import("./EventPhotoBoothView"),
   "EventPhotoBoothView"

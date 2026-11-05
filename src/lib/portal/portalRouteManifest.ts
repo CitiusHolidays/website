@@ -205,6 +205,14 @@ export const PORTAL_ROUTES = {
     subtitle: "Open files, progress, and the pre-departure checklist for each Job Card.",
     title: "Job Cards",
   },
+  "office-check-in": {
+    component: "OfficeCheckInView",
+    dependencies: [],
+    family: "administration",
+    permission: P.REQUEST_LEAVE,
+    subtitle: "Clock in and out, and see whether today's check met your office's rule.",
+    title: "Office check-in",
+  },
   passport: {
     component: "PassportDocumentsView",
     dependencies: ["travellers", "jobCards"],

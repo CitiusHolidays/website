@@ -18,12 +18,13 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "1651978ee23a6bfa2634385bde406899fdbb3a0e2ee1c9ae275f7b750d48af71";
+const EXPECTED_CAPABILITY_HASH = "d93102e33251f571b4b6558a6f0d2daac6d8aedb8c208eb28ca378f9cf9bd055";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_MODULES = new Set([
   "crm/leaveApprovers",
   "crm/leavePolicy",
+  "crm/officeCheckInAdmin",
   "crm/productionTestLab",
   "crm/settings",
   "crm/staffImport",
@@ -53,6 +54,8 @@ const SERVER_ONLY_CAPABILITIES = new Set([
   ...AI_SERVER_ONLY_CAPABILITIES,
   ...E2E_SERVER_ONLY_CAPABILITIES,
   ...PAYMENT_SERVER_ONLY_CAPABILITIES,
+  "crm/officeCheckIns.clockInViaGateway",
+  "crm/officeCheckIns.clockOutViaGateway",
   "crm/settings.resolveOperationalControlsForGateway",
   "sacredBharatEditionEvents.recordEdition001EventGateway",
   "eventPhotoBooth.recordMetricGateway",
@@ -686,6 +689,56 @@ describe("Convex capability inventory", () => {
         classification: "internal",
         kind: "internalMutation",
         module: "eventPhotoBooth",
+        name,
+      });
+    }
+  });
+
+  test("Classifies office check-in gateways as server-only and rule administration as admin-only", () => {
+    const capabilities = discoverCapabilities();
+    const checkIns = capabilities.filter(({ module }) => module.startsWith("crm/officeCheckIn"));
+    expect(checkIns).toHaveLength(14);
+    for (const name of ["clockInViaGateway", "clockOutViaGateway"]) {
+      expect(checkIns).toContainEqual({
+        classification: "server-only",
+        kind: "mutation",
+        module: "crm/officeCheckIns",
+        name,
+      });
+    }
+    for (const [name, kind] of [
+      ["myStatus", "query"],
+      ["teamDay", "query"],
+      ["history", "query"],
+      ["review", "mutation"],
+      ["correctTimes", "mutation"],
+      ["recordManualEntry", "mutation"],
+    ]) {
+      expect(checkIns).toContainEqual({
+        classification: "public-product",
+        kind,
+        module: "crm/officeCheckIns",
+        name,
+      });
+    }
+    for (const [name, kind] of [
+      ["overview", "query"],
+      ["createOffice", "mutation"],
+      ["saveRule", "mutation"],
+      ["assignStaffOffice", "mutation"],
+    ]) {
+      expect(checkIns).toContainEqual({
+        classification: "admin-only",
+        kind,
+        module: "crm/officeCheckInAdmin",
+        name,
+      });
+    }
+    for (const name of ["purgeExpired", "continuePurge"]) {
+      expect(checkIns).toContainEqual({
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/officeCheckInRetention",
         name,
       });
     }

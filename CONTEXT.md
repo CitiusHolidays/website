@@ -163,3 +163,15 @@ _Avoid_: Tax-inclusive profit, using Profit per Person as Approx. Margin
 **Job Card**:
 The operational record opened by Accounts after Sales confirms an order. Its number identifies the Sales-owned booking across Sales, Contracting, Ticketing, and Operations dashboards.
 _Avoid_: Creating a Job Card before order confirmation, using the Accounts creator as the commercial owner
+
+**Office Check-in**:
+A staff member's clock-in and clock-out for one work date at their assigned office, with the verification evidence recorded at each step. It shows who is in the office and whether the Branch Verification Rule was met; it is not payroll, timesheets, or continuous location tracking.
+_Avoid_: Attendance system, proof of presence, tracking, treating a failed or uncertain signal as proof of absence
+
+**Branch Verification Rule**:
+The Admin-configured rule for one office naming which signals a check-in must satisfy (office network, location, both, or either) and whether the office is in Report only or Enforce mode. The server evaluates every named signal; the staff member does not choose a method.
+_Avoid_: Employee-selected verification method, enabling Enforce without a completed pilot, invented office IPs or coordinates
+
+**Check-in Review**:
+The audited manager action that accepts or rejects a check-in, corrects its times, or records a manual entry, always with a reason. Reviewers oversee their office or direct reports and never review their own record.
+_Avoid_: Silent override, editing evidence, self-approval

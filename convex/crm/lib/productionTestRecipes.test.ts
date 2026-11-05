@@ -34,6 +34,7 @@ describe("Production Test Lab recipe orchestration", () => {
       "scheduled_job:cleanup_portal_rate_limits",
       "scheduled_job:cleanup_sacred_bharat_rate_limits",
       "scheduled_job:purge_commercial_files",
+      "scheduled_job:purge_office_check_ins",
       "scheduled_job:reconcile_crm_metrics",
       "scheduled_job:reconcile_list_search",
       "scheduled_job:reconcile_proposal_links",

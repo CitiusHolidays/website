@@ -1,7 +1,25 @@
 import { describe, expect, test } from "bun:test";
+import { getPathMatch } from "next/dist/shared/lib/router/utils/path-match";
 import nextConfig, { resolveBuildRevision, resolveReactInspectionModules } from "./next.config.mjs";
 
 const REACT_INSPECTION_MODULE = "./src/lib/dev/react-inspection-client.ts";
+
+/** Last matching rule wins for a key, as documented for next.config headers. */
+async function effectiveHeader(pathname, key) {
+  let value;
+  for (const rule of await nextConfig.headers()) {
+    const match = getPathMatch(rule.source, { removeUnnamedParams: true, strict: true });
+    if (match(pathname) === false) {
+      continue;
+    }
+    for (const header of rule.headers) {
+      if (header.key === key) {
+        ({ value } = header);
+      }
+    }
+  }
+  return value;
+}
 
 describe("Next config cache headers", () => {
   test("Lets Next.js manage its own static asset caching", async () => {
@@ -44,5 +62,17 @@ describe("Next config cache headers", () => {
       ).toEqual([]);
     }
     expect(nextConfig.instrumentationClientInject).toEqual([]);
+  });
+
+  test("Allows same-origin geolocation only on Staff Workspace documents", async () => {
+    const portal = ["/portal", "/portal/attendance", "/portal/crm/check-in"];
+    const publicPaths = ["/", "/account", "/contact", "/portalx", "/photo-booth"];
+    const policyFor = (path) => effectiveHeader(path, "Permissions-Policy");
+    expect(await Promise.all(portal.map(policyFor))).toEqual(
+      portal.map(() => "camera=(), microphone=(), geolocation=(self)")
+    );
+    expect(await Promise.all(publicPaths.map(policyFor))).toEqual(
+      publicPaths.map(() => "camera=(), microphone=(), geolocation=()")
+    );
   });
 });

@@ -88,4 +88,12 @@ crons.cron(
   {}
 );
 
+// 21:00 UTC is 02:30 in the office default time zone (Asia/Kolkata).
+crons.cron(
+  "purge expired office check-ins",
+  "0 21 * * *",
+  scheduledJob("operationalScheduledJobs:purgeOfficeCheckIns"),
+  {}
+);
+
 export default crons;

@@ -22,6 +22,7 @@ const SCHEDULED_JOB_CONTROLS = [
   ["cleanup_portal_rate_limits", "jobs.cleanup_portal_rate_limits"],
   ["cleanup_sacred_bharat_rate_limits", "jobs.cleanup_sacred_bharat_rate_limits"],
   ["purge_commercial_files", "jobs.purge_commercial_files"],
+  ["purge_office_check_ins", "jobs.purge_office_check_ins"],
   ["reconcile_crm_metrics", "jobs.reconcile_crm_metrics"],
   ["reconcile_list_search", "jobs.reconcile_list_search"],
   ["reconcile_proposal_links", "jobs.reconcile_proposal_links"],
@@ -330,7 +331,7 @@ describe("registered exact-Admin Operational Controls", () => {
     const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
     const asDirector = t.withIdentity(identity("auth_director", "director@citius.test"));
 
-    expect(await asAdmin.query(listProductionTestRecipes, {})).toHaveLength(20);
+    expect(await asAdmin.query(listProductionTestRecipes, {})).toHaveLength(21);
     const recipeIds = PRODUCTION_TEST_RECIPES.map((recipe) => recipe.id);
     const result = await asAdmin.action(runProductionTestRecipes, {
       ...RELEASE_TARGET,
@@ -556,7 +557,7 @@ describe("registered exact-Admin Operational Controls", () => {
       commandId: "0a0a0a0a-0a0a-4a0a-8a0a-0a0a0a0a0a0a",
       reason: "Retire coarse controls and initialize the precise catalog.",
     });
-    expect(migrated.initializedControlKeys).toHaveLength(26);
+    expect(migrated.initializedControlKeys).toHaveLength(27);
     const direct = await t.run(async (ctx) => ctx.db.query("operationalControlStates").collect());
     expect(direct.filter((row) => row.key === "email.auth.verification")).toHaveLength(1);
     expect(direct.find((row) => row.key === "email.auth.verification")).toMatchObject({
@@ -629,7 +630,7 @@ describe("registered exact-Admin Operational Controls", () => {
 
     const catalog = await asAdmin.query(listOperationalControls, { at: NOW.getTime() });
 
-    expect(catalog).toHaveLength(26);
+    expect(catalog).toHaveLength(27);
     expect(catalog.map((entry) => entry.key)).toEqual(
       expect.arrayContaining([
         "email.auth.verification",
@@ -641,6 +642,7 @@ describe("registered exact-Admin Operational Controls", () => {
         "jobs.cleanup_portal_rate_limits",
         "jobs.cleanup_sacred_bharat_rate_limits",
         "jobs.purge_commercial_files",
+        "jobs.purge_office_check_ins",
         "jobs.reconcile_crm_metrics",
         "jobs.reconcile_list_search",
         "jobs.reconcile_proposal_links",
@@ -943,14 +945,14 @@ describe("registered exact-Admin Operational Controls", () => {
       expectedRevision: 0,
       reason: "Initialize the exact local release target for source verification.",
     });
-    expect(activated.initializedControlKeys).toHaveLength(26);
+    expect(activated.initializedControlKeys).toHaveLength(27);
     const persisted = await t.run(async (ctx) => ({
       audits: await ctx.db.query("operationalControlAuditEvents").collect(),
       markers: await ctx.db.query("operationalControlPlaneState").collect(),
       states: await ctx.db.query("operationalControlStates").collect(),
     }));
     expect(persisted.markers).toHaveLength(1);
-    expect(persisted.states).toHaveLength(26);
+    expect(persisted.states).toHaveLength(27);
     expect(persisted.audits).toContainEqual(
       expect.objectContaining({ action: "plane_activated", actorName: "Release setup" })
     );
@@ -1134,7 +1136,7 @@ describe("registered exact-Admin Operational Controls", () => {
     ).rejects.toThrow("OPERATIONAL_TEST_OVERRIDE_RETIRED");
   });
 
-  test("suppresses and records every one of the twelve scheduled jobs at execution time", async () => {
+  test("suppresses and records every one of the thirteen scheduled jobs at execution time", async () => {
     const t = createHarness();
     await seedStaff(t);
     await t.mutation(activateOperationalControlPlane, {
@@ -1152,7 +1154,7 @@ describe("registered exact-Admin Operational Controls", () => {
         state: "disabled" as const,
       })),
       commandId: "21212121-1010-4010-8010-101010101010",
-      reason: "Pause all twelve job dispatches together to prove each named execution gate.",
+      reason: "Pause all thirteen job dispatches together to prove each named execution gate.",
       restorationAfterMs: null,
     });
 
@@ -1162,7 +1164,7 @@ describe("registered exact-Admin Operational Controls", () => {
     const receipts = await t.run(async (ctx) =>
       ctx.db.query("operationalEffectReceipts").collect()
     );
-    expect(receipts).toHaveLength(12);
+    expect(receipts).toHaveLength(13);
     expect(new Set(receipts.map((receipt) => receipt.controlKey))).toEqual(
       new Set(SCHEDULED_JOB_CONTROLS.map(([, key]) => key))
     );
