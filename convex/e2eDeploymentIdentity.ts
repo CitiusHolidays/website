@@ -1,4 +1,4 @@
 // This code-baked marker is the SHA-256 fingerprint of the deployable Convex source closure.
 // Update it only after reviewing the exact non-production deployment candidate.
 export const CONVEX_E2E_DEPLOYMENT_SOURCE_HASH =
-  "b9a514cb9f12e122c5419a385a8f261a9179ab200a9e070cf5210f039f228c22";
+  "fc214fc4793b63041c8130559f7908e7fe5ee7b260f0619511db7ccd7877f781";

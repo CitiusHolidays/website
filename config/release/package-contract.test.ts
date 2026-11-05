@@ -88,7 +88,7 @@ describe("Package and test discovery contract", () => {
     expect(packageJson.devDependencies.husky).toBe("9.1.7");
     expect(packageJson.devDependencies["lint-staged"]).toBe("17.6.0");
     expect(packageJson.devDependencies.knip).toBe("6.44.1");
-    expect(packageJson.devDependencies.jsdom).toBe("30.0.1");
+    expect(packageJson.devDependencies.jsdom).toBe("30.1.3");
     expect(packageJson.dependencies["isomorphic-dompurify"]).toBeUndefined();
     expect(existsSync(resolve(root, "src/lib/email/send.js"))).toBe(false);
     expect(readFileSync(resolve(root, "doctor.config.json"), "utf8")).not.toContain(
@@ -109,7 +109,7 @@ describe("Package and test discovery contract", () => {
     const packageJson = readPackageJson();
     const instrumentationPath = resolve(root, "src/lib/dev/react-inspection-client.ts");
 
-    expect(packageJson.devDependencies["react-grab"]).toBe("0.1.50");
+    expect(packageJson.devDependencies["react-grab"]).toBe("0.2.0");
     expect(packageJson.devDependencies["react-scan"]).toBe("0.5.7");
     expect(packageJson.scripts["dev:inspect"]).toBe(
       "CITIUS_REACT_INSPECTION=1 next dev --turbopack"
