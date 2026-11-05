@@ -12,7 +12,7 @@ export default async function sitemap() {
   const posts = await cachedSanityFetch(postsQuery, {}, ["blog"]);
 
   const postUrls = posts.map((post) => ({
-    changeFrequency: "daily",
+    changeFrequency: "monthly",
     lastModified: post._updatedAt,
     priority: 0.5,
     url: `${baseUrl}/blog/${post.slug}`,
@@ -24,6 +24,19 @@ export default async function sitemap() {
     priority: 0.55,
     url: `${baseUrl}/pilgrimage/${slug}`,
   }));
+
+  const latestPostUpdate = posts.reduce(
+    (latest, post) =>
+      post._updatedAt && (!latest || post._updatedAt > latest) ? post._updatedAt : latest,
+    null
+  );
+
+  const journalUrl = {
+    changeFrequency: "weekly",
+    lastModified: latestPostUpdate ?? new Date(),
+    priority: 0.6,
+    url: `${baseUrl}/blog`,
+  };
 
   const staticUrls = [
     {
@@ -82,5 +95,5 @@ export default async function sitemap() {
     },
   ];
 
-  return [...staticUrls, ...spiritualTrailUrls, ...postUrls];
+  return [...staticUrls, journalUrl, ...spiritualTrailUrls, ...postUrls];
 }
