@@ -3,19 +3,15 @@
 import { api } from "@convex/_generated/api";
 import {
   CHECK_IN_REQUIREMENTS,
-  type CheckInRequirement,
   type EnforcementMode,
-  type GeofenceRule,
   MAX_ACCURACY_LIMIT_METERS,
   MAX_GEOFENCE_RADIUS_METERS,
   MAX_NETWORK_ENTRIES,
   MIN_ACCURACY_LIMIT_METERS,
   MIN_GEOFENCE_RADIUS_METERS,
   NETWORK_ENTRY_KINDS,
-  type NetworkEntryKind,
   requiresLocation,
   requiresNetwork,
-  validateBranchRule,
 } from "@convex/crm/officeCheckInVerification";
 import { useMutation } from "convex/react";
 import { type ChangeEvent, type FormEvent, useId, useRef, useState } from "react";
@@ -32,133 +28,16 @@ import {
 } from "@/lib/officeCheckIn/presentation";
 import { formatConvexError } from "../portalWorkspaceListHelpers";
 import { ReasonField } from "./OfficeCheckInParts";
-import type { OfficeRule, OverviewOffice } from "./officeCheckInTypes";
-
-interface NetworkDraft {
-  cidr: string;
-  key: string;
-  kind: NetworkEntryKind;
-  label: string;
-}
-
-interface RuleDraft {
-  accuracy: string;
-  latitude: string;
-  longitude: string;
-  mode: EnforcementMode;
-  networks: NetworkDraft[];
-  radius: string;
-  reason: string;
-  requirement: CheckInRequirement | "";
-  timeZone: string;
-}
+import type { OverviewOffice } from "./officeCheckInTypes";
+import {
+  checkRuleDraft,
+  draftFromRule,
+  type NetworkDraft,
+  type RuleDraft,
+} from "./officeRuleDraft";
 
 const LABEL = "font-medium text-brand-dark text-sm";
 const HINT = "text-brand-muted text-xs";
-
-function numberText(value: number | undefined) {
-  return value === undefined ? "" : String(value);
-}
-
-function draftFromRule(rule: OfficeRule | null): RuleDraft {
-  return {
-    accuracy: numberText(rule?.geofence?.maxAccuracyMeters),
-    latitude: numberText(rule?.geofence?.latitude),
-    longitude: numberText(rule?.geofence?.longitude),
-    mode: rule?.enforcementMode ?? "report_only",
-    networks: (rule?.networks ?? []).map((entry, index) => ({ ...entry, key: `saved-${index}` })),
-    radius: numberText(rule?.geofence?.radiusMeters),
-    reason: "",
-    requirement: rule?.requirement ?? "",
-    timeZone: rule?.timeZone ?? "",
-  };
-}
-
-function parseNumber(text: string) {
-  const trimmed = text.trim();
-  if (!trimmed) {
-    return null;
-  }
-  const value = Number(trimmed);
-  return Number.isFinite(value) ? value : null;
-}
-
-/** Turns the four geofence fields into a rule, or explains what is missing. */
-export function parseGeofence(
-  draft: Pick<RuleDraft, "accuracy" | "latitude" | "longitude" | "radius">
-): { geofence: GeofenceRule | null; problem: null } | { geofence: null; problem: string } {
-  const fields = [draft.latitude, draft.longitude, draft.radius, draft.accuracy];
-  if (fields.every((field) => !field.trim())) {
-    return { geofence: null, problem: null };
-  }
-  const [latitude, longitude, radiusMeters, maxAccuracyMeters] = fields.map(parseNumber);
-  if (
-    latitude === null ||
-    longitude === null ||
-    radiusMeters === null ||
-    maxAccuracyMeters === null
-  ) {
-    return {
-      geofence: null,
-      problem:
-        "Fill in latitude, longitude, radius and accuracy limit as numbers, or leave all four empty.",
-    };
-  }
-  return { geofence: { latitude, longitude, maxAccuracyMeters, radiusMeters }, problem: null };
-}
-
-export interface RuleSubmission {
-  enablingEnforce: boolean;
-  geofence: GeofenceRule | null;
-  networks: { cidr: string; kind: NetworkEntryKind; label: string }[];
-  requirement: CheckInRequirement;
-}
-
-export interface RuleDraftCheck {
-  problems: string[];
-  submission: RuleSubmission | null;
-}
-
-/** Client-side check that mirrors the server's validation before anything is sent. */
-export function checkRuleDraft(
-  draft: RuleDraft,
-  savedMode: EnforcementMode | null
-): RuleDraftCheck {
-  const problems: string[] = [];
-  if (!draft.requirement) {
-    problems.push("Choose what this office checks.");
-  }
-  const networks = draft.networks
-    .filter((entry) => entry.cidr.trim() || entry.label.trim())
-    .map((entry) => ({ cidr: entry.cidr.trim(), kind: entry.kind, label: entry.label.trim() }));
-  const geofence = parseGeofence(draft);
-  if (geofence.problem) {
-    problems.push(geofence.problem);
-  }
-  if (!draft.requirement || geofence.problem) {
-    return { problems, submission: null };
-  }
-  problems.push(
-    ...validateBranchRule({
-      enforcementMode: draft.mode,
-      geofence: geofence.geofence,
-      networks,
-      requirement: draft.requirement,
-    })
-  );
-  if (problems.length > 0) {
-    return { problems, submission: null };
-  }
-  return {
-    problems,
-    submission: {
-      enablingEnforce: draft.mode === "enforce" && savedMode !== "enforce",
-      geofence: geofence.geofence,
-      networks,
-      requirement: draft.requirement,
-    },
-  };
-}
 
 function TextField({
   hint,
@@ -433,20 +312,34 @@ function useRuleEditor(office: OverviewOffice) {
 
 /** Edits one office's verification rule. Remount with a new key when the saved version changes. */
 export function OfficeRuleEditor({ office }: { office: OverviewOffice }) {
-  const editor = useRuleEditor(office);
-  const { draft } = editor;
+  // Destructured so the compiler sees the two refs as refs and the rest as plain render values.
+  const {
+    addNetwork,
+    draft,
+    problems,
+    problemsRef,
+    reasonError,
+    reasonRef,
+    removeNetwork,
+    savedMode,
+    saving,
+    serverError,
+    submit,
+    update,
+    updateNetwork,
+  } = useRuleEditor(office);
   const id = useId();
   const checksNetwork = !draft.requirement || requiresNetwork(draft.requirement);
   const checksLocation = !draft.requirement || requiresLocation(draft.requirement);
   const setRequirement = (value: string) => {
     const requirement = CHECK_IN_REQUIREMENTS.find((candidate) => candidate === value);
     if (requirement) {
-      editor.update({ requirement });
+      update({ requirement });
     }
   };
-  const setMode = (mode: EnforcementMode) => editor.update({ mode });
+  const setMode = (mode: EnforcementMode) => update({ mode });
   return (
-    <form className="grid gap-6" noValidate onSubmit={editor.submit}>
+    <form className="grid gap-6" noValidate onSubmit={submit}>
       <div>
         <h3 className="font-heading font-semibold text-base text-brand-dark">{office.name} rule</h3>
         <p className={HINT}>
@@ -493,8 +386,8 @@ export function OfficeRuleEditor({ office }: { office: OverviewOffice }) {
                 entry={entry}
                 index={index}
                 key={entry.key}
-                onChange={editor.updateNetwork}
-                onRemove={editor.removeNetwork}
+                onChange={updateNetwork}
+                onRemove={removeNetwork}
               />
             ))}
           </ul>
@@ -508,7 +401,7 @@ export function OfficeRuleEditor({ office }: { office: OverviewOffice }) {
           <button
             className="portal-small-btn"
             disabled={draft.networks.length >= MAX_NETWORK_ENTRIES}
-            onClick={editor.addNetwork}
+            onClick={addNetwork}
             type="button"
           >
             Add network range
@@ -526,14 +419,14 @@ export function OfficeRuleEditor({ office }: { office: OverviewOffice }) {
           <TextField
             inputMode="decimal"
             label="Latitude"
-            onChange={(value) => editor.update({ latitude: value })}
+            onChange={(value) => update({ latitude: value })}
             placeholder="0.000000"
             value={draft.latitude}
           />
           <TextField
             inputMode="decimal"
             label="Longitude"
-            onChange={(value) => editor.update({ longitude: value })}
+            onChange={(value) => update({ longitude: value })}
             placeholder="0.000000"
             value={draft.longitude}
           />
@@ -541,14 +434,14 @@ export function OfficeRuleEditor({ office }: { office: OverviewOffice }) {
             hint={`${MIN_GEOFENCE_RADIUS_METERS}–${MAX_GEOFENCE_RADIUS_METERS} metres.`}
             inputMode="numeric"
             label="Radius (m)"
-            onChange={(value) => editor.update({ radius: value })}
+            onChange={(value) => update({ radius: value })}
             value={draft.radius}
           />
           <TextField
             hint={`${MIN_ACCURACY_LIMIT_METERS}–${MAX_ACCURACY_LIMIT_METERS} metres. Less precise readings are uncertain.`}
             inputMode="numeric"
             label="Accuracy limit (m)"
-            onChange={(value) => editor.update({ accuracy: value })}
+            onChange={(value) => update({ accuracy: value })}
             value={draft.accuracy}
           />
         </div>
@@ -558,55 +451,55 @@ export function OfficeRuleEditor({ office }: { office: OverviewOffice }) {
         <TextField
           hint="Sets the work date and the times staff see. Leave empty for Asia/Kolkata."
           label="Time zone"
-          onChange={(value) => editor.update({ timeZone: value })}
+          onChange={(value) => update({ timeZone: value })}
           placeholder="Asia/Kolkata"
           value={draft.timeZone}
         />
       </div>
 
-      <ModeField mode={draft.mode} onChange={setMode} savedMode={editor.savedMode} />
+      <ModeField mode={draft.mode} onChange={setMode} savedMode={savedMode} />
 
       <ReasonField
-        error={editor.reasonError}
+        error={reasonError}
         help="Saved in the rule's audit entry with your name."
-        inputRef={editor.reasonRef}
-        onChange={(value) => editor.update({ reason: value })}
+        inputRef={reasonRef}
+        onChange={(value) => update({ reason: value })}
         placeholder="For example: adding the second floor's network"
         value={draft.reason}
       />
 
-      {editor.problems.length > 0 ? (
+      {problems.length > 0 ? (
         <div
           className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm"
-          ref={editor.problemsRef}
+          ref={problemsRef}
           role="alert"
           tabIndex={-1}
         >
           <p className="font-medium">Fix these before saving:</p>
           <ul className="mt-1 list-disc ps-5">
-            {editor.problems.map((problem) => (
+            {problems.map((problem) => (
               <li key={problem}>{problem}</li>
             ))}
           </ul>
         </div>
       ) : null}
-      {editor.serverError ? (
+      {serverError ? (
         <p
           className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm"
           role="alert"
         >
-          {editor.serverError}
+          {serverError}
         </p>
       ) : null}
 
       <div className="flex justify-end">
         <button
-          aria-busy={editor.saving || undefined}
+          aria-busy={saving || undefined}
           className="portal-primary-btn"
-          disabled={editor.saving}
+          disabled={saving}
           type="submit"
         >
-          {editor.saving ? "Saving…" : "Save rule"}
+          {saving ? "Saving…" : "Save rule"}
         </button>
       </div>
     </form>
