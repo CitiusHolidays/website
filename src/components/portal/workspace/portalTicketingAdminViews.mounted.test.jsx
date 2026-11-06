@@ -79,8 +79,6 @@ function ActivityHarness({ deleteCalls, readCalls }) {
   };
   return (
     <ActivityView
-      activity={[{ actorName: "System", createdAt: "2026-07-14", id: "act-1", message: "Updated" }]}
-      canViewActivityLog
       deleteItem={deleteItem}
       markNotificationRead={markNotificationRead}
       notifications={[
@@ -431,6 +429,8 @@ describe("Mounted portal ticketing and administration views", () => {
     mock.module("next/navigation", () => ({
       useRouter: () => ({ push: (href) => pushed.push(href) }),
     }));
+    // Older history is requested only on demand; the first page comes from props.
+    mock.module("convex/react", () => ({ useQuery: () => undefined }));
 
     const view = await mount(<ActivityHarness deleteCalls={deleteCalls} readCalls={readCalls} />);
 

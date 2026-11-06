@@ -22,7 +22,7 @@ import {
   type PortalPerformanceTarget,
   recordPortalNavigationWorkload,
 } from "@/lib/portal/navigationPerformance";
-import { getDeepLinkQueryId } from "@/lib/portal/notificationTargets";
+import { getDeepLinkQueryId, NOTIFICATION_INBOX_PAGE_SIZE } from "@/lib/portal/notificationTargets";
 import { mergeFocusedRow } from "@/lib/portal/paginatedRows";
 import { endOfDateOnly, parseDateOnly } from "@/lib/portal/periodFilter";
 import { canUseTeamPicker } from "@/lib/portal/permissions";
@@ -1186,7 +1186,7 @@ function useLeaveWorkspaceData(context: WorkspaceQueryContext) {
 function useStaffSupportWorkspaceData(context: WorkspaceQueryContext) {
   const notifications = useQuery(
     api.crm.activity.listNotifications,
-    context.canFetch && context.needs("activity") ? { limit: 80 } : "skip"
+    context.canFetch && context.needs("activity") ? { limit: NOTIFICATION_INBOX_PAGE_SIZE } : "skip"
   );
   const dropdowns = useQuery(
     api.crm.settings.listDropdowns,

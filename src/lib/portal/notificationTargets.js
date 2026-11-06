@@ -3,6 +3,9 @@ import { proposalLinkedQueryIds, proposalPrimaryQuery } from "./proposalLinks.js
 
 export const getNotificationHref = resolveNotificationHref;
 
+/** Updates the Notifications page loads first; "Show older updates" adds one more page each time. */
+export const NOTIFICATION_INBOX_PAGE_SIZE = 80;
+
 export function resolveDeepLink({ open, id, queryId }, collections) {
   if (!open) {
     return { status: "none" };
