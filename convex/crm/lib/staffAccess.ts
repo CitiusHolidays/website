@@ -8,7 +8,12 @@ import {
 } from "../../lib/authIdentity";
 import { isBootstrapAdmin as isActiveBootstrapAdmin } from "../../lib/bootstrapAuthority";
 import { authorizedCustomerIdentityIds } from "../../lib/customerIdentityAccess";
-import { getRolePermissions, HEAD_ROLES } from "./rolePolicy";
+import {
+  EXTERNAL_TOUR_MANAGER_PERMISSIONS,
+  EXTERNAL_TOUR_MANAGER_ROLES,
+  getRolePermissions,
+  HEAD_ROLES,
+} from "./rolePolicy";
 
 export function isDefined<T>(value: T | null | undefined | false): value is T {
   return value !== null && value !== undefined && value !== false;
@@ -25,6 +30,8 @@ export interface PortalAccess {
   authUserId?: string;
   bootstrap?: boolean;
   email: string;
+  /** True for an external tour manager's login: narrowed permissions and no staff-wide reads. */
+  externalTourManager?: boolean;
   name: string;
   permissions: string[];
   reason?: "UNAUTHENTICATED" | "NOT_STAFF";
@@ -68,6 +75,7 @@ export async function getPortalAccess(ctx: QueryCtx | MutationCtx): Promise<Port
     return {
       allowed: false,
       email: "",
+      externalTourManager: false,
       name: "",
       permissions: [],
       reason: "UNAUTHENTICATED",
@@ -80,16 +88,19 @@ export async function getPortalAccess(ctx: QueryCtx | MutationCtx): Promise<Port
   const authUserId = canonicalAuthUserId(identity) ?? undefined;
 
   if (staff) {
-    const permissions = getRolePermissions(staff.roles);
+    const external = isExternalTourManagerStaff(staff);
     return {
       allowed: true,
       authUserId,
       bootstrap: false,
       email: staff.email,
+      externalTourManager: external,
       // Never the identity's self-asserted name: staff names drive name-based record matches.
       name: staff.name || staff.email,
-      permissions,
-      roles: staff.roles,
+      permissions: external
+        ? [...EXTERNAL_TOUR_MANAGER_PERMISSIONS].sort()
+        : getRolePermissions(staff.roles),
+      roles: external ? [...EXTERNAL_TOUR_MANAGER_ROLES] : staff.roles,
       staffId: staff._id,
     };
   }
@@ -102,6 +113,7 @@ export async function getPortalAccess(ctx: QueryCtx | MutationCtx): Promise<Port
       authUserId,
       bootstrap: true,
       email,
+      externalTourManager: false,
       name: identity.name || email,
       permissions: getRolePermissions(["Admin"]),
       roles: ["Admin"],
@@ -112,6 +124,7 @@ export async function getPortalAccess(ctx: QueryCtx | MutationCtx): Promise<Port
     allowed: false,
     authUserId,
     email,
+    externalTourManager: false,
     name: identity.name || email,
     permissions: [],
     reason: "NOT_STAFF",
@@ -119,19 +132,49 @@ export async function getPortalAccess(ctx: QueryCtx | MutationCtx): Promise<Port
   };
 }
 
-export async function requireStaff(ctx: QueryCtx | MutationCtx, permission?: string) {
+/** A staff record that is an external tour manager's login rather than an employee. */
+export function isExternalTourManagerStaff(staff: {
+  externalTourManagerProfileId?: Id<"externalTourManagerProfiles">;
+}) {
+  return Boolean(staff.externalTourManagerProfileId);
+}
+
+export function isExternalTourManagerAccess(access: Pick<PortalAccess, "externalTourManager">) {
+  return access.externalTourManager === true;
+}
+
+/**
+ * Any signed-in staff session, including an external tour manager's login. Use it only for reads
+ * and writes that are already scoped to the caller's own records or to permission and record
+ * checks done afterwards (own notifications, own saved views, field sync).
+ */
+export async function requireStaffSession(ctx: QueryCtx | MutationCtx) {
   const access = await getPortalAccess(ctx);
   if (!access.allowed) {
     throw new ConvexError("FORBIDDEN");
   }
-  if (permission && !access.permissions.includes(permission)) {
+  return access;
+}
+
+/**
+ * Staff access, optionally gated on one permission. Without a permission the endpoint is a
+ * staff-wide read or write (travel schedule, post-tour feedback, office check-in), which an
+ * external tour manager's login never reaches; their narrowed permission set gates the rest.
+ */
+export async function requireStaff(ctx: QueryCtx | MutationCtx, permission?: string) {
+  const access = await requireStaffSession(ctx);
+  if (permission) {
+    if (!access.permissions.includes(permission)) {
+      throw new ConvexError("FORBIDDEN");
+    }
+  } else if (isExternalTourManagerAccess(access)) {
     throw new ConvexError("FORBIDDEN");
   }
   return access;
 }
 
 export async function requireAnyPermission(ctx: QueryCtx | MutationCtx, permissions: string[]) {
-  const access = await requireStaff(ctx);
+  const access = await requireStaffSession(ctx);
   const permissionSet = new Set(access.permissions);
   if (!permissions.some((permission) => permissionSet.has(permission))) {
     throw new ConvexError("FORBIDDEN");

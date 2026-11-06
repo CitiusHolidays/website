@@ -2,7 +2,13 @@ import { paginationOptsValidator, paginationResultValidator } from "convex/serve
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { type MutationCtx, mutation, type QueryCtx, query } from "../_generated/server";
-import { jobCardRecordGrant, PERMISSIONS, type PortalAccess, requireStaff } from "./lib";
+import {
+  jobCardRecordGrant,
+  PERMISSIONS,
+  type PortalAccess,
+  requireStaff,
+  requireStaffSession,
+} from "./lib";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { boundedPaginationOptions, loadRowsByIdInBatches } from "./paginationPolicy";
 import {
@@ -325,7 +331,7 @@ export const recordAnnouncement = mutation({
  * grant does not read other people's field records here; the phone keeps its own copy.
  */
 async function loadOfficeReadableJobCard(ctx: QueryCtx, rawJobCardId: string) {
-  const access = await requireStaff(ctx);
+  const access = await requireStaffSession(ctx);
   if (
     !(
       access.permissions.includes(PERMISSIONS.VIEW_OPERATIONS) &&

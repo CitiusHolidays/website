@@ -3,7 +3,7 @@ import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { loadCommercialChainFilesForEntryPoint } from "./commercialRecordChainReads";
 import { getChecklistTasksWithFallback } from "./jobCardChecklist";
-import { PERMISSIONS, publicJobCard, requireStaff } from "./lib";
+import { isExternalTourManagerAccess, PERMISSIONS, publicJobCard, requireStaff } from "./lib";
 import { publicProposalAttachment } from "./proposalAttachments";
 import { resolveTravellerGroupScope, travellerInGroupScope } from "./tourManagerGroupScope";
 
@@ -106,6 +106,30 @@ export async function handleGetCommandCenter(
       : Promise.resolve([]),
     loadCommercialChainFilesForEntryPoint(ctx, "jobCard", String(jobCardId)),
   ]);
+  if (isExternalTourManagerAccess(access)) {
+    // An external tour manager gets the trip, not the commercial chain: the itinerary stays,
+    // invoices, the linked query, proposal files and commercial files do not.
+    return {
+      checklistTasks: [],
+      commercialFiles: [],
+      hotels: [],
+      invoices: [],
+      jobCard: publicJobCard(job),
+      proposal: proposal
+        ? {
+            ...publicOperationalProposalSummary(proposal),
+            finalizedPdf: null,
+          }
+        : null,
+      query: null,
+      rooming: [],
+      tickets: [],
+      travellers: travellers
+        .filter((traveller) => travellerInGroupScope(travellerScope, traveller))
+        .map((traveller) => ({ passportStatus: traveller.passportStatus ?? "" })),
+      visaRecords: [],
+    };
+  }
   return {
     checklistTasks: checklistTasks.map((task: CommandCenterChecklistTask) => {
       const fields = {

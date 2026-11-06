@@ -71,7 +71,11 @@ export function tourManagerGroupScopeFrom(input: {
   if (fromStaff) {
     return fromStaff;
   }
-  if (input.legacyNames === false || assignments.some((assignment) => assignment.staffId)) {
+  if (
+    input.legacyNames === false ||
+    access.externalTourManager === true ||
+    assignments.some((assignment) => assignment.staffId)
+  ) {
     return NO_TRAVELLERS;
   }
   const ownNamed = assignments.filter(

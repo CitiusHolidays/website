@@ -233,6 +233,10 @@ export const applyClSlLapsePage = internalMutation({
     const now = Date.now();
     let lapsedRows = 0;
     for (const staff of page.page) {
+      if (staff.externalTourManagerProfileId) {
+        // External tour manager logins hold no leave.
+        continue;
+      }
       for (const leaveType of CL_SL_LAPSE_TYPES) {
         // biome-ignore lint/performance/noAwaitInLoops: one transaction must atomically observe and patch each balance.
         lapsedRows += await lapseStaffBalance(ctx, run, staff._id, leaveType, now);

@@ -4,8 +4,10 @@ import { api } from "@convex/_generated/api";
 import { ChevronDown, FileText, Paperclip } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { usePortalServerAccess } from "@/components/portal/PortalAccessContext";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { buildJobCardCommandCenter } from "@/lib/portal/jobCardCommandCenter";
+import { isExternalTourManager } from "@/lib/portal/permissions";
 import { displayPortalTerm } from "@/lib/portal/productTerminology";
 import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
 import { JobCardFeedbackMenu } from "./JobCardFeedbackMenu";
@@ -144,6 +146,8 @@ function JobCardTourContext({ commercialFiles, job, query, proposal }) {
 
 export default function JobCardCommandCenter({ jobCardId }) {
   const payload = useQuery(api.crm.jobCards.getCommandCenter, { jobCardId });
+  // Post-tour feedback is a staff-wide area an external tour manager's login does not reach.
+  const showFeedback = !isExternalTourManager(usePortalServerAccess());
   const [tasksOpen, setTasksOpen] = useState(false);
   const toggleTasks = () => setTasksOpen((open) => !open);
   if (payload === undefined) {
@@ -184,16 +188,18 @@ export default function JobCardCommandCenter({ jobCardId }) {
         proposal={payload.proposal}
         query={payload.query}
       />
-      <section className="rounded-lg border border-brand-border bg-white p-4">
-        <h2 className="font-heading text-base text-brand-dark">Post-tour feedback</h2>
-        <p className="mt-1 text-brand-muted text-sm">
-          Open the internal tour report, earlier team notes or separate traveller feedback for this
-          Job Card.
-        </p>
-        <div className="mt-3">
-          <JobCardFeedbackMenu jobCardId={String(jobCardId)} jobCode={job.jobCode} />
-        </div>
-      </section>
+      {showFeedback ? (
+        <section className="rounded-lg border border-brand-border bg-white p-4">
+          <h2 className="font-heading text-base text-brand-dark">Post-tour feedback</h2>
+          <p className="mt-1 text-brand-muted text-sm">
+            Open the internal tour report, earlier team notes or separate traveller feedback for
+            this Job Card.
+          </p>
+          <div className="mt-3">
+            <JobCardFeedbackMenu jobCardId={String(jobCardId)} jobCode={job.jobCode} />
+          </div>
+        </section>
+      ) : null}
       <JobCardFieldUpdates jobCardId={String(jobCardId)} />
       <JobCardReadinessMap sections={model.readinessSections} />
       <div className="grid items-start gap-4 lg:grid-cols-[1.4fr_0.8fr]">

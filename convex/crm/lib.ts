@@ -73,6 +73,7 @@ export {
   CEMENT_ROLES,
   CONTRACTING_TEAM_ROLES,
   DIRECTOR_PERMISSIONS,
+  EXTERNAL_TOUR_MANAGER_PERMISSIONS,
   getRolePermissions,
   HEAD_ROLES,
   isStaffRole,
@@ -91,12 +92,15 @@ export {
   isAdminDirectorOrRole,
   isDefined,
   isDirectorOrAdmin,
+  isExternalTourManagerAccess,
+  isExternalTourManagerStaff,
   isHead,
   normalizeEmail,
   type PortalAccess,
   requireAnyPermission,
   requireHeadOrAdmin,
   requireStaff,
+  requireStaffSession,
 } from "./lib/staffAccess";
 export {
   assertDateRangeOrder,

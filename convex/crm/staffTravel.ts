@@ -7,7 +7,12 @@ import { getVisibleJob } from "./jobCardVisibility";
 import { createActivity } from "./lib/activity";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { PERMISSIONS } from "./lib/rolePolicy";
-import { isDirectorOrAdmin, type PortalAccess, requireStaff } from "./lib/staffAccess";
+import {
+  isDirectorOrAdmin,
+  isExternalTourManagerStaff,
+  type PortalAccess,
+  requireStaff,
+} from "./lib/staffAccess";
 import { boundedPaginationOptions, mapInBoundedBatches } from "./paginationPolicy";
 
 function canManageOthers(access: PortalAccess) {
@@ -115,7 +120,12 @@ export const listPeople = query({
       .query("staffUsers")
       .withIndex("by_active_and_createdAt", (q) => q.eq("active", true))
       .paginate(boundedPaginationOptions(args.paginationOpts));
-    return { ...result, page: result.page.map((staff) => ({ id: staff._id, name: staff.name })) };
+    return {
+      ...result,
+      page: result.page
+        .filter((staff) => !isExternalTourManagerStaff(staff))
+        .map((staff) => ({ id: staff._id, name: staff.name })),
+    };
   },
   returns: paginationResultValidator(v.object({ id: v.id("staffUsers"), name: v.string() })),
 });

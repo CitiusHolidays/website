@@ -17,7 +17,9 @@ import {
   getQueryTypeOptions,
   isCementScopedUser,
   isDirectorOrAdmin,
+  isExternalTourManager,
   normalizeEmail,
+  portalHomeHref,
 } from "./permissions";
 
 const roleExpectations = JSON.parse(
@@ -367,5 +369,50 @@ describe("Staff Workspace navigation groups", () => {
       expect(labels, role).not.toContain("Admin");
       expect(labels, role).not.toContain("System");
     }
+  });
+});
+
+describe("External tour manager logins", () => {
+  // What getMyPortalAccess returns for an external tour manager (owner decision, 7 Nov 2026).
+  const external = {
+    allowed: true,
+    externalTourManager: true,
+    permissions: ["create:expenses", "view:expenses", "view:jobCards", "view:travellers"],
+    roles: ["Tour Manager"],
+  };
+
+  test("see only their trips, travellers, expenses and notifications", () => {
+    const layout = getAccessibleNavGroups(external).map((group) => [
+      group.label,
+      group.items.map((item) => item.label),
+    ]);
+    expect(layout).toEqual([
+      ["Me", ["Notifications"]],
+      ["Job Cards", ["Job Cards"]],
+      ["Operations", ["Traveller Master"]],
+      ["Finance", ["Expenses"]],
+    ]);
+  });
+
+  test("cannot open the staff-wide pages that every employee reaches", () => {
+    for (const page of ["post-tour-feedback", "travel-schedule", "dashboard", "team"]) {
+      expect(canAccessPage(external, page), page).toBe(false);
+    }
+    expect(canAccessPage(external, "job-cards")).toBe(true);
+    expect(canAccessPage(external, "activity")).toBe(true);
+    expect(isExternalTourManager(external)).toBe(true);
+    expect(isExternalTourManager({ allowed: true, roles: ["Tour Manager"] })).toBe(false);
+  });
+
+  test("land on their Job Cards instead of the dashboard", () => {
+    expect(portalHomeHref(external)).toBe("/portal/job-cards");
+    const staffTourManager = {
+      allowed: true,
+      permissions: getPermissionsForRoles(["Tour Manager"]),
+      roles: ["Tour Manager"],
+    };
+    expect(portalHomeHref(staffTourManager)).toBe("/portal");
+    // A staff Tour Manager keeps the staff-wide pages.
+    expect(canAccessPage(staffTourManager, "post-tour-feedback")).toBe(true);
   });
 });

@@ -16,6 +16,7 @@ import { getVisibleJob } from "./jobCardVisibility";
 import {
   createActivity,
   deleteEntityNotifications,
+  isExternalTourManagerAccess,
   PERMISSIONS,
   type PortalAccess,
   requireAnyPermission,
@@ -185,6 +186,10 @@ export async function handleCreateExpense(
   }
 ) {
   const access = await requireStaff(ctx, PERMISSIONS.CREATE_EXPENSES);
+  if (isExternalTourManagerAccess(access) && !args.jobCardId) {
+    // External tour managers record trip expenses only, never office expenses.
+    throw new ConvexError("Choose the Job Card this expense belongs to");
+  }
   const jobCardId = await resolveVisibleExpenseJobCard(ctx, access, args.jobCardId);
   const { clientRef, retriedId } = await findRetriedExpense(
     ctx,

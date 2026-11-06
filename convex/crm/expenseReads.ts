@@ -1,8 +1,8 @@
 import { hasExpenseApprovalHistory, isNeverSubmittedExpenseDraft } from "./expenseLifecycle";
-import { canManageAllExpenses, canMutateUnlinkedExpense } from "./expensePolicy";
+import { canManageAllExpenses, canMutateUnlinkedExpense, isExpenseCreator } from "./expensePolicy";
 import { canApproveExpenseAsManager } from "./expenseScope";
 import { getVisibleJob } from "./jobCardVisibility";
-import { PERMISSIONS, type PortalAccess, requireStaff } from "./lib";
+import { isExternalTourManagerAccess, PERMISSIONS, type PortalAccess, requireStaff } from "./lib";
 import {
   applyCrmCursorFilters,
   boundedPaginationOptions,
@@ -64,6 +64,9 @@ export async function presentExpenseListRow(
   expense: Doc<"expenseEntries">
 ) {
   const canManageAll = canManageAllExpenses(access);
+  if (isExternalTourManagerAccess(access) && !isExpenseCreator(access, expense)) {
+    return null;
+  }
   const [job, proofAttachment, hasApprovalHistory] = await Promise.all([
     expense.jobCardId ? getVisibleJob(ctx, access, expense.jobCardId) : null,
     expense.proofAttachmentId ? ctx.db.get("attachments", expense.proofAttachmentId) : null,

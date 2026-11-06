@@ -17,12 +17,15 @@ import {
   createActivity,
   deleteEntityNotifications,
   flushDeferredNotificationCleanup,
+  isExternalTourManagerAccess,
+  isExternalTourManagerStaff,
   type NotificationEntityIdentity,
   PERMISSIONS,
   type PortalAccess,
   publishWorkflowNotification,
   requireHeadOrAdmin,
   requireStaff,
+  requireStaffSession,
 } from "./lib";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import {
@@ -316,7 +319,16 @@ export const listTourManagers = query({
     status: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx, PERMISSIONS.VIEW_TOUR_MANAGERS);
+    const access = await requireStaffSession(ctx);
+    if (isExternalTourManagerAccess(access)) {
+      // An external login sees who else is on one of its own trips, never the pool.
+      const jobCardId = args.jobCardId ? ctx.db.normalizeId("jobCards", args.jobCardId) : null;
+      if (!(jobCardId && (await getVisibleJob(ctx, access, jobCardId)))) {
+        throw new ConvexError("FORBIDDEN");
+      }
+    } else if (!access.permissions.includes(PERMISSIONS.VIEW_TOUR_MANAGERS)) {
+      throw new ConvexError("FORBIDDEN");
+    }
     const page = await applyCrmCursorFilters(
       ctx.db.query("tourManagerAssignments").withIndex("by_createdAt").order("desc"),
       {
@@ -395,6 +407,24 @@ interface UpdateTourManagerArgs {
   travelBatchId?: string;
 }
 
+function assertStaffTourManager(staff: Doc<"staffUsers">) {
+  if (isExternalTourManagerStaff(staff)) {
+    throw new ConvexError("Assign an external tour manager from their profile");
+  }
+  if (!staff.roles.includes("Tour Manager")) {
+    throw new ConvexError("Selected staff member is not a tour manager");
+  }
+}
+
+/** The app login granted from an external profile, or null when it has none. */
+async function externalProfileLoginId(
+  ctx: MutationCtx,
+  profile: Doc<"externalTourManagerProfiles">
+) {
+  const login = profile.staffId ? await ctx.db.get("staffUsers", profile.staffId) : null;
+  return login?.externalTourManagerProfileId === profile._id ? login._id : null;
+}
+
 async function resolveTourManagerIdentity(
   ctx: MutationCtx,
   args: CreateTourManagerArgs
@@ -409,7 +439,8 @@ async function resolveTourManagerIdentity(
       externalProfileId: profile._id,
       name: profile.name,
       phone: profile.phone,
-      staffId: null,
+      // A profile with an app login carries it, so the assignment grants that login its scope.
+      staffId: await externalProfileLoginId(ctx, profile),
     };
   }
   const fallback: ResolvedTourManagerIdentity = {
@@ -429,9 +460,7 @@ async function resolveTourManagerIdentity(
   if (!staff?.active) {
     throw new ConvexError("Staff member not found");
   }
-  if (!staff.roles.includes("Tour Manager")) {
-    throw new ConvexError("Selected staff member is not a tour manager");
-  }
+  assertStaffTourManager(staff);
   return {
     email: staff.email || fallback.email,
     name: staff.name.trim(),
@@ -650,8 +679,8 @@ async function resolveUpdatedTourManagerStaff(
   if (staffId && !staff?.active) {
     throw new ConvexError("Staff member not found");
   }
-  if (staff && !staff.roles.includes("Tour Manager")) {
-    throw new ConvexError("Selected staff member is not a tour manager");
+  if (staff) {
+    assertStaffTourManager(staff);
   }
   if (staff && args.name === undefined) {
     patch.name = staff.name.trim();
@@ -738,12 +767,13 @@ async function resolveUpdatedExternalProfile(
     ) ||
     (args.status === "Assigned" && existing.status !== "Assigned");
   const profile = await getExternalTourManagerProfile(ctx, rawId, newlyAssigned);
+  const loginId = (await externalProfileLoginId(ctx, profile)) ?? undefined;
   patch.externalProfileId = profile._id;
-  patch.staffId = undefined;
+  patch.staffId = loginId;
   patch.name = profile.name;
   patch.email = profile.email;
   patch.phone = profile.phone;
-  return profile._id;
+  return { loginId, profileId: profile._id };
 }
 
 async function releaseJobTourManagerLink(
@@ -939,7 +969,7 @@ export async function updateTourManagerForTest(
   if (args.travelBatchId !== undefined || args.jobCardId !== undefined) {
     patch.travelBatchId = travelBatch?._id;
   }
-  const externalProfileId = await resolveUpdatedExternalProfile(
+  const externalProfile = await resolveUpdatedExternalProfile(
     ctx,
     args,
     tourManager,
@@ -947,8 +977,10 @@ export async function updateTourManagerForTest(
     jobCardId,
     travelBatch?._id
   );
-  if (externalProfileId) {
-    staffId = undefined;
+  const externalProfileId = externalProfile?.profileId;
+  if (externalProfile) {
+    // The profile's app login, if any, replaces a staff identity on the assignment.
+    staffId = externalProfile.loginId;
   }
   await assertUniqueExternalAssignment(ctx, externalProfileId, jobCardId, travelBatch?._id, id);
 

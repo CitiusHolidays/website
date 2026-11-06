@@ -1,7 +1,8 @@
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
+import type { Doc } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, mutation } from "../_generated/server";
-import { isStaffRole, normalizeEmail, type StaffRole } from "./lib";
+import { isExternalTourManagerStaff, isStaffRole, normalizeEmail, type StaffRole } from "./lib";
 import { staffImportResultValidator } from "./staffSettingsReturnContracts";
 
 const assertMigrationSecret = (secret: string) => {
@@ -51,6 +52,24 @@ interface StaffImportRow {
   roles: string[];
 }
 
+/** An external tour manager's sign-in is managed from their profile, never by staff import. */
+function externalLoginSkip(
+  existing: Doc<"staffUsers"> | null,
+  row: StaffImportRow,
+  roles: StaffRole[]
+) {
+  if (!(existing && isExternalTourManagerStaff(existing))) {
+    return null;
+  }
+  return {
+    action: "skipped" as const,
+    email: row.email,
+    message: "External tour manager sign-in; manage it from their profile",
+    name: row.name,
+    roles,
+  };
+}
+
 async function importStaffRow(
   ctx: MutationCtx,
   row: StaffImportRow,
@@ -72,6 +91,10 @@ async function importStaffRow(
       .query("staffUsers")
       .withIndex("by_emailNormalized", (q) => q.eq("emailNormalized", emailNormalized))
       .unique();
+    const externalLogin = externalLoginSkip(existing, row, roles);
+    if (externalLogin) {
+      return externalLogin;
+    }
     if (options.dryRun) {
       return {
         action: existing ? ("updated" as const) : ("created" as const),
@@ -149,7 +172,9 @@ async function importStaffRows(
   };
 
   if (!dryRun) {
-    const staffRows = await ctx.db.query("staffUsers").collect();
+    const staffRows = (await ctx.db.query("staffUsers").collect()).filter(
+      (staff) => !isExternalTourManagerStaff(staff)
+    );
     const staffByName = new Map(staffRows.map((staff) => [staff.name.trim().toLowerCase(), staff]));
     await Promise.all(
       staffRows.flatMap((staff) => {

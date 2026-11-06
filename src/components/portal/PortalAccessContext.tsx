@@ -7,6 +7,7 @@ export interface PortalAccessSnapshot {
   allowed?: boolean;
   email?: string;
   eventPhotoBooth?: BoothAccess;
+  externalTourManager?: boolean;
   name?: string;
   permissions?: string[];
   roles?: string[];

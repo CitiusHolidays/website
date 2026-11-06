@@ -5,6 +5,7 @@ import {
   hasRole,
   isAdminDirectorOrRole,
   isDirectorOrAdmin,
+  isExternalTourManagerAccess,
   type PortalAccess,
 } from "./staffAccess";
 
@@ -82,7 +83,12 @@ export function ownsTourManagerJobCard(
   if (isAssignedTourManagerStaff(access, job.assignedTourManagerStaffIds)) {
     return true;
   }
-  if (!hasRole(access, "Tour Manager") || (job.assignedTourManagerStaffIds?.length ?? 0) > 0) {
+  // An external tour manager's login reaches a Job Card only through its own assignment.
+  if (
+    isExternalTourManagerAccess(access) ||
+    !hasRole(access, "Tour Manager") ||
+    (job.assignedTourManagerStaffIds?.length ?? 0) > 0
+  ) {
     return false;
   }
   if (Array.isArray(job.legacyTourManagerNames)) {
@@ -141,6 +147,9 @@ export interface QueryVisibilityRecord {
 }
 
 export function canSeeQueryRecord(access: PortalAccess, query: QueryVisibilityRecord) {
+  if (isExternalTourManagerAccess(access)) {
+    return false;
+  }
   if (shouldApplyCementScope(access)) {
     if (!isCementQueryType(query.queryType)) {
       return false;
@@ -193,6 +202,9 @@ export function canSeeProposalRecord(
   proposal: ProposalVisibilityRecord,
   linkedQuery?: QueryVisibilityRecord | QueryVisibilityRecord[] | null
 ) {
+  if (isExternalTourManagerAccess(access)) {
+    return false;
+  }
   let linkedQueries: QueryVisibilityRecord[] = [];
   if (Array.isArray(linkedQuery)) {
     linkedQueries = linkedQuery.filter((query): query is QueryVisibilityRecord => Boolean(query));
@@ -267,6 +279,11 @@ export function jobCardRecordGrant(
   job: JobCardVisibilityRecord,
   linkedQuery?: QueryVisibilityRecord | null
 ): JobCardRecordGrant | null {
+  if (isExternalTourManagerAccess(access)) {
+    // No office route (owner, collaborator, name or linked query) ever applies to an external
+    // tour manager's login: only their own staff-id assignment, narrowed to their group.
+    return ownsTourManagerJobCard(access, job) ? "tourManager" : null;
+  }
   const queryType = linkedQuery?.queryType ?? job.queryType ?? "";
   if (shouldApplyCementScope(access)) {
     if (!isCementQueryType(queryType)) {

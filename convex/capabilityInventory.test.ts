@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "d9afe9d9aac2c65a376ff7336ff2f34d0d9c18e47b7983022504698ee1c871f9";
+const EXPECTED_CAPABILITY_HASH = "7402ce26ba87eb8ae610122f28363d9bfa20bc0f7780b277b240e4c8c1894ec8";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_CAPABILITIES = new Set(["crm/postTourReports.archive"]);
@@ -205,11 +205,11 @@ describe("Convex capability inventory", () => {
     const travel = capabilities.filter(
       ({ module }) => module === "crm/staffTravel" || module === "crm/externalTourManagerProfiles"
     );
-    expect(travel).toHaveLength(14);
+    expect(travel).toHaveLength(15);
     expect(travel.every(({ classification }) => classification === "public-product")).toBe(true);
     for (const [module, names] of [
       ["crm/staffTravel", ["create", "update", "cancel"]],
-      ["crm/externalTourManagerProfiles", ["create", "update"]],
+      ["crm/externalTourManagerProfiles", ["create", "update", "setAppAccess"]],
     ] as const) {
       for (const name of names) {
         expect(travel).toContainEqual({

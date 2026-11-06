@@ -20,8 +20,13 @@ export const staffTravelOutputValidator = v.object({
   status: staffTravelStatusValidator,
   updatedAt: v.number(),
 });
+export const externalTourManagerAppAccessValidator = v.object({
+  onboarding: v.union(v.literal("not_started"), v.literal("pending"), v.literal("ready")),
+  status: v.union(v.literal("none"), v.literal("enabled"), v.literal("disabled")),
+});
 export const externalTourManagerOutputValidator = v.object({
   active: v.boolean(),
+  appAccess: externalTourManagerAppAccessValidator,
   canManage: v.boolean(),
   createdAt: v.number(),
   destinations: v.array(v.string()),

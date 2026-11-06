@@ -8,6 +8,7 @@ import { getBootstrapAuthorityExpiry } from "../lib/bootstrapAuthority";
 import {
   type ALL_ROLES,
   getPortalAccess,
+  isExternalTourManagerStaff,
   isStaffRole,
   normalizeEmail,
   PERMISSIONS,
@@ -128,6 +129,20 @@ function presentDirectoryRow(
     reportingManagerStaffId: staffText(staff.reportingManagerStaffId),
     roles: staff.roles,
   };
+}
+
+const EXTERNAL_LOGIN_MESSAGE =
+  "This sign-in belongs to an external tour manager. External tour managers are managed from their profile.";
+
+function assertNotExternalLogin(staff: Doc<"staffUsers"> | null | undefined) {
+  if (staff && isExternalTourManagerStaff(staff)) {
+    throw new ConvexError(EXTERNAL_LOGIN_MESSAGE);
+  }
+}
+
+/** Employees only: external tour manager logins stay out of staff lists and pickers. */
+function isEmployee(staff: Doc<"staffUsers">) {
+  return !isExternalTourManagerStaff(staff);
 }
 
 function staffNumber(value: number | undefined) {
@@ -252,7 +267,7 @@ export const listStaff = query({
       ctx.db.query("staffUsers").withIndex("by_name").order("asc"),
       { equals: { active: args.active, department: args.department } }
     ).paginate(boundedPaginationOptions(args.paginationOpts));
-    const rows = page.page;
+    const rows = page.page.filter(isEmployee);
     const approverIds = [
       ...new Set(
         rows.flatMap((member) => {
@@ -295,7 +310,9 @@ export const listDirectory = query({
     const officeNames = new Map(offices.map((office) => [office._id, office.name]));
     return {
       ...page,
-      page: page.page.map((staff) => presentDirectoryRow(staff, officeNames, access)),
+      page: page.page
+        .filter(isEmployee)
+        .map((staff) => presentDirectoryRow(staff, officeNames, access)),
     };
   },
   returns: staffDirectoryListPageResultValidator,
@@ -308,7 +325,7 @@ export const listTeamOptions = query({
     await requireAnyPermission(ctx, [...TEAM_PICKER_PERMISSIONS]);
     const rows = await ctx.db.query("staffUsers").collect();
     return rows
-      .filter((staff) => staff.active)
+      .filter((staff) => staff.active && isEmployee(staff))
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((staff) => ({
         department: staff.department ?? staff.roles[0] ?? "",
@@ -435,6 +452,7 @@ export const upsertStaff = mutation({
       .query("staffUsers")
       .withIndex("by_emailNormalized", (q) => q.eq("emailNormalized", emailNormalized))
       .unique();
+    assertNotExternalLogin(existingByEmail);
     const normalizedStaffId = args.staffId ? ctx.db.normalizeId("staffUsers", args.staffId) : null;
     const payload = buildStaffPayload(args, {
       emailAlertRoles,
@@ -450,6 +468,7 @@ export const upsertStaff = mutation({
       if (!current) {
         throw new ConvexError("Staff member not found");
       }
+      assertNotExternalLogin(current);
       if (existingByEmail && existingByEmail._id !== normalizedStaffId) {
         throw new ConvexError("Email is already assigned to another staff member");
       }
@@ -506,6 +525,7 @@ export const removeStaff = mutation({
     if (!staff) {
       throw new ConvexError("Staff member not found");
     }
+    assertNotExternalLogin(staff);
     if (staff.emailNormalized === normalizeEmail(access.email)) {
       throw new ConvexError("You cannot delete your own staff access");
     }

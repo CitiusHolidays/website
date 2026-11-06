@@ -2933,6 +2933,8 @@ export default defineSchema({
     reportedPastTours: v.union(v.number(), v.null()),
     reportedPastToursNote: v.string(),
     reportedPastToursSource: tourExperienceSourceValidator,
+    // The narrowed Tour Manager login granted from this profile (owner decision, 7 Nov 2026).
+    staffId: v.optional(v.id("staffUsers")),
     updatedAt: v.number(),
     updatedBy: v.string(),
   })
@@ -2951,6 +2953,9 @@ export default defineSchema({
     emailAlertRoles: v.optional(v.array(staffRole)),
     emailNormalized: v.string(),
     employmentStatus: v.optional(v.union(v.literal("Probationer"), v.literal("Confirmed"))),
+    // Set only for an external tour manager's login: access narrows to assigned trips and the
+    // record stays out of staff administration and HR flows.
+    externalTourManagerProfileId: v.optional(v.id("externalTourManagerProfiles")),
     function: v.optional(v.string()),
     invitedBy: v.optional(v.string()),
     jobCardCreatorEnabled: v.optional(v.boolean()),

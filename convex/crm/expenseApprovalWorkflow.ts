@@ -13,6 +13,7 @@ import { scheduleCrmMetricSync, scheduleFinanceMetricSync } from "./financeMetri
 import {
   createActivity,
   isDirectorOrAdmin,
+  isExternalTourManagerStaff,
   nextCode,
   PERMISSIONS,
   type PortalAccess,
@@ -33,6 +34,23 @@ async function staffByAuthUserId(ctx: MutationCtx, authUserId?: string) {
     .unique();
 }
 
+/**
+ * External tour managers have no reporting manager (no HR record). Their trip expense goes to the
+ * Job Card's Operations owner for the manager step, then to Finance as usual.
+ */
+async function externalExpenseApproverId(ctx: MutationCtx, expense: Doc<"expenseEntries">) {
+  const job = expense.jobCardId ? await ctx.db.get("jobCards", expense.jobCardId) : null;
+  const ownerId = job?.operationsOwnerId
+    ? ctx.db.normalizeId("staffUsers", job.operationsOwnerId)
+    : null;
+  if (!ownerId) {
+    throw new ConvexError(
+      "Ask Operations to set an Operations owner on this Job Card before submitting the expense"
+    );
+  }
+  return ownerId;
+}
+
 async function resolveExpenseSubmitterAndManager(
   ctx: MutationCtx,
   access: PortalAccess,
@@ -41,7 +59,10 @@ async function resolveExpenseSubmitterAndManager(
   const submitter =
     (await staffByAuthUserId(ctx, expense.createdBy)) ??
     (access.staffId ? await ctx.db.get("staffUsers", access.staffId) : null);
-  const managerId = submitter?.reportingManagerStaffId ?? null;
+  const managerId =
+    submitter && isExternalTourManagerStaff(submitter)
+      ? await externalExpenseApproverId(ctx, expense)
+      : (submitter?.reportingManagerStaffId ?? null);
   const manager = managerId ? await ctx.db.get("staffUsers", managerId) : null;
   if (!submitter) {
     throw new ConvexError("Expense submitter staff record not found");

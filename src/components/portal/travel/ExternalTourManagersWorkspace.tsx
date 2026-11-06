@@ -59,6 +59,7 @@ function ProfileForm({
 }) {
   const id = useId();
   const [draft, setDraft] = useState(() => profileDraft(profile));
+  const signInEmail = Boolean(profile && profile.appAccess.status !== "none");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const create = useMutation(api.crm.externalTourManagerProfiles.create);
@@ -123,15 +124,22 @@ function ProfileForm({
         <label className="block space-y-1" htmlFor={`${id}-email`}>
           <span className="font-semibold text-sm">Email</span>
           <Input
+            aria-describedby={signInEmail ? `${id}-email-note` : undefined}
             autoComplete="email"
             className="bg-white"
             disabled={busy}
             id={`${id}-email`}
             name="email"
             onChange={change}
+            readOnly={signInEmail}
             type="email"
             value={draft.email}
           />
+          {signInEmail ? (
+            <span className="text-brand-muted text-xs" id={`${id}-email-note`}>
+              This email is their app and CRM sign-in. Ask an administrator to change it.
+            </span>
+          ) : null}
         </label>
         <label className="block space-y-1" htmlFor={`${id}-phone`}>
           <span className="font-semibold text-sm">Phone</span>
@@ -392,6 +400,135 @@ function ExistingAssignmentLink({ profile }: { profile: Profile }) {
   );
 }
 
+function appAccessSummary(profile: Profile) {
+  const { onboarding, status } = profile.appAccess;
+  if (status === "none") {
+    return "Off. This tour manager cannot sign in to the app or the CRM.";
+  }
+  if (status === "disabled") {
+    return "Off. Access was turned off; their assignments are kept and they cannot sign in.";
+  }
+  if (onboarding === "ready") {
+    return `On. They sign in with ${profile.email} and see only the Job Cards they are assigned to.`;
+  }
+  return `On. A setup email went to ${profile.email}. They can sign in once they set a password.`;
+}
+
+/**
+ * App and CRM access for one external tour manager (owner decision, 7 Nov 2026). Only the
+ * Operations Head and directors/admins see it. On gives a narrowed Tour Manager login for the
+ * Job Cards they are assigned to; off refuses that login at once. Nothing expires on its own.
+ */
+function AppAccessPanel({ profile }: { profile: Profile }) {
+  const setAppAccess = useMutation(api.crm.externalTourManagerProfiles.setAppAccess);
+  const [busy, setBusy] = useState(false);
+  const [confirmingOff, setConfirmingOff] = useState(false);
+  const [error, setError] = useState("");
+  const [status, setStatus] = useState("");
+  const enabled = profile.appAccess.status === "enabled";
+  const pending = enabled && profile.appAccess.onboarding !== "ready";
+  const apply = async (next: boolean, done: string) => {
+    setBusy(true);
+    setError("");
+    setStatus("");
+    try {
+      await setAppAccess({ enabled: next, profileId: profile.id });
+      setStatus(done);
+    } catch (failure) {
+      setError(travelError(failure, "Access could not be changed. Try again."));
+    }
+    setConfirmingOff(false);
+    setBusy(false);
+  };
+  const toggle = async () => {
+    if (enabled) {
+      setConfirmingOff(true);
+      return;
+    }
+    await apply(
+      true,
+      "Access turned on. A setup email is on its way if they have not set a password."
+    );
+  };
+  const turnOff = () => apply(false, "Access turned off.");
+  const keepOn = () => setConfirmingOff(false);
+  const resend = () => apply(true, "Setup email sent again.");
+  return (
+    <section aria-labelledby={`app-access-${profile.id}`} className={travelCard}>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 max-w-prose">
+          <h3 className="font-heading font-semibold text-lg" id={`app-access-${profile.id}`}>
+            App and CRM access
+          </h3>
+          <p className="mt-2 text-brand-muted text-sm">{appAccessSummary(profile)}</p>
+        </div>
+        <button
+          aria-checked={enabled}
+          aria-labelledby={`app-access-${profile.id}`}
+          className={`inline-flex min-h-11 shrink-0 items-center gap-3 rounded-full border px-3 font-semibold text-sm transition-colors focus-visible:outline-2 focus-visible:outline-citius-blue disabled:opacity-60 ${enabled ? "border-citius-blue bg-citius-blue text-white" : "border-brand-border bg-white text-brand-dark"}`}
+          disabled={busy || confirmingOff || !(enabled || profile.email)}
+          onClick={toggle}
+          role="switch"
+          type="button"
+        >
+          <span
+            aria-hidden
+            className={`h-5 w-9 rounded-full p-0.5 ${enabled ? "bg-white/30" : "bg-brand-light"}`}
+          >
+            <span
+              className={`block h-4 w-4 rounded-full bg-white shadow transition-transform motion-reduce:transition-none ${enabled ? "translate-x-4" : ""}`}
+            />
+          </span>
+          {enabled ? "On" : "Off"}
+        </button>
+      </div>
+      <p className="mt-3 text-brand-muted text-xs">
+        With access they see their assigned Job Cards, their own group's travellers, field
+        headcounts, announcements and passports during the trip, and their own trip expenses.
+        Nothing else, and no leave or HR records. Access stays on until someone turns it off.
+      </p>
+      {enabled || profile.email ? null : (
+        <p className="mt-3 text-sm">Add an email to the profile first: it becomes their sign-in.</p>
+      )}
+      {confirmingOff ? (
+        <div className="mt-4 rounded-xl border border-brand-border bg-[#FDFBF7] p-4">
+          <p className="font-semibold text-sm">
+            Turn off access for {profile.name}? They lose access to the app and the CRM at once.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            <Button disabled={busy} loading={busy} onClick={turnOff} type="button" variant="danger">
+              Turn off access
+            </Button>
+            <Button disabled={busy} onClick={keepOn} type="button" variant="outline">
+              Keep access
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      {pending && !confirmingOff ? (
+        <Button
+          className="mt-4"
+          disabled={busy}
+          loading={busy}
+          onClick={resend}
+          type="button"
+          variant="outline"
+        >
+          Resend setup email
+        </Button>
+      ) : null}
+      <p aria-live="polite" className="mt-3 text-brand-muted text-sm empty:hidden" role="status">
+        {status}
+      </p>
+      {error ? (
+        <p className="mt-3 text-red-700 text-sm" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
 function AssignmentHistory({ profile }: { profile: Profile }) {
   const rows = usePaginatedQuery(
     api.crm.externalTourManagerProfiles.listAssignments,
@@ -502,6 +639,7 @@ function ProfileDetail({ id, onEdit }: { id: string; onEdit: (profile: Profile) 
           ) : null}
         </div>
       </section>
+      {profile.canManage ? <AppAccessPanel key={`access-${profile.id}`} profile={profile} /> : null}
       <AssignmentHistory key={profile.id} profile={profile} />
     </div>
   );

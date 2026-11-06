@@ -301,6 +301,22 @@ export const ROLE_PERMISSIONS = {
   ],
 } satisfies Record<string, string[]>;
 
+/**
+ * The whole permission set of an external tour manager's login (owner decision, 7 Nov 2026):
+ * their assigned Job Cards, their own group's travellers and field features, and their own trip
+ * expenses. No dashboard, team, leave, queries, proposals, visa, ticketing or tour-manager
+ * directory. The login keeps the Tour Manager role so assignment scope, group scope and field
+ * passports apply unchanged; `getRolePermissions` is never used for it.
+ */
+export const EXTERNAL_TOUR_MANAGER_PERMISSIONS = [
+  P.CREATE_EXPENSES,
+  P.VIEW_EXPENSES,
+  P.VIEW_JOB_CARDS,
+  P.VIEW_TRAVELLERS,
+] as const;
+
+export const EXTERNAL_TOUR_MANAGER_ROLES = ["Tour Manager"] as const;
+
 export const PAYMENT_TERMS = {
   B2B: { max: 100, min: 80 },
   Cement: { max: 90, min: 70 },

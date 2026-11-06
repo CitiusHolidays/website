@@ -8,7 +8,7 @@ import {
   canSeeProposalRecord,
   canSeeQueryRecord,
   PERMISSIONS,
-  requireStaff,
+  requireStaffSession,
 } from "./lib";
 import { patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { navShortcutListResultValidator } from "./miscReturnContracts";
@@ -21,7 +21,7 @@ import { deleteNavigationSeenPage } from "./notificationUnreadProjection";
 
 export const workState = query({
   args: {},
-  handler: async (ctx) => navigationStateForAccess(ctx, await requireStaff(ctx)),
+  handler: async (ctx) => navigationStateForAccess(ctx, await requireStaffSession(ctx)),
   returns: v.object({
     byHref: v.record(
       v.string(),
@@ -43,7 +43,7 @@ export const acknowledgeActivity = mutation({
     viewerKey: v.string(),
   },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     if (
       !access.staffId ||
       args.viewerKey !== String(access.staffId) ||
@@ -151,7 +151,7 @@ function ticketHref(id: string) {
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     const result: NavShortcutResult = {
       jobCards: [],
       proposals: [],

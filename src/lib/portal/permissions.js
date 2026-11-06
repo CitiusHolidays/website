@@ -66,13 +66,26 @@ export function canAccessInboundLeads(access) {
   return Boolean(access?.roles?.some((role) => INBOUND_LEAD_ROLES.has(role)));
 }
 
-function navItemAllowed(access, item, eventPhotoBooth) {
-  if (
-    item.page === "activity" ||
-    item.page === "post-tour-feedback" ||
-    item.page === "travel-schedule"
-  ) {
+/**
+ * An external tour manager's login (owner decision, 7 Nov 2026). The server narrows its
+ * permissions to its assigned trips; the client only hides the pages every employee reaches.
+ */
+export function isExternalTourManager(access) {
+  return Boolean(access?.allowed && access.externalTourManager === true);
+}
+
+const STAFF_WIDE_PAGES = new Set(["post-tour-feedback", "travel-schedule"]);
+
+function staffWidePageAllowed(access, page) {
+  if (page === "activity") {
     return Boolean(access?.allowed);
+  }
+  return Boolean(access?.allowed) && !isExternalTourManager(access);
+}
+
+function navItemAllowed(access, item, eventPhotoBooth) {
+  if (item.page === "activity" || STAFF_WIDE_PAGES.has(item.page)) {
+    return staffWidePageAllowed(access, item.page);
   }
   if (item.page === "event-photo-booth") {
     return Boolean(access?.allowed && eventPhotoBooth?.canManage);
@@ -96,8 +109,8 @@ export function getAccessibleNavGroups(access, eventPhotoBooth) {
 
 /** @param {import("../eventPhotoBooth/contracts").BoothAccess | undefined} [eventPhotoBooth] */
 export function canAccessPage(access, page, eventPhotoBooth) {
-  if (page === "activity" || page === "post-tour-feedback" || page === "travel-schedule") {
-    return Boolean(access?.allowed);
+  if (page === "activity" || STAFF_WIDE_PAGES.has(page)) {
+    return staffWidePageAllowed(access, page);
   }
   if (page === "event-photo-booth") {
     return Boolean(access?.allowed && eventPhotoBooth?.canManage);
@@ -111,6 +124,17 @@ export function canAccessPage(access, page, eventPhotoBooth) {
   return PORTAL_NAV_GROUPS.some((group) =>
     group.items.some((item) => item.page === page && hasPermission(access, item.permission))
   );
+}
+
+/** Where `/portal` should land: the dashboard, or the first page a login without it can open. */
+export function portalHomeHref(access) {
+  if (hasPermission(access, PORTAL_PERMISSIONS.VIEW_DASHBOARD)) {
+    return "/portal";
+  }
+  const first = getAccessibleNavGroups(access)
+    .flatMap((group) => group.items)
+    .find((item) => item.page !== "activity");
+  return first?.href ?? "/portal/activity";
 }
 
 export function hasRole(access, role) {

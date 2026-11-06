@@ -1,7 +1,7 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { DocumentPreviewHost } from "@/components/portal/document-preview/DocumentPreviewHost";
 import {
   PortalChromeQuickActionSync,
@@ -27,7 +27,7 @@ import {
 import type { PortalWorkspaceModel } from "@/components/portal/workspace/portalWorkspaceModel";
 import type { SaveCurrentViewOptions } from "@/components/portal/workspace/workspaceStateTypes";
 import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
-import { getAccessibleNavGroups } from "@/lib/portal/permissions";
+import { getAccessibleNavGroups, portalHomeHref } from "@/lib/portal/permissions";
 
 const P = PORTAL_PERMISSIONS;
 const EMPTY_SAVED_VIEWS: PortalSavedView[] = [];
@@ -44,6 +44,7 @@ function PortalWorkspaceInner({ view = "dashboard" }: { view?: string }) {
   const searchParams = useSearchParams();
   const workspace = usePortalWorkspaceState(view, searchParams);
   usePortalNotificationDeepLink(workspace.chrome.deepLink);
+  useHomeRedirect(view, workspace.lifecycle.gate, workspace.chrome.access);
 
   return (
     <>
@@ -53,6 +54,20 @@ function PortalWorkspaceInner({ view = "dashboard" }: { view?: string }) {
       </PortalRouteLifecycleBoundary>
     </>
   );
+}
+
+/**
+ * A login without the dashboard (an external tour manager) lands on the first page it can open
+ * instead of an access-denied panel at `/portal`.
+ */
+function useHomeRedirect(view: string, gate: string, access: Parameters<typeof portalHomeHref>[0]) {
+  const router = useRouter();
+  const home = view === "dashboard" && gate === "denied" ? portalHomeHref(access) : "/portal";
+  useEffect(() => {
+    if (home !== "/portal") {
+      router.replace(home);
+    }
+  }, [home, router]);
 }
 
 function PortalWorkspaceViews({ workspace }: { workspace: PortalWorkspaceModel }) {
