@@ -17,6 +17,7 @@ import {
   createActivity,
   deleteEntityNotifications,
   PERMISSIONS,
+  type PortalAccess,
   requireAnyPermission,
   requireStaff,
 } from "./lib";
@@ -101,6 +102,70 @@ function buildExpenseUpdatePatch(args: UpdateExpenseArgs, expense: RuntimeObject
   return Object.assign(patch, expenseAmountPatch(args, expense));
 }
 
+const EXPENSE_CLIENT_REF_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/;
+
+/**
+ * Optional idempotency key from an offline client. Blank means "no key", so older callers keep
+ * today's behavior; anything else must be 1 to 128 URL-safe characters.
+ */
+function normalizeExpenseClientRef(raw: string | undefined) {
+  const value = raw?.trim() ?? "";
+  if (!value) {
+    return null;
+  }
+  if (!EXPENSE_CLIENT_REF_PATTERN.test(value)) {
+    throw new ConvexError(
+      "An expense reference must be 1 to 128 letters, digits, dots, colons, dashes or underscores"
+    );
+  }
+  return value;
+}
+
+async function resolveVisibleExpenseJobCard(
+  ctx: MutationCtx,
+  access: PortalAccess,
+  rawJobCardId: string | undefined
+) {
+  if (!rawJobCardId) {
+    return;
+  }
+  const jobCardId = ctx.db.normalizeId("jobCards", rawJobCardId);
+  if (!jobCardId) {
+    throw new ConvexError("Invalid Job Card id");
+  }
+  if (!(await getVisibleJob(ctx, access, jobCardId))) {
+    throw new ConvexError("Job Card not found or not assigned to you");
+  }
+  return jobCardId;
+}
+
+/** The expense an earlier create with the same author and key already inserted, if any. */
+async function findRetriedExpense(
+  ctx: MutationCtx,
+  createdBy: string | undefined,
+  rawClientRef: string | undefined,
+  jobCardId: Id<"jobCards"> | null | undefined
+) {
+  const clientRef = normalizeExpenseClientRef(rawClientRef);
+  if (!clientRef) {
+    return { clientRef: undefined, retriedId: null };
+  }
+  if (!createdBy) {
+    // A shared fallback author would let two callers replay each other's expenses.
+    throw new ConvexError("An expense reference needs a signed-in staff account");
+  }
+  const existing = await ctx.db
+    .query("expenseEntries")
+    .withIndex("by_createdBy_and_clientRef", (q) =>
+      q.eq("createdBy", createdBy).eq("clientRef", clientRef)
+    )
+    .first();
+  if (existing && String(existing.jobCardId ?? "") !== String(jobCardId ?? "")) {
+    throw new ConvexError("This expense reference was already used for another Job Card");
+  }
+  return { clientRef, retriedId: existing?._id ?? null };
+}
+
 export async function handleCreateExpense(
   ctx: MutationCtx,
   args: {
@@ -108,6 +173,7 @@ export async function handleCreateExpense(
     cardAmount?: number;
     cashAmount?: number;
     category: string;
+    clientRef?: string;
     currency?: ExpenseCurrency;
     epayAmount?: number;
     expenseDate?: string;
@@ -119,15 +185,15 @@ export async function handleCreateExpense(
   }
 ) {
   const access = await requireStaff(ctx, PERMISSIONS.CREATE_EXPENSES);
-  let jobCardId: Id<"jobCards"> | null | undefined;
-  if (args.jobCardId) {
-    jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
-    if (!jobCardId) {
-      throw new ConvexError("Invalid Job Card id");
-    }
-    if (!(await getVisibleJob(ctx, access, jobCardId))) {
-      throw new ConvexError("Job Card not found or not assigned to you");
-    }
+  const jobCardId = await resolveVisibleExpenseJobCard(ctx, access, args.jobCardId);
+  const { clientRef, retriedId } = await findRetriedExpense(
+    ctx,
+    access.authUserId,
+    args.clientRef,
+    jobCardId
+  );
+  if (retriedId) {
+    return { id: retriedId };
   }
   if (!args.category.trim()) {
     throw new ConvexError("Select a category");
@@ -146,6 +212,7 @@ export async function handleCreateExpense(
     cardAmount: args.cardAmount ?? 0,
     cashAmount: args.cashAmount ?? 0,
     category: args.category.trim(),
+    clientRef,
     createdAt: now,
     createdBy: access.authUserId ?? "unknown",
     currency: args.currency ?? "INR",

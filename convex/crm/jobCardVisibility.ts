@@ -3,6 +3,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { canSeeJobCardRecord } from "./lib";
 import { type E2eOwnershipActor, patchWithE2eOwnership } from "./lib/e2eOwnership";
+import { personNameKey } from "./lib/recordScope";
 import type { PortalAccess } from "./lib/staffAccess";
 
 export async function getVisibleJob(
@@ -22,6 +23,30 @@ export async function getVisibleJob(
 export const MAX_TOUR_MANAGER_ASSIGNMENTS_PER_JOB_CARD = 500;
 
 type AssignmentIdentity = Pick<Doc<"tourManagerAssignments">, "staffId" | "status">;
+type AssignmentName = Pick<
+  Doc<"tourManagerAssignments">,
+  "externalProfileId" | "name" | "staffId" | "status"
+>;
+
+/**
+ * Normalized names of active name-only assignments: no staff identity and no external profile.
+ * These are the only names the legacy Tour Manager name fallback may match.
+ */
+export function legacyTourManagerNamesFrom(assignments: readonly AssignmentName[]) {
+  const names = new Set<string>();
+  for (const assignment of assignments) {
+    const key = personNameKey(assignment.name);
+    if (
+      assignment.status === "Assigned" &&
+      !assignment.staffId &&
+      !assignment.externalProfileId &&
+      key
+    ) {
+      names.add(key);
+    }
+  }
+  return [...names].sort((left, right) => left.localeCompare(right));
+}
 
 /**
  * Staff Tour Managers with an active assignment, deduplicated and sorted so the
@@ -66,11 +91,44 @@ export async function expectedAssignedTourManagerStaffIds(
 }
 
 /**
- * Recomputes `jobCards.assignedTourManagerStaffIds` from `tourManagerAssignments`.
- * Call it after every assignment write that can change a Job Card's active staff
- * set: create, update (including moving to another Job Card), and delete. A
- * missing Job Card (deleted by the cascade) is a no-op. Only the derived field is
- * patched, so list ordering by `updatedAt` is unaffected.
+ * The derived Tour Manager fields a Job Card should hold, or null when both are already
+ * stored and current. Shared by the live writer and the backfill migration.
+ */
+export async function staleTourManagerVisibilityPatch(
+  ctx: MutationCtx | QueryCtx,
+  job: Pick<Doc<"jobCards">, "_id" | "assignedTourManagerStaffIds" | "legacyTourManagerNames">
+) {
+  const assignments = await ctx.db
+    .query("tourManagerAssignments")
+    .withIndex("by_jobCardId", (q) => q.eq("jobCardId", job._id))
+    .take(MAX_TOUR_MANAGER_ASSIGNMENTS_PER_JOB_CARD + 1);
+  if (assignments.length > MAX_TOUR_MANAGER_ASSIGNMENTS_PER_JOB_CARD) {
+    throw new ConvexError(
+      "This Job Card has too many tour manager assignments. Remove unused assignments first."
+    );
+  }
+  const next = assignedTourManagerStaffIdsFrom(assignments);
+  const names = legacyTourManagerNamesFrom(assignments);
+  const storedNames = job.legacyTourManagerNames;
+  if (
+    job.assignedTourManagerStaffIds !== undefined &&
+    sameTourManagerStaffIds(job.assignedTourManagerStaffIds, next) &&
+    storedNames !== undefined &&
+    storedNames.length === names.length &&
+    storedNames.every((name, index) => name === names[index])
+  ) {
+    return null;
+  }
+  return { assignedTourManagerStaffIds: next, legacyTourManagerNames: names };
+}
+
+/**
+ * Recomputes `jobCards.assignedTourManagerStaffIds` and `legacyTourManagerNames` from
+ * `tourManagerAssignments`. Call it after every assignment write that can change a Job
+ * Card's active set: create, update (including moving to another Job Card), and delete. Both
+ * fields are written the first time even when empty, which ends the `tourManagerName`
+ * fallback for that Job Card. A missing Job Card (deleted by the cascade) is a no-op. Only the
+ * derived fields are patched, so list ordering by `updatedAt` is unaffected.
  */
 export async function syncJobCardTourManagerVisibility(
   ctx: MutationCtx,
@@ -81,11 +139,10 @@ export async function syncJobCardTourManagerVisibility(
   if (!job) {
     return;
   }
-  const next = await expectedAssignedTourManagerStaffIds(ctx, jobCardId);
-  if (sameTourManagerStaffIds(job.assignedTourManagerStaffIds, next)) {
+  const patch = await staleTourManagerVisibilityPatch(ctx, job);
+  if (!patch) {
     return;
   }
-  const patch = { assignedTourManagerStaffIds: next };
   if (actor) {
     await patchWithE2eOwnership(ctx, "jobCards", jobCardId, patch, actor);
     return;

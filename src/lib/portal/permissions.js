@@ -29,6 +29,17 @@ export function getPermissionsForRoles(roles = []) {
   return Array.from(permissions).sort();
 }
 
+/**
+ * Passport scans in the Staff Workspace need visa read access from a role other than Tour
+ * Manager. Mirrors `canReadPassportInStaffWorkspace` in convex/crm/passportPolicy.ts; the server
+ * also requires office scope on the Job Card. Tour managers read their own group's passports in
+ * the tour manager app during the trip.
+ */
+export function canViewPassportScansInWorkspace(access) {
+  const roles = (access?.roles ?? []).filter((role) => role !== "Tour Manager");
+  return getPermissionsForRoles(roles).includes(PORTAL_PERMISSIONS.VIEW_VISA);
+}
+
 export function hasPermission(access, permission) {
   if (!permission) {
     return true;

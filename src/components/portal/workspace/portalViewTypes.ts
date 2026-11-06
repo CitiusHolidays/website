@@ -492,6 +492,8 @@ export interface PortalJobCardOption {
 }
 
 export interface PassportDocumentsViewProps {
+  /** False for Tour Manager-only users: scans open in the tour manager app during the trip instead. */
+  canViewPassportScans: boolean;
   deleteItem: PortalDeleteHandler;
   deleteSelected: PortalBulkDeleteHandler;
   encryptAndStorePassport: PortalWorkspaceState["encryptAndStorePassport"];

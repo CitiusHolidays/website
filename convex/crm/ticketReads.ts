@@ -1,4 +1,3 @@
-import { getVisibleJob } from "./jobCardVisibility";
 import { PERMISSIONS, requireStaff } from "./lib";
 import {
   applyCrmCursorFilters,
@@ -7,6 +6,7 @@ import {
   mapInBoundedBatches,
 } from "./paginationPolicy";
 import { publicTicket } from "./ticketingPresentation";
+import { createTravellerScopeReader } from "./tourManagerGroupScope";
 
 export async function handleListTickets(
   ctx: QueryCtx,
@@ -17,16 +17,17 @@ export async function handleListTickets(
   }
 ) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_TICKETING);
+  const scopeReader = createTravellerScopeReader(ctx, access);
   const page = await applyCrmCursorFilters(
     ctx.db.query("tickets").withIndex("by_createdAt").order("desc"),
     { equals: { jobCardId: args.jobCardId, ticketStatus: args.ticketStatus } }
   ).paginate(boundedPaginationOptions(args.paginationOpts));
   const rows = await mapInBoundedBatches(page.page, async (ticket) => {
-    const [traveller, pnr, job] = await Promise.all([
+    const [traveller, pnr] = await Promise.all([
       ticket.travellerId ? ctx.db.get("travellers", ticket.travellerId) : null,
       ticket.pnrId ? ctx.db.get("pnrs", ticket.pnrId) : null,
-      getVisibleJob(ctx, access, ticket.jobCardId),
     ]);
+    const job = await scopeReader.jobForTraveller(ticket.jobCardId, traveller);
     const travelBatch = traveller?.travelBatchId
       ? await ctx.db.get("travelBatches", traveller.travelBatchId)
       : null;
@@ -42,11 +43,14 @@ export async function handleGetTicketListRow(ctx: QueryCtx, args: { ticketId: st
   if (!ticket) {
     return null;
   }
-  const [traveller, pnr, job] = await Promise.all([
+  const [traveller, pnr] = await Promise.all([
     ticket.travellerId ? ctx.db.get("travellers", ticket.travellerId) : null,
     ticket.pnrId ? ctx.db.get("pnrs", ticket.pnrId) : null,
-    getVisibleJob(ctx, access, ticket.jobCardId),
   ]);
+  const job = await createTravellerScopeReader(ctx, access).jobForTraveller(
+    ticket.jobCardId,
+    traveller
+  );
   if (!job) {
     return null;
   }

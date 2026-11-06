@@ -51,23 +51,50 @@ function isAssignedTourManagerStaff(
 }
 
 /**
- * Tour Manager grant on a Job Card: the role-gated staff-identity assignment set, then
- * the legacy case-insensitive name match on the denormalised `tourManagerName`.
- * The name fallback stays until the assigned-staff backfill is verified on every
- * deployment (docs/migrations/job-card-assigned-tour-manager-staff-ids.md).
+ * Person-name comparison key: Unicode NFKC, internal whitespace collapsed, case folded. An empty
+ * name never matches.
+ */
+export function personNameKey(value?: string | null) {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Tour Manager grant on a Job Card. Staff identities decide first. The legacy name match is a
+ * fallback for the Tour Manager role only, and only while the Job Card has no assigned staff
+ * Tour Manager: a namesake never rides on someone else's assignment. Once
+ * `legacyTourManagerNames` is derived it is the only name source, so the name of an external
+ * profile (also copied into `tourManagerName`) never grants scope. Until a Job Card is synced the
+ * `tourManagerName` match stays, pending the assigned-staff backfill
+ * (docs/migrations/job-card-assigned-tour-manager-staff-ids.md).
  */
 export function ownsTourManagerJobCard(
   access: PortalAccess,
-  job: { assignedTourManagerStaffIds?: unknown[] | null; tourManagerName?: string | null }
+  job: {
+    assignedTourManagerStaffIds?: unknown[] | null;
+    legacyTourManagerNames?: string[] | null;
+    tourManagerName?: string | null;
+  }
 ) {
-  return (
-    isAssignedTourManagerStaff(access, job.assignedTourManagerStaffIds) ||
-    ownsNamedRecord(access, job.tourManagerName)
-  );
+  if (isAssignedTourManagerStaff(access, job.assignedTourManagerStaffIds)) {
+    return true;
+  }
+  if (!hasRole(access, "Tour Manager") || (job.assignedTourManagerStaffIds?.length ?? 0) > 0) {
+    return false;
+  }
+  if (Array.isArray(job.legacyTourManagerNames)) {
+    const key = personNameKey(access.name);
+    return Boolean(key) && job.legacyTourManagerNames.includes(key);
+  }
+  return ownsNamedRecord(access, job.tourManagerName);
 }
 
 export function ownsNamedRecord(access: PortalAccess, ownerName?: string | null) {
-  return Boolean(ownerName && ownerName.trim().toLowerCase() === access.name.trim().toLowerCase());
+  const key = personNameKey(ownerName);
+  return Boolean(key) && key === personNameKey(access.name);
 }
 
 export function hasCementRole(access: PortalAccess) {
@@ -217,6 +244,7 @@ export interface JobCardVisibilityRecord {
   contractingOwnerId?: string | null;
   contractingOwnerName?: string | null;
   createdBy?: string | null;
+  legacyTourManagerNames?: string[] | null;
   operationsOwnerId?: string | null;
   operationsOwnerName?: string | null;
   queryId?: Id<"queries"> | null;
@@ -226,27 +254,35 @@ export interface JobCardVisibilityRecord {
   tourManagerName?: string | null;
 }
 
-export function canSeeJobCardRecord(
+/**
+ * How the actor reaches a Job Card. "office" covers department, ownership, collaborator and
+ * linked-query access. "tourManager" means the only route is a Tour Manager assignment (or the
+ * legacy `tourManagerName` match), which narrows traveller and passport access to the actor's
+ * own group. `null` means the Job Card is not visible.
+ */
+export type JobCardRecordGrant = "office" | "tourManager";
+
+export function jobCardRecordGrant(
   access: PortalAccess,
   job: JobCardVisibilityRecord,
   linkedQuery?: QueryVisibilityRecord | null
-) {
+): JobCardRecordGrant | null {
   const queryType = linkedQuery?.queryType ?? job.queryType ?? "";
   if (shouldApplyCementScope(access)) {
     if (!isCementQueryType(queryType)) {
-      return false;
+      return null;
     }
     if (canSeeAllCementRecords(access)) {
-      return true;
+      return "office";
     }
   } else if (
     canSeeDepartmentRecords(access, ["Contracting Head", "Operations Head", "Head of Ticketing"]) ||
     hasRole(access, "Accounts") ||
     hasRole(access, "Finance")
   ) {
-    return true;
+    return "office";
   }
-  return (
+  if (
     ownsAuthRecord(access, job.createdBy) ||
     ownsStaffRecord(access, job.contractingOwnerId) ||
     ownsStaffRecord(access, job.operationsOwnerId) ||
@@ -255,9 +291,19 @@ export function canSeeJobCardRecord(
     ownsNamedRecord(access, job.contractingOwnerName) ||
     ownsNamedRecord(access, job.operationsOwnerName) ||
     ownsNamedRecord(access, job.ticketingOwnerName) ||
-    ownsTourManagerJobCard(access, job) ||
     (linkedQuery ? canSeeQueryRecord(access, linkedQuery) : false)
-  );
+  ) {
+    return "office";
+  }
+  return ownsTourManagerJobCard(access, job) ? "tourManager" : null;
+}
+
+export function canSeeJobCardRecord(
+  access: PortalAccess,
+  job: JobCardVisibilityRecord,
+  linkedQuery?: QueryVisibilityRecord | null
+) {
+  return jobCardRecordGrant(access, job, linkedQuery) !== null;
 }
 
 export interface ContractingEditRecord {

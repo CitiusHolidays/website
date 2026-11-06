@@ -188,6 +188,11 @@ traveller-feedback permissions. No new approval stage is added.
 
 Traveller master and aligned lists filter by Job Card. They are not unscoped all-passenger views.
 
+A Tour Manager reached only through their assignment sees the travellers of their assigned Travel
+Batches (the whole Job Card when the assignment has no batch) and no passport scans in the
+portal. Their headcounts and announcements from the tour manager app appear read-only in the Job
+Card's **Field updates** panel for Operations. See [the field API](CITIUS_CONNECT_FIELD_API.md).
+
 Traveller master includes gender (`Male` or `Female`) and passport expiry. Passport expiry display should use the same resolved date as exports, with critical/warning countdowns when expiry blocks or nears blocking travel relative to job start.
 
 Linked-entity selects in portal forms should autofill dependent fields such as job card, traveller, PNR, query, visa, and related records.
@@ -305,7 +310,7 @@ Unused Casual/Sick leave lapses automatically on 31 March IST through `convex/cr
 
 ## Expenses and files
 
-Every staff user with a portal role can view and create expenses. Tour Managers can manage their own expenses. Finance can approve expenses.
+Every staff user with a portal role can view and create expenses. Tour Managers can manage their own expenses. Finance can approve expenses. A create may carry an optional `clientRef`; a retried create from the same author with the same reference returns the first expense instead of a duplicate.
 
 Expense files use Convex storage and authenticated same-origin portal file routes. The same pattern applies to query/proposal files and Proposal Docs. Browser-visible Convex storage URLs should not be exposed for portal documents.
 

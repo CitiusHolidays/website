@@ -135,4 +135,32 @@ describe("Staff list filter recovery", () => {
     expect(create).toHaveBeenCalledTimes(1);
     await view.unmount();
   });
+
+  test("Shows the passport expiry filter only to users who can open passport scans", async () => {
+    const labelsFor = async (canViewPassportScans) => {
+      const view = await mount({
+        filtersActive: false,
+        listFilterConfig: getListFilterConfig("travellers", { canViewPassportScans }),
+        listFilters: {},
+        onClearAllFilters: mock(),
+        search: "",
+        setListFilters: mock(),
+        setSearch: mock(),
+        showPeriodFilter: false,
+      });
+      const [toggle] = buttons(view.container, "Filters");
+      if (toggle) {
+        await act(() => toggle.click());
+      }
+      const text = view.container.textContent ?? "";
+      await view.unmount();
+      return text;
+    };
+    const office = await labelsFor(true);
+    expect(office).toContain("Calling status");
+    expect(office).toContain("Passport expiry");
+    const tourManager = await labelsFor(false);
+    expect(tourManager).toContain("Calling status");
+    expect(tourManager).not.toContain("Passport expiry");
+  });
 });

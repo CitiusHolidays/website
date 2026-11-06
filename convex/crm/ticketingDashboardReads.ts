@@ -16,6 +16,7 @@ import { aggregateMetric, loadMetricTotals } from "./metricAggregates";
 import type { MetricValues } from "./metricTypes";
 import { assertReferenceNow } from "./referenceTimePolicy";
 import { publicTicket } from "./ticketingPresentation";
+import { createTravellerScopeReader } from "./tourManagerGroupScope";
 
 const DEFAULT_WORK_WINDOW_DAYS = 120;
 const SOURCE_ROW_LIMIT = 120;
@@ -133,24 +134,33 @@ async function visibleDashboardRows(
   };
 }
 
+/**
+ * Preview rows name travellers, so a Tour Manager-only grant shows only its own group; the
+ * counts above stay Job Card-level.
+ */
 async function buildTicketPreview(
   ctx: QueryCtx,
+  access: PortalAccess,
   tickets: Doc<"tickets">[],
   visibleJobs: Map<string, Doc<"jobCards">>
 ) {
+  const scopeReader = createTravellerScopeReader(ctx, access, visibleJobs);
+  const candidates = await Promise.all(
+    tickets.map(async (ticket) => {
+      const traveller = ticket.travellerId
+        ? await ctx.db.get("travellers", ticket.travellerId)
+        : null;
+      const job = await scopeReader.jobForTraveller(ticket.jobCardId, traveller);
+      return job ? { job, ticket, traveller } : null;
+    })
+  );
+  const inScope = candidates.filter((candidate) => candidate !== null).slice(0, PREVIEW_LIMIT);
   return await Promise.all(
-    tickets.slice(0, PREVIEW_LIMIT).map(async (ticket) => {
-      const [traveller, pnr] = await Promise.all([
-        ticket.travellerId ? ctx.db.get("travellers", ticket.travellerId) : null,
-        ticket.pnrId ? ctx.db.get("pnrs", ticket.pnrId) : null,
-      ]);
+    inScope.map(async ({ job, ticket, traveller }) => {
+      const pnr = ticket.pnrId ? await ctx.db.get("pnrs", ticket.pnrId) : null;
       const travelBatch = traveller?.travelBatchId
         ? await ctx.db.get("travelBatches", traveller.travelBatchId)
         : null;
-      const job = visibleJobs.get(String(ticket.jobCardId));
-      if (!job) {
-        throw new Error("Visible ticket is missing its visible Job Card");
-      }
       return publicTicket(ticket, traveller, pnr, job, travelBatch);
     })
   );
@@ -166,7 +176,7 @@ export async function handleDashboard(ctx: QueryCtx, args: DashboardArgs) {
     collectTicketingDashboardRows(ctx, workRange),
   ]);
   const visible = await visibleDashboardRows(ctx, access, rows.tickets, rows.pnrs);
-  const preview = await buildTicketPreview(ctx, visible.tickets, visible.visibleJobs);
+  const preview = await buildTicketPreview(ctx, access, visible.tickets, visible.visibleJobs);
   const totals = dashboardTotals(aggregate?.values ?? {});
 
   return {

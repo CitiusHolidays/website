@@ -1,5 +1,5 @@
 import { isRuntimeString } from "../lib/runtimeValues";
-import { PERMISSIONS } from "./lib/rolePolicy";
+import { getRolePermissions, PERMISSIONS } from "./lib/rolePolicy";
 
 export const PASSENGER_KINDS = ["passenger", "traveller", "rooming", "passport", "visa"] as const;
 
@@ -8,6 +8,24 @@ export type PassengerKindCapability = "manage" | "view";
 
 interface PermissionAccess {
   permissions?: readonly string[];
+  roles?: readonly string[];
+}
+
+/**
+ * Spreadsheet imports and exports are office workflows: passenger, traveller, passport and visa
+ * exports carry contact numbers and decrypted passport details. Permissions that come only from
+ * the Tour Manager role never count here (owner decision, 6 Nov 2026). When roles are known, the
+ * effective set is the caller's permissions held through some other role.
+ */
+function officePermissions(access: PermissionAccess) {
+  const permissions = new Set(access.permissions);
+  if (!access.roles) {
+    return permissions;
+  }
+  const office = new Set(
+    getRolePermissions(access.roles.filter((role) => role !== "Tour Manager"))
+  );
+  return new Set([...permissions].filter((permission) => office.has(permission)));
 }
 
 type PassengerKindPermissionPolicy = Record<
@@ -57,7 +75,7 @@ export function canAccessPassengerKinds(
   if (!access?.permissions || kinds.length === 0) {
     return false;
   }
-  const permissions = new Set(access.permissions);
+  const permissions = officePermissions(access);
   return kinds.every((kind) => {
     if (!isPassengerKind(kind)) {
       return false;

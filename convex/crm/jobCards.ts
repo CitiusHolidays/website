@@ -32,6 +32,7 @@ import {
   handleJobCardGetListRow,
   handleJobCardListPage,
   handleListTravelBatches,
+  handleMyAssignedJobCardsPage,
 } from "./jobCardReads";
 import { handleCreateTravelBatch, handleUpdateTravelBatch } from "./jobCardTravelBatchCommands";
 import { PERMISSIONS, requireStaff } from "./lib";
@@ -74,6 +75,16 @@ export const listPage = query({
     status: v.optional(JOB_CARD_STATUS),
   },
   handler: handleJobCardListPage,
+  returns: jobCardListPageResultValidator,
+});
+
+/** Citius Connect: the caller's own Tour Manager assignments, one row per Job Card. */
+export const listMyAssignedPage = query({
+  args: {
+    paginationOpts: paginationOptsValidator,
+    status: v.optional(JOB_CARD_STATUS),
+  },
+  handler: handleMyAssignedJobCardsPage,
   returns: jobCardListPageResultValidator,
 });
 

@@ -86,7 +86,8 @@ export async function getPortalAccess(ctx: QueryCtx | MutationCtx): Promise<Port
       authUserId,
       bootstrap: false,
       email: staff.email,
-      name: staff.name || identity.name || staff.email,
+      // Never the identity's self-asserted name: staff names drive name-based record matches.
+      name: staff.name || staff.email,
       permissions,
       roles: staff.roles,
       staffId: staff._id,

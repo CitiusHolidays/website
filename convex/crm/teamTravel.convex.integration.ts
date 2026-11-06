@@ -602,11 +602,12 @@ describe("reusable external tour-manager profiles", () => {
       externalProfileId: id,
       tourManagerId: assignment.id,
     });
+    // An external profile's name no longer grants a staff namesake any Job Card scope.
     expect(
       await fixture
         .actor("tm")
         .query(api.crm.postTourFeedback.getJobContext, { jobCardId: fixture.jobCardId })
-    ).toMatchObject({ canCompose: false });
+    ).toBeNull();
     await expect(
       fixture.actor("tm").mutation(api.crm.postTourFeedback.create, {
         category: "overall",

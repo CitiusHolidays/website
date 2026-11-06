@@ -4,7 +4,7 @@ import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery } from "../_generated/server";
 import { propertiesWhen } from "../lib/runtimeValues";
-import { getVisibleJob } from "./importProcessor";
+import { getOfficeVisibleJob } from "./importProcessor";
 import type { PortalAccess } from "./lib";
 import { createActivity, requireStaff } from "./lib";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
@@ -81,7 +81,7 @@ export async function beginPassengerExportOperationHandler(
   if (!jobCardId) {
     throw new ConvexError("Invalid Job Card id");
   }
-  const job = await getVisibleJob(ctx, args.access, jobCardId);
+  const job = await getOfficeVisibleJob(ctx, args.access, jobCardId);
   if (!job) {
     throw new ConvexError("FORBIDDEN");
   }
@@ -209,7 +209,7 @@ export async function getAuthorizedPassengerExportOperationHandler(
   ) {
     throw new ConvexError("FORBIDDEN");
   }
-  const job = await getVisibleJob(ctx, args.access, operation.jobCardId);
+  const job = await getOfficeVisibleJob(ctx, args.access, operation.jobCardId);
   if (!job) {
     throw new ConvexError("FORBIDDEN");
   }
@@ -233,7 +233,7 @@ export async function listMyPassengerExportOperationsHandler(
       if (!canViewPassengerKinds(access, [operation.exportKind])) {
         return null;
       }
-      const job = await getVisibleJob(ctx, access, operation.jobCardId);
+      const job = await getOfficeVisibleJob(ctx, access, operation.jobCardId);
       if (!job) {
         return null;
       }

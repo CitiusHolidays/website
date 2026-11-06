@@ -73,6 +73,73 @@ export async function handleJobCardListPage(
   return { ...sourcePage, page };
 }
 
+/**
+ * Citius Connect trip list: Job Cards where the caller holds an active ("Assigned") staff Tour
+ * Manager assignment, newest Job Card id first within the caller's assignments. Pages walk the
+ * caller's own assignments, so a Job Card with several batch assignments appears once: only
+ * the first assignment row for a Job Card emits it. Rows are still checked against
+ * `canSeeJobCardRecord`, and the optional status filter applies after pagination, so a page
+ * can be shorter than requested while `isDone` is false.
+ */
+export async function handleMyAssignedJobCardsPage(
+  ctx: QueryCtx,
+  args: {
+    paginationOpts: { numItems: number; cursor: string | null };
+    status?: string;
+  }
+) {
+  const access = await requireStaff(ctx, PERMISSIONS.VIEW_JOB_CARDS);
+  const { staffId } = access;
+  if (!staffId) {
+    return { continueCursor: "", isDone: true, page: [] };
+  }
+  const assignmentPage = await ctx.db
+    .query("tourManagerAssignments")
+    .withIndex("by_staffId_and_status_and_jobCardId", (q) =>
+      q.eq("staffId", staffId).eq("status", "Assigned")
+    )
+    .order("desc")
+    .paginate(boundedPaginationOptions(args.paginationOpts));
+  const firstAssignments = await Promise.all(
+    assignmentPage.page.map(async (assignment) => {
+      const { jobCardId } = assignment;
+      if (!jobCardId) {
+        return null;
+      }
+      const first = await ctx.db
+        .query("tourManagerAssignments")
+        .withIndex("by_staffId_and_status_and_jobCardId", (q) =>
+          q.eq("staffId", staffId).eq("status", "Assigned").eq("jobCardId", jobCardId)
+        )
+        .order("desc")
+        .first();
+      return first && String(first._id) === String(assignment._id) ? jobCardId : null;
+    })
+  );
+  const jobCardIds = firstAssignments.filter((id) => id !== null);
+  const jobs = await loadRowsByIdInBatches(ctx, "jobCards", jobCardIds, jobCardIds.length);
+  const jobById = new Map(jobs.map((job) => [String(job._id), job]));
+  const linkedQueries = await loadRowsByIdInBatches(
+    ctx,
+    "queries",
+    jobs.flatMap((job) => (job.queryId ? [job.queryId] : [])),
+    jobs.length
+  );
+  const queryById = new Map(linkedQueries.map((row) => [String(row._id), row]));
+  const page = jobCardIds.flatMap((jobCardId) => {
+    const job = jobById.get(String(jobCardId));
+    if (!job || (args.status && job.status !== args.status)) {
+      return [];
+    }
+    const linkedQuery = job.queryId ? queryById.get(String(job.queryId)) : null;
+    if (!canSeeJobCardRecord(access, job, linkedQuery)) {
+      return [];
+    }
+    return [projectJobCardListRow(job, linkedQuery)];
+  });
+  return { ...assignmentPage, page };
+}
+
 export async function handleJobCardGetListRow(
   ctx: QueryCtx,
   args: {

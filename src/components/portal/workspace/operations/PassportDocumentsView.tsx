@@ -61,6 +61,7 @@ function renderPassportMobileCard(row: PassportRow) {
 function PassportRowActions({
   canManageTravellers,
   canManageVisa,
+  canViewPassportScans,
   deleteItem,
   onDeletePassport,
   onSelectUpload,
@@ -71,6 +72,7 @@ function PassportRowActions({
 }: {
   canManageTravellers: boolean;
   canManageVisa: boolean;
+  canViewPassportScans: boolean;
   deleteItem: PassportDocumentsViewProps["deleteItem"];
   onDeletePassport: (travellerName: string, travellerId: string) => Promise<void>;
   onSelectUpload: (row: PassportRow) => void;
@@ -87,7 +89,13 @@ function PassportRowActions({
     deleteItem(String(row.fullName), removeTraveller, { travellerId });
   };
   let passportAction: ReactNode = null;
-  if (row.hasPassportScan) {
+  if (row.hasPassportScan && !canViewPassportScans) {
+    passportAction = (
+      <span className="font-sans text-brand-muted text-xs">
+        Opens in the tour manager app during the trip
+      </span>
+    );
+  } else if (row.hasPassportScan) {
     passportAction = (
       <>
         <Button
@@ -137,6 +145,7 @@ function PassportRowActions({
 }
 
 export function PassportDocumentsView({
+  canViewPassportScans,
   travellers,
   has,
   generateUploadUrl,
@@ -307,6 +316,7 @@ export function PassportDocumentsView({
               <PassportRowActions
                 canManageTravellers={canManageTravellers}
                 canManageVisa={canManageVisa}
+                canViewPassportScans={canViewPassportScans}
                 deleteItem={deleteItem}
                 onDeletePassport={handleDeletePassport}
                 onSelectUpload={selectUploadTraveller}

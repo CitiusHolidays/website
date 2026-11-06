@@ -29,6 +29,7 @@ import {
   compactPageItems,
   mapInBoundedBatches,
 } from "./paginationPolicy";
+import { createTravellerScopeReader } from "./tourManagerGroupScope";
 
 const visaStatusValidator = v.union(
   v.literal("Not Required"),
@@ -85,20 +86,15 @@ export const list = query({
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_VISA);
+    const scopeReader = createTravellerScopeReader(ctx, access);
     const page = await applyCrmCursorFilters(
       ctx.db.query("visaRecords").withIndex("by_createdAt").order("desc"),
       { equals: { jobCardId: args.jobCardId, status: args.status } }
     ).paginate(boundedPaginationOptions(args.paginationOpts));
     const rows = await mapInBoundedBatches(page.page, async (record) => {
-      const [traveller, job] = await Promise.all([
-        ctx.db.get("travellers", record.travellerId),
-        ctx.db.get("jobCards", record.jobCardId),
-      ]);
+      const traveller = await ctx.db.get("travellers", record.travellerId);
+      const job = await scopeReader.jobForTraveller(record.jobCardId, traveller);
       if (!job) {
-        return null;
-      }
-      const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
-      if (!canSeeJobCardRecord(access, job, linkedQuery)) {
         return null;
       }
       const travelBatch = traveller?.travelBatchId
@@ -414,6 +410,7 @@ export const listTravellersWithoutVisa = query({
       ctx.db.query("visaRecords").withIndex("by_createdAt").order("desc").take(5000),
     ]);
     const travellerIdsWithVisa = new Set(visaRecords.map((r) => r.travellerId.toString()));
+    const scopeReader = createTravellerScopeReader(ctx, access);
 
     const travellers = await ctx.db
       .query("travellers")
@@ -424,12 +421,8 @@ export const listTravellersWithoutVisa = query({
     const result = await Promise.all(
       travellers.map(async (traveller) => {
         if (traveller.visaRequired && !travellerIdsWithVisa.has(traveller._id.toString())) {
-          const job = await ctx.db.get("jobCards", traveller.jobCardId);
+          const job = await scopeReader.jobForTraveller(traveller.jobCardId, traveller);
           if (!job) {
-            return null;
-          }
-          const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
-          if (!canSeeJobCardRecord(access, job, linkedQuery)) {
             return null;
           }
           return {

@@ -3,8 +3,9 @@ import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { loadCommercialChainFilesForEntryPoint } from "./commercialRecordChainReads";
 import { getChecklistTasksWithFallback } from "./jobCardChecklist";
-import { canSeeJobCardRecord, PERMISSIONS, publicJobCard, requireStaff } from "./lib";
+import { PERMISSIONS, publicJobCard, requireStaff } from "./lib";
 import { publicProposalAttachment } from "./proposalAttachments";
+import { resolveTravellerGroupScope, travellerInGroupScope } from "./tourManagerGroupScope";
 
 type ChecklistTaskFields = Pick<
   Doc<"checklistTasks">,
@@ -54,7 +55,8 @@ export async function handleGetCommandCenter(
     throw new ConvexError("Job Card not found");
   }
   const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
-  if (!canSeeJobCardRecord(access, job, linkedQuery)) {
+  const travellerScope = await resolveTravellerGroupScope(ctx, access, job, linkedQuery);
+  if (!travellerScope) {
     throw new ConvexError("FORBIDDEN");
   }
   const linkedProposalId = job.proposalId;
@@ -137,9 +139,11 @@ export async function handleGetCommandCenter(
       : null,
     rooming: rooming.map((entry) => ({ id: entry._id })),
     tickets: tickets.map((ticket) => ({ ticketStatus: ticket.ticketStatus })),
-    travellers: travellers.map((traveller) => ({
-      passportStatus: traveller.passportStatus ?? "",
-    })),
+    travellers: travellers
+      .filter((traveller) => travellerInGroupScope(travellerScope, traveller))
+      .map((traveller) => ({
+        passportStatus: traveller.passportStatus ?? "",
+      })),
     visaRecords: visaRecords.map((visa) => ({ status: visa.status })),
   };
 }
