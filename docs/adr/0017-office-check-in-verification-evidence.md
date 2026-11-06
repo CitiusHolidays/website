@@ -32,6 +32,10 @@ payroll, continuous location tracking or a general attendance system.
 - **A forgotten clock-out is corrected, not prevented.** Clock-out closes the latest open record,
   even one from an earlier work date, at the time pressed; managers then correct the times with a
   reason. Corrections cannot create sessions longer than 24 hours.
+  Decision 2026-11-06: a person can clock in again after clocking out, starting a new session on
+  the same work date (sessions may not overlap). Admin can delete any session, their own included,
+  which erases it and its history; Directors can delete a session they oversee, never their own,
+  with a required reason, and a `record_deleted` audit row is kept.
 - **Retention is minimal.** Records keep outcomes, reasons, a coarse distance band, rounded accuracy
   and a /24 (IPv4) or /48 (IPv6) network prefix. Raw coordinates and full IP addresses are not
   stored. Location is requested only when the person presses Clock in or Clock out.

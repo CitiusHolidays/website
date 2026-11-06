@@ -11,6 +11,7 @@ let state;
 const review = mock(async () => null);
 const correctTimes = mock(async () => null);
 const recordManualEntry = mock(async () => "officeCheckIns_new");
+const deleteCheckIn = mock(async () => ({ mode: "erase" }));
 const toastSuccess = mock(() => undefined);
 const fetchMock = mock(async () => Response.json({ ok: true, replayed: false }));
 const getCurrentPosition = mock(() => undefined);
@@ -47,8 +48,11 @@ function checkIn(staffId, overrides = {}) {
 }
 
 function myStatus(overrides = {}) {
+  const sessions = overrides.sessions ?? (overrides.today ? [overrides.today] : []);
   return {
     canOversee: false,
+    deletion: null,
+    hasOpenSession: sessions.some((session) => session.status === "open"),
     hasStaffProfile: true,
     office: { active: true, city: "Pune", id: "offices_1", name: "Pune office" },
     openFromEarlierDay: null,
@@ -58,14 +62,17 @@ function myStatus(overrides = {}) {
       needsLocation: false,
       requirement: "network",
     },
+    sessions,
     timeZone: "Asia/Kolkata",
-    today: null,
+    today: sessions[0] ?? null,
     workDate: "2026-11-05",
     ...overrides,
   };
 }
 
-function teamRow(staffId, name, record) {
+/** `sessions` is newest first, like the server; `checkIn` is the newest. */
+function teamRow(staffId, name, record, earlier = []) {
+  const sessions = record ? [record, ...earlier] : [];
   return {
     canReview: true,
     checkIn: record,
@@ -73,6 +80,7 @@ function teamRow(staffId, name, record) {
     name,
     officeId: "offices_1",
     officeName: "Pune office",
+    sessions,
     staffId,
     timeZone: "Asia/Kolkata",
   };
@@ -105,6 +113,7 @@ function team() {
 
 const MUTATIONS = {
   "crm/officeCheckIns:correctTimes": correctTimes,
+  "crm/officeCheckIns:deleteCheckIn": deleteCheckIn,
   "crm/officeCheckIns:recordManualEntry": recordManualEntry,
   "crm/officeCheckIns:review": review,
 };
@@ -151,7 +160,14 @@ beforeEach(() => {
     status: myStatus(),
     team: { ...team(), rows: [] },
   };
-  for (const fn of [review, correctTimes, recordManualEntry, toastSuccess, fetchMock]) {
+  for (const fn of [
+    review,
+    correctTimes,
+    recordManualEntry,
+    deleteCheckIn,
+    toastSuccess,
+    fetchMock,
+  ]) {
     fn.mockClear();
   }
   getCurrentPosition.mockReset();
@@ -503,3 +519,147 @@ describe("Office check-in: team today", () => {
     await view.unmount();
   });
 });
+
+// 09:15 → 13:00 and 14:05 → 18:00 IST.
+const MORNING = {
+  _id: "officeCheckIns_morning",
+  clockInAt: Date.UTC(2026, 10, 5, 3, 45),
+  clockOutAt: Date.UTC(2026, 10, 5, 7, 30),
+  status: "closed",
+};
+const AFTERNOON = { _id: "officeCheckIns_afternoon", clockInAt: Date.UTC(2026, 10, 5, 8, 35) };
+
+function daySessions(staffId, { afternoonOpen = false } = {}) {
+  const afternoon = afternoonOpen
+    ? checkIn(staffId, AFTERNOON)
+    : checkIn(staffId, {
+        ...AFTERNOON,
+        clockOutAt: Date.UTC(2026, 10, 5, 12, 30),
+        status: "closed",
+      });
+  return [afternoon, checkIn(staffId, MORNING)];
+}
+
+function dialogEl() {
+  return document.querySelector('[role="dialog"]');
+}
+
+describe("Office check-in: several sessions a day", () => {
+  test("Offers Clock in again after clocking out and lists today's sessions", async () => {
+    state.status = myStatus({ sessions: daySessions("staff_me") });
+    const view = await mount();
+
+    expect(findButton(view.container, "Clock out")).toBeUndefined();
+    expect(findButton(view.container, "Clock in")).toBeUndefined();
+    expect(view.container.textContent).toContain("Today: 09:15 → 13:00 · 14:05 → 18:00");
+    // Plain staff get no delete action on their own sessions.
+    expect(findButton(view.container, "Delete")).toBeUndefined();
+
+    await press(findButton(view.container, "Clock in again"));
+    expect(postedBody()).toEqual({ action: "clock_in", location: { kind: "not_requested" } });
+    expect(view.container.querySelector('[role="status"][aria-live="polite"]').textContent).toBe(
+      "Clock-in recorded."
+    );
+    await view.unmount();
+  });
+
+  test("Shows a still-open second session as open, with Clock out", async () => {
+    state.status = myStatus({ sessions: daySessions("staff_me", { afternoonOpen: true }) });
+    const view = await mount();
+    expect(findButton(view.container, "Clock out")).toBeTruthy();
+    expect(view.container.textContent).toContain("09:15 → 13:00 · 14:05 → open");
+    await view.unmount();
+  });
+
+  test("Lets an Admin delete their own session behind a confirmation", async () => {
+    state.status = myStatus({ deletion: "erase", sessions: daySessions("staff_me") });
+    const view = await mount();
+    expect(view.container.textContent).toContain("Today's sessions");
+
+    await press(findButton(view.container, "Delete session 09:15 → 13:00"));
+    const dialog = dialogEl();
+    expect(dialog.textContent).toContain("Delete session?");
+    expect(dialog.textContent).toContain("This removes the session and its history completely.");
+    expect(deleteCheckIn).not.toHaveBeenCalled();
+
+    // The reason is optional for Admin.
+    await press(findButton(dialog, "Delete session"));
+    expect(deleteCheckIn).toHaveBeenCalledWith({ checkInId: "officeCheckIns_morning" });
+    expect(toastSuccess).toHaveBeenCalledWith("Session deleted.");
+    await view.unmount();
+  });
+
+  test("Never offers a Director a delete on their own sessions", async () => {
+    state.status = myStatus({ deletion: "trail", sessions: daySessions("staff_me") });
+    const view = await mount();
+    expect(view.container.querySelector('button[aria-label^="Delete session"]')).toBeNull();
+    await view.unmount();
+  });
+
+  test("Shows first in to last out with a sessions hint, and each session in the dialog", async () => {
+    state.status = myStatus({ canOversee: true });
+    state.team = {
+      ...team(),
+      rows: [
+        teamRow("staff_asha", "Asha Rao", ...splitSessions(daySessions("staff_asha"))),
+        teamRow("staff_dev", "Dev Patel", null),
+      ],
+    };
+    const view = await mount();
+    const asha = [...view.container.querySelectorAll("tbody tr")].find((row) =>
+      row.textContent.includes("Asha Rao")
+    );
+    expect(asha.textContent).toContain("09:15 → 18:00");
+    expect(asha.textContent).toContain("2 sessions");
+    expect(asha.querySelectorAll("button")).toHaveLength(1);
+
+    await press(findButton(view.container, "Open Asha Rao"));
+    const dialog = dialogEl();
+    const sessions = [...dialog.querySelectorAll("section[aria-label]")].map((section) =>
+      section.getAttribute("aria-label")
+    );
+    expect(sessions).toEqual(["Session 14:05 → 18:00", "Session 09:15 → 13:00"]);
+    expect(dialog.querySelectorAll('section button[type="button"]')).toHaveLength(4);
+    // Nobody but Admin and Directors sees a delete.
+    expect(findButton(dialog, "Delete session")).toBeUndefined();
+    expect(findButton(dialog, "Add a session")).toBeTruthy();
+    await view.unmount();
+  });
+
+  test("Lets a Director delete one session with a required reason", async () => {
+    deleteCheckIn.mockImplementationOnce(async () => ({ mode: "trail" }));
+    state.status = myStatus({ canOversee: true, deletion: "trail" });
+    state.team = {
+      ...team(),
+      rows: [teamRow("staff_asha", "Asha Rao", ...splitSessions(daySessions("staff_asha")))],
+    };
+    const view = await mount();
+    await press(findButton(view.container, "Open Asha Rao"));
+    const morning = dialogEl().querySelector('section[aria-label="Session 09:15 → 13:00"]');
+    await press(findButton(morning, "Delete session"));
+
+    const dialog = dialogEl();
+    expect(dialog.textContent).toContain(
+      "This removes the session. A record of the deletion and your reason is kept."
+    );
+    await press(findButton(dialog, "Delete session"));
+    const reason = dialog.querySelector("textarea");
+    expect(deleteCheckIn).not.toHaveBeenCalled();
+    expect(reason.getAttribute("aria-invalid")).toBe("true");
+    expect(document.activeElement).toBe(reason);
+
+    await act(async () => typeInto(dom, reason, "Duplicate from a test"));
+    await press(findButton(dialog, "Delete session"));
+    expect(deleteCheckIn).toHaveBeenCalledWith({
+      checkInId: "officeCheckIns_morning",
+      reason: "Duplicate from a test",
+    });
+    expect(toastSuccess).toHaveBeenCalledWith("Session deleted for Asha Rao.");
+    await view.unmount();
+  });
+});
+
+/** [newest, ...earlier] as teamRow's record and earlier arguments. */
+function splitSessions([newest, ...earlier]) {
+  return [newest, earlier];
+}
