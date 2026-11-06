@@ -60,6 +60,10 @@ Look at **Today in the office** for **Fail** or **Uncertain**. Ask the person wh
 use **Review**, **Correct times** or **Add entry**. A result is a prompt to ask, not proof someone
 was absent.
 
+After clocking out, anyone can press **Clock in again** the same day. To remove a wrong session,
+open the person and press **Delete session**: Admin's delete removes it completely, and a
+director's delete needs a reason, which is kept with a record of the deletion.
+
 Don't switch **Mode** to **Enforce** without talking to the development team first.
 
 Location is only asked for when someone presses Clock in or Clock out. Exact locations and full
