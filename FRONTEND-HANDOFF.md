@@ -384,3 +384,184 @@ worker so it could not collide with the office check-in section above).
   (recorded as the font approval DESIGN.md requires; Newsreader scoped to the Journal).
 - 2026-11-05: user confirmed the site nav label stays "Blog"; the page itself is branded
   Citius Journal. Renaming the label would wrap the shared header at 1280-1600px.
+
+## Task: Simplify office check-in UI (2026-11-05)
+
+### Brief
+
+- **Outcome.** The owner found the live Office check-in screen (PR #299) hard to read: one long
+  page of tables, menus and forms. Directors and managers, not developers, use it. Make it calm,
+  short and obvious without losing any capability or the audit trail.
+- **Constraints.** No backend change (`convex/**` untouched). Staff Workspace tokens, `Panel`,
+  `Badge`, `ControlledDialog`, `PortalDateInput`, `Select`, `usePortalConfirm`, `usePortalToast`
+  reused; no new fonts or colours. `saveRule` needs a 3–500 character reason, `expectedVersion`
+  and `confirmEnforcement` on every enforce save; `assignStaffOffice` is one person per call with
+  a reason.
+- **Flows.** (1) Clock in/out; (2) manager opens a row and reviews, corrects or adds an entry;
+  (3) admin edits what an office checks, including Enforce; (4) admin assigns staff in bulk;
+  (5) admin adds an office; (6) admin reads history and unmatched networks.
+- **Verification targets.** Mounted tests for the section split by role, combined status words,
+  the single row action and dialog (review needs a reason), coordinate parsing (valid, swapped,
+  invalid), Advanced hidden by default, Enforce confirmation, batch assignment per person.
+  Typecheck, `lint:all`, `deadcode:ratchet`, full `bun run test`, repo React Doctor, fixture
+  renders in Chromium and WebKit at 1440 and 390.
+- **Source revision.** Base `2a8fc81d` (origin/main) on branch `feat/simplify-office-check-in-ui`.
+
+### Accepted direction
+
+- **Composition.** Two sections behind underline tabs ("Today", "Office setup"); the switch shows
+  only when `canAdminister` (exact Admin or `manage:staff`, unchanged). Reason: app-screens §8.2
+  "one view per area" and §4.4 underline tabs; repo precedent `NotificationInbox` (fieldset +
+  `aria-pressed` buttons, `citius-blue` underline). No new route: setup is rare, the permission
+  gate is the same view, and a route would add manifest, nav and role-fixture churn. The admin
+  overview query now subscribes only while Office setup is open.
+- **Today.** My day: office and date in the subtitle, one plain rule sentence, one large Clock
+  in/out button (48px, full width on phones), times at 24px, the result badge, and reasons only
+  when a check didn't pass. Team: Name, one combined status in words, "in → out", one "Open" per
+  row; phones get two-line rows (app-screens §12). Office filter only with more than one office
+  (or while one is chosen). Department subline and sort arrows dropped; office subline only when
+  rows span offices. Title "Team today" or "Team on DD/MM/YYYY".
+- **One record dialog.** Opens on the job the row needs: Add entry when there's no record, Review
+  when it's awaiting review, otherwise details with Review / Correct times. The record summary
+  (status, times, each signal as a sentence, review note, collapsed History) stays above every
+  form; Back returns to details. Every save still needs a reason.
+- **Office setup.** Offices as cards (name, mode badge or "Not set up", code and city, one sentence
+  of what it checks, "Staff (n)", "Edit"). "Add office" is a small header button opening a
+  three-field dialog that hands off to Edit. "History and pilot networks" is one collapsed section.
+- **Edit dialog.** "What should we check?" radios (Location, Office internet, Either one, Both)
+  with one-line help. Location: one field that reads pasted Google Maps coordinates or a Maps
+  link, reads the pin back with a "Check it on Google Maps" link, and offers a one-click fix for a
+  swapped pair; Radius defaults to 150. Office internet: address + name rows, Add address.
+  Advanced (collapsed): accuracy limit (75), time zone (Asia/Kolkata), address types, Mode. Reason
+  is a pre-filled single line ("Updated Pune office settings" / "Set up Thane office").
+- **Type, colour, icons, motion.** Existing tokens and type roles; `tabular-nums` on times and
+  counts; one filled primary per view or dialog. Only new motion: a chevron rotation on the two
+  disclosures (`transition-transform` on state, not hover; collapsed by the global reduced-motion
+  rule). Existing press scale 0.96 and 160ms ease-out unchanged.
+
+### Pass 0: Brief and contract (2026-11-05)
+
+- Skills: none (frontend-aio `SKILL.md`, `references/skill-sets.md`,
+  `references/context-and-findings.md`, `references/routing.md` §1).
+- Path: specific request; simplification within the accepted Staff Workspace look.
+- Findings:
+  - `OfficeRuleEditor.tsx` sent `confirmEnforcement: false` when saving an office already in
+    Enforce; `saveRule` (`convex/crm/officeCheckInAdmin.ts:284`) and its integration test ("every
+    later enforce save asks again") reject that with `ENFORCEMENT_CONFIRMATION_REQUIRED`, so an
+    enforcing office could not be edited from the UI | resolved at the client against the server
+    contract | implemented: every enforce save confirms ("Turn on Enforce…?" or "Save … with
+    Enforce on?") and sends `true`; mounted test added.
+  - Editor hint said "IPv4 /16 or narrower" while the server requires /22 | CIDR wording removed
+    from the main path; server message still shown on error | implemented.
+- Decisions: no backend change needed | every requested behaviour maps to existing mutations.
+
+### Pass 1: Inspiration (2026-11-05)
+
+- Skills: repo references only (`NotificationInbox.tsx` underline filter, `QueryHistoryControls`,
+  `StaffTravelWorkspace` pressed-button switches). External research not run (gated, not needed).
+
+### Pass 2: Taste and design direction (2026-11-05)
+
+- Skills: `design-taste-frontend` app-screen chapter
+  (`~/.agents/skills/design-taste-frontend/references/app-screens.md` §2.2, §4.4, §7, §8, §10–13).
+  `draw.mjs`/`inspect.mjs` not run (they deal a new style; the brief keeps house tokens).
+  `frontend-design:frontend-design` not loaded in this worker.
+- Findings: one long page of every area (§8.2) | Today / Office setup | implemented. Seven sortable
+  columns, two status pills and up to two buttons per row (§7.6, §7.8) | four columns, one status,
+  one Open | implemented. Settings, assignment, unmatched networks and audit all expanded | cards,
+  dialogs and one collapsed section | implemented. Uppercase "NAME" labels on phone cards (DESIGN.md
+  bans eyebrows) | custom two-line rows | implemented.
+
+### Pass 3: Layout and structure (2026-11-05)
+
+- Skills: `better-layout` (`SKILL.md`).
+- Findings: phone filter row stacked Date and Office and pushed rows down | 2-column grid under
+  `sm` | implemented. Summary counts wrapped "2 not / in" | each count `whitespace-nowrap` |
+  implemented. Checklist result squeezed long names | moved under the name | implemented. Dialogs
+  scroll their body with a pinned footer (`OfficeDialog`, `DialogBody`, `DialogFooter`) so Save
+  stays reachable at 390 | implemented. No horizontal overflow at 1440/390 in either engine.
+
+### Pass 4: Typography, colour and icons (2026-11-05)
+
+- Skills: `better-typography` ("Before you finish"); `better-colors` not needed (no new colours).
+- Findings: new dialog inputs at 14px would zoom iOS Safari | `text-base sm:text-sm` | implemented.
+  Times and counts `tabular-nums`; "→" and en dash in ranges | implemented.
+
+### Pass 5: Accessibility (WCAG 2.2 AA) (2026-11-05)
+
+- Skills: `better-accessibility` (`SKILL.md`).
+- Findings:
+  - Section switch: native buttons with `aria-pressed` in a labelled fieldset (repo pattern) |
+    verified by keyboard in Chromium and WebKit.
+  - "Open {name}", "Edit {office}": visible label starts the name (2.5.3) | tested. "Staff (n)"
+    keeps its visible name and is `aria-describedby` the card title | implemented.
+  - Coordinates field: `aria-invalid` on invalid/swapped; hint and polite status linked | tested.
+  - Checklist: native checkboxes in wrapping labels, office subline linked, per-person result in the
+    row, totals in a `role="status"` line | tested.
+  - Dialog focus lands inside on open; Escape closes and returns focus to Edit / Open (both
+    engines) | verified. Row details dialog lands on "History" (first tabbable) | open, minor.
+  - My day live region stays rendered while empty | implemented.
+
+### Pass 6: Writing (2026-11-05)
+
+- Skills: `better-writing` (`SKILL.md`); `design:ux-copy` not loaded.
+- Findings: "office network", "range", "CIDR", "Kind", "geofence" on the main path | one
+  vocabulary: "office internet", "address", "location", "pin"; jargon only under Advanced or in
+  server errors | implemented (mounted test asserts no CIDR/geofence/proxy outside Advanced).
+  Signal reasons said "Your device" while managers read them about others | neutral "The device…",
+  "Connected through…" | implemented. Status words: In · Pass, In · Uncertain, In · Fail,
+  Out · Pass, Out · Manual entry, Awaiting review, Rejected, Not in. Review question "Does this
+  check-in count?" with "Yes, accept it" / "No, reject it". Errors say what to do.
+
+### Pass 7: Interaction and motion (2026-11-05)
+
+- Skills: `animate` (Hard Rules, steps 1–2). No new animation beyond the disclosure chevron;
+  dialogs keep the portal's no-open-animation policy. Batch save is sequential with per-row
+  "Saving… / Saved / Not saved", and Save again resends only the people still pending.
+
+### Pass 8: Implement (2026-11-05)
+
+- Skills: `vercel-react-best-practices` (headings), `tdd` (repo bun:test + JSDOM convention).
+- Files: `OfficeCheckInView.tsx`, `MyDayPanel.tsx`, `TeamDayPanel.tsx` (own table + phone list),
+  `TeamRecordDialogs.tsx` (one dialog, modes), `OfficeCheckInParts.tsx` (`OfficeDialog`,
+  `DialogBody`, `DialogFooter`, `ToneBadge`, `ServerError`), `OfficeSetupPanel.tsx` (was
+  `OfficeRulesAdmin.tsx`), `OfficeSettingsDialog.tsx` (was `OfficeRuleEditor.tsx`),
+  `OfficeStaffDialog.tsx` (new), `src/lib/officeCheckIn/ruleDraft.ts` (new: `parseCoordinates`,
+  `draftFromRule`, `checkRuleDraft`), `presentation.ts` (`REQUIREMENT_CHOICES`,
+  `describeOfficeCheck`, `teamStatusFor`, copy).
+- Behaviour: a part the chosen check doesn't use is hidden and its saved values are sent back
+  unchanged, not cleared. Tests: `OfficeCheckInView.mounted.test.jsx` (14),
+  `OfficeSetup.mounted.test.jsx` (9; replaces `OfficeRuleEditor.mounted.test.jsx`),
+  `ruleDraft.test.ts` (9), `officeCheckInClient.test.js` (+1).
+
+### Pass 9: Verify the final source (2026-11-05)
+
+- Method: temporary dev-only route `src/app/office-check-in-fixture/` rendering the real
+  `OfficeCheckInView` with a fake `ConvexProvider` client (staff, manager, admin; one assignment
+  fails on purpose) and a stubbed `fetch`, on `next dev --port 3419` with an unreachable
+  `NEXT_PUBLIC_CONVEX_URL`. Playwright 1.64 from the main checkout (the worktree's 1.63 has no
+  installed WebKit build). Route deleted and server stopped afterwards.
+- Evidence: `/private/tmp/claude-502/-Users-sharm1-Downloads-projects-citius-travel-website/3178dbb2-bff9-41ac-a7e1-8a314524c14d/scratchpad/simplify-ui/`
+  (`before/` 16 shots, `after/` 40 shots, `after-results.json`, `checks.mjs`, `shots.mjs`).
+- Observed: no page errors, no horizontal overflow, both engines at 1440 and 390. Keyboard: Tab
+  reaches the switch with a visible outline and Enter switches; Edit opens with focus inside;
+  Enter on the summary opens Advanced; Escape closes and restores focus to Edit and Open.
+- Checks: focused `bun test --isolate` 60 pass; `bun run typecheck` exit 0; `bun run lint:all`
+  exit 0 (after a frozen-lockfile install of `citius-blog` deps in this worktree);
+  `deadcode:ratchet` passed (131/183); `bun run test` 2226 pass, 0 fail; repo React Doctor on
+  changed files: no errors; one accepted warning, `async-await-in-loop` in `OfficeStaffDialog.tsx`
+  (sequential on purpose so each person shows their own result).
+- Not verified: Firefox; a live Convex/auth session; screen-reader output; real devices.
+
+### Pass 10: Review and polish (2026-11-05)
+
+- Skills: `better-interface` (scope rules), `make-interfaces-feel-better` (tabular numbers,
+  existing press scale, no `transition-all`). No independent reviewer authorised in this worker.
+- Open (owner):
+  1. Row details dialog first focuses the "History" summary; consider `initialFocus` on the
+     primary action (`ControlledDialog` supports it) | next UI pass.
+  2. Earlier open items still apply: shared `Badge` amber contrast (4.37–4.40:1) and the shared
+     dialog focus leak | shared component owners.
+  3. View mounted tests print React `act(...)` warnings (tests pass); not traced | test owner.
+  4. Product: removing someone from an office leaves them unable to clock in (the checklist says
+     so); an "unassigned staff" view may be wanted later | product.

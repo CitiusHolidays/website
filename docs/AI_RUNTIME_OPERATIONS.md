@@ -23,7 +23,7 @@ boolean `allowed` plus finite non-negative `remaining` and `retryAfterSec` value
 fails closed; telemetry persistence remains best effort and cannot replace or break a user stream.
 
 The shared AI bucket is the first compatibility pilot for the exactly pinned
-`@convex-dev/rate-limiter@0.3.2` component. The app-owned `aiRuntime.consumeRateLimit` mutation keeps
+`@convex-dev/rate-limiter@0.4.3` component. The app-owned `aiRuntime.consumeRateLimit` mutation keeps
 its secret, privacy-safe HMAC key, arguments, and return shape; browsers and Next.js never call the
 component directly. Its fixed window starts on first use so existing limit/reset/retry units remain
 stable. Target-neutral registered tests mount the real component and prove independent keys,

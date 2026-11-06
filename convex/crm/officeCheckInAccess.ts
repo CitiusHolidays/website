@@ -52,7 +52,7 @@ export function canOversee(
   ) {
     return false;
   }
-  return getHeadReviewerRolesForStaff(subject).some((role) => access.roles.includes(role));
+  return getHeadReviewerRolesForStaff(subject).some((role) => hasRole(access, role));
 }
 
 export function isOverseer(access: PortalAccess) {

@@ -4,6 +4,7 @@ import { act } from "react";
 
 let createRoot;
 let ChangeSetReviewPanel;
+let LatestChangeReceipt;
 let OperationalActivity;
 let OperationalControlCatalog;
 let OperationalTargetBanner;
@@ -25,6 +26,7 @@ beforeAll(async () => {
   ({ createRoot } = await import("react-dom/client"));
   ({
     ChangeSetReviewPanel,
+    LatestChangeReceipt,
     OperationalActivity,
     OperationalControlCatalog,
     OperationalTargetBanner,
@@ -110,6 +112,96 @@ describe("Mounted live feature control sections", () => {
     expect(view.container.textContent).not.toContain("notifications.crm_bell");
     await act(async () => toggle.click());
     expect(stagedControls).toEqual([["inbound.sales_bell", "disabled"]]);
+    await view.unmount();
+  });
+
+  test("collapses quiet groups and keeps paused, blocked, temporary and staged groups open", async () => {
+    const quiet = (key, category, label) => ({
+      ...control,
+      blockedBy: [],
+      category,
+      configuredState: "normal",
+      dependencies: [],
+      key,
+      label,
+      source: "configured_default",
+    });
+    const controls = [
+      quiet("jobs.cleanup_ai_runtime", "Infrastructure", "Cleanup AI runtime"),
+      quiet("jobs.reconcile_crm_metrics", "Infrastructure", "Reconcile CRM metrics"),
+      { ...quiet("ai.concierge", "AI", "Citius Concierge"), configuredState: "paused" },
+      control,
+      { ...quiet("public.sacred_bharat_001", "Public", "Sacred Bharat / 001"), expiresAt: 1 },
+      quiet("email.auth.verification", "Authentication", "Verification email"),
+      quiet("payments.razorpay_new_order", "Payments", "Razorpay new orders"),
+    ];
+    const render = (props) => (
+      <OperationalControlCatalog
+        controlLabels={controlLabels}
+        controls={controls}
+        filter="all"
+        onFilterChange={noop}
+        onSearchChange={noop}
+        onStage={noop}
+        search=""
+        staged={new Map([["payments.razorpay_new_order", "disabled"]])}
+        {...props}
+      />
+    );
+    const view = await mount(render());
+    const groupButton = (category) =>
+      [...view.container.querySelectorAll("h3 button")].find((button) =>
+        button.textContent?.startsWith(category)
+      );
+    const expanded = (category) => groupButton(category)?.getAttribute("aria-expanded");
+
+    expect(expanded("Infrastructure")).toBe("false");
+    expect(expanded("Authentication")).toBe("false");
+    expect(expanded("AI")).toBe("true");
+    expect(expanded("Contact")).toBe("true");
+    expect(expanded("Public")).toBe("true");
+    expect(expanded("Payments")).toBe("true");
+    expect(groupButton("Infrastructure")?.textContent).toContain("2 controls · all available");
+    expect(groupButton("AI")?.textContent).toContain("1 control · 1 paused");
+    expect(groupButton("Payments")?.textContent).toContain("1 staged");
+    expect(view.container.textContent).not.toContain("Cleanup AI runtime");
+    expect(view.container.textContent).toContain("Citius Concierge");
+
+    const infrastructure = groupButton("Infrastructure");
+    const panel = document.getElementById(infrastructure.getAttribute("aria-controls"));
+    expect(panel?.hidden).toBe(true);
+    await act(async () => infrastructure.click());
+    expect(expanded("Infrastructure")).toBe("true");
+    expect(panel?.hidden).toBe(false);
+    expect(view.container.textContent).toContain("Cleanup AI runtime");
+    await view.unmount();
+
+    const searching = await mount(render({ search: "verification" }));
+    const verificationGroup = [...searching.container.querySelectorAll("h3 button")].find(
+      (button) => button.textContent?.startsWith("Authentication")
+    );
+    expect(verificationGroup?.getAttribute("aria-expanded")).toBe("true");
+    await searching.unmount();
+  });
+
+  test("keeps the target identity on one line with the full revision one step away", async () => {
+    const view = await mount(
+      <OperationalTargetBanner
+        identity={{
+          targetDeployment: "citius-prod-7f3a",
+          targetEnvironment: "production",
+          targetRevision: "2a8fc81d4e0b9c1f7a6d5e3b2c1a0f9e8d7c6b5a",
+        }}
+      />
+    );
+    const line = view.container.querySelector("p");
+    expect(line?.textContent).toContain("production");
+    expect(line?.textContent).toContain("citius-prod-7f3a");
+    expect(line?.textContent).toContain("rev 2a8fc81");
+    expect(line?.textContent).not.toContain("2a8fc81d4e0b");
+    expect(view.container.querySelector("details")?.textContent).toContain(
+      "2a8fc81d4e0b9c1f7a6d5e3b2c1a0f9e8d7c6b5a"
+    );
     await view.unmount();
   });
 
@@ -491,6 +583,62 @@ describe("Mounted live feature control sections", () => {
     expect(view.container.querySelectorAll("article")).toHaveLength(3);
     expect(view.container.textContent).not.toContain("Roll back");
     await view.unmount();
+  });
+
+  test("renders the latest result by its real outcome, so a failed restoration never reads as success", async () => {
+    const baseChangeSet = {
+      _id: "operationalControlChangeSets_latest",
+      appliedAt: Date.parse("2026-08-20T12:00:00.000Z"),
+      appliedByName: "Admin User",
+      auditEventId: "operationalControlAuditEvents_apply",
+      changeCount: 1,
+      changes: [
+        {
+          after: { state: "disabled" },
+          before: { state: "default" },
+          key: "inbound.sales_bell",
+        },
+      ],
+      reason: "Investigate notification delivery.",
+      restorationAt: Date.parse("2026-08-20T14:00:00.000Z"),
+      status: "applied",
+      targetDeployment: "preview-control-check",
+      targetEnvironment: "preview",
+      targetRevision: "abc1234",
+      undoAvailable: true,
+    };
+    const failed = await mount(
+      <LatestChangeReceipt
+        changeSet={{
+          ...baseChangeSet,
+          resolutionAuditEventId: "operationalControlAuditEvents_restore_failed",
+          resolutionReason: "A newer change touched Inbound Sales bell, so nothing was restored.",
+          resolvedByName: "Automatic restoration",
+          status: "restoration_failed",
+        }}
+        controlLabels={controlLabels}
+      />
+    );
+    const failedCard = failed.container.firstElementChild;
+    expect(failedCard?.className).not.toContain("emerald");
+    expect(failed.container.querySelector(".lucide-check")).toBeNull();
+    expect(failedCard?.getAttribute("data-result-tone")).toBe("failed");
+    expect(failed.container.textContent).toContain("Automatic restoration needs attention");
+    // The failed restoration did not run, so the controls are still in their applied state.
+    expect(failed.container.textContent).toContain("Inbound Sales bell: Normal behavior → Paused");
+    expect(failed.container.textContent).toContain("nothing was restored");
+    // A restoration that already failed is not still scheduled.
+    expect(failed.container.textContent).not.toContain("Restores");
+    await failed.unmount();
+
+    const applied = await mount(
+      <LatestChangeReceipt changeSet={baseChangeSet} controlLabels={controlLabels} />
+    );
+    expect(applied.container.firstElementChild?.getAttribute("data-result-tone")).toBe("success");
+    // Target identity stays on the card; raw record IDs stay in the DOM for audit lookup.
+    expect(applied.container.textContent).toContain("preview-control-check");
+    expect(applied.container.textContent).toContain("operationalControlChangeSets_latest");
+    await applied.unmount();
   });
 
   test("requires a fresh reason and exact-target review before the one-shot undo", async () => {

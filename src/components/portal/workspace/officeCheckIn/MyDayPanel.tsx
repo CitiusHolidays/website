@@ -108,7 +108,7 @@ function ClockButton({
       aria-busy={busy || undefined}
       aria-describedby={describedBy}
       aria-disabled={busy || undefined}
-      className="portal-primary-btn min-w-36 aria-disabled:cursor-progress aria-disabled:opacity-80"
+      className="portal-primary-btn min-h-12 w-full px-6 text-base aria-disabled:cursor-progress aria-disabled:opacity-80 sm:w-auto sm:min-w-48 sm:justify-self-start"
       onClick={handlePress}
       type="button"
     >
@@ -134,45 +134,45 @@ function reviewNote(record: CheckInRecord) {
   return null;
 }
 
+function TimeFigure({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-brand-muted text-xs">{label}</dt>
+      <dd className="mt-0.5 font-heading font-semibold text-2xl text-brand-dark tabular-nums">
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+/** One check's result: a badge, and the reasons only when it didn't pass. */
+function CheckResult({ label, record }: { label: string; record: CheckInRecord["clockIn"] }) {
+  return (
+    <div className="grid gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-brand-dark text-sm">{label}</span>
+        <OutcomeBadge outcome={record.outcome} />
+      </div>
+      {record.outcome === "pass" ? null : <SignalList record={record} />}
+    </div>
+  );
+}
+
 function TodayRecord({ record, timeZone }: { record: CheckInRecord; timeZone: string }) {
   const note = reviewNote(record);
   return (
-    <div className="grid gap-4">
-      <dl className="grid grid-cols-2 gap-3">
-        <div>
-          <dt className="text-brand-muted text-xs">Clocked in</dt>
-          <dd className="mt-0.5 font-heading font-semibold text-brand-dark text-xl tabular-nums">
-            {formatOfficeTime(record.clockInAt, timeZone)}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-brand-muted text-xs">Clocked out</dt>
-          <dd className="mt-0.5 font-heading font-semibold text-brand-dark text-xl tabular-nums">
-            {formatOfficeTime(record.clockOutAt, timeZone)}
-          </dd>
-        </div>
+    <div className="grid content-start gap-4">
+      <dl className="grid grid-cols-2 gap-4">
+        <TimeFigure label="Clocked in" value={formatOfficeTime(record.clockInAt, timeZone)} />
+        <TimeFigure label="Clocked out" value={formatOfficeTime(record.clockOutAt, timeZone)} />
       </dl>
+      {record.source === "self" ? (
+        <CheckResult label="Clock-in check" record={record.clockIn} />
+      ) : null}
+      {record.clockOut ? <CheckResult label="Clock-out check" record={record.clockOut} /> : null}
       {note ? <p className="text-brand-muted text-xs">{note}</p> : null}
       {record.correctedAt ? (
         <p className="text-brand-muted text-xs">A manager corrected these times.</p>
-      ) : null}
-      {record.source === "self" ? (
-        <section aria-label="Clock-in check" className="grid gap-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-medium text-brand-dark text-sm">Clock-in check</h3>
-            <OutcomeBadge outcome={record.clockIn.outcome} />
-          </div>
-          <SignalList record={record.clockIn} />
-        </section>
-      ) : null}
-      {record.clockOut ? (
-        <section aria-label="Clock-out check" className="grid gap-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-medium text-brand-dark text-sm">Clock-out check</h3>
-            <OutcomeBadge outcome={record.clockOut.outcome} />
-          </div>
-          <SignalList record={record.clockOut} />
-        </section>
       ) : null}
     </div>
   );
@@ -212,25 +212,23 @@ function DayAction({
   const action = nextAction(status.today);
   const showLocationNote = Boolean(action && status.rule.needsLocation);
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-2">
       {action ? (
-        <div className="flex flex-wrap items-center gap-3">
-          <ClockButton
-            action={action}
-            describedBy={showLocationNote ? LOCATION_NOTE_ID : undefined}
-            onPress={clock.run}
-            phase={clock.phase}
-          />
-        </div>
+        <ClockButton
+          action={action}
+          describedBy={showLocationNote ? LOCATION_NOTE_ID : undefined}
+          onPress={clock.run}
+          phase={clock.phase}
+        />
       ) : (
         <p className="text-brand-dark text-sm">
           You've clocked out for today. A manager can correct your times if something is wrong.
         </p>
       )}
       {showLocationNote ? (
-        <p className="text-brand-muted text-xs" id={LOCATION_NOTE_ID}>
-          When you press {action === "clock_in" ? "Clock in" : "Clock out"}, your browser asks for
-          your location once to compare it with the office area. It isn't tracked after that.
+        <p className="max-w-prose text-brand-muted text-xs" id={LOCATION_NOTE_ID}>
+          Your browser asks for your location once, when you press the button. It isn't tracked
+          after that.
         </p>
       ) : null}
     </div>
@@ -253,26 +251,23 @@ export function MyDayPanel({ status }: { status: MyCheckInStatus }) {
   return (
     <Panel
       action={<DayStatusBadge status={dayStatus} />}
-      subtitle={`${formatWorkDate(status.workDate)} · times in office time (${status.timeZone})`}
+      subtitle={`${officeName} · ${formatWorkDate(status.workDate)}`}
       title="My day"
     >
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
+      <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="grid content-start gap-4">
-          <div>
-            <p className="font-heading font-semibold text-brand-dark text-lg">{officeName}</p>
-            {status.office ? (
-              <p className="mt-1 text-brand-dark text-sm">
+          {status.office ? (
+            <div className="grid gap-1">
+              <p className="text-pretty text-brand-dark text-sm">
                 {describeRule(status.rule.requirement)}
               </p>
-            ) : null}
-            {status.office ? (
-              <p className="mt-1 text-brand-muted text-xs">
+              <p className="text-brand-muted text-xs">
                 {describeEnforcement(status.rule.enforcementMode)}
               </p>
-            ) : null}
-          </div>
+            </div>
+          ) : null}
           <DayAction clock={clock} status={status} />
-          <div aria-live="polite" className="min-h-5 text-sm" role="status">
+          <div aria-live="polite" className="-mt-2 text-sm" role="status">
             {clock.feedback?.tone === "info" ? (
               <p className="text-brand-dark">{clock.feedback.message}</p>
             ) : null}
@@ -292,14 +287,15 @@ export function MyDayPanel({ status }: { status: MyCheckInStatus }) {
             </p>
           ) : null}
         </div>
-        <div className="min-w-0 border-brand-border/70 lg:border-s lg:ps-6">
+        <div className="min-w-0 border-brand-border/70 border-t pt-4 md:border-s md:border-t-0 md:ps-6 md:pt-0">
           {status.today ? (
             <TodayRecord record={status.today} timeZone={status.timeZone} />
           ) : (
             <p className="text-brand-muted text-sm">
-              No check-in yet today. Your times and the check result appear here after you clock in.
+              Not clocked in yet. Your times and the result show here after you clock in.
             </p>
           )}
+          <p className="mt-4 text-brand-muted text-xs">Times in {status.timeZone}.</p>
         </div>
       </div>
     </Panel>

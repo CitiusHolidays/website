@@ -38,15 +38,14 @@ const PUBLIC_OFFICES = {
   },
   mumbai: {
     address: {
-      contact: "214 Swastik Plaza, Pokhran Road No 2, Thane West 400610",
-      footer: "214 Swastik Plaza\nPokhran Road No 2\nThane West 400610",
+      contact: "810, Capittal Tree, Pokhran Road No 2, Thane West 400606",
+      footer: "810, Capittal Tree\nPokhran Road No 2\nThane West 400606",
     },
     city: "Mumbai",
     dialPhone: "+919920993259",
     displayPhone: "+91 9920993259",
     id: "mumbai",
-    mapEmbedUrl:
-      "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3767.508557808548!2d72.972286!3d19.2166556!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3be7b9424c041a6b%3A0x25adaf1c8857d238!2sSwastik%20Plaza!5e0!3m2!1sen!2sin!4v1751708328548!5m2!1sen!2sin",
+    mapEmbedUrl: "https://www.google.com/maps?q=19.2183687,72.9705434&z=17&output=embed",
   },
 } as const satisfies Record<PublicOffice["id"], PublicOffice>;
 

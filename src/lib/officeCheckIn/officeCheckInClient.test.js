@@ -7,6 +7,7 @@ import {
   formatOfficeTime,
   officeTimeToTimestamp,
   reasonProblem,
+  teamStatusFor,
   timestampToClockTime,
 } from "./presentation";
 import { parseOfficeCheckInResponse, submitOfficeCheckIn } from "./submit";
@@ -154,7 +155,7 @@ describe("Office check-in presentation", () => {
 
   test("Describes rules and failures without claiming proof", () => {
     expect(describeRule("network_and_geofence")).toBe(
-      "This office checks the office network and your location."
+      "This office checks your location and that you're on the office internet."
     );
     expect(describeLocationProblem("permission_denied")).toContain(
       "Your times were still recorded without a location."
@@ -170,6 +171,27 @@ describe("Office check-in presentation", () => {
     expect(dayStatusFor({ admission: "admitted", status: "open" })).toBe("checked_in");
     expect(dayStatusFor({ admission: "admitted", status: "closed" })).toBe("checked_out");
     expect(dayStatusFor({ admission: "rejected", status: "closed" })).toBe("rejected");
+  });
+
+  test("Gives each team row one status in words", () => {
+    const record = (overrides) => ({
+      admission: "admitted",
+      clockIn: { outcome: "pass" },
+      source: "self",
+      status: "open",
+      ...overrides,
+    });
+    const label = (value) => teamStatusFor(value).label;
+    expect(label(null)).toBe("Not in");
+    expect(label(record())).toBe("In · Pass");
+    expect(label(record({ clockIn: { outcome: "uncertain" } }))).toBe("In · Uncertain");
+    expect(label(record({ status: "closed" }))).toBe("Out · Pass");
+    expect(label(record({ clockIn: { outcome: "fail" }, status: "closed" }))).toBe("Out · Fail");
+    expect(label(record({ admission: "pending_review" }))).toBe("Awaiting review");
+    expect(label(record({ admission: "rejected" }))).toBe("Rejected");
+    expect(label(record({ source: "manager_entry", status: "closed" }))).toBe("Out · Manual entry");
+    expect(teamStatusFor(record()).tone).toBe("green");
+    expect(teamStatusFor(record({ clockIn: { outcome: "uncertain" } })).tone).toBe("amber");
   });
 
   test("Requires a 3 to 500 character reason", () => {

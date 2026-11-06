@@ -23,30 +23,30 @@
     "singleQuote": true
   },
   "overrides": {
-    "nanoid": "3.3.18"
+    "nanoid": "3.3.20"
   },
   "dependencies": {
-    "@sanity/sdk": "^2.19.0",
-    "@sanity/vision": "6.9.1",
-    "react": "19.2.8",
-    "react-dom": "19.2.8",
-    "sanity": "6.9.1",
-    "styled-components": "6.5.1"
+    "@sanity/sdk": "^3.12.0",
+    "@sanity/vision": "6.22.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "sanity": "6.22.0",
+    "styled-components": "6.6.0"
   },
   "devDependencies": {
-    "@sanity/eslint-config-studio": "6.0.0",
-    "@types/react": "19.2.18",
-    "brace-expansion": "1.1.18",
-    "eslint": "9.39.5",
+    "@sanity/eslint-config-studio": "7.0.0",
+    "@types/react": "19.3.0",
+    "brace-expansion": "1.1.21",
+    "eslint": "10.14.0",
     "flatted": "3.4.4",
     "form-data": "4.0.6",
-    "js-yaml": "3.15.1",
+    "js-yaml": "3.15.2",
     "lodash": "4.18.1",
     "lodash-es": "4.18.1",
     "minimatch": "3.1.5",
     "picomatch": "2.3.2",
-    "prettier": "3.9.6",
-    "typescript": "^5.9.3",
-    "undici": "7.29.0"
+    "prettier": "3.9.10",
+    "typescript": "^6.0.3",
+    "undici": "7.30.2"
   }
 }

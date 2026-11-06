@@ -84,10 +84,14 @@ function portableTextToPlainText(blocks) {
   if (!Array.isArray(blocks)) {
     return "";
   }
-  return blocks
-    .map(blockToPlainText)
-    .filter((text) => text.trim().length > 0)
-    .join("\n\n");
+  const texts = [];
+  for (const block of blocks) {
+    const text = blockToPlainText(block);
+    if (text.trim().length > 0) {
+      texts.push(text);
+    }
+  }
+  return texts.join("\n\n");
 }
 
 function countWords(text) {

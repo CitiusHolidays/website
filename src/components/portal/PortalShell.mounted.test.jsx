@@ -7,6 +7,21 @@ import { createRoot } from "react-dom/client";
 const pushed = [];
 const prefetched = [];
 const readCalls = [];
+const DEFAULT_BELL_STATE = {
+  coverage: "complete",
+  notifications: [
+    {
+      body: "Review the linked proposal",
+      entityId: "proposal-1",
+      entityType: "proposal",
+      id: "notification-1",
+      readAt: null,
+      title: "Proposal ready",
+    },
+  ],
+  unreadCount: 1,
+};
+let bellState = DEFAULT_BELL_STATE;
 
 mock.module("@convex/_generated/api", () => ({
   api: {
@@ -40,20 +55,7 @@ mock.module("convex/react", () => ({
       return { canManage: false, canManageAssignments: false, canParticipateWhenClosed: false };
     }
     if (query === "notificationBellState") {
-      return {
-        coverage: "complete",
-        notifications: [
-          {
-            body: "Review the linked proposal",
-            entityId: "proposal-1",
-            entityType: "proposal",
-            id: "notification-1",
-            readAt: null,
-            title: "Proposal ready",
-          },
-        ],
-        unreadCount: 1,
-      };
+      return bellState;
     }
     return { recentJobCards: [], recentProposals: [], recentQueries: [], recentTickets: [] };
   },
@@ -110,6 +112,7 @@ beforeEach(() => {
   prefetched.length = 0;
   pushed.length = 0;
   readCalls.length = 0;
+  bellState = DEFAULT_BELL_STATE;
 });
 
 describe("PortalShell menu and notification contracts", () => {
@@ -181,6 +184,50 @@ describe("PortalShell menu and notification contracts", () => {
 
     await act(async () => root.unmount());
     container.remove();
+  });
+
+  test("The bell says how many unread updates it shows when the list is truncated", async () => {
+    const { default: PortalShell } = await import("./PortalShell");
+    const renderBell = async () => {
+      const container = document.createElement("div");
+      document.body.append(container);
+      const root = createRoot(container);
+      await act(async () =>
+        root.render(
+          <PortalShell access={{ allowed: true, permissions: [], roles: ["Sales"] }}>
+            <p>Workspace</p>
+          </PortalShell>
+        )
+      );
+      await act(async () =>
+        container.querySelector('button[aria-label="Open notifications"]').click()
+      );
+      const header = document.querySelector('[aria-label="notifications"] .font-heading')
+        ?.parentElement?.textContent;
+      await act(async () => root.unmount());
+      container.remove();
+      return header;
+    };
+
+    expect(await renderBell()).toBe("Notifications");
+
+    bellState = {
+      coverage: "complete",
+      notifications: Array.from({ length: 8 }, (_, index) => ({
+        body: `Body ${index}`,
+        entityId: `query-${index}`,
+        entityType: "query",
+        id: `notification-${index}`,
+        readAt: null,
+        title: `Update ${index}`,
+      })),
+      unreadCount: 23,
+    };
+    expect(await renderBell()).toBe("Notifications8 of 23 unread");
+
+    bellState = { ...bellState, coverage: "partial", hasMoreUnread: true, unreadCount: 40 };
+    expect(await renderBell()).toBe("Notifications8 of 40+ unread");
+    expect(readCalls).toEqual([]);
   });
 
   test("Notifications close on Escape and restore bell focus without marking anything read", async () => {

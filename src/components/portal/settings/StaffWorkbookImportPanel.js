@@ -34,6 +34,13 @@ const AFTER_FIELD_LABELS = [
   ["leaveHrCopyName", "HR copy"],
 ];
 
+const ACTION_LABELS = {
+  created: "New",
+  skipped: "Skipped",
+  unchanged: "No change",
+  updated: "Changed",
+};
+
 const ACTION_TONE_CLASSES = {
   blue: "bg-sky-50 text-sky-800 border-sky-200",
   gray: "bg-stone-100 text-stone-700 border-stone-200",
@@ -77,9 +84,9 @@ function ActionBadge({ action }) {
   const toneClass = ACTION_TONE_CLASSES[tone];
   return (
     <span
-      className={`inline-flex rounded-full border px-2 py-0.5 font-semibold text-[11px] uppercase tracking-wide ${toneClass}`}
+      className={`inline-flex rounded-full border px-2 py-0.5 font-semibold text-xs ${toneClass}`}
     >
-      {action}
+      {ACTION_LABELS[action] || action}
     </span>
   );
 }
@@ -89,10 +96,8 @@ function SummaryTiles({ isBusy, totals }) {
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
       {totals.map(([label, value]) => (
         <div className="rounded-lg border border-brand-border bg-white px-4 py-3" key={label}>
-          <div className="font-semibold text-brand-muted text-xs uppercase tracking-[0.08em]">
-            {label}
-          </div>
-          <div className="mt-1 font-semibold text-2xl text-citius-blue">
+          <div className="font-medium text-brand-muted text-xs">{label}</div>
+          <div className="mt-1 font-semibold text-2xl text-citius-blue tabular-nums">
             {isBusy === true && value === "-" ? "…" : String(value)}
           </div>
         </div>
@@ -153,9 +158,7 @@ function PreviewRowCard({ row, accepted, onToggle }) {
           {row.message ? <div className="text-amber-800">{row.message}</div> : null}
           {(row.changes || []).length > 0 && (
             <div className="rounded-md border border-sky-200 bg-sky-50/80 px-3 py-2">
-              <div className="font-semibold text-sky-900 text-xs uppercase tracking-wide">
-                Changed fields
-              </div>
+              <div className="font-semibold text-sky-900 text-xs">Changed fields</div>
               <ul className="mt-1 space-y-1 text-sky-950">
                 {row.changes.map((change) => (
                   <li key={change.field}>
@@ -170,23 +173,26 @@ function PreviewRowCard({ row, accepted, onToggle }) {
               </ul>
             </div>
           )}
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {AFTER_FIELD_LABELS.map(([field, label]) => (
-              <div
-                className={`rounded-md border px-2.5 py-1.5 ${
-                  changedFields.has(field)
-                    ? "border-sky-200 bg-white"
-                    : "border-brand-border/70 bg-white/70"
-                }`}
-                key={field}
-              >
-                <div className="font-semibold text-[10px] text-brand-muted uppercase tracking-wide">
-                  {label}
+          <details className="text-xs" open={row.action === "created"}>
+            <summary className="flex min-h-11 cursor-pointer items-center text-brand-muted">
+              Show all fields
+            </summary>
+            <div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
+              {AFTER_FIELD_LABELS.map(([field, label]) => (
+                <div
+                  className={`rounded-md border px-2.5 py-1.5 ${
+                    changedFields.has(field)
+                      ? "border-sky-200 bg-white"
+                      : "border-brand-border/70 bg-white/70"
+                  }`}
+                  key={field}
+                >
+                  <div className="font-medium text-brand-muted text-xs">{label}</div>
+                  <div className="mt-0.5 text-brand-dark">{formatFieldValue(after[field])}</div>
                 </div>
-                <div className="mt-0.5 text-brand-dark">{formatFieldValue(after[field])}</div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </details>
         </div>
       </div>
     </div>
@@ -449,11 +455,11 @@ function WorkbookImportStatus({
       <SummaryTiles
         isBusy={isParsing || isPreviewing}
         totals={[
-          ["Parsed", parsed ? parsedRows.length : "-"],
-          ["Parser skipped", parsed ? parserSkipped.length : "-"],
-          ["Create", previewSummary?.created ?? "-"],
-          ["Update", previewSummary?.updated ?? "-"],
-          ["Unchanged", previewSummary?.unchanged ?? "-"],
+          ["Rows read", parsed ? parsedRows.length : "-"],
+          ["Couldn't read", parsed ? parserSkipped.length : "-"],
+          ["New staff", previewSummary?.created ?? "-"],
+          ["Changes", previewSummary?.updated ?? "-"],
+          ["No change", previewSummary?.unchanged ?? "-"],
         ]}
       />
       {previewSummary ? (
@@ -474,10 +480,13 @@ function WorkbookImportStatus({
         </div>
       ) : null}
       {parserSkipped.length > 0 ? (
-        <IssueList rows={parserSkipped.slice(0, 12)} title="Parser skipped rows" />
+        <IssueList
+          rows={parserSkipped.slice(0, 12)}
+          title="Rows the workbook reader couldn't read"
+        />
       ) : null}
       {previewSkippedRows.length > 0 ? (
-        <IssueList rows={previewSkippedRows} title="Preview skipped rows" />
+        <IssueList rows={previewSkippedRows} title="Rows the preview skipped" />
       ) : null}
     </>
   );
@@ -568,7 +577,7 @@ function WorkbookImportActions({
   );
 }
 
-export function StaffWorkbookImportPanel() {
+export function StaffWorkbookImportPanel({ onClose }) {
   const {
     acceptedCount,
     acceptedEmails,
@@ -596,14 +605,26 @@ export function StaffWorkbookImportPanel() {
 
   return (
     <section className="rounded-lg border border-brand-border bg-white p-5 shadow-sm md:p-6">
-      <div className="mb-4">
-        <h2 className="font-heading font-semibold text-citius-blue text-lg md:text-xl">
-          Leave matrix workbook
-        </h2>
-        <p className="mt-1 text-brand-muted text-sm">
-          Upload the staff leave matrix workbook to review new or changed staff records and approver
-          routing before applying.
-        </p>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-heading font-semibold text-citius-blue text-lg md:text-xl">
+            Leave matrix workbook
+          </h2>
+          <p className="mt-1 text-brand-muted text-sm">
+            Upload the staff leave matrix workbook to review new or changed staff records and
+            approver routing before applying.
+          </p>
+        </div>
+        {onClose ? (
+          <button
+            className="portal-small-btn min-h-11 md:min-h-9"
+            disabled={busy}
+            onClick={onClose}
+            type="button"
+          >
+            Close workbook import
+          </button>
+        ) : null}
       </div>
 
       <div className="space-y-4">

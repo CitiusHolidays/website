@@ -52,6 +52,8 @@
           "convex/crm/notificationUnreadProjection.convex.integration.ts",
           "convex/crm/notificationUnreadProjection.ts",
           "convex/crm/notificationUnreadProjectionMigration.ts",
+          "convex/crm/officeCheckInRetention.convex.integration.ts",
+          "convex/crm/officeCheckIns.convex.integration.ts",
           "convex/crm/operationalControls.convex.integration.ts",
           "convex/crm/passengerImportCommit.ts",
           "convex/crm/proposalAttachmentSummary.convex.integration.ts",
@@ -77,6 +79,10 @@
       {
         "files": ["src/lib/ai/groundingBenchmark.ts"],
         "rules": ["react-doctor/js-set-map-lookups"]
+      },
+      {
+        "files": ["convex/crm/officeCheckInVerification.ts"],
+        "rules": ["react-doctor/js-length-check-first"]
       },
       {
         "files": [
@@ -138,6 +144,8 @@
           "convex/crm/metricAggregates.ts",
           "convex/crm/notificationEmailLedger.convex.integration.ts",
           "convex/crm/notificationUnreadProjection.convex.integration.ts",
+          "convex/crm/officeCheckInRetention.convex.integration.ts",
+          "convex/crm/officeCheckIns.convex.integration.ts",
           "convex/crm/operationalControls.convex.integration.ts",
           "convex/crm/ops.ts",
           "convex/crm/proposalAttachmentSummary.convex.integration.ts",

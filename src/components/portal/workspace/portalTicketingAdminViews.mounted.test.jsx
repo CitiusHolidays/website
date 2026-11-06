@@ -11,7 +11,6 @@ import { ApprovalsView } from "./admin/ApprovalsView";
 import { ExpensesView } from "./admin/ExpensesView";
 import { FinanceView } from "./admin/FinanceView";
 import { LeaveView } from "./admin/LeaveView";
-import { SettingsView } from "./admin/SettingsView";
 import { TicketDashboardView } from "./ticketing/TicketDashboardView";
 import { TicketsView } from "./ticketing/TicketsView";
 
@@ -79,8 +78,6 @@ function ActivityHarness({ deleteCalls, readCalls }) {
   };
   return (
     <ActivityView
-      activity={[{ actorName: "System", createdAt: "2026-07-14", id: "act-1", message: "Updated" }]}
-      canViewActivityLog
       deleteItem={deleteItem}
       markNotificationRead={markNotificationRead}
       notifications={[
@@ -431,6 +428,8 @@ describe("Mounted portal ticketing and administration views", () => {
     mock.module("next/navigation", () => ({
       useRouter: () => ({ push: (href) => pushed.push(href) }),
     }));
+    // Older history is requested only on demand; the first page comes from props.
+    mock.module("convex/react", () => ({ useQuery: () => undefined }));
 
     const view = await mount(<ActivityHarness deleteCalls={deleteCalls} readCalls={readCalls} />);
 
@@ -451,36 +450,5 @@ describe("Mounted portal ticketing and administration views", () => {
 
     await view.unmount();
     mock.restore();
-  });
-
-  test("Settings preserves staff onboarding and workbook actions", async () => {
-    const view = await mount(
-      <SettingsView
-        deleteItem={noopDelete}
-        dropdowns={{ department: ["Sales", "Operations"] }}
-        openModal={noop}
-        removeStaff={noopMutation}
-        search=""
-        staff={[
-          {
-            active: true,
-            email: "nina@citiusholidays.com",
-            id: "staff-1",
-            name: "Nina Sales",
-            onboardingStatus: "pending",
-            roles: ["Sales"],
-          },
-        ]}
-        startStaffOnboarding={noopMutation}
-      />
-    );
-
-    expect(view.container.textContent).toContain("Open workbook import");
-    expect(view.container.textContent).toContain("Resend verification");
-    expect(view.container.textContent).toContain("Nina Sales");
-    expect(view.container.textContent).toContain("Additional email alert roles");
-    expect(view.container.textContent).toContain("No additional email alert roles");
-
-    await view.unmount();
   });
 });

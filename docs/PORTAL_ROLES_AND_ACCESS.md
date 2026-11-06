@@ -72,6 +72,11 @@ fixture used by portal permission tests. Directors access includes Settings and
 Activity because the executable role has all permissions. Director Cement keeps
 the operational page set while Settings and Activity remain excluded.
 
+2026-11-05: the sidebar was regrouped into **Me** and **Administration**, and
+"Employees on Leave" was renamed "Leave". The fixture did not change, because
+every role reaches the same pages as before. Group membership is described in
+[`PORTAL_PERMISSIONS_ARCHITECTURE.md`](PORTAL_PERMISSIONS_ARCHITECTURE.md#backend-guards-vs-client-helpers).
+
 `src/lib/portal/rolePermissionsParity.test.js` imports the server policy and
 asserts that `src/lib/portal/constants.js` stays in sync for permissions, roles,
 director permissions, team-picker permissions, and shared team-role lists.

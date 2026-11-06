@@ -59,7 +59,6 @@ export interface PortalWorkspaceHeaderSlice {
   openModal: (modal: string, initial?: JsonObject) => void;
   pagination: Record<string, PortalPaginationSlice>;
   periodFiltered: {
-    activity: unknown[];
     approvals: unknown[];
     expenses: unknown[];
     invoices: unknown[];
@@ -319,7 +318,9 @@ export function PortalWorkspaceHeader({ workspace }: { workspace: PortalWorkspac
     return <WorkspaceErrorBanner message={workspace.modal ? "" : workspace.error} />;
   }
 
-  if (workspace.view === "activity" && !workspace.has(P.VIEW_ACTIVITY)) {
+  // Notifications reads the same for every role. The activity log for Admin and
+  // Directors owns its search, dates, type filter and paging inside its section.
+  if (workspace.view === "activity") {
     return (
       <>
         <div className="mb-6">
@@ -346,7 +347,6 @@ export function PortalWorkspaceHeader({ workspace }: { workspace: PortalWorkspac
   }
 
   const filterSourceRowsByView = {
-    activity: workspace.periodFiltered.activity,
     approvals: workspace.periodFiltered.approvals,
     "employees-on-leave": workspace.periodFiltered.leaves,
     expenses: workspace.periodFiltered.expenses,

@@ -9,7 +9,7 @@ import {
   RotateCcw,
   ShieldCheck,
 } from "lucide-react";
-import { type ChangeEvent, useState } from "react";
+import { type ChangeEvent, useId, useState } from "react";
 import { PortalSearchField } from "@/components/portal/PortalSearchField";
 import { cn } from "@/lib/utils";
 import type {
@@ -40,6 +40,21 @@ const INDIA_DATE_TIME_FORMAT = new Intl.DateTimeFormat("en-IN", {
 
 function formatTimestamp(value?: number) {
   return value ? INDIA_DATE_TIME_FORMAT.format(value) : "—";
+}
+
+const FULL_SOURCE_REVISION = /^[0-9a-f]{40}$/i;
+
+/** A full 40-character source revision shows its 7-character prefix; other identities stay whole. */
+function shortRevision(revision: string) {
+  return FULL_SOURCE_REVISION.test(revision) ? revision.slice(0, 7) : revision;
+}
+
+function targetSummary(identity: OperationalTargetIdentity) {
+  return [
+    identity.targetEnvironment,
+    identity.targetDeployment,
+    `rev ${shortRevision(identity.targetRevision)}`,
+  ].join(" · ");
 }
 
 function stateLabel(state: StoredControlState) {
@@ -137,17 +152,29 @@ export function OperationalTargetBanner({
     );
   }
   return (
-    <div className="grid gap-3 rounded-xl border border-citius-blue/20 bg-citius-blue/[0.035] p-4 sm:grid-cols-3">
-      {[
-        ["Environment", identity.targetEnvironment],
-        ["Deployment", identity.targetDeployment],
-        ["Source revision", identity.targetRevision],
-      ].map(([label, value]) => (
-        <div key={label}>
-          <p className="font-medium text-brand-muted text-xs">{label}</p>
-          <p className="mt-1 break-all font-mono text-brand-dark text-sm">{value}</p>
-        </div>
-      ))}
+    <div className="flex flex-wrap items-center justify-between gap-x-4 rounded-xl border border-citius-blue/20 bg-citius-blue/[0.035] px-4 py-1.5 text-sm">
+      <p className="flex min-h-11 flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="text-brand-muted">Changes apply to</span>
+        <span className="font-semibold text-brand-dark capitalize">
+          {identity.targetEnvironment}
+        </span>
+        <span aria-hidden="true" className="text-brand-muted">
+          ·
+        </span>
+        <span className="break-all font-mono text-brand-dark">{identity.targetDeployment}</span>
+        <span aria-hidden="true" className="text-brand-muted">
+          ·
+        </span>
+        <span className="font-mono text-brand-dark">
+          rev {shortRevision(identity.targetRevision)}
+        </span>
+      </p>
+      <details className="text-xs">
+        <summary className="flex min-h-11 cursor-pointer items-center text-brand-muted">
+          Full revision
+        </summary>
+        <p className="break-all pb-2 font-mono text-brand-dark">{identity.targetRevision}</p>
+      </details>
     </div>
   );
 }
@@ -247,7 +274,7 @@ function OperationalControlRowItem({
             Technical details
           </summary>
           <p className="mt-1 text-brand-muted">
-            Runtime boundary: {control.enforcement}. Saved revision {control.revision}. Current
+            Where it is enforced: {control.enforcement}. Saved revision {control.revision}. Current
             result: {controlSourceLabel(control.source)}.
             {control.updatedByName
               ? " Last changed by " +
@@ -280,6 +307,96 @@ function OperationalControlRowItem({
   );
 }
 
+/** A control needs attention when it differs from plain availability or has a pending change. */
+function controlNeedsAttention(control: OperationalControlRow, staged?: PersistedControlState) {
+  return (
+    staged !== undefined ||
+    control.blockedBy.length > 0 ||
+    control.expiresAt !== undefined ||
+    control.configuredState === "paused"
+  );
+}
+
+function controlGroupSummary(
+  rows: readonly OperationalControlRow[],
+  staged: ReadonlyMap<OperationalControlKey, PersistedControlState>
+) {
+  const total = `${rows.length} ${rows.length === 1 ? "control" : "controls"}`;
+  const counts = [
+    ["paused", rows.filter((row) => row.configuredState === "paused").length],
+    ["blocked", rows.filter((row) => row.blockedBy.length > 0).length],
+    ["temporary", rows.filter((row) => row.expiresAt !== undefined).length],
+    ["staged", rows.filter((row) => staged.has(row.key)).length],
+  ] as const;
+  const details = counts.flatMap(([label, count]) => (count > 0 ? [`${count} ${label}`] : []));
+  return details.length > 0 ? `${total} · ${details.join(" · ")}` : `${total} · all available`;
+}
+
+function OperationalControlGroup({
+  category,
+  controlLabels,
+  expanded,
+  onStage,
+  onToggle,
+  rows,
+  staged,
+}: {
+  category: string;
+  controlLabels: ReadonlyMap<OperationalControlKey, string>;
+  expanded: boolean;
+  onStage: (control: OperationalControlRow, state: PersistedControlState) => void;
+  onToggle: (category: string) => void;
+  rows: readonly OperationalControlRow[];
+  staged: ReadonlyMap<OperationalControlKey, PersistedControlState>;
+}) {
+  const panelId = useId();
+  const needsAttention = rows.some((row) => controlNeedsAttention(row, staged.get(row.key)));
+  return (
+    <section>
+      <h3 className="font-heading font-semibold text-base text-brand-dark">
+        <button
+          aria-controls={panelId}
+          aria-expanded={expanded}
+          className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
+          onClick={() => onToggle(category)}
+          type="button"
+        >
+          <span>{category}</span>
+          <span
+            className={cn(
+              "flex items-center gap-2 font-normal font-sans text-xs",
+              needsAttention ? "text-brand-dark" : "text-brand-muted"
+            )}
+          >
+            {controlGroupSummary(rows, staged)}
+            <ChevronDown
+              aria-hidden="true"
+              className={cn("size-4 shrink-0 text-brand-muted", expanded && "rotate-180")}
+            />
+          </span>
+        </button>
+      </h3>
+      <div
+        className="mt-1 divide-y divide-brand-border overflow-hidden rounded-xl border border-brand-border"
+        hidden={!expanded}
+        id={panelId}
+      >
+        {expanded
+          ? rows.map((control) => (
+              <OperationalControlRowItem
+                control={control}
+                key={control.key}
+                labelsByKey={controlLabels}
+                onStage={onStage}
+                staged={staged.get(control.key)}
+              />
+            ))
+          : null}
+      </div>
+    </section>
+  );
+}
+
 export function OperationalControlCatalog({
   controlLabels,
   controls,
@@ -299,18 +416,37 @@ export function OperationalControlCatalog({
   search: string;
   staged: ReadonlyMap<OperationalControlKey, PersistedControlState>;
 }) {
+  // An explicit open/close choice per category wins over the attention default, so a group the
+  // Admin is working in never collapses under them when a staged change is withdrawn.
+  const [openChoices, setOpenChoices] = useState<ReadonlyMap<string, boolean>>(() => new Map());
   const handleSearch = (event: ChangeEvent<HTMLInputElement>) => onSearchChange(event.target.value);
   const handleFilter = (event: ChangeEvent<HTMLSelectElement>) => {
     if (isControlStatusFilter(event.target.value)) {
       onFilterChange(event.target.value);
     }
   };
+  const narrowed = search.trim().length > 0 || filter !== "all";
   const grouped = new Map<string, OperationalControlRow[]>();
   for (const control of controls) {
     const rows = grouped.get(control.category) ?? [];
     rows.push(control);
     grouped.set(control.category, rows);
   }
+  // Searching, filtering or a single group leaves nothing to scan past, so those start open.
+  const isExpanded = (category: string, rows: readonly OperationalControlRow[]) =>
+    openChoices.get(category) ??
+    (narrowed ||
+      grouped.size === 1 ||
+      rows.some((row) => controlNeedsAttention(row, staged.get(row.key))));
+  const toggleGroup = (category: string) => {
+    const rows = grouped.get(category) ?? [];
+    const next = !isExpanded(category, rows);
+    setOpenChoices((current) => new Map(current).set(category, next));
+  };
+  const stageInGroup = (control: OperationalControlRow, state: PersistedControlState) => {
+    setOpenChoices((current) => new Map(current).set(control.category, true));
+    onStage(control, state);
+  };
   return (
     <div className="space-y-5">
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_13rem]">
@@ -332,25 +468,20 @@ export function OperationalControlCatalog({
         </label>
       </div>
       {grouped.size > 0 ? (
-        Array.from(grouped.entries()).map(([category, rows]) => (
-          <section key={category}>
-            <h3 className="mb-2 font-heading font-semibold text-base text-brand-dark">
-              {category}{" "}
-              <span className="font-normal text-brand-muted text-xs">({rows.length})</span>
-            </h3>
-            <div className="divide-y divide-brand-border overflow-hidden rounded-xl border border-brand-border">
-              {rows.map((control) => (
-                <OperationalControlRowItem
-                  control={control}
-                  key={control.key}
-                  labelsByKey={controlLabels}
-                  onStage={onStage}
-                  staged={staged.get(control.key)}
-                />
-              ))}
-            </div>
-          </section>
-        ))
+        <div className="space-y-3">
+          {Array.from(grouped.entries()).map(([category, rows]) => (
+            <OperationalControlGroup
+              category={category}
+              controlLabels={controlLabels}
+              expanded={isExpanded(category, rows)}
+              key={category}
+              onStage={stageInGroup}
+              onToggle={toggleGroup}
+              rows={rows}
+              staged={staged}
+            />
+          ))}
+        </div>
       ) : (
         <p className="rounded-xl border border-brand-border p-6 text-center text-brand-muted text-sm">
           No controls match this view.
@@ -500,6 +631,25 @@ function resultTone(status: ProductionTestResult["status"]) {
   return "bg-red-100 text-red-900";
 }
 
+type ChangeSetResultTone = "failed" | "success";
+
+function changeSetResultTone(status: OperationalChangeSet["status"]): ChangeSetResultTone {
+  return status === "restoration_failed" ? "failed" : "success";
+}
+
+const RESULT_TONE_CLASSES = {
+  failed: {
+    card: "border-red-300 bg-red-50",
+    icon: "text-red-800",
+    list: "border-red-200",
+  },
+  success: {
+    card: "border-emerald-300 bg-emerald-50",
+    icon: "text-emerald-800",
+    list: "border-emerald-200",
+  },
+} satisfies Record<ChangeSetResultTone, Record<"card" | "icon" | "list", string>>;
+
 export function LatestChangeReceipt({
   changeSet,
   controlLabels,
@@ -510,36 +660,40 @@ export function LatestChangeReceipt({
   if (!changeSet) {
     return null;
   }
+  const tone = changeSetResultTone(changeSet.status);
+  const toneClasses = RESULT_TONE_CLASSES[tone];
+  const ResultIcon = tone === "failed" ? CircleAlert : Check;
+  const reversed = changeSet.status === "restored" || changeSet.status === "undone";
   return (
-    <section className="rounded-xl border border-emerald-300 bg-emerald-50 p-4" role="status">
+    <section
+      className={cn("rounded-xl border p-4", toneClasses.card)}
+      data-result-tone={tone}
+      role="status"
+    >
       <div className="flex items-start gap-3">
-        <Check aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-emerald-800" />
+        <ResultIcon aria-hidden="true" className={cn("mt-0.5 size-5 shrink-0", toneClasses.icon)} />
         <div className="min-w-0">
           <h3 className="font-heading font-semibold text-brand-dark text-lg">
-            Most recent operational result
+            {changeSetActivityLabel(changeSet.status)}
           </h3>
           <p className="mt-1 text-brand-muted text-sm">
-            {changeSetActivityLabel(changeSet.status)} by{" "}
-            {changeSet.resolvedByName ?? changeSet.appliedByName} on{" "}
-            {formatTimestamp(changeSet.restoredAt ?? changeSet.appliedAt)}.
+            Most recent result · {changeSet.resolvedByName ?? changeSet.appliedByName} ·{" "}
+            {formatTimestamp(changeSet.restoredAt ?? changeSet.appliedAt)}
           </p>
+          {tone === "failed" ? (
+            <p className="mt-2 text-red-900 text-sm">
+              Automatic restoration changed nothing. Check these controls and apply a new change if
+              they still need restoring.
+            </p>
+          ) : null}
         </div>
       </div>
-      <ul className="mt-3 space-y-1 rounded-lg border border-emerald-200 bg-white p-3 text-sm">
+      <ul className={cn("mt-3 space-y-1 rounded-lg border bg-white p-3 text-sm", toneClasses.list)}>
         {changeSet.changes.map((change) => (
           <li key={change.key}>
             {controlLabels.get(change.key) ?? change.key}:{" "}
-            {stateLabel(
-              changeSet.status === "restored" || changeSet.status === "undone"
-                ? change.after.state
-                : change.before.state
-            )}{" "}
-            →{" "}
-            {stateLabel(
-              changeSet.status === "restored" || changeSet.status === "undone"
-                ? change.before.state
-                : change.after.state
-            )}
+            {stateLabel(reversed ? change.after.state : change.before.state)} →{" "}
+            {stateLabel(reversed ? change.before.state : change.after.state)}
           </li>
         ))}
       </ul>
@@ -549,16 +703,24 @@ export function LatestChangeReceipt({
           {changeSet.resolutionReason}
         </p>
       ) : null}
-      <p className="mt-2 break-all text-brand-muted text-xs">
-        {changeSet.targetEnvironment} · {changeSet.targetDeployment} · {changeSet.targetRevision}
-      </p>
-      <p className="mt-1 break-all text-brand-muted text-xs">
-        Change set {changeSet._id} · Audit {changeSet.auditEventId}
-        {changeSet.resolutionAuditEventId
-          ? ` · Resolution audit ${changeSet.resolutionAuditEventId}`
+      <p className="mt-2 text-brand-muted text-xs">
+        {targetSummary(changeSet)}
+        {changeSet.status === "applied" && changeSet.restorationAt
+          ? ` · Restores ${formatTimestamp(changeSet.restorationAt)}`
           : ""}
-        {changeSet.restorationAt ? ` · Restores ${formatTimestamp(changeSet.restorationAt)}` : ""}
       </p>
+      <details className="mt-1 text-xs">
+        <summary className="flex min-h-11 cursor-pointer items-center text-brand-muted">
+          Record IDs
+        </summary>
+        <p className="break-all text-brand-muted">
+          Full revision {changeSet.targetRevision} · Change set {changeSet._id} · Audit{" "}
+          {changeSet.auditEventId}
+          {changeSet.resolutionAuditEventId
+            ? ` · Resolution audit ${changeSet.resolutionAuditEventId}`
+            : ""}
+        </p>
+      </details>
     </section>
   );
 }
@@ -965,13 +1127,17 @@ function OperationalAuditEvents({
                   {event.initializedControlKeys.map((key) => controlLabels.get(key)).join(", ")}.
                 </p>
               ) : null}
-              <p className="mt-2 break-all text-brand-muted text-xs">
-                {event.targetEnvironment} · {event.targetDeployment} · {event.targetRevision}
-              </p>
-              <p className="mt-1 break-all text-brand-muted text-xs">
-                Event {event._id} · Command {event.commandId}
-                {event.changeSetId ? ` · Change set ${event.changeSetId}` : ""}
-              </p>
+              <p className="mt-2 break-all text-brand-muted text-xs">{targetSummary(event)}</p>
+              <details className="text-xs">
+                <summary className="flex min-h-11 cursor-pointer items-center text-brand-muted">
+                  Record IDs
+                </summary>
+                <p className="break-all text-brand-muted">
+                  Full revision {event.targetRevision} · Event {event._id} · Command{" "}
+                  {event.commandId}
+                  {event.changeSetId ? ` · Change set ${event.changeSetId}` : ""}
+                </p>
+              </details>
             </article>
           ))
         ) : (
@@ -1149,12 +1315,12 @@ function OperationalEffectHistory({
     <section>
       <div className="flex items-center gap-2">
         <Check aria-hidden="true" className="size-5 text-citius-blue" />
-        <h3 className="font-heading font-semibold text-brand-dark text-lg">Effect history</h3>
+        <h3 className="font-heading font-semibold text-brand-dark text-lg">What the system did</h3>
       </div>
       <PortalSearchField
-        label="Search effect history"
+        label="Search what the system did"
         onChange={(event) => setSearch(event.target.value)}
-        placeholder="Search effect history"
+        placeholder="Search what the system did"
         value={search}
         wrapperClassName="mt-3"
       />

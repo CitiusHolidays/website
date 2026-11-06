@@ -4,14 +4,14 @@ import { api } from "@convex/_generated/api";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import Link from "next/link";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/application-button";
 import { Input } from "@/components/ui/application-field";
 import { inputVariants } from "@/components/ui/application-field-variants";
 import { formatDisplayDate } from "@/lib/formatDate";
 import { propertiesWhen } from "@/lib/runtimeValues";
 import { useActiveLocalReferenceDate } from "../workspace/usePortalReferenceClock";
-import { MoreRows, TravelHeader } from "./TravelWorkspaceUi";
+import { MoreRows, TravelHeader, TravelViewSwitch } from "./TravelWorkspaceUi";
 
 type Trip = FunctionReturnType<typeof api.crm.staffTravel.list>["page"][number];
 interface TripDraft {
@@ -57,7 +57,7 @@ function PersonPicker({
           ))}
         </select>
       </label>
-      <MoreRows loadMore={people.loadMore} status={people.status} />
+      <MoreRows label="Load more people" loadMore={people.loadMore} status={people.status} />
     </div>
   );
 }
@@ -74,6 +74,8 @@ function TripForm({
   onSaved: () => void;
 }) {
   const id = useId();
+  const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => heading.current?.focus(), []);
   const [draft, setDraft] = useState<TripDraft>(
     trip ? { ...trip, jobCardId: trip.jobCardId ?? "" } : emptyTrip
   );
@@ -115,7 +117,7 @@ function TripForm({
   };
   return (
     <form className="space-y-5" onSubmit={save}>
-      <h2 className="font-heading font-semibold text-lg">
+      <h2 className="font-heading font-semibold text-lg outline-none" ref={heading} tabIndex={-1}>
         {trip ? `Edit ${trip.personName}'s trip` : "Add travel"}
       </h2>
       {canManageOthers && !trip ? (
@@ -185,7 +187,7 @@ function TripForm({
           ))}
         </select>
       </label>
-      <MoreRows loadMore={jobs.loadMore} status={jobs.status} />
+      <MoreRows label="Load more Job Cards" loadMore={jobs.loadMore} status={jobs.status} />
       <p className="text-brand-muted text-xs leading-relaxed">
         The team can see your destination and dates. Add leave separately if needed.
       </p>
@@ -199,21 +201,110 @@ function TripForm({
           Save travel
         </Button>
         <Button disabled={busy} onClick={onDone} type="button" variant="outline">
-          Cancel
+          Close without saving
         </Button>
       </div>
     </form>
   );
 }
 
-function tripStatusLabel(trip: Trip, referenceDate: string) {
+type TripGroupKey = "later" | "now" | "past" | "soon";
+type TravelView = "mine" | "team";
+
+const TRAVEL_VIEWS: readonly { label: string; value: TravelView }[] = [
+  { label: "Team travel", value: "team" },
+  { label: "My trips", value: "mine" },
+];
+
+const TRIP_GROUPS: readonly { key: TripGroupKey; label: string }[] = [
+  { key: "now", label: "Travelling now" },
+  { key: "soon", label: "Next 7 days" },
+  { key: "later", label: "Later" },
+  { key: "past", label: "Past and cancelled" },
+];
+
+function addDays(isoDate: string, days: number) {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function tripGroup(trip: Trip, referenceDate: string, weekEnd: string): TripGroupKey {
+  if (trip.status === "cancelled" || trip.endDate < referenceDate) {
+    return "past";
+  }
+  if (trip.isCurrent || trip.startDate <= referenceDate) {
+    return "now";
+  }
+  return trip.startDate <= weekEnd ? "soon" : "later";
+}
+
+function groupTrips(trips: readonly Trip[], referenceDate: string) {
+  const weekEnd = addDays(referenceDate, 7);
+  const groups = new Map<TripGroupKey, Trip[]>();
+  for (const trip of trips) {
+    const key = tripGroup(trip, referenceDate, weekEnd);
+    const rows = groups.get(key);
+    if (rows) {
+      rows.push(trip);
+    } else {
+      groups.set(key, [trip]);
+    }
+  }
+  return TRIP_GROUPS.flatMap(({ key, label }) => {
+    const rows = groups.get(key);
+    if (!rows) {
+      return [];
+    }
+    const sorted = rows.sort((left, right) =>
+      key === "past"
+        ? right.startDate.localeCompare(left.startDate)
+        : left.startDate.localeCompare(right.startDate)
+    );
+    return [{ key, label, trips: sorted }];
+  });
+}
+
+function tripPill(trip: Trip, referenceDate: string) {
   if (trip.status === "cancelled") {
     return "Cancelled";
   }
-  if (trip.isCurrent) {
-    return "Travelling now";
-  }
-  return trip.endDate < referenceDate ? "Past trip" : "Upcoming";
+  return trip.endDate < referenceDate ? "Past trip" : "";
+}
+
+function TripSummary({ trip, referenceDate }: { trip: Trip; referenceDate: string }) {
+  const pill = tripPill(trip, referenceDate);
+  return (
+    <div className="min-w-0">
+      <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="break-words font-semibold text-brand-dark">{trip.personName}</span>
+        {pill ? (
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600 text-xs">
+            {pill}
+          </span>
+        ) : null}
+      </p>
+      <p className="mt-0.5 break-words text-brand-muted text-sm">
+        <span className="text-brand-dark">{trip.destination}</span>
+        {" · "}
+        <span className="whitespace-nowrap tabular-nums">
+          {formatDisplayDate(trip.startDate)} to {formatDisplayDate(trip.endDate)}
+        </span>
+        {trip.jobCardId ? (
+          <>
+            {" · "}
+            <Link
+              className="whitespace-nowrap text-citius-blue underline underline-offset-2"
+              href={`/portal/job-cards/${trip.jobCardId}`}
+            >
+              <span className="sr-only">Job Card </span>
+              {trip.jobCode}
+            </Link>
+          </>
+        ) : null}
+      </p>
+    </div>
+  );
 }
 
 function TripRow({
@@ -229,8 +320,16 @@ function TripRow({
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const ask = () => setConfirming(true);
-  const keep = () => setConfirming(false);
+  const keepButton = useRef<HTMLButtonElement>(null);
+  const askButton = useRef<HTMLButtonElement>(null);
+  const ask = () => {
+    setConfirming(true);
+    queueMicrotask(() => keepButton.current?.focus());
+  };
+  const keep = () => {
+    setConfirming(false);
+    queueMicrotask(() => askButton.current?.focus());
+  };
   const edit = () => onEdit(trip);
   const cancelTrip = async () => {
     setBusy(true);
@@ -244,55 +343,46 @@ function TripRow({
     setBusy(false);
   };
   return (
-    <li
-      className={`${travelCard} flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center`}
-    >
-      <div className="w-full min-w-0 flex-1 sm:w-auto">
-        <div className="flex shrink-0 flex-wrap items-center gap-3">
-          <h3 className="break-words font-heading font-semibold text-lg">{trip.personName}</h3>
-          <span
-            className={`rounded-full px-2.5 py-1 text-xs ${trip.status === "cancelled" ? "bg-slate-100 text-slate-600" : "bg-[#FDFBF7] text-brand-muted"}`}
-          >
-            {tripStatusLabel(trip, referenceDate)}
-          </span>
-        </div>
-        <p className="mt-1 break-words text-brand-dark text-sm">{trip.destination}</p>
-        <p className="mt-2 text-brand-muted text-sm">
-          {formatDisplayDate(trip.startDate)} to {formatDisplayDate(trip.endDate)}
-        </p>
-        {trip.jobCardId ? (
-          <Link
-            className="mt-2 inline-flex min-h-11 items-center text-citius-blue text-sm underline"
-            href={`/portal/job-cards/${trip.jobCardId}`}
-          >
-            {trip.jobCode}
-          </Link>
-        ) : null}
-      </div>
+    <li className="grid gap-x-4 gap-y-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:px-5">
+      <TripSummary referenceDate={referenceDate} trip={trip} />
       {trip.canManage && trip.status !== "cancelled" ? (
-        <div className="flex flex-wrap items-center gap-3">
-          <Button disabled={busy} onClick={edit} type="button" variant="outline">
-            Edit travel
-          </Button>
+        <div className="flex flex-wrap items-center gap-2">
           {confirming ? (
             <>
-              <span className="text-sm">Cancel this trip?</span>
+              <span className="text-sm">Cancel this trip? It leaves team travel.</span>
+              <Button disabled={busy} onClick={keep} ref={keepButton} type="button" variant="small">
+                Keep trip
+              </Button>
               <Button disabled={busy} onClick={cancelTrip} type="button" variant="danger">
                 Cancel trip
               </Button>
-              <Button disabled={busy} onClick={keep} type="button" variant="outline">
-                Keep trip
-              </Button>
             </>
           ) : (
-            <Button onClick={ask} type="button" variant="bare">
-              Cancel trip
-            </Button>
+            <>
+              <Button
+                aria-label={`Edit trip for ${trip.personName}`}
+                disabled={busy}
+                onClick={edit}
+                type="button"
+                variant="small"
+              >
+                Edit trip
+              </Button>
+              <Button
+                aria-label={`Cancel trip for ${trip.personName}`}
+                className="min-h-11 rounded-lg px-2 text-brand-muted text-sm transition-colors hover:text-red-700"
+                onClick={ask}
+                ref={askButton}
+                type="button"
+              >
+                Cancel trip
+              </Button>
+            </>
           )}
         </div>
       ) : null}
       {error ? (
-        <p className="w-full text-red-700 text-sm" role="alert">
+        <p className="text-red-700 text-sm sm:col-span-2" role="alert">
           {error}
         </p>
       ) : null}
@@ -300,41 +390,71 @@ function TripRow({
   );
 }
 
-function ScheduleRows({ mine, onEdit }: { mine: boolean; onEdit: (trip: Trip) => void }) {
+function ScheduleRows({ view, onEdit }: { view: TravelView; onEdit: (trip: Trip) => void }) {
   const referenceDate = useActiveLocalReferenceDate(true);
+  const mine = view === "mine";
   const trips = usePaginatedQuery(
     mine ? api.crm.staffTravel.listMine : api.crm.staffTravel.list,
     { referenceDate },
     { initialNumItems: 30 }
   );
+  const groups = groupTrips(trips.results, referenceDate);
   return (
-    <section aria-label={mine ? "My travel" : "Team travel"} className="min-w-0">
-      <h2 className="mb-4 font-heading font-semibold text-lg">
-        {mine ? "My travel" : "Current and upcoming travel"}
+    <section aria-labelledby={`travel-${view}-heading`} className="min-w-0 space-y-6">
+      <h2 className="sr-only" id={`travel-${view}-heading`}>
+        {mine ? "My trips" : "Team travel"}
       </h2>
       {trips.status === "LoadingFirstPage" ? <p role="status">Loading travel...</p> : null}
       {trips.status !== "LoadingFirstPage" && trips.results.length === 0 ? (
         <p className={travelCard}>
-          {mine ? "You have no travel recorded." : "No current or upcoming travel recorded."}
+          {mine ? "You have no trips recorded." : "No current or upcoming team travel."}
         </p>
       ) : null}
-      <ul className="space-y-4">
-        {trips.results.map((trip) => (
-          <TripRow key={trip.id} onEdit={onEdit} referenceDate={referenceDate} trip={trip} />
-        ))}
-      </ul>
-      <MoreRows loadMore={trips.loadMore} status={trips.status} />
+      {groups.map((group) => (
+        <section aria-labelledby={`travel-${view}-${group.key}`} key={group.key}>
+          <h3
+            className="mb-2 flex items-baseline gap-2 font-heading font-semibold text-base"
+            id={`travel-${view}-${group.key}`}
+          >
+            {group.label}
+            <span
+              aria-hidden="true"
+              className="font-normal font-sans text-brand-muted text-sm tabular-nums"
+            >
+              {group.trips.length}
+            </span>
+            <span className="sr-only">
+              , {group.trips.length} {group.trips.length === 1 ? "trip" : "trips"}
+            </span>
+          </h3>
+          <ul className="divide-y divide-brand-border rounded-xl border border-brand-border bg-white">
+            {group.trips.map((trip) => (
+              <TripRow key={trip.id} onEdit={onEdit} referenceDate={referenceDate} trip={trip} />
+            ))}
+          </ul>
+        </section>
+      ))}
+      <MoreRows label="Load more trips" loadMore={trips.loadMore} status={trips.status} />
     </section>
   );
 }
 
 export default function StaffTravelWorkspace() {
   const access = useQuery(api.crm.staffTravel.getAccess, {});
-  const [mine, setMine] = useState(false);
+  const [view, setView] = useState<TravelView>("team");
   const [form, setForm] = useState<Trip | "new" | null>(null);
   const [status, setStatus] = useState("");
-  const all = () => setMine(false);
-  const my = () => setMine(true);
+  const addButton = useRef<HTMLButtonElement>(null);
+  const formWasOpen = useRef(false);
+  useEffect(() => {
+    if (form) {
+      formWasOpen.current = true;
+    } else if (formWasOpen.current) {
+      formWasOpen.current = false;
+      addButton.current?.focus();
+    }
+  }, [form]);
+  const close = () => setForm(null);
   const add = () => {
     setForm("new");
     setStatus("");
@@ -343,9 +463,9 @@ export default function StaffTravelWorkspace() {
     setForm(trip);
     setStatus("");
   };
-  const done = () => setForm(null);
+  const done = close;
   const saved = () => {
-    setForm(null);
+    close();
     setStatus("Travel saved.");
   };
   return (
@@ -353,27 +473,15 @@ export default function StaffTravelWorkspace() {
       <TravelHeader title="Travel schedule">
         See who is away, where they are going and when they return.
       </TravelHeader>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <fieldset aria-label="Travel view" className="flex flex-wrap gap-2">
-          <Button
-            aria-pressed={!mine}
-            onClick={all}
-            type="button"
-            variant={mine ? "outline" : "primary"}
-          >
-            Team travel
-          </Button>
-          <Button
-            aria-pressed={mine}
-            onClick={my}
-            type="button"
-            variant={mine ? "primary" : "outline"}
-          >
-            My trips
-          </Button>
-        </fieldset>
-        {access?.staffId ? (
-          <Button onClick={add} type="button" variant="outline">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-brand-border border-b">
+        <TravelViewSwitch
+          label="Travel view"
+          onChange={setView}
+          options={TRAVEL_VIEWS}
+          value={view}
+        />
+        {access?.staffId && !form ? (
+          <Button className="mb-2" onClick={add} ref={addButton} type="button" variant="primary">
             Add travel
           </Button>
         ) : null}
@@ -393,7 +501,7 @@ export default function StaffTravelWorkspace() {
             />
           </div>
         ) : null}
-        <ScheduleRows key={String(mine)} mine={mine} onEdit={edit} />
+        <ScheduleRows key={view} onEdit={edit} view={view} />
       </div>
     </div>
   );
