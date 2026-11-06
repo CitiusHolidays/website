@@ -666,8 +666,11 @@ function StaffAssignments({
   if (!props.state.canManageAssignments) {
     return null;
   }
-  const assigned = staff.filter((person) => person.assigned && !hasAutomaticAccess(person));
-  const candidates = staff.filter((person) => !assigned.includes(person));
+  const assigned: BoothStaffOption[] = [];
+  const candidates: BoothStaffOption[] = [];
+  for (const person of staff) {
+    (person.assigned && !hasAutomaticAccess(person) ? assigned : candidates).push(person);
+  }
   return (
     <section className={PANEL}>
       <h2 className="font-semibold text-lg">Event staff access</h2>
