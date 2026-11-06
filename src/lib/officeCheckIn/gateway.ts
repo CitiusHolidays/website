@@ -40,6 +40,8 @@ export function trustedClientIp(request: Request, env: Env = process.env): strin
 }
 
 const FAILURES = {
+  // Kept for a Convex deployment that predates several sessions a day; the
+  // current backend no longer raises it.
   ALREADY_CLOCKED_OUT: { error: "You have already clocked out today.", status: 409 },
   FORBIDDEN: { error: "You do not have access to office check-in.", status: 403 },
   INVALID_REQUEST: { error: "Invalid check-in request.", status: 400 },
@@ -50,6 +52,7 @@ const FAILURES = {
   NO_STAFF_PROFILE: { error: "No active staff profile is linked to this account.", status: 403 },
   NOT_CLOCKED_IN: { error: "You are not clocked in.", status: 409 },
   OFFICE_INACTIVE: { error: "Your assigned office is inactive.", status: 409 },
+  SESSION_LIMIT_REACHED: { error: "No more sessions can be recorded today.", status: 409 },
   UNAUTHENTICATED: { error: "Sign in to clock in or out.", status: 401 },
   UNAVAILABLE: { error: "Check-in is unavailable. Try again shortly.", status: 503 },
 } satisfies Record<OfficeCheckInErrorCode, { error: string; status: number }>;
@@ -62,6 +65,7 @@ const CONVEX_CODES: readonly OfficeCheckInErrorCode[] = [
   "NO_STAFF_PROFILE",
   "NOT_CLOCKED_IN",
   "OFFICE_INACTIVE",
+  "SESSION_LIMIT_REACHED",
 ];
 
 function respond(body: OfficeCheckInResponse, status: number) {

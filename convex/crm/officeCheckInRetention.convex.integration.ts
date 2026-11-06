@@ -215,6 +215,36 @@ describe("office check-in retention purge", () => {
     expect(after.checkIns.some((row) => row._id === ids.expiredCheckIn)).toBe(false);
   });
 
+  test("treats a Director's record_deleted trail as attendance and purges it after 92 days", async () => {
+    const t = createHarness();
+    const { officeId, staffId } = await seedOfficeAndStaff(t);
+    expect(RETAINED_CONFIGURATION_AUDIT_KINDS.has("record_deleted")).toBe(false);
+    const ids = await t.run(async (ctx) => {
+      // The deleted session is gone; its trail keeps the id for traceability.
+      const deletedCheckIn = await ctx.db.insert(
+        "officeCheckIns",
+        checkInFixture(officeId, staffId, LAST_EXPIRED_WORK_DATE)
+      );
+      await ctx.db.delete("officeCheckIns", deletedCheckIn);
+      const trail = (at: number) =>
+        ctx.db.insert("officeCheckInAudit", {
+          ...auditFixture(officeId, staffId, "record_deleted", at),
+          checkInId: deletedCheckIn,
+          reason: "Duplicate session from a test",
+        });
+      return { expired: await trail(AUDIT_CUTOFF - 1), retained: await trail(AUDIT_CUTOFF) };
+    });
+
+    const result = await t.mutation(internal.crm.officeCheckInRetention.purgeExpired, {});
+
+    expect(result).toEqual({
+      deletedAuditEvents: 1,
+      deletedCheckIns: 0,
+      scheduledContinuation: false,
+    });
+    expect((await tableSnapshot(t)).audit.map((row) => row._id)).toEqual([ids.retained]);
+  });
+
   test("continues across scheduled batches while check-ins happen, then a rerun is a no-op", async () => {
     const t = createHarness();
     const { officeId, staffId } = await seedOfficeAndStaff(t);

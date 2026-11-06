@@ -638,7 +638,6 @@ describe("Duplicate, concurrent and closing calls", () => {
       status: "closed",
     });
     expect(await auditFor(t, "clock_out")).toHaveLength(1);
-    await expect(clockIn(t, "delhi_rep")).rejects.toThrow("ALREADY_CLOCKED_OUT");
 
     // A second clock-out (double submit, second tab) replays the closed record.
     vi.setSystemTime(NOW.getTime() + 8 * 60 * 60 * 1000 + 5000);
@@ -1180,7 +1179,7 @@ describe("Manager review, correction and manual entry", () => {
     ]);
   });
 
-  test("Records an audited manual entry only for overseen staff on an empty date", async () => {
+  test("Records an audited manual entry only for overseen staff, never over another session", async () => {
     const t = createHarness();
     const { staff } = await seed(t);
     const entry = (subject: string, staffId: Id<"staffUsers">, overrides = {}) =>
@@ -1240,8 +1239,328 @@ describe("Manager review, correction and manual entry", () => {
       }),
     ]);
     await expect(entry("hr", staff.delhiRep)).rejects.toThrow(
-      "A record already exists for this date. Correct it instead."
+      "These times overlap another session on this day."
     );
+  });
+});
+
+describe("Several sessions a day", () => {
+  const HOUR = 60 * 60 * 1000;
+  const at = (hours: number) => NOW.getTime() + hours * HOUR;
+
+  async function myStatus(t: Harness, subject: string) {
+    return await as(t, subject).query(api.crm.officeCheckIns.myStatus, {
+      referenceNow: Date.now(),
+    });
+  }
+
+  test("Clock in, out, in and out again gives two closed sessions with their own times", async () => {
+    const t = createHarness();
+    const { offices } = await seed(t);
+    await seedRule(t, offices.delhi);
+    vi.setSystemTime(at(-2));
+    const morning = (await clockIn(t, "delhi_rep", IN_OFFICE_IP)).checkIn;
+    vi.setSystemTime(at(-1));
+    await clockOut(t, "delhi_rep");
+    vi.setSystemTime(at(0));
+    const again = await clockIn(t, "delhi_rep", HOME_IP);
+    expect(again.replayed).toBe(false);
+    expect(again.checkIn._id).not.toBe(morning._id);
+    // The new session is evaluated against the rule on its own request.
+    expect(again.checkIn).toMatchObject({
+      clockIn: { network: { reason: "outside_allowlist" }, outcome: "fail" },
+      clockInAt: at(0),
+      status: "open",
+      workDate: WORK_DATE,
+    });
+    const open = await myStatus(t, "delhi_rep");
+    expect(open.hasOpenSession).toBe(true);
+    expect(open.sessions.map((session) => session._id)).toEqual([again.checkIn._id, morning._id]);
+    expect(open.today?._id).toBe(again.checkIn._id);
+
+    vi.setSystemTime(at(1));
+    const closed = await clockOut(t, "delhi_rep");
+    expect(closed).toMatchObject({ checkIn: { _id: again.checkIn._id }, replayed: false });
+
+    const sessions = sorted(
+      (await allCheckIns(t)).map((row) => `${row.clockInAt}-${row.clockOutAt}`)
+    );
+    expect(sessions).toEqual(sorted([`${at(-2)}-${at(-1)}`, `${at(0)}-${at(1)}`]));
+    expect((await allCheckIns(t)).every((row) => row.status === "closed")).toBe(true);
+    expect(await auditFor(t, "clock_in")).toHaveLength(2);
+    expect(await auditFor(t, "clock_out")).toHaveLength(2);
+    const done = await myStatus(t, "delhi_rep");
+    expect(done).toMatchObject({ hasOpenSession: false, today: { _id: again.checkIn._id } });
+    expect(done.sessions).toHaveLength(2);
+  });
+
+  test("A repeated clock-in while the second session is open replays it", async () => {
+    const t = createHarness();
+    const { offices } = await seed(t);
+    await seedRule(t, offices.delhi);
+    vi.setSystemTime(at(-2));
+    await clockIn(t, "delhi_rep");
+    await clockOut(t, "delhi_rep");
+    vi.setSystemTime(at(0));
+    const second = await clockIn(t, "delhi_rep");
+    vi.setSystemTime(at(0.01));
+    const repeat = await clockIn(t, "delhi_rep", HOME_IP);
+    expect(repeat.replayed).toBe(true);
+    expect(repeat.checkIn).toEqual(second.checkIn);
+    expect(await allCheckIns(t)).toHaveLength(2);
+    expect(await auditFor(t, "clock_in")).toHaveLength(2);
+  });
+
+  test("A second clock-out with nothing open replays today's latest and leaves earlier days", async () => {
+    const t = createHarness();
+    await seed(t);
+    vi.setSystemTime(new Date("2026-03-29T04:00:00.000Z"));
+    const forgotten = (await clockIn(t, "delhi_rep")).checkIn;
+    vi.setSystemTime(at(-3));
+    await clockIn(t, "delhi_rep");
+    vi.setSystemTime(at(-2));
+    await clockOut(t, "delhi_rep");
+    vi.setSystemTime(at(-1));
+    const latest = (await clockIn(t, "delhi_rep")).checkIn;
+    vi.setSystemTime(at(0));
+    await clockOut(t, "delhi_rep");
+
+    vi.setSystemTime(at(0.01));
+    const replay = await clockOut(t, "delhi_rep");
+    expect(replay).toMatchObject({
+      checkIn: { _id: latest._id, clockOutAt: at(0), status: "closed" },
+      replayed: true,
+    });
+    const earlier = await t.run(async (ctx) => ctx.db.get("officeCheckIns", forgotten._id));
+    expect(earlier).toMatchObject({ status: "open" });
+    expect(earlier?.clockOutAt).toBeUndefined();
+    expect(await auditFor(t, "clock_out")).toHaveLength(2);
+  });
+
+  test("The team day shows every session, newest first, scoped and without network prefixes", async () => {
+    const t = createHarness();
+    const { offices } = await seed(t);
+    await seedRule(t, offices.delhi);
+    vi.setSystemTime(at(-2));
+    const first = (await clockIn(t, "delhi_rep")).checkIn;
+    vi.setSystemTime(at(-1));
+    await clockOut(t, "delhi_rep");
+    vi.setSystemTime(at(0));
+    const second = (await clockIn(t, "delhi_rep", HOME_IP)).checkIn;
+    // The stored record keeps the prefix that managers must not see.
+    expect(second.clockIn.network?.observedPrefix).toBeTruthy();
+
+    for (const subject of ["hr", "delhi_head"]) {
+      const row = (await teamDay(t, subject)).rows.find((entry) => entry.name === "delhi_rep");
+      expect(row?.sessions.map((session) => session._id)).toEqual([second._id, first._id]);
+      expect(row?.checkIn?._id).toBe(second._id);
+      for (const session of row?.sessions ?? []) {
+        expect(session.clockIn.network && "observedPrefix" in session.clockIn.network).toBe(false);
+        expect(session.clockOut?.network && "observedPrefix" in session.clockOut.network).not.toBe(
+          true
+        );
+      }
+    }
+    expect(namesIn(await teamDay(t, "mumbai_head"))).not.toContain("delhi_rep");
+    expect((await teamDay(t, "delhi_rep")).rows).toEqual([]);
+  });
+
+  test("A manual entry fits around existing sessions and is refused when it overlaps", async () => {
+    const t = createHarness();
+    const { staff } = await seed(t);
+    vi.setSystemTime(at(-2)); // 09:30 IST
+    const session = (await clockIn(t, "delhi_rep")).checkIn;
+    vi.setSystemTime(at(-1)); // 10:30 IST
+    await clockOut(t, "delhi_rep");
+    vi.setSystemTime(NOW);
+    const entry = (clockInAt: number, clockOutAt: number | null) =>
+      as(t, "hr").mutation(api.crm.officeCheckIns.recordManualEntry, {
+        clockInAt,
+        clockOutAt,
+        reason: "Badge reader was down",
+        staffId: staff.delhiRep,
+        workDate: WORK_DATE,
+      });
+
+    await expect(entry(at(-2.5), at(-1.5))).rejects.toThrow(
+      "These times overlap another session on this day."
+    );
+    await expect(entry(at(-1.5), null)).rejects.toThrow(
+      "These times overlap another session on this day."
+    );
+    expect(await auditFor(t, "manual_entry")).toEqual([]);
+
+    // 07:30 to 09:30 IST ends as the clocked session starts; touching ends are fine.
+    const manualId = await entry(at(-4), at(-2));
+    expect(await allCheckIns(t)).toHaveLength(2);
+    expect(await auditFor(t, "manual_entry")).toHaveLength(1);
+
+    // A correction cannot move a session onto another one either.
+    await expect(
+      as(t, "hr").mutation(api.crm.officeCheckIns.correctTimes, {
+        checkInId: manualId,
+        clockInAt: at(-4),
+        clockOutAt: at(-1.5),
+        reason: "Wrong times",
+      })
+    ).rejects.toThrow("These times overlap another session on this day.");
+    expect((await t.run(async (ctx) => ctx.db.get("officeCheckIns", session._id)))?.clockInAt).toBe(
+      at(-2)
+    );
+  });
+});
+
+describe("Deleting a session", () => {
+  async function seedDeletion(t: Harness) {
+    const seeded = await seed(t);
+    const director = await insertStaff(t, {
+      officeId: seeded.offices.delhi,
+      roles: ["Directors"],
+      subject: "director",
+    });
+    const cementDirector = await insertStaff(t, {
+      officeId: seeded.offices.delhi,
+      roles: ["Director Cement"],
+      subject: "cement_director",
+    });
+    vi.setSystemTime(NOW.getTime() - 2 * 60 * 60 * 1000);
+    const repSession = (await clockIn(t, "delhi_rep")).checkIn;
+    vi.setSystemTime(NOW.getTime() - 60 * 60 * 1000);
+    await clockOut(t, "delhi_rep");
+    vi.setSystemTime(NOW);
+    return { ...seeded, cementDirector, director, repSession };
+  }
+
+  function deleteAs(t: Harness, subject: string, checkInId: Id<"officeCheckIns">, reason?: string) {
+    const args: FunctionArgs<typeof api.crm.officeCheckIns.deleteCheckIn> = { checkInId };
+    if (reason !== undefined) {
+      args.reason = reason;
+    }
+    return as(t, subject).mutation(api.crm.officeCheckIns.deleteCheckIn, args);
+  }
+
+  async function auditForCheckIn(t: Harness, checkInId: Id<"officeCheckIns">) {
+    return await t.run(async (ctx) =>
+      ctx.db
+        .query("officeCheckInAudit")
+        .withIndex("by_checkInId", (q) => q.eq("checkInId", checkInId))
+        .collect()
+    );
+  }
+
+  test("Admin erases a session and its whole history, without a reason", async () => {
+    const t = createHarness();
+    const { repSession } = await seedDeletion(t);
+    expect(await auditForCheckIn(t, repSession._id)).toHaveLength(2);
+
+    expect(await deleteAs(t, "admin", repSession._id)).toEqual({ mode: "erase" });
+
+    expect(await t.run(async (ctx) => ctx.db.get("officeCheckIns", repSession._id))).toBeNull();
+    expect(await auditForCheckIn(t, repSession._id)).toEqual([]);
+    expect(await auditFor(t, "record_deleted")).toEqual([]);
+    expect(
+      await as(t, "hr").query(api.crm.officeCheckIns.history, { checkInId: repSession._id })
+    ).toEqual([]);
+    await expect(deleteAs(t, "admin", repSession._id)).rejects.toThrow("CHECK_IN_NOT_FOUND");
+  });
+
+  test("Admin may erase their own session, and then clock in afresh", async () => {
+    const t = createHarness();
+    await seedDeletion(t);
+    const own = (await clockIn(t, "admin")).checkIn;
+    expect(await deleteAs(t, "admin", own._id, "Test data")).toEqual({ mode: "erase" });
+    expect(await auditForCheckIn(t, own._id)).toEqual([]);
+    expect((await allCheckIns(t)).some((row) => row._id === own._id)).toBe(false);
+    const fresh = await clockIn(t, "admin");
+    expect(fresh).toMatchObject({ checkIn: { status: "open" }, replayed: false });
+  });
+
+  test("A Director deletes an overseen session with a reason and leaves a trail", async () => {
+    const t = createHarness();
+    const { director, offices, repSession, staff } = await seedDeletion(t);
+
+    expect(await deleteAs(t, "director", repSession._id, "Duplicate from a test run")).toEqual({
+      mode: "trail",
+    });
+
+    expect(await t.run(async (ctx) => ctx.db.get("officeCheckIns", repSession._id))).toBeNull();
+    const trail = await auditForCheckIn(t, repSession._id);
+    expect(sorted(trail.map((event) => event.kind))).toEqual([
+      "clock_in",
+      "clock_out",
+      "record_deleted",
+    ]);
+    expect(trail.find((event) => event.kind === "record_deleted")).toMatchObject({
+      actorName: "director",
+      actorStaffId: director,
+      at: NOW.getTime(),
+      checkInId: repSession._id,
+      officeId: offices.delhi,
+      reason: "Duplicate from a test run",
+      subjectStaffId: staff.delhiRep,
+      summary:
+        "deleted delhi_rep's session on 2026-03-30: in 30 Mar 2026, 09:30, out 30 Mar 2026, 10:30",
+    });
+    // The trail of a deleted record stays readable to its overseers and its owner.
+    for (const subject of ["director", "hr", "delhi_rep"]) {
+      const history = await as(t, subject).query(api.crm.officeCheckIns.history, {
+        checkInId: repSession._id,
+      });
+      expect(history.map((event) => event.kind)).toContain("record_deleted");
+    }
+    await expect(
+      as(t, "mumbai_head").query(api.crm.officeCheckIns.history, { checkInId: repSession._id })
+    ).rejects.toThrow("FORBIDDEN");
+  });
+
+  test("A Director cannot delete their own session or delete without a reason", async () => {
+    const t = createHarness();
+    const { repSession } = await seedDeletion(t);
+    const own = (await clockIn(t, "director")).checkIn;
+    await expect(deleteAs(t, "director", own._id, "My own test")).rejects.toThrow("FORBIDDEN");
+    await expect(deleteAs(t, "director", repSession._id)).rejects.toThrow(
+      "A reason between 3 and 500 characters is required."
+    );
+    await expect(deleteAs(t, "director", repSession._id, " ")).rejects.toThrow(
+      "A reason between 3 and 500 characters is required."
+    );
+    expect(await allCheckIns(t)).toHaveLength(2);
+    expect(await auditFor(t, "record_deleted")).toEqual([]);
+  });
+
+  test("Director Cement, HR, heads, managers, staff and break-glass Admin are refused", async () => {
+    const t = createHarness();
+    const { repSession } = await seedDeletion(t);
+    const reportSession = (await clockIn(t, "delhi_report")).checkIn;
+    for (const subject of ["cement_director", "hr", "delhi_head", "delhi_rep"]) {
+      await expect(deleteAs(t, subject, repSession._id, "Should not delete")).rejects.toThrow(
+        "FORBIDDEN"
+      );
+    }
+    // A reporting manager oversees the session but still cannot delete it.
+    await expect(
+      deleteAs(t, "mumbai_manager", reportSession._id, "Should not delete")
+    ).rejects.toThrow("FORBIDDEN");
+    process.env.PORTAL_BOOTSTRAP_ADMINS = BOOTSTRAP_EMAIL;
+    process.env.PORTAL_BOOTSTRAP_ADMINS_EXPIRES_AT = String(NOW.getTime() + 86_400_000);
+    const bootstrap = t.withIdentity({
+      email: BOOTSTRAP_EMAIL,
+      issuer: ISSUER,
+      subject: "bootstrap",
+      tokenIdentifier: `${ISSUER}|bootstrap`,
+    });
+    await expect(
+      bootstrap.mutation(api.crm.officeCheckIns.deleteCheckIn, { checkInId: repSession._id })
+    ).rejects.toThrow("NO_STAFF_PROFILE");
+    expect(await allCheckIns(t)).toHaveLength(2);
+    expect(await auditForCheckIn(t, repSession._id)).toHaveLength(2);
+    for (const subject of ["admin", "director", "cement_director", "hr", "delhi_rep"]) {
+      const status = await as(t, subject).query(api.crm.officeCheckIns.myStatus, {
+        referenceNow: NOW.getTime(),
+      });
+      const expected = { admin: "erase", director: "trail" }[subject] ?? null;
+      expect(status.deletion).toBe(expected);
+    }
   });
 });
 

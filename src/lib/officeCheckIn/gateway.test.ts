@@ -211,6 +211,7 @@ describe("office check-in gateway", () => {
       ["OFFICE_INACTIVE", 409],
       ["ALREADY_CLOCKED_OUT", 409],
       ["NOT_CLOCKED_IN", 409],
+      ["SESSION_LIMIT_REACHED", 409],
       ["NO_STAFF_PROFILE", 403],
       ["FORBIDDEN", 403],
     ] as const;

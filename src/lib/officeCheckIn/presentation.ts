@@ -191,6 +191,8 @@ const CHECK_IN_ERROR_COPY = {
   NO_STAFF_PROFILE: "Your staff profile isn't active. Contact an admin.",
   NOT_CLOCKED_IN: "You aren't clocked in, so there's nothing to clock out.",
   OFFICE_INACTIVE: "Your office is marked inactive. Ask an admin to check your office.",
+  SESSION_LIMIT_REACHED:
+    "You've reached the most sessions one day can hold. A manager can correct your times.",
   UNAUTHENTICATED: "Your session has ended. Sign in again, then retry.",
   UNAVAILABLE: "Check-in is unavailable right now. Try again in a minute.",
 } satisfies Record<OfficeCheckInErrorCode, string>;

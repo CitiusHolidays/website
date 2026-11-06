@@ -97,6 +97,7 @@ export const checkInAuditKindValidator = v.union(
   v.literal("review_rejected"),
   v.literal("times_corrected"),
   v.literal("manual_entry"),
+  v.literal("record_deleted"),
   v.literal("rule_saved"),
   v.literal("office_created"),
   v.literal("office_assigned")

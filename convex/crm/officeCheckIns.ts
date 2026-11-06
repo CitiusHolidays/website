@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { type MutationCtx, mutation, type QueryCtx, query } from "../_generated/server";
 import { insertWithE2eOwnership } from "./lib/e2eOwnership";
-import { type PortalAccess, requireStaff } from "./lib/staffAccess";
+import { hasRole, isAdmin, type PortalAccess, requireStaff } from "./lib/staffAccess";
 import {
   actorStaff,
   assertCheckInGateway,
@@ -35,6 +35,11 @@ import { assertReferenceDate, assertReferenceNow } from "./referenceTimePolicy";
 const STAFF_SCAN_LIMIT = 1000;
 const DAY_RECORD_LIMIT = 2000;
 const MAX_IP_TEXT_LENGTH = 64;
+/** Sessions read per person per work date. Clock-in refuses a new session past this. */
+const SESSIONS_PER_DAY_LIMIT = 20;
+/** Audit rows erased per batch when an Admin hard-deletes a session. */
+const ERASE_AUDIT_BATCH = 200;
+const ERASE_AUDIT_MAX_BATCHES = 10;
 
 const checkInDocValidator = v.object({
   _creationTime: v.number(),
@@ -138,31 +143,76 @@ function canRetryClockIn(record: Doc<"officeCheckIns">) {
   );
 }
 
+type CheckInDoc = Doc<"officeCheckIns">;
+
+/** Newest session first: by clock-in time, then by creation. */
+function newestFirst(left: CheckInDoc, right: CheckInDoc) {
+  return right.clockInAt - left.clockInAt || right._creationTime - left._creationTime;
+}
+
 /**
- * Which record a clock-out closes. Today's open record first. If today's is
- * already closed the call is a replay (double submit, second tab, retry), so
- * an older forgotten session is never closed by accident. An earlier open
- * record is closed only when today has no record at all.
+ * One person's sessions on one work date, newest first. A person may clock
+ * out and clock in again, so a day can hold several sessions; the read is
+ * bounded by SESSIONS_PER_DAY_LIMIT.
+ */
+async function sessionsOn(ctx: Pick<QueryCtx, "db">, staffId: Id<"staffUsers">, workDate: string) {
+  const sessions = await ctx.db
+    .query("officeCheckIns")
+    .withIndex("by_staffId_and_workDate", (q) => q.eq("staffId", staffId).eq("workDate", workDate))
+    .order("desc")
+    .take(SESSIONS_PER_DAY_LIMIT);
+  return sessions.sort(newestFirst);
+}
+
+/** The newest open session from a work date before `workDate`, if any. */
+async function openBefore(ctx: Pick<QueryCtx, "db">, staffId: Id<"staffUsers">, workDate: string) {
+  const earlier = await ctx.db
+    .query("officeCheckIns")
+    .withIndex("by_staffId_and_workDate", (q) => q.eq("staffId", staffId).lt("workDate", workDate))
+    .order("desc")
+    .take(SESSIONS_PER_DAY_LIMIT);
+  return earlier.find((record) => record.status === "open") ?? null;
+}
+
+function sessionEnd(session: CheckInDoc) {
+  return session.clockOutAt ?? session.clockInAt;
+}
+
+function latestClosed(sessions: readonly CheckInDoc[]) {
+  let latest: CheckInDoc | null = null;
+  for (const session of sessions) {
+    if (session.status === "closed" && (!latest || sessionEnd(session) > sessionEnd(latest))) {
+      latest = session;
+    }
+  }
+  return latest;
+}
+
+/**
+ * Which session a clock-out closes. Today's open session first. If every
+ * session today is closed the call is a replay (double submit, second tab,
+ * retry) of the latest one, so an older forgotten session is never closed by
+ * accident. An earlier open session is closed only when today has none.
  */
 async function clockOutTarget(
   ctx: MutationCtx,
   staff: Doc<"staffUsers">,
   now: number
-): Promise<{ record: Doc<"officeCheckIns">; replayed: boolean } | null> {
+): Promise<{ record: CheckInDoc; replayed: boolean } | null> {
   const timeZone = staff.officeId
     ? ((await ruleForOffice(ctx, staff.officeId))?.timeZone ?? DEFAULT_OFFICE_TIME_ZONE)
     : DEFAULT_OFFICE_TIME_ZONE;
   const today = workDateFor(now, timeZone);
-  const recent = await ctx.db
-    .query("officeCheckIns")
-    .withIndex("by_staffId_and_workDate", (q) => q.eq("staffId", staff._id))
-    .order("desc")
-    .take(3);
-  const todays = recent.find((record) => record.workDate === today);
-  if (todays) {
-    return { record: todays, replayed: todays.status === "closed" };
+  const todays = await sessionsOn(ctx, staff._id, today);
+  const open = todays.find((record) => record.status === "open");
+  if (open) {
+    return { record: open, replayed: false };
   }
-  const earlierOpen = recent.find((record) => record.status === "open");
+  const closed = latestClosed(todays);
+  if (closed) {
+    return { record: closed, replayed: true };
+  }
+  const earlierOpen = await openBefore(ctx, staff._id, today);
   return earlierOpen ? { record: earlierOpen, replayed: false } : null;
 }
 
@@ -192,17 +242,16 @@ export const clockInViaGateway = mutation({
     const rule = await ruleForOffice(ctx, office._id);
     const now = Date.now();
     const workDate = workDateFor(now, rule?.timeZone ?? DEFAULT_OFFICE_TIME_ZONE);
-    const existing = await ctx.db
-      .query("officeCheckIns")
-      .withIndex("by_staffId_and_workDate", (q) =>
-        q.eq("staffId", staff._id).eq("workDate", workDate)
-      )
-      .unique();
-    if (existing && existing.status !== "open") {
-      throw new ConvexError("ALREADY_CLOCKED_OUT");
-    }
+    // One session is open at a time. While it is open a repeat press replays
+    // it (or retries its evidence); once it is closed a press starts a new
+    // session on the same work date, evaluated like any clock-in.
+    const todays = await sessionsOn(ctx, staff._id, workDate);
+    const existing = todays.find((record) => record.status === "open") ?? null;
     if (existing && !canRetryClockIn(existing)) {
       return { checkIn: existing, replayed: true };
+    }
+    if (!existing && todays.length >= SESSIONS_PER_DAY_LIMIT) {
+      throw new ConvexError("SESSION_LIMIT_REACHED");
     }
     const evaluation = evaluateCheckIn({
       location: args.location,
@@ -326,7 +375,32 @@ const ruleSummaryValidator = v.object({
   requirement: v.union(checkInRequirementValidator, v.literal("not_configured")),
 });
 
-/** The signed-in person's office, rule summary and today's record. */
+/**
+ * How this caller may delete a session (owner decision 2026-11-06):
+ * - "erase": the Admin role hard-deletes a session and its history, including
+ *   their own, so test data can be wiped. A reason is optional.
+ * - "trail": the Directors role deletes a session they oversee (never their
+ *   own) with a required reason, and a `record_deleted` audit row stays.
+ * - null: everyone else, including Director Cement, HR and heads.
+ *
+ * Both need a staff profile, like every other check-in record change, so a
+ * break-glass bootstrap Admin session (no staffId) cannot erase attendance.
+ */
+type DeletionMode = "erase" | "trail";
+
+function deletionModeFor(access: PortalAccess): DeletionMode | null {
+  if (!access.staffId) {
+    return null;
+  }
+  if (isAdmin(access)) {
+    return "erase";
+  }
+  return hasRole(access, "Directors") ? "trail" : null;
+}
+
+const deletionModeValidator = v.union(v.literal("erase"), v.literal("trail"), v.null());
+
+/** The signed-in person's office, rule summary and today's sessions. */
 export const myStatus = query({
   args: { referenceNow: v.number() },
   handler: async (ctx, args) => {
@@ -339,18 +413,16 @@ export const myStatus = query({
     const workDate = workDateFor(referenceNow, timeZone);
     const requirement: CheckInRequirement | "not_configured" =
       rule?.requirement ?? "not_configured";
-    const recent = staff
-      ? await ctx.db
-          .query("officeCheckIns")
-          .withIndex("by_staffId_and_workDate", (q) => q.eq("staffId", staff._id))
-          .order("desc")
-          .take(3)
-      : [];
-    const today = recent.find((record) => record.workDate === workDate) ?? null;
-    const openFromEarlierDay =
-      recent.find((record) => record.status === "open" && record.workDate !== workDate) ?? null;
+    const [sessions, openFromEarlierDay] = staff
+      ? await Promise.all([
+          sessionsOn(ctx, staff._id, workDate),
+          openBefore(ctx, staff._id, workDate),
+        ])
+      : [[], null];
     return {
       canOversee: isOverseer(access) || (staff ? await hasDirectReports(ctx, staff._id) : false),
+      deletion: deletionModeFor(access),
+      hasOpenSession: sessions.some((session) => session.status === "open"),
       hasStaffProfile: Boolean(staff?.active),
       office: office
         ? { active: office.active, city: office.city ?? null, id: office._id, name: office.name }
@@ -362,13 +434,16 @@ export const myStatus = query({
         needsLocation: rule ? requiresLocation(rule.requirement) : false,
         requirement,
       },
+      sessions,
       timeZone,
-      today,
+      today: sessions[0] ?? null,
       workDate,
     };
   },
   returns: v.object({
     canOversee: v.boolean(),
+    deletion: deletionModeValidator,
+    hasOpenSession: v.boolean(),
     hasStaffProfile: v.boolean(),
     office: v.union(
       v.object({
@@ -381,7 +456,10 @@ export const myStatus = query({
     ),
     openFromEarlierDay: v.union(checkInDocValidator, v.null()),
     rule: ruleSummaryValidator,
+    /** Today's sessions, newest first. */
+    sessions: v.array(checkInDocValidator),
     timeZone: v.string(),
+    /** The latest of today's sessions. */
     today: v.union(checkInDocValidator, v.null()),
     workDate: v.string(),
   }),
@@ -403,6 +481,8 @@ const teamRowValidator = v.object({
   name: v.string(),
   officeId: v.union(v.id("offices"), v.null()),
   officeName: v.union(v.string(), v.null()),
+  /** The day's sessions, newest first; `checkIn` is the first of them. */
+  sessions: v.array(checkInDocValidator),
   staffId: v.id("staffUsers"),
   timeZone: v.string(),
 });
@@ -411,10 +491,7 @@ const teamRowValidator = v.object({
  * Managers see each signal's outcome and reason, not the person's network
  * prefix. Prefixes are only aggregated for Admins in the pilot overview.
  */
-function withoutNetworkPrefixes(checkIn: Doc<"officeCheckIns"> | null) {
-  if (!checkIn) {
-    return null;
-  }
+function withoutNetworkPrefixes(checkIn: CheckInDoc) {
   const strip = (record: VerificationRecord | undefined) => {
     if (!record?.network) {
       return record;
@@ -453,7 +530,15 @@ export const teamDay = query({
     ]);
     const officeNames = new Map(offices.map((office) => [office._id, office.name]));
     const timeZones = new Map(rules.map((rule) => [rule.officeId, rule.timeZone]));
-    const recordsByStaff = new Map(records.map((record) => [record.staffId, record]));
+    const sessionsByStaff = new Map<Id<"staffUsers">, CheckInDoc[]>();
+    for (const record of records) {
+      const sessions = sessionsByStaff.get(record.staffId);
+      if (sessions) {
+        sessions.push(record);
+      } else {
+        sessionsByStaff.set(record.staffId, [record]);
+      }
+    }
     const overseen = staff.filter((member) => canOversee(access, actor, member));
     const visibleOfficeIds = new Set(
       canOverseeAllOffices(access)
@@ -465,7 +550,11 @@ export const teamDay = query({
         if (args.officeId && member.officeId !== args.officeId) {
           return [];
         }
-        const checkIn = withoutNetworkPrefixes(recordsByStaff.get(member._id) ?? null);
+        const sessions = (sessionsByStaff.get(member._id) ?? [])
+          .sort(newestFirst)
+          .slice(0, SESSIONS_PER_DAY_LIMIT)
+          .map(withoutNetworkPrefixes);
+        const checkIn = sessions[0] ?? null;
         const officeId = checkIn?.officeId ?? member.officeId ?? null;
         return [
           {
@@ -475,6 +564,7 @@ export const teamDay = query({
             name: member.name,
             officeId,
             officeName: officeId ? (officeNames.get(officeId) ?? null) : null,
+            sessions,
             staffId: member._id,
             timeZone: (officeId && timeZones.get(officeId)) || DEFAULT_OFFICE_TIME_ZONE,
           },
@@ -589,6 +679,24 @@ function assertTimesOnWorkDate(input: {
   }
 }
 
+/**
+ * A session's times may not overlap another session of the same person on
+ * the same work date. An open session runs until it is closed.
+ */
+function assertNoOverlap(
+  others: readonly CheckInDoc[],
+  times: { clockInAt: number; clockOutAt: number | null }
+) {
+  const end = times.clockOutAt ?? Number.POSITIVE_INFINITY;
+  const overlaps = others.some((other) => {
+    const otherEnd = other.clockOutAt ?? Number.POSITIVE_INFINITY;
+    return times.clockInAt < otherEnd && other.clockInAt < end;
+  });
+  if (overlaps) {
+    throw new ConvexError("These times overlap another session on this day.");
+  }
+}
+
 function formatTime(timestamp: number | undefined, timeZone: string) {
   if (timestamp === undefined) {
     return "none";
@@ -623,7 +731,7 @@ export const correctTimes = mutation({
         .query("officeCheckIns")
         .withIndex("by_staffId_and_workDate", (q) => q.eq("staffId", checkIn.staffId))
         .order("desc")
-        .take(5);
+        .take(SESSIONS_PER_DAY_LIMIT);
       if (otherOpen.some((record) => record._id !== checkIn._id && record.status === "open")) {
         throw new ConvexError("Close this person's other open session before reopening this one.");
       }
@@ -637,6 +745,11 @@ export const correctTimes = mutation({
       timeZone,
       workDate: checkIn.workDate,
     });
+    const sameDay = await sessionsOn(ctx, checkIn.staffId, checkIn.workDate);
+    assertNoOverlap(
+      sameDay.filter((record) => record._id !== checkIn._id),
+      { clockInAt: args.clockInAt, clockOutAt: args.clockOutAt }
+    );
     await ctx.db.patch("officeCheckIns", checkIn._id, {
       clockInAt: args.clockInAt,
       clockOut: args.clockOutAt === null ? undefined : checkIn.clockOut,
@@ -691,15 +804,6 @@ export const recordManualEntry = mutation({
     if (!subject.officeId) {
       throw new ConvexError("NO_OFFICE_ASSIGNED");
     }
-    const existing = await ctx.db
-      .query("officeCheckIns")
-      .withIndex("by_staffId_and_workDate", (q) =>
-        q.eq("staffId", subject._id).eq("workDate", workDate)
-      )
-      .unique();
-    if (existing) {
-      throw new ConvexError("A record already exists for this date. Correct it instead.");
-    }
     const now = Date.now();
     const rule = await ruleForOffice(ctx, subject.officeId);
     const timeZone = rule?.timeZone ?? DEFAULT_OFFICE_TIME_ZONE;
@@ -710,6 +814,12 @@ export const recordManualEntry = mutation({
       timeZone,
       workDate,
     });
+    // A day may already hold sessions; the entry must fit around them.
+    const existing = await sessionsOn(ctx, subject._id, workDate);
+    if (existing.length >= SESSIONS_PER_DAY_LIMIT) {
+      throw new ConvexError("This day already has the most sessions one day can hold.");
+    }
+    assertNoOverlap(existing, { clockInAt: args.clockInAt, clockOutAt: args.clockOutAt });
     const branchRule = toBranchRule(rule);
     const evaluation = evaluateCheckIn({
       location: MANUAL_ENTRY_LOCATION,
@@ -752,29 +862,100 @@ export const recordManualEntry = mutation({
   returns: v.id("officeCheckIns"),
 });
 
-/** Audit trail for one record, visible to its overseers and to its owner. */
+/** Removes every audit row for one session, in bounded batches. */
+async function eraseSessionHistory(ctx: MutationCtx, checkInId: Id<"officeCheckIns">) {
+  for (let batch = 0; batch < ERASE_AUDIT_MAX_BATCHES; batch += 1) {
+    // biome-ignore lint/performance/noAwaitInLoops: each batch reads what the previous one left.
+    const rows = await ctx.db
+      .query("officeCheckInAudit")
+      .withIndex("by_checkInId", (q) => q.eq("checkInId", checkInId))
+      .take(ERASE_AUDIT_BATCH);
+    if (rows.length === 0) {
+      return;
+    }
+    await Promise.all(rows.map((row) => ctx.db.delete("officeCheckInAudit", row._id)));
+  }
+  // Leaving part of the history would break "nothing remains"; abort instead.
+  throw new ConvexError("This session has too much history to delete in one step.");
+}
+
+/**
+ * Delete one session (owner decision 2026-11-06). Admin erases the session and
+ * its history completely, their own sessions included. Directors delete a
+ * session they oversee, never their own, with a reason; a `record_deleted`
+ * audit row and the session's earlier history stay. Everyone else is refused.
+ */
+export const deleteCheckIn = mutation({
+  args: { checkInId: v.id("officeCheckIns"), reason: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx);
+    const mode = deletionModeFor(access);
+    if (!access.staffId) {
+      throw new ConvexError("NO_STAFF_PROFILE");
+    }
+    if (!mode) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    const reason = mode === "trail" ? requireReason(args.reason ?? "") : null;
+    const checkIn = await ctx.db.get("officeCheckIns", args.checkInId);
+    if (!checkIn) {
+      throw new ConvexError("CHECK_IN_NOT_FOUND");
+    }
+    if (mode === "erase") {
+      await eraseSessionHistory(ctx, checkIn._id);
+      await ctx.db.delete("officeCheckIns", checkIn._id);
+      return { mode };
+    }
+    // canOversee refuses the caller's own record, so Directors never delete their own.
+    const { subject } = await requireOverseenStaff(ctx, access, checkIn.staffId, checkIn.officeId);
+    const timeZone = await timeZoneForOffice(ctx, checkIn.officeId);
+    await ctx.db.delete("officeCheckIns", checkIn._id);
+    await audit(ctx, {
+      ...actorFields(access),
+      at: Date.now(),
+      checkInId: checkIn._id,
+      kind: "record_deleted",
+      officeId: checkIn.officeId,
+      reason: reason ?? undefined,
+      subjectStaffId: checkIn.staffId,
+      summary: `deleted ${subject.name}'s session on ${checkIn.workDate}: in ${formatTime(checkIn.clockInAt, timeZone)}, out ${formatTime(checkIn.clockOutAt, timeZone)}`,
+    });
+    return { mode };
+  },
+  returns: v.object({ mode: v.union(v.literal("erase"), v.literal("trail")) }),
+});
+
+/**
+ * Audit trail for one record, visible to its overseers and to its owner. A
+ * deleted record's trail stays readable from its audit rows.
+ */
 export const history = query({
   args: { checkInId: v.id("officeCheckIns") },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx);
-    const checkIn = await ctx.db.get("officeCheckIns", args.checkInId);
-    if (!checkIn) {
+    const [checkIn, events] = await Promise.all([
+      ctx.db.get("officeCheckIns", args.checkInId),
+      ctx.db
+        .query("officeCheckInAudit")
+        .withIndex("by_checkInId", (q) => q.eq("checkInId", args.checkInId))
+        .order("desc")
+        .take(50),
+    ]);
+    const subjectStaffId =
+      checkIn?.staffId ?? events.find((event) => event.subjectStaffId)?.subjectStaffId;
+    if (!subjectStaffId) {
       return [];
     }
-    if (access.staffId !== checkIn.staffId) {
+    if (access.staffId !== subjectStaffId) {
       const [actor, subject] = await Promise.all([
         actorStaff(ctx, access),
-        ctx.db.get("staffUsers", checkIn.staffId),
+        ctx.db.get("staffUsers", subjectStaffId),
       ]);
-      if (!(subject && canOversee(access, actor, subject, checkIn.officeId))) {
+      const officeId = checkIn?.officeId ?? events.find((event) => event.officeId)?.officeId;
+      if (!(subject && canOversee(access, actor, subject, officeId ?? subject.officeId))) {
         throw new ConvexError("FORBIDDEN");
       }
     }
-    const events = await ctx.db
-      .query("officeCheckInAudit")
-      .withIndex("by_checkInId", (q) => q.eq("checkInId", checkIn._id))
-      .order("desc")
-      .take(50);
     return events.map((event) => ({
       actorName: event.actorName,
       at: event.at,
