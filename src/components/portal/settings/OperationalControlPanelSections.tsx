@@ -45,7 +45,7 @@ function formatTimestamp(value?: number) {
 const FULL_SOURCE_REVISION = /^[0-9a-f]{40}$/i;
 
 /** A full 40-character source revision shows its 7-character prefix; other identities stay whole. */
-export function shortRevision(revision: string) {
+function shortRevision(revision: string) {
   return FULL_SOURCE_REVISION.test(revision) ? revision.slice(0, 7) : revision;
 }
 
@@ -633,7 +633,7 @@ function resultTone(status: ProductionTestResult["status"]) {
 
 type ChangeSetResultTone = "failed" | "success";
 
-export function changeSetResultTone(status: OperationalChangeSet["status"]): ChangeSetResultTone {
+function changeSetResultTone(status: OperationalChangeSet["status"]): ChangeSetResultTone {
   return status === "restoration_failed" ? "failed" : "success";
 }
 
