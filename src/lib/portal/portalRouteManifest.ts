@@ -105,8 +105,10 @@ export const PORTAL_ROUTES = {
     dependencies: ["activity"],
     family: "administration",
     paginationKey: "activity",
+    // Not the gate: canAccessPortalRoute below opens "activity" to every allowed
+    // staff member. This permission only adds the email-status panel.
     permission: P.VIEW_EMAIL_DELIVERY_STATUS,
-    subtitle: "Your assignments and workflow updates.",
+    subtitle: "Open an update to go to its record.",
     title: "Notifications",
   },
   approvals: {
@@ -141,8 +143,8 @@ export const PORTAL_ROUTES = {
     family: "administration",
     paginationKey: "leaves",
     permission: P.VIEW_LEAVE,
-    subtitle: "Review leave requests, approvals, and team availability.",
-    title: "Employees on Leave",
+    subtitle: "Request, approve, and track leave.",
+    title: "Leave",
   },
   "event-photo-booth": {
     component: "EventPhotoBoothView",
@@ -272,8 +274,8 @@ export const PORTAL_ROUTES = {
     family: "administration",
     paginationKey: "staff",
     permission: P.MANAGE_STAFF,
-    subtitle: "Manage staff access and workflow dropdown values.",
-    title: "Settings / Dropdown Management",
+    subtitle: "Manage staff access and review workflow dropdown values.",
+    title: "Settings",
   },
   team: {
     component: "TeamView",
