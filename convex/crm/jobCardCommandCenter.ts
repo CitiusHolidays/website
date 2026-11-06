@@ -107,8 +107,14 @@ export async function handleGetCommandCenter(
     loadCommercialChainFilesForEntryPoint(ctx, "jobCard", String(jobCardId)),
   ]);
   if (isExternalTourManagerAccess(access)) {
-    // An external tour manager gets the trip, not the commercial chain: the itinerary stays,
-    // invoices, the linked query, proposal files and commercial files do not.
+    // An external tour manager gets the trip, not the commercial chain: the itinerary and its
+    // own group's visa and ticket statuses stay; invoices, the linked query, proposal files and
+    // commercial files do not.
+    const groupTravellers = travellers.filter((traveller) =>
+      travellerInGroupScope(travellerScope, traveller)
+    );
+    const inGroup = new Set(groupTravellers.map((traveller) => String(traveller._id)));
+    const wholeJobCard = travellerScope.kind === "jobCard";
     return {
       checklistTasks: [],
       commercialFiles: [],
@@ -123,11 +129,17 @@ export async function handleGetCommandCenter(
         : null,
       query: null,
       rooming: [],
-      tickets: [],
-      travellers: travellers
-        .filter((traveller) => travellerInGroupScope(travellerScope, traveller))
-        .map((traveller) => ({ passportStatus: traveller.passportStatus ?? "" })),
-      visaRecords: [],
+      tickets: tickets
+        .filter((ticket) =>
+          ticket.travellerId ? inGroup.has(String(ticket.travellerId)) : wholeJobCard
+        )
+        .map((ticket) => ({ ticketStatus: ticket.ticketStatus })),
+      travellers: groupTravellers.map((traveller) => ({
+        passportStatus: traveller.passportStatus ?? "",
+      })),
+      visaRecords: visaRecords
+        .filter((visa) => inGroup.has(String(visa.travellerId)))
+        .map((visa) => ({ status: visa.status })),
     };
   }
   return {

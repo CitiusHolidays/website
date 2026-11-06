@@ -1,6 +1,6 @@
 import type { BoothAccess } from "@/lib/eventPhotoBooth/contracts";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
-import { canAccessPipeline } from "@/lib/portal/permissions";
+import { canAccessPipeline, isClosedToExternalTourManager } from "@/lib/portal/permissions";
 import type { PortalPermission } from "@/lib/portal/workspaceContract";
 
 export type PortalRouteFamily =
@@ -375,6 +375,9 @@ export function canAccessPortalRoute({
   const route = getPortalRouteDefinition(view);
   if (view === "activity") {
     return Boolean(access?.allowed);
+  }
+  if (isClosedToExternalTourManager(access, resolvePortalViewId(view))) {
+    return false;
   }
   if (view === "event-photo-booth") {
     return Boolean(access?.allowed && eventPhotoBooth?.canManage);

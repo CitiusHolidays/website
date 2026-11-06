@@ -36,6 +36,9 @@ export function getPermissionsForRoles(roles = []) {
  * the tour manager app during the trip.
  */
 export function canViewPassportScansInWorkspace(access) {
+  if (isExternalTourManager(access)) {
+    return false;
+  }
   const roles = (access?.roles ?? []).filter((role) => role !== "Tour Manager");
   return getPermissionsForRoles(roles).includes(PORTAL_PERMISSIONS.VIEW_VISA);
 }
@@ -75,17 +78,31 @@ export function isExternalTourManager(access) {
 }
 
 const STAFF_WIDE_PAGES = new Set(["post-tour-feedback", "travel-schedule"]);
+// Post-tour feedback is open to an external login for its own trips (the server narrows it);
+// the travel schedule is not.
+const EXTERNAL_STAFF_WIDE_PAGES = new Set(["activity", "post-tour-feedback"]);
+// Pages an external login never opens even though it holds their permission: passport documents
+// (no passport data in the CRM) and the ticket dashboard (no dashboard data).
+const EXTERNAL_CLOSED_PAGES = new Set(["passport", "ticketing"]);
+
+/** True for a page an external tour manager's login never opens, whatever it holds. */
+export function isClosedToExternalTourManager(access, page) {
+  return isExternalTourManager(access) && EXTERNAL_CLOSED_PAGES.has(page);
+}
 
 function staffWidePageAllowed(access, page) {
-  if (page === "activity") {
-    return Boolean(access?.allowed);
+  if (!access?.allowed) {
+    return false;
   }
-  return Boolean(access?.allowed) && !isExternalTourManager(access);
+  return !isExternalTourManager(access) || EXTERNAL_STAFF_WIDE_PAGES.has(page);
 }
 
 function navItemAllowed(access, item, eventPhotoBooth) {
   if (item.page === "activity" || STAFF_WIDE_PAGES.has(item.page)) {
     return staffWidePageAllowed(access, item.page);
+  }
+  if (isClosedToExternalTourManager(access, item.page)) {
+    return false;
   }
   if (item.page === "event-photo-booth") {
     return Boolean(access?.allowed && eventPhotoBooth?.canManage);
@@ -111,6 +128,9 @@ export function getAccessibleNavGroups(access, eventPhotoBooth) {
 export function canAccessPage(access, page, eventPhotoBooth) {
   if (page === "activity" || STAFF_WIDE_PAGES.has(page)) {
     return staffWidePageAllowed(access, page);
+  }
+  if (isClosedToExternalTourManager(access, page)) {
+    return false;
   }
   if (page === "event-photo-booth") {
     return Boolean(access?.allowed && eventPhotoBooth?.canManage);

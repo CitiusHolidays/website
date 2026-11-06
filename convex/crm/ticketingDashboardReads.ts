@@ -28,6 +28,10 @@ interface DashboardArgs {
 }
 
 function ticketingMetricScope(access: PortalAccess) {
+  if (access.externalTourManager === true) {
+    // No aggregate metrics for an external tour manager's login; only its own group's rows.
+    return null;
+  }
   if (shouldApplyCementScope(access)) {
     if (canSeeAllCementRecords(access)) {
       return "cement";

@@ -302,17 +302,21 @@ export const ROLE_PERMISSIONS = {
 } satisfies Record<string, string[]>;
 
 /**
- * The whole permission set of an external tour manager's login (owner decision, 7 Nov 2026):
- * their assigned Job Cards, their own group's travellers and field features, and their own trip
- * expenses. No dashboard, team, leave, queries, proposals, visa, ticketing or tour-manager
- * directory. The login keeps the Tour Manager role so assignment scope, group scope and field
- * passports apply unchanged; `getRolePermissions` is never used for it.
+ * The whole permission set of an external tour manager's login (owner decisions, 7 Nov 2026):
+ * their assigned Job Cards, their own group's travellers, visa, ticket, PNR and seat rows, field
+ * features and their own trip expenses. No dashboard, team, leave, queries, proposals or
+ * tour-manager directory. `view:visa` never opens passport data: the Staff Workspace passport
+ * policy ignores the Tour Manager role and refuses external logins outright. The login keeps the
+ * Tour Manager role so assignment scope, group scope and field passports apply unchanged;
+ * `getRolePermissions` is never used for it.
  */
 export const EXTERNAL_TOUR_MANAGER_PERMISSIONS = [
   P.CREATE_EXPENSES,
   P.VIEW_EXPENSES,
   P.VIEW_JOB_CARDS,
+  P.VIEW_TICKETING,
   P.VIEW_TRAVELLERS,
+  P.VIEW_VISA,
 ] as const;
 
 export const EXTERNAL_TOUR_MANAGER_ROLES = ["Tour Manager"] as const;

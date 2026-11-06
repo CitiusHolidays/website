@@ -1,7 +1,8 @@
 import { convexTest } from "convex-test";
 import { describe, expect, test } from "vitest";
-import { api } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import { emptyPostTourReport } from "../lib/postTourReportContent";
 import schema from "../schema";
 import { modules } from "../test.setup";
 
@@ -279,7 +280,9 @@ describe("granting app and CRM access from an external profile", () => {
       "create:expenses",
       "view:expenses",
       "view:jobCards",
+      "view:ticketing",
       "view:travellers",
+      "view:visa",
     ]);
   });
 
@@ -365,7 +368,7 @@ describe("what an external tour manager with access can reach", () => {
     expect(await f.travellerNames()).toEqual(["Synthetic A One", "Synthetic B One"]);
   });
 
-  test("no staff directory, leave, queries, dashboard, staff travel or post-tour feedback", async () => {
+  test("no staff directory, leave, queries, dashboard or staff travel", async () => {
     const t = harness();
     const f = await seed(t);
     await f.assignExternal();
@@ -379,7 +382,6 @@ describe("what an external tour manager with access can reach", () => {
       () => ext.query(api.crm.proposals.listPage, { paginationOpts: PAGE }),
       () =>
         ext.query(api.crm.staffTravel.list, { paginationOpts: PAGE, referenceDate: "2026-11-07" }),
-      () => ext.query(api.crm.postTourFeedback.list, { paginationOpts: PAGE }),
       () => ext.query(api.crm.officeCheckIns.myStatus, { referenceNow: NOW }),
       () => ext.query(api.crm.externalTourManagerProfiles.list, { paginationOpts: PAGE }),
     ];
@@ -669,5 +671,409 @@ describe("identity rules", () => {
         name: "Impersonator",
       })
     ).rejects.toThrow("staff member");
+  });
+});
+
+/** Seeds visa, ticket, seat and PNR rows: one per batch on the external's Job Card, one elsewhere. */
+async function seedTravelRows(t: ReturnType<typeof harness>, f: Awaited<ReturnType<typeof seed>>) {
+  return await t.run(async (ctx) => {
+    const travellers = await ctx.db
+      .query("travellers")
+      .withIndex("by_jobCardId", (q) => q.eq("jobCardId", f.ids.jobCardId))
+      .collect();
+    const byName = new Map(travellers.map((row) => [row.fullName, row._id]));
+    const a1 = byName.get("Synthetic A One");
+    const b1 = byName.get("Synthetic B One");
+    if (!(a1 && b1)) {
+      throw new Error("seed travellers missing");
+    }
+    const other = await ctx.db.insert("travellers", {
+      ...SYNTHETIC_TRAVELLER,
+      contactNo: "+910000000009",
+      createdAt: NOW,
+      fullName: "Synthetic Other Trip",
+      jobCardId: f.ids.otherJobCardId,
+      updatedAt: NOW,
+    });
+    for (const [travellerId, jobCardId] of [
+      [a1, f.ids.jobCardId],
+      [b1, f.ids.jobCardId],
+      [other, f.ids.otherJobCardId],
+    ] as const) {
+      await ctx.db.insert("visaRecords", {
+        createdAt: NOW,
+        jobCardId,
+        status: "Documents Pending",
+        travellerId,
+        updatedAt: NOW,
+        updatedBy: "ops-head",
+      });
+      await ctx.db.insert("tickets", {
+        createdAt: NOW,
+        createdBy: "ops-head",
+        jobCardId,
+        paymentType: "Company Paid",
+        ticketStatus: "Pending Issue",
+        travellerId,
+        updatedAt: NOW,
+      });
+      await ctx.db.insert("seatAllocations", {
+        createdAt: NOW,
+        createdBy: "ops-head",
+        jobCardId,
+        seatNumber: `S-${String(travellerId).slice(-3)}`,
+        status: "Assigned",
+        travellerId,
+        updatedAt: NOW,
+      });
+      // A scan exists for every traveller, so a leak would show up as a flag or expiry.
+      const storageId = await ctx.storage.store(new Blob(["synthetic-encrypted"]));
+      await ctx.db.insert("passportDetails", {
+        createdAt: NOW,
+        createdBy: "ops-head",
+        encryptedPayload: "synthetic",
+        expiryDate: "2031-01-01",
+        fileName: "passport.pdf",
+        mimeType: "application/pdf",
+        status: "Received",
+        storageId,
+        travellerId,
+        updatedAt: NOW,
+      });
+      await ctx.db.patch("travellers", travellerId, {
+        hasPassportScan: true,
+        passportExpiryDate: "2031-01-01",
+        passportStatus: "Received",
+        visaRequired: true,
+      });
+    }
+    for (const [pnrCode, jobCardId] of [
+      ["PNR-OWN", f.ids.jobCardId],
+      ["PNR-OTHER", f.ids.otherJobCardId],
+    ] as const) {
+      await ctx.db.insert("pnrs", {
+        airline: "Synthetic Air",
+        createdAt: NOW,
+        createdBy: "ops-head",
+        issuedSeats: 0,
+        jobCardId,
+        pnrCode,
+        route: "BOM-DPS",
+        totalSeats: 2,
+        updatedAt: NOW,
+      });
+    }
+    return { a1, b1, other };
+  });
+}
+
+const PASSPORT_KEY = /passport/i;
+
+/** Every entry of a row whose key names passport data. Only the status word may remain. */
+function passportFields(entries: [string, unknown][]) {
+  return entries.filter(([key]) => PASSPORT_KEY.test(key));
+}
+
+describe("visa, ticket and seat rows for an external tour manager", () => {
+  test("their own group's rows only, with no passport data on any of them", async () => {
+    const t = harness();
+    const f = await seed(t);
+    await f.assignExternal(f.ids.batchA);
+    await f.grant();
+    await f.signInExternal();
+    const rows = await seedTravelRows(t, f);
+    const ext = f.external;
+
+    const access = await ext.query(api.crm.staff.getMyPortalAccess, {});
+    expect(access.permissions).toEqual(expect.arrayContaining(["view:ticketing", "view:visa"]));
+
+    const visas = await ext.query(api.crm.visa.list, { paginationOpts: PAGE });
+    expect(visas.page.map((row) => row.travellerId)).toEqual([rows.a1]);
+    const withoutVisa = await ext.query(api.crm.visa.listTravellersWithoutVisa, {});
+    expect(withoutVisa).toEqual([]);
+    const tickets = await ext.query(api.crm.ticketing.listTickets, { paginationOpts: PAGE });
+    expect(tickets.page.map((row) => row.travellerId)).toEqual([rows.a1]);
+    const seats = await ext.query(api.crm.ticketing.listSeatAllocations, { paginationOpts: PAGE });
+    expect(seats.page.map((row) => row.travellerId)).toEqual([rows.a1]);
+    const pnrs = await ext.query(api.crm.ticketing.listPnrs, { paginationOpts: PAGE });
+    expect(pnrs.page.map((row) => row.pnrCode)).toEqual(["PNR-OWN"]);
+    // Another batch's row and another Job Card's row stay out, one at a time too.
+    expect(
+      await ext.query(api.crm.ticketing.getTicketListRow, {
+        ticketId: String(tickets.page[0]?.id),
+      })
+    ).not.toBeNull();
+    const otherTicket = await t.run(async (ctx) =>
+      ctx.db
+        .query("tickets")
+        .withIndex("by_travellerId", (q) => q.eq("travellerId", rows.other))
+        .first()
+    );
+    expect(
+      await ext.query(api.crm.ticketing.getTicketListRow, { ticketId: String(otherTicket?._id) })
+    ).toBeNull();
+
+    for (const row of [...visas.page, ...tickets.page, ...seats.page, ...pnrs.page]) {
+      expect(passportFields(Object.entries(row))).toEqual([]);
+    }
+    const traveller = await ext.query(api.crm.travellers.getListRow, { travellerId: rows.a1 });
+    expect(passportFields(Object.entries(traveller ?? {}))).toEqual([
+      ["hasPassportScan", false],
+      ["passportExpiryDate", ""],
+      ["passportStatus", "Received"],
+    ]);
+    await expect(
+      ext.query(api.crm.passport.getPassportMetadata, { travellerId: rows.a1 })
+    ).rejects.toThrow("FORBIDDEN");
+    await expect(
+      ext.query(api.crm.fieldPassports.listFieldPassportAccess, {
+        jobCardId: f.ids.jobCardId,
+        paginationOpts: PAGE,
+      })
+    ).rejects.toThrow("FORBIDDEN");
+    await expect(
+      ext.query(api.crm.travellers.listPage, {
+        jobCardId: f.ids.jobCardId,
+        paginationOpts: PAGE,
+        passportExpiryUrgency: "ok",
+        passportReferenceDate: "2026-11-07",
+      })
+    ).rejects.toThrow("FORBIDDEN");
+    const center = await ext.query(api.crm.jobCards.getCommandCenter, {
+      jobCardId: f.ids.jobCardId,
+    });
+    expect(center.visaRecords).toEqual([{ status: "Documents Pending" }]);
+    expect(center.tickets).toEqual([{ ticketStatus: "Pending Issue" }]);
+  });
+
+  test("passenger, passport, visa and traveller exports stay refused", async () => {
+    const t = harness();
+    const f = await seed(t);
+    await f.assignExternal();
+    await f.grant();
+    await f.signInExternal();
+    await seedTravelRows(t, f);
+    const access = await f.external.query(api.crm.staff.getMyPortalAccess, {});
+    for (const exportKind of ["passenger", "passport", "visa", "traveller"] as const) {
+      await expect(
+        t.query(internal.crm.imports.getPassengerExportSourcePage, {
+          access,
+          exportKind,
+          jobCardId: f.ids.jobCardId,
+          paginationOpts: PAGE,
+        })
+      ).rejects.toThrow("FORBIDDEN");
+      await expect(
+        t.mutation(internal.crm.imports.beginPassengerExportOperation, {
+          access,
+          commandId: `export-${exportKind}`,
+          exportKind,
+          jobCardId: f.ids.jobCardId,
+          leaseId: `lease-${exportKind}`,
+        })
+      ).rejects.toThrow("FORBIDDEN");
+    }
+  });
+});
+
+function completeReport() {
+  const content = emptyPostTourReport({
+    client: "Synthetic incentive group",
+    destination: "Bali",
+    endDate: "2026-11-15",
+    guests: 3,
+    programme: "MICE / Corporate",
+    startDate: "2026-11-10",
+    tourManager: "Meera Iyer",
+  });
+  content.performance = { handling: 5, itinerary: 4, overall: 4, satisfaction: 5, services: 3 };
+  content.highlights = "Arrival support, temple visit, beach dinner.";
+  content.suppliers = content.suppliers.map((supplier) => ({ ...supplier, rating: "na" }));
+  content.closure = {
+    additionalCost: "No",
+    billing: "Completed",
+    budgetVariation: "No",
+    pendingDetails: "",
+    refundPending: "No",
+  };
+  content.assessment = {
+    learnings: "Allow transfer time and brief hosts early.",
+    rating: 8,
+    repeat: "Yes, with changes",
+    status: "Good",
+  };
+  return content;
+}
+
+describe("post-tour feedback and the internal tour report", () => {
+  async function withOtherTrip(t: ReturnType<typeof harness>) {
+    const f = await seed(t);
+    await f.assignExternal();
+    // A staff Tour Manager runs the other trip and writes feedback, a report and gets responses.
+    await f.opsHead.mutation(api.crm.ops.createTourManager, {
+      jobCardId: f.ids.otherJobCardId,
+      name: "ignored for staff assignments",
+      staffId: f.staffIds.get("tm-namesake"),
+    });
+    const staffTm = f.actor("tm-namesake");
+    await staffTm.mutation(api.crm.postTourFeedback.create, {
+      category: "overall",
+      comment: "Other trip note",
+      jobCardId: f.ids.otherJobCardId,
+    });
+    const saved = await staffTm.mutation(api.crm.postTourReports.saveDraft, {
+      content: completeReport(),
+      expectedRevision: 0,
+      jobCardId: f.ids.otherJobCardId,
+    });
+    await staffTm.mutation(api.crm.postTourReports.submit, {
+      expectedRevision: saved.revision,
+      reportId: saved.id,
+    });
+    await t.run(async (ctx) => {
+      for (const [jobCardId, respondentName] of [
+        [f.ids.jobCardId, "Own trip guest"],
+        [f.ids.otherJobCardId, "Other trip guest"],
+      ] as const) {
+        const requestId = await ctx.db.insert("travelerFeedbackRequests", {
+          createdAt: NOW,
+          createdBy: "ops-head",
+          expiresAt: NOW + 86_400_000,
+          jobCardId,
+          publicTripLabel: "Synthetic trip",
+          responseCount: 1,
+          tokenHash: `${"a".repeat(63)}${respondentName.length % 10}`,
+        });
+        await ctx.db.insert("travelerFeedbackResponses", {
+          comments: {
+            food: "",
+            hotel: "",
+            improvements: "",
+            itinerary: "",
+            overall: "Lovely trip",
+            whatWentWell: "",
+          },
+          createdAt: NOW,
+          jobCardId,
+          payloadHash: `payload-${respondentName}`,
+          photoCount: 0,
+          requestId,
+          respondentEmail: "",
+          respondentName,
+          responseTokenHash: `token-${respondentName}`,
+        });
+      }
+    });
+    await f.grant();
+    await f.signInExternal();
+    return f;
+  }
+
+  test("written and read for their own trip only", async () => {
+    const t = harness();
+    const f = await withOtherTrip(t);
+    const ext = f.external;
+
+    const jobs = await ext.query(api.crm.postTourFeedback.listJobs, { paginationOpts: PAGE });
+    expect(jobs.page.map((job) => [job.jobCode, job.canCompose])).toEqual([["JC-EXT-01", true]]);
+    await ext.mutation(api.crm.postTourFeedback.create, {
+      category: "overall",
+      comment: "Group arrived on time",
+      jobCardId: f.ids.jobCardId,
+    });
+    await expect(
+      ext.mutation(api.crm.postTourFeedback.create, {
+        category: "overall",
+        comment: "Not my trip",
+        jobCardId: f.ids.otherJobCardId,
+      })
+    ).rejects.toThrow("FORBIDDEN");
+    const notes = await ext.query(api.crm.postTourFeedback.list, { paginationOpts: PAGE });
+    expect(notes.page.map((row) => [row.comment, row.canEdit])).toEqual([
+      ["Group arrived on time", true],
+    ]);
+    const otherNotes = await ext.query(api.crm.postTourFeedback.list, {
+      jobCardId: String(f.ids.otherJobCardId),
+      paginationOpts: PAGE,
+    });
+    expect(otherNotes.page).toEqual([]);
+    expect(
+      await ext.query(api.crm.postTourFeedback.getJobContext, {
+        jobCardId: String(f.ids.otherJobCardId),
+      })
+    ).toBeNull();
+
+    const saved = await ext.mutation(api.crm.postTourReports.saveDraft, {
+      content: completeReport(),
+      expectedRevision: 0,
+      jobCardId: f.ids.jobCardId,
+    });
+    await ext.mutation(api.crm.postTourReports.submit, {
+      expectedRevision: saved.revision,
+      reportId: saved.id,
+    });
+    const own = await ext.query(api.crm.postTourReports.workspace, {
+      jobCardId: String(f.ids.jobCardId),
+    });
+    expect(own?.report?.status).toBe("submitted");
+    // Submitted reports are a staff-wide read, but not for an external login.
+    expect(
+      await ext.query(api.crm.postTourReports.workspace, {
+        jobCardId: String(f.ids.otherJobCardId),
+      })
+    ).toBeNull();
+    await expect(
+      ext.mutation(api.crm.postTourReports.saveDraft, {
+        content: completeReport(),
+        expectedRevision: 0,
+        jobCardId: f.ids.otherJobCardId,
+      })
+    ).rejects.toThrow("FORBIDDEN");
+
+    const responses = await ext.query(api.crm.travelerFeedback.listResponses, {
+      paginationOpts: PAGE,
+    });
+    expect(responses.page.map((row) => row.respondentName)).toEqual(["Own trip guest"]);
+    const otherResponses = await ext.query(api.crm.travelerFeedback.listResponses, {
+      jobCardId: String(f.ids.otherJobCardId),
+      paginationOpts: PAGE,
+    });
+    expect(otherResponses.page).toEqual([]);
+    // Issuing traveller feedback links stays with office staff.
+    expect(
+      await ext.query(api.crm.travelerFeedback.getRequestAccess, {
+        jobCardId: String(f.ids.jobCardId),
+      })
+    ).toEqual({ canManage: false });
+  });
+
+  test("refused once access is switched off", async () => {
+    const t = harness();
+    const f = await withOtherTrip(t);
+    await f.opsHead.mutation(api.crm.externalTourManagerProfiles.setAppAccess, {
+      enabled: false,
+      profileId: f.ids.profileId,
+    });
+    const ext = f.external;
+    await expect(
+      ext.mutation(api.crm.postTourFeedback.create, {
+        category: "overall",
+        comment: "After switch-off",
+        jobCardId: f.ids.jobCardId,
+      })
+    ).rejects.toThrow("FORBIDDEN");
+    await expect(
+      ext.mutation(api.crm.postTourReports.saveDraft, {
+        content: completeReport(),
+        expectedRevision: 0,
+        jobCardId: f.ids.jobCardId,
+      })
+    ).rejects.toThrow("FORBIDDEN");
+    await expect(
+      ext.query(api.crm.postTourReports.workspace, { jobCardId: String(f.ids.jobCardId) })
+    ).rejects.toThrow("FORBIDDEN");
+    await expect(
+      ext.query(api.crm.travelerFeedback.listResponses, { paginationOpts: PAGE })
+    ).rejects.toThrow("FORBIDDEN");
   });
 });

@@ -483,9 +483,10 @@ function AppAccessPanel({ profile }: { profile: Profile }) {
         </button>
       </div>
       <p className="mt-3 text-brand-muted text-xs">
-        With access they see their assigned Job Cards, their own group's travellers, field
-        headcounts, announcements and passports during the trip, and their own trip expenses.
-        Nothing else, and no leave or HR records. Access stays on until someone turns it off.
+        With access they see their assigned Job Cards, their own group's travellers, visa and ticket
+        rows, field headcounts and announcements, the post-tour feedback and report for those trips,
+        and their own trip expenses. Passports open only in the app during the trip. Nothing else,
+        and no leave or HR records. Access stays on until someone turns it off.
       </p>
       {enabled || profile.email ? null : (
         <p className="mt-3 text-sm">Add an email to the profile first: it becomes their sign-in.</p>
