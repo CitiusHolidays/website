@@ -159,6 +159,15 @@ Owner decisions of 7 Nov 2026:
    payroll, staff travel, team directory or HR emails.
 4. Access ends only when someone switches it off; switching off refuses CRM and app access at
    once. Nothing expires on its own.
+5. Their trip expenses go to the Job Card's Operations owner for the manager approval step, then
+   to Finance (they have no reporting manager).
+6. They see the visa rows and the ticket, PNR and seat rows of their own group on their assigned
+   Job Cards, as staff tour managers do. They get no passport data in the CRM at all: no scans,
+   scan flag, passport number, expiry date, passport files or exports. They read passports only
+   through the field-passport flow in the app, inside the trip window, like staff tour managers.
+7. They write and read the post-tour feedback (tour manager notes) and the internal tour report
+   for their own assigned trips only, and read the traveller responses for those trips. Other
+   trips' feedback and reports and the staff-wide areas stay closed.
 
 **The login.** `crm/externalTourManagerProfiles:setAppAccess { profileId, enabled }` (Operations
 Head, Directors, Director Cement, Admin; `FORBIDDEN` for anyone else) creates or reactivates one
@@ -175,23 +184,46 @@ does not change access. `get` and `list` return `appAccess: { status: "none" | "
 
 **Narrowed access** (`convex/crm/lib/staffAccess.ts`). For such a login `getPortalAccess` returns
 `externalTourManager: true`, the roles `["Tour Manager"]` whatever is stored, and exactly
-`EXTERNAL_TOUR_MANAGER_PERMISSIONS`: `view:jobCards`, `view:travellers`, `view:expenses`,
-`create:expenses`. The baseline leave and expense permissions every role gets are not added.
-`requireStaff(ctx)` without a permission (the staff-wide reads: travel schedule, post-tour feedback
-and tour reports, traveller feedback, office check-in, document preview) refuses the login;
-`requireStaffSession` admits it only where the endpoint is already scoped to the caller
-(notifications, navigation counts, saved views, list-search readiness, the field-updates panel).
+`EXTERNAL_TOUR_MANAGER_PERMISSIONS`: `view:jobCards`, `view:travellers`, `view:visa`,
+`view:ticketing`, `view:expenses`, `create:expenses`. The baseline leave and expense permissions
+every role gets are not added. `requireStaff(ctx)` without a permission (the staff-wide reads:
+travel schedule, office check-in, document preview) refuses the login; `requireStaffSession`
+admits it only where the endpoint is already scoped to the caller (notifications, navigation
+counts, saved views, list-search readiness, the field-updates panel) or narrows it itself
+(post-tour feedback, tour reports and traveller responses, below).
 
 **Scope.** `jobCardRecordGrant` gives such a login no office route at all (no owner, collaborator,
 name or linked-query match) and no legacy name match: only its own staff-id assignment, as a
 `"tourManager"` grant narrowed to its group. Queries and proposals are never visible to it.
-`getCommandCenter` returns the Job Card, the itinerary summary and the group's traveller passport
-words, with empty invoices, files, hotels, rooming, tickets, visas, checklist and no linked query.
+`getCommandCenter` returns the Job Card, the itinerary summary, the group's traveller passport
+status words and the group's visa and ticket statuses, with empty invoices, files, hotels,
+rooming, checklist and no linked query.
 Commercial files, query and proposal attachments and the Proposal Doc are refused, although a
 staff Tour Manager reaches them through the Job Card. `crm/ops:listTourManagers` needs a `jobCardId` the login can see and
 then lists the tour managers on that trip; without it the call is `FORBIDDEN` (the app always
 passes one). Expenses: only the login's own, always on a visible Job Card; submitting for approval
-goes to the Job Card's Operations owner (`operationsOwnerId`) for the manager step, then Finance.
+goes to the Job Card's Operations owner (`operationsOwnerId`) for the manager step, then Finance
+(owner decision 5).
+
+**Visa, ticket, PNR and seat rows** (owner decision 6). `crm/visa:list`,
+`listTravellersWithoutVisa`, `crm/ticketing:listTickets`, `getTicketListRow`,
+`listSeatAllocations` and `listPnrs` and the flight itinerary work with the same group narrowing
+as for staff tour managers (PNRs and flight groups keep Job Card scope). None of these rows carries
+passport fields. Traveller rows keep the `passportStatus` word the app shows and blank
+`hasPassportScan` and `passportExpiryDate`. `canReadPassportInStaffWorkspace` refuses an external
+login outright, so passport metadata, scans, previews, the field-passport audit list and the
+expiry filter stay `FORBIDDEN` even with `view:visa`; passenger, passport, visa and traveller
+exports ignore Tour Manager permissions and need an office grant, so they stay refused. The ticket
+dashboard has no aggregate metrics for the login, and the CRM hides the Passport documents and
+Ticket dashboard pages from it.
+
+**Post-tour feedback and reports** (owner decision 7). `crm/postTourFeedback` (`create`,
+`update`, `remove`, photos, `list`, `listJobs`, `getJobContext`) and `crm/postTourReports`
+(`saveDraft`, `submit`, `workspace`) accept the login only on a Job Card where it holds an own
+staff-id assignment; no name match applies. Lists drop every other trip, and the submitted-report
+read that is staff-wide for employees returns `null` for it. `crm/travelerFeedback:listResponses`
+and response photos return only its visible trips; issuing or revoking traveller feedback links
+stays with office staff.
 
 **Assignments.** Assigning a profile that has a login stores both `externalProfileId` and the
 login's `staffId`; granting a login puts the `staffId` on the profile's existing assignments and

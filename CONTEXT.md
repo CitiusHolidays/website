@@ -109,7 +109,7 @@ The non-disableable mechanisms required to authorize, apply, audit, test, and au
 _Avoid_: Exposing recovery mechanisms as ordinary controls, allowing a paused scheduled-job group to prevent Automatic Restoration
 
 **External Tour Manager Login**:
-A narrowed Tour Manager sign-in that the Operations Head or a director/admin grants from an external tour manager's profile. It reaches only the trips the person is assigned to (those Job Cards, their group's travellers, field features and their own trip expenses), takes no part in HR flows, and ends only when someone switches it off.
+A narrowed Tour Manager sign-in that the Operations Head or a director/admin grants from an external tour manager's profile. It reaches only the trips the person is assigned to (those Job Cards, their group's travellers, visa and ticket rows, field features, post-tour feedback and report, and their own trip expenses), never sees passport data in the CRM, takes no part in HR flows, and ends only when someone switches it off.
 _Avoid_: Staff record, employee, creating a full staff record for a contractor, automatic expiry
 
 **Client**:
