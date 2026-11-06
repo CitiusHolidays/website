@@ -59,7 +59,7 @@ test.describe("@workflow Exact role semantics", () => {
     const headRow = headPage.locator("tr").filter({ hasText: reason });
     await expect(headRow).toBeVisible({ timeout: 15_000 });
     await headRow.getByRole("button", { exact: true, name: "Approve" }).click();
-    await expect(headRow.getByText("Approved", { exact: true }).first()).toBeVisible();
+    await expect(headRow.getByText(/^Head approved · waiting for/)).toBeVisible();
     await expect(headRow.getByRole("button", { exact: true, name: "Approve" })).toHaveCount(0);
     await headContext.close();
 
@@ -75,8 +75,9 @@ test.describe("@workflow Exact role semantics", () => {
     await expect(hrFinalRow.getByRole("button", { exact: true, name: "Approve (HR)" })).toHaveCount(
       0
     );
-    await expect(hrFinalRow.getByText("Approved", { exact: true })).toHaveCount(3);
-    await hrFinalRow.getByRole("button", { name: /Delete leave for E2E HR/i }).click();
+    await expect(hrFinalRow.getByRole("status", { name: /leave granted/i })).toBeVisible();
+    await hrFinalRow.getByRole("button", { name: /More actions for leave for E2E HR/i }).click();
+    await hrFinalPage.getByRole("menuitem", { name: /Delete leave for E2E HR/i }).click();
     await expectConfirmDialog(hrFinalPage);
     await holdToConfirmDelete(hrFinalPage);
     await expect(hrFinalRow).toHaveCount(0);
