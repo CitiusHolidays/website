@@ -187,7 +187,8 @@ name or linked-query match) and no legacy name match: only its own staff-id assi
 `"tourManager"` grant narrowed to its group. Queries and proposals are never visible to it.
 `getCommandCenter` returns the Job Card, the itinerary summary and the group's traveller passport
 words, with empty invoices, files, hotels, rooming, tickets, visas, checklist and no linked query.
-Commercial files are refused. `crm/ops:listTourManagers` needs a `jobCardId` the login can see and
+Commercial files, query and proposal attachments and the Proposal Doc are refused, although a
+staff Tour Manager reaches them through the Job Card. `crm/ops:listTourManagers` needs a `jobCardId` the login can see and
 then lists the tour managers on that trip; without it the call is `FORBIDDEN` (the app always
 passes one). Expenses: only the login's own, always on a visible Job Card; submitting for approval
 goes to the Job Card's Operations owner (`operationsOwnerId`) for the manager step, then Finance.
