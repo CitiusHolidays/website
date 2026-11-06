@@ -433,6 +433,88 @@ describe("what an external tour manager with access can reach", () => {
     );
     expect(approver).toBe(f.staffIds.get("ops-exec"));
   });
+  test("the commercial chain behind the Job Card stays closed, unlike for a staff Tour Manager", async () => {
+    const t = harness();
+    const f = await seed(t);
+    const chain = await t.run(async (ctx) => {
+      const queryId = await ctx.db.insert("queries", {
+        batchingNotes: "",
+        clientName: "Synthetic incentive group",
+        contractingStatus: "Proposal in progress",
+        createdAt: NOW,
+        createdBy: "sales-owner",
+        leadStage: "Confirmation",
+        listSearchText: "synthetic incentive group",
+        paxCount: 3,
+        queryCode: "Q-EXT-CHAIN",
+        queryType: "MICE",
+        salesStatus: "Order Confirmed",
+        source: "Client",
+        ticketingScope: "Not required",
+        travelInBatches: true,
+        travelType: "International Travel",
+        updatedAt: NOW,
+      });
+      const proposalId = await ctx.db.insert("proposals", {
+        clientName: "Synthetic incentive group",
+        createdAt: NOW,
+        createdBy: "contracting-owner",
+        itinerarySummary: "Day 1 arrival, Day 2 temples",
+        preparedBy: "contracting",
+        proposalCode: "P-EXT-CHAIN",
+        queryId,
+        status: "Draft",
+        updatedAt: NOW,
+      });
+      const storageId = await ctx.storage.store(new Blob(["synthetic pricing sheet"]));
+      await ctx.db.insert("queryAttachments", {
+        createdAt: NOW,
+        createdBy: "sales-owner",
+        fileName: "pricing.xlsx",
+        fileSize: 23,
+        mimeType: "application/vnd.ms-excel",
+        queryId,
+        storageId,
+      });
+      await ctx.db.patch("jobCards", f.ids.jobCardId, { proposalId, queryId });
+      return { proposalId, queryId };
+    });
+    await f.assignExternal();
+    await f.opsHead.mutation(api.crm.ops.createTourManager, {
+      jobCardId: f.ids.jobCardId,
+      name: "ignored for staff assignments",
+      staffId: f.staffIds.get("tm-namesake"),
+    });
+    await f.grant();
+    await f.signInExternal();
+
+    const staffTm = f.actor("tm-namesake");
+    const staffAttachments = await staffTm.query(api.crm.queryAttachments.listForQuery, {
+      paginationOpts: PAGE,
+      queryId: chain.queryId,
+    });
+    expect(staffAttachments.page).toHaveLength(1);
+    await expect(
+      staffTm.query(api.crm.proposalAttachments.listForProposal, { proposalId: chain.proposalId })
+    ).resolves.toEqual([]);
+
+    const externalAttachments = await f.external.query(api.crm.queryAttachments.listForQuery, {
+      paginationOpts: PAGE,
+      queryId: chain.queryId,
+    });
+    expect(externalAttachments.page).toEqual([]);
+    await expect(
+      f.external.query(api.crm.proposalAttachments.listForProposal, {
+        proposalId: chain.proposalId,
+      })
+    ).rejects.toThrow("FORBIDDEN");
+    // The itinerary summary still reaches the trip pack.
+    const center = await f.external.query(api.crm.jobCards.getCommandCenter, {
+      jobCardId: f.ids.jobCardId,
+    });
+    expect(center.proposal?.itinerarySummary).toBe("Day 1 arrival, Day 2 temples");
+    expect(center.query).toBeNull();
+  });
 });
 
 describe("switching access off", () => {

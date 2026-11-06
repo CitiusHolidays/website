@@ -9,6 +9,7 @@ import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   canSeeJobCardRecord,
   canSeeProposalRecord,
+  isExternalTourManagerAccess,
   PERMISSIONS,
   requireAnyPermission,
 } from "./lib";
@@ -102,6 +103,10 @@ export async function handleGetFinalizedPdfRecord(
     ]),
   ]);
   if (!canSeeProposalRecord(access, proposal, linkedQueries)) {
+    if (isExternalTourManagerAccess(access)) {
+      // The Proposal Doc carries pricing; an external tour manager's login never reads it.
+      throw new ConvexError("FORBIDDEN");
+    }
     const linkedJobs = await ctx.db
       .query("jobCards")
       .withIndex("by_proposalId", (query) => query.eq("proposalId", proposalId))
