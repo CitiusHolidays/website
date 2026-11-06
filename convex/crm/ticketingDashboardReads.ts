@@ -1,3 +1,4 @@
+import { ConvexError } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { getVisibleJob } from "./jobCardVisibility";
@@ -168,6 +169,11 @@ async function buildTicketPreview(
 
 export async function handleDashboard(ctx: QueryCtx, args: DashboardArgs) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_TICKETING);
+  if (access.externalTourManager === true) {
+    // The dashboard's work coverage counts rows before visibility; an external login reads its
+    // group's tickets through the ticket list instead.
+    throw new ConvexError("FORBIDDEN");
+  }
   const referenceNow = assertReferenceNow(args.referenceNow);
   const workRange = dashboardWorkRange(args.dateRange, referenceNow);
   const scope = ticketingMetricScope(access);

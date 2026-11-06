@@ -20,7 +20,12 @@ import { createActivity } from "./lib/activity";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { canSeeJobCardRecord } from "./lib/recordScope";
 import { PERMISSIONS } from "./lib/rolePolicy";
-import { type PortalAccess, requireStaff } from "./lib/staffAccess";
+import {
+  isExternalTourManagerAccess,
+  type PortalAccess,
+  requireStaff,
+  requireStaffSession,
+} from "./lib/staffAccess";
 import { boundedPaginationOptions } from "./paginationPolicy";
 
 type DatabaseCtx = MutationCtx | QueryCtx;
@@ -43,7 +48,22 @@ function unavailable(): never {
 }
 
 function canManage(access: PortalAccess) {
+  if (isExternalTourManagerAccess(access)) {
+    return false;
+  }
   return MANAGEMENT_PERMISSIONS.some((permission) => access.permissions.includes(permission));
+}
+
+/**
+ * Safe traveller responses are a staff-wide read. An external tour manager's login reads them
+ * only for a Job Card it reaches through its own assignment.
+ */
+async function canReadResponsesFor(ctx: DatabaseCtx, access: PortalAccess, job: Doc<"jobCards">) {
+  if (!isExternalTourManagerAccess(access)) {
+    return true;
+  }
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
+  return canSeeJobCardRecord(access, job, linkedQuery);
 }
 
 async function requireVisibleJob(ctx: DatabaseCtx, jobCardId: Id<"jobCards">, manage = false) {
@@ -234,7 +254,7 @@ export const listRequests = query({
 export const getRequestAccess = query({
   args: { jobCardId: v.string() },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
     if (!(jobCardId && access.permissions.includes(PERMISSIONS.VIEW_JOB_CARDS))) {
       return { canManage: false };
@@ -445,7 +465,7 @@ export const savePhoto = internalMutation({
 export const listResponses = query({
   args: { jobCardId: v.optional(v.string()), paginationOpts: paginationOptsValidator },
   handler: async (ctx, args) => {
-    await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     const jobCardId = args.jobCardId ? ctx.db.normalizeId("jobCards", args.jobCardId) : null;
     if (args.jobCardId !== undefined && !jobCardId) {
       return { continueCursor: "", isDone: true, page: [] };
@@ -461,7 +481,7 @@ export const listResponses = query({
     const page = await Promise.all(
       result.page.map(async (response) => {
         const job = await ctx.db.get("jobCards", response.jobCardId);
-        if (!job) {
+        if (!(job && (await canReadResponsesFor(ctx, access, job)))) {
           return null;
         }
         const photos = await ctx.db
@@ -499,11 +519,15 @@ export const listResponses = query({
 export const photoRecord = internalQuery({
   args: { photoId: v.id("travelerFeedbackPhotos") },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     const photo = await ctx.db.get("travelerFeedbackPhotos", args.photoId);
     const response = photo ? await ctx.db.get("travelerFeedbackResponses", photo.responseId) : null;
     const job = response ? await ctx.db.get("jobCards", response.jobCardId) : null;
-    if (!(photo && response && job) || photo.jobCardId !== job._id) {
+    if (
+      !(photo && response && job) ||
+      photo.jobCardId !== job._id ||
+      !(await canReadResponsesFor(ctx, access, job))
+    ) {
       throw new ConvexError("Photo not found");
     }
     return {

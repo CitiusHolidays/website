@@ -16,6 +16,7 @@ import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   canSeeJobCardRecord,
   canSeeProposalRecord,
+  isExternalTourManagerAccess,
   PERMISSIONS,
   requireAnyPermission,
 } from "./lib";
@@ -176,6 +177,9 @@ export async function requireVisibleProposal(
   ).filter((linkedQuery): linkedQuery is NonNullable<typeof linkedQuery> => linkedQuery !== null);
   const canSeeProposal = canSeeProposalRecord(access, proposal, linkedQueries);
   if (!canSeeProposal) {
+    if (isExternalTourManagerAccess(access)) {
+      throw new ConvexError("FORBIDDEN");
+    }
     const jobs = await ctx.db
       .query("jobCards")
       .withIndex("by_proposalId", (q) => q.eq("proposalId", proposalId))

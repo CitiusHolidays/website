@@ -38,6 +38,11 @@ The internal capabilities in `convex/crm/tourManagerLegacyNamesMigration.ts` req
 Re-running after verification is a no-op. Pages default to 25 Job Cards and cap at 50, because
 each Job Card reads up to 500 assignment rows; a Job Card with more stops the pass with an error.
 
+External tour manager logins added a third derived field, `externalTourManagerStaffIds`, and
+narrowed `assignedTourManagerStaffIds` to employees. Because this key is already verified on
+deployments, that change has its own pass:
+[external tour manager logins](job-card-external-tour-manager-logins.md).
+
 This pass also writes `assignedTourManagerStaffIds` where it is missing or stale, so it covers
 the [assigned Tour Manager backfill](job-card-assigned-tour-manager-staff-ids.md) too. Run that
 one as well so its own registry records a verified state.

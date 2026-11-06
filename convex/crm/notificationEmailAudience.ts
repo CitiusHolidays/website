@@ -8,8 +8,8 @@ import {
   canSeeQueryRecord,
   jobCardRecordGrant,
 } from "./lib/recordScope";
-import { getRolePermissions, PERMISSIONS } from "./lib/rolePolicy";
-import type { PortalAccess } from "./lib/staffAccess";
+import { PERMISSIONS } from "./lib/rolePolicy";
+import { type PortalAccess, portalAccessForStaff } from "./lib/staffAccess";
 import { legacyNotificationWorkKey, notificationWorkAudience } from "./notificationWorkAudience";
 import { canReadPassportInStaffWorkspace } from "./passportPolicy";
 
@@ -42,15 +42,7 @@ export async function notificationRecipientCanAccess(
   if (!(job.entityId && job.entityType)) {
     return true;
   }
-  const access: PortalAccess = {
-    allowed: true,
-    authUserId: staff.authUserId,
-    email: staff.email,
-    name: staff.name,
-    permissions: getRolePermissions(staff.roles),
-    roles: staff.roles,
-    staffId: staff._id,
-  };
+  const access: PortalAccess = portalAccessForStaff(staff);
   const id = job.entityId;
   const check = accessChecks.get(job.entityType);
   if (check) {

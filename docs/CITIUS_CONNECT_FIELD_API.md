@@ -12,7 +12,8 @@ Owner decisions of 6 Nov 2026 behind this API:
 2. A tour manager does not get passports in the Staff Workspace, but can in the field, for their
    own group, during the trip window. Every field read is audited.
 3. Headcounts and announcements sync to the office. The server never sends a message.
-4. External tour managers should be wired in. See [External tour managers](#external-tour-managers).
+4. External tour managers should be wired in. See [External tour managers](#external-tour-managers)
+   for the owner decisions of 7 Nov 2026 that do this.
 
 ## Traveller scope
 
@@ -147,20 +148,129 @@ extended trip keeps its rows until the new close.
 
 ## External tour managers
 
-Today an external tour manager is an `externalTourManagerProfiles` contact (name, email, phone,
-experience) maintained by Operations Head and directors/admins. Assignments can link a profile
-(`externalProfileId`) but carry no `staffId`, so they grant no Job Card scope, and there are no
-external logins, invitations or messages ([Team travel](TEAM_TRAVEL.md)). `/auth/vendor` is an
-unrelated "coming soon" vendor portal.
+An external tour manager is an `externalTourManagerProfiles` contact (name, email, phone,
+experience) maintained by the Operations Head and directors/admins. `/auth/vendor` is an unrelated
+"coming soon" vendor portal.
 
-The only route to app access today: Admin or Directors (`manage:staff`) create a staff record with
-only the Tour Manager role and complete onboarding; Operations then assigns that staff identity.
-Every path above works for that person, because scope is keyed on staff id plus the Tour Manager
-role. The profile directory refuses a profile whose email or phone already belongs to staff, so
-the two identities do not mix.
+Owner decisions of 7 Nov 2026:
 
-Letting an Operations user grant app access directly from a profile needs product decisions that
-this change does not make; see the PR description for the proposal.
+1. The Operations Head (and directors/admins) give an external tour manager a login from their
+   profile. HR is not involved.
+2. The login reaches both this app and the CRM, but only what concerns the trips they are assigned
+   to: those Job Cards, their own group's travellers (same group scope as staff tour managers), the
+   field features (headcount, announcements, field passports inside the trip window) and their own
+   trip expenses. No dashboard, team or staff directory, queries, proposals or other Job Cards.
+3. No HR flows: no leave, approvals, onboarding paperwork, employment fields, reporting managers,
+   payroll, staff travel, team directory or HR emails.
+4. Access ends only when someone switches it off; switching off refuses CRM and app access at
+   once. Nothing expires on its own.
+5. Their trip expenses go to the Job Card's Operations owner for the manager approval step, then
+   to Finance (they have no reporting manager).
+6. They see the visa rows and the ticket, PNR and seat rows of their own group on their assigned
+   Job Cards, as staff tour managers do. They get no passport data in the CRM at all: no scans,
+   scan flag, passport number, expiry date, passport files or exports. They read passports only
+   through the field-passport flow in the app, inside the trip window, like staff tour managers.
+7. They write and read the post-tour feedback (tour manager notes) and the internal tour report
+   for their own assigned trips only, and read the traveller responses for those trips. Other
+   trips' feedback and reports and the staff-wide areas stay closed.
+
+**The login.** `crm/externalTourManagerProfiles:setAppAccess { profileId, enabled }` (Operations
+Head, Directors, Director Cement, Admin; `FORBIDDEN` for anyone else) creates or reactivates one
+`staffUsers` row with `externalTourManagerProfileId` set and the Tour Manager role, and records it
+on the profile (`externalTourManagerProfiles.staffId`). The profile needs an email, which becomes
+the sign-in; an email that belongs to any other staff record is refused, so a profile can never
+take over an employee's identity. A new login gets the ordinary staff verification and
+password-setup emails (`crm/staffAction:provisionStaffUser`); enabling again while setup is still
+pending sends them again. `enabled: false` sets the login inactive, so `getPortalAccess` resolves no
+staff record and every query, mutation and action refuses the session at once. Existing Better Auth
+sessions are not deleted; they simply reach nothing. Deactivating the profile for new assignments
+does not change access. `get` and `list` return `appAccess: { status: "none" | "enabled" |
+"disabled", onboarding: "not_started" | "pending" | "ready" }`.
+
+**Narrowed access** (`convex/crm/lib/staffAccess.ts`). For such a login `getPortalAccess` returns
+`externalTourManager: true`, the roles `["Tour Manager"]` whatever is stored, and exactly
+`EXTERNAL_TOUR_MANAGER_PERMISSIONS`: `view:jobCards`, `view:travellers`, `view:visa`,
+`view:ticketing`, `view:expenses`, `create:expenses`. The baseline leave and expense permissions
+every role gets are not added. `requireStaff(ctx)` without a permission (the staff-wide reads:
+travel schedule, office check-in) refuses the login; `requireStaffSession`
+admits it only where the endpoint is already scoped to the caller (notifications, navigation
+counts, saved views, list-search readiness, the field-updates panel) or narrows it itself
+(post-tour feedback, tour reports and traveller responses, below).
+
+**Scope.** `jobCardRecordGrant` gives such a login no office route at all (no owner, collaborator,
+name or linked-query match) and no legacy name match: only its own staff-id assignment, as a
+`"tourManager"` grant narrowed to its group. Queries and proposals are never visible to it.
+`getCommandCenter` returns the Job Card, the itinerary summary, the group's traveller passport
+status words and the group's visa and ticket statuses, with empty invoices, files, hotels,
+rooming, checklist and no linked query.
+Commercial files, query and proposal attachments and the Proposal Doc are refused, although a
+staff Tour Manager reaches them through the Job Card. `crm/ops:listTourManagers` needs a `jobCardId` the login can see and
+then lists the tour managers on that trip; without it the call is `FORBIDDEN` (the app always
+passes one). Expenses: only the login's own, always on a visible Job Card; submitting for approval
+goes to the Job Card's Operations owner (`operationsOwnerId`) for the manager step, then Finance
+(owner decision 5).
+
+**Visa, ticket, PNR and seat rows** (owner decision 6). `crm/visa:list`,
+`listTravellersWithoutVisa`, `crm/ticketing:listTickets`, `getTicketListRow`,
+`listSeatAllocations` and `listPnrs` and the flight itinerary work with the same group narrowing
+as for staff tour managers (PNRs and flight groups keep Job Card scope). None of these rows carries
+passport fields. Traveller rows keep the `passportStatus` word the app shows and blank
+`hasPassportScan` and `passportExpiryDate`. `canReadPassportInStaffWorkspace` refuses an external
+login outright, so passport metadata, scans, previews, the field-passport audit list and the
+expiry filter stay `FORBIDDEN` even with `view:visa`; passenger, passport, visa and traveller
+exports ignore Tour Manager permissions and need an office grant, so they stay refused.
+`crm/ticketing:dashboard` refuses the login (its work coverage counts rows before visibility), and
+the CRM hides the Passport documents and Ticket dashboard pages from it. Ticket shortcuts in
+`crm/navShortcuts:list` follow the same group narrowing as the ticket list, for staff tour
+managers too. The only document the login can preview is its own expense receipt
+(`crm/documentPreview`, source `expenseAttachment`, through the existing expense scope); every
+other preview source refuses it.
+
+**Post-tour feedback and reports** (owner decision 7). `crm/postTourFeedback` (`create`,
+`update`, `remove`, photos, `list`, `listJobs`, `getJobContext`) and `crm/postTourReports`
+(`saveDraft`, `submit`, `workspace`) accept the login only on a Job Card where it holds an own
+staff-id assignment; no name match applies. Lists drop every other trip, and the submitted-report
+read that is staff-wide for employees returns `null` for it. `crm/travelerFeedback:listResponses`
+and response photos return only its visible trips; issuing or revoking traveller feedback links
+stays with office staff.
+
+**Assignments.** Assigning a profile that has a login stores both `externalProfileId` and the
+login's `staffId`; granting a login puts the `staffId` on the profile's existing assignments and
+recomputes `syncJobCardTourManagerVisibility` for each affected Job Card. `legacyTourManagerNames`
+still ignores every row with a profile or staff id, so an external profile's name never grants a
+same-named staff member scope. A login cannot be picked as a staff Tour Manager; it is assigned
+through its profile.
+
+The derived Job Card fields keep employees and external logins apart:
+`assignedTourManagerStaffIds` lists employee rows only (a `staffId` and no `externalProfileId`) and
+still decides whether the legacy name route applies, so granting an external login never ends a
+name-only employee's access; `externalTourManagerStaffIds` lists the external logins and is the
+only list `ownsTourManagerJobCard` reads for them. See the
+[external-logins backfill](migrations/job-card-external-tour-manager-logins.md).
+
+**One series per external assignment.** On a Job Card that travels in series (has Travel
+Batches), `createTourManager` and `updateTourManager` refuse an external-profile assignment without
+`travelBatchId`, and the profile page's assignment form asks for the series. Group scope fails
+closed for rows that already exist: an external login's assignment without a batch on such a Job
+Card opens the Job Card but no travellers, visa or ticket rows and no field passports until
+Operations sets the batch. On a Job Card without series a batchless assignment still covers the
+whole Job Card.
+
+**Sign-in safety.** Granting refuses an email listed in `PORTAL_BOOTSTRAP_ADMINS`. Staff
+provisioning (for every staff record) no longer reuses an existing Better Auth account that
+another staff record already holds, and `crm/staff:linkAuthUserId` refuses to attach such an
+account to an external login. Server-side audience checks (notification email and work audiences,
+navigation activity) rebuild access through `portalAccessForStaff`, the same narrowing as
+`getPortalAccess`.
+
+**Staff administration.** The login never appears in the team directory, team pickers, Settings
+staff list, staff travel people picker or event booth; `upsertStaff`, `removeStaff`, the staff
+import and the staff workbook refuse or skip it, and it is never a reporting manager or leave
+approver. The profile's email is locked once a login exists; name and phone edits are copied to
+the login.
+
+The tour manager app needs no change: it signs in as staff, requires the Tour Manager role and
+calls only the functions listed above.
 
 ## Deploy notes
 
@@ -169,6 +279,13 @@ this change does not make; see the PR description for the proposal.
   `expenseEntries.by_createdBy_and_clientRef` and
   `tourManagerAssignments.by_staffId_and_status_and_jobCardId`. No backfill.
 - Job Card deletion removes field headcounts and announcements.
+- External tour manager logins (7 Nov 2026) add three optional fields,
+  `staffUsers.externalTourManagerProfileId`, `externalTourManagerProfiles.staffId` and
+  `jobCards.externalTourManagerStaffIds`, and narrow `jobCards.assignedTourManagerStaffIds` to
+  employees. No index. Run the bounded, secret-gated
+  [external-logins backfill](migrations/job-card-external-tour-manager-logins.md) on each
+  deployment after this revision; before it, no deployment holds an external login, so it is
+  expected to find nothing to change.
 - Run the [Tour Manager legacy-names backfill](migrations/job-card-tour-manager-legacy-names.md)
   and the [assigned Tour Manager backfill](migrations/job-card-assigned-tour-manager-staff-ids.md)
   on each deployment. Until they run, untouched Job Cards still grant Job Card-level access by

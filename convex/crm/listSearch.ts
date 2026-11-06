@@ -4,7 +4,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx, query } from "../_generated/server";
 import type { RuntimeObject } from "../lib/runtimeValues";
 import { type E2eOwnershipActor, insertWithE2eOwnership } from "./lib/e2eOwnership";
-import { requireStaff } from "./lib/staffAccess";
+import { requireStaffSession } from "./lib/staffAccess";
 import { listSearchReadinessResultValidator } from "./miscReturnContracts";
 import { mapInBoundedBatches } from "./paginationPolicy";
 
@@ -215,7 +215,7 @@ async function readSearchReadiness(ctx: QueryCtx, now?: number) {
 export const getReadiness = query({
   args: { referenceNow: v.optional(v.number()) },
   handler: async (ctx, args) => {
-    await requireStaff(ctx);
+    await requireStaffSession(ctx);
     return await readSearchReadiness(ctx, args.referenceNow);
   },
   returns: listSearchReadinessResultValidator,

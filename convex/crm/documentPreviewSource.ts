@@ -4,7 +4,12 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { resolveCommercialFileRecord } from "./commercialFiles";
 import type { DocumentPreviewSourceType } from "./documentPreviewContract";
 import { requireVisibleExpense } from "./expenseScope";
-import { PERMISSIONS, requireAnyPermission } from "./lib";
+import {
+  isExternalTourManagerAccess,
+  PERMISSIONS,
+  requireAnyPermission,
+  requireStaffSession,
+} from "./lib";
 import { loadPassportMetadata } from "./passport";
 import { resolveProposalAttachmentRecord } from "./proposalAttachments";
 import { handleGetFinalizedPdfRecord } from "./proposalDocumentState";
@@ -55,6 +60,12 @@ async function resolveAuthorizedDocumentPreviewSourceInternal(
   sourceId: string,
   loadFileSize: boolean
 ): Promise<DocumentPreviewSourceRecord> {
+  // An external tour manager's login previews only its own expense receipts; every other source
+  // stays closed to it before any source policy runs.
+  const session = await requireStaffSession(ctx);
+  if (isExternalTourManagerAccess(session) && sourceType !== "expenseAttachment") {
+    throw new ConvexError("FORBIDDEN");
+  }
   if (sourceType === "commercialFile") {
     const access = await requireAnyPermission(ctx, [
       PERMISSIONS.VIEW_QUERIES,

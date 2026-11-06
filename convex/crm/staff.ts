@@ -2,12 +2,19 @@ import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
-import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+  mutation,
+  query,
+} from "../_generated/server";
 import { syncAuthRecords } from "../lib/authSync";
 import { getBootstrapAuthorityExpiry } from "../lib/bootstrapAuthority";
 import {
   type ALL_ROLES,
   getPortalAccess,
+  isExternalTourManagerStaff,
   isStaffRole,
   normalizeEmail,
   PERMISSIONS,
@@ -128,6 +135,20 @@ function presentDirectoryRow(
     reportingManagerStaffId: staffText(staff.reportingManagerStaffId),
     roles: staff.roles,
   };
+}
+
+const EXTERNAL_LOGIN_MESSAGE =
+  "This sign-in belongs to an external tour manager. External tour managers are managed from their profile.";
+
+function assertNotExternalLogin(staff: Doc<"staffUsers"> | null | undefined) {
+  if (staff && isExternalTourManagerStaff(staff)) {
+    throw new ConvexError(EXTERNAL_LOGIN_MESSAGE);
+  }
+}
+
+/** Employees only: external tour manager logins stay out of staff lists and pickers. */
+function isEmployee(staff: Doc<"staffUsers">) {
+  return !isExternalTourManagerStaff(staff);
 }
 
 function staffNumber(value: number | undefined) {
@@ -252,7 +273,7 @@ export const listStaff = query({
       ctx.db.query("staffUsers").withIndex("by_name").order("asc"),
       { equals: { active: args.active, department: args.department } }
     ).paginate(boundedPaginationOptions(args.paginationOpts));
-    const rows = page.page;
+    const rows = page.page.filter(isEmployee);
     const approverIds = [
       ...new Set(
         rows.flatMap((member) => {
@@ -295,7 +316,9 @@ export const listDirectory = query({
     const officeNames = new Map(offices.map((office) => [office._id, office.name]));
     return {
       ...page,
-      page: page.page.map((staff) => presentDirectoryRow(staff, officeNames, access)),
+      page: page.page
+        .filter(isEmployee)
+        .map((staff) => presentDirectoryRow(staff, officeNames, access)),
     };
   },
   returns: staffDirectoryListPageResultValidator,
@@ -308,7 +331,7 @@ export const listTeamOptions = query({
     await requireAnyPermission(ctx, [...TEAM_PICKER_PERMISSIONS]);
     const rows = await ctx.db.query("staffUsers").collect();
     return rows
-      .filter((staff) => staff.active)
+      .filter((staff) => staff.active && isEmployee(staff))
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((staff) => ({
         department: staff.department ?? staff.roles[0] ?? "",
@@ -342,7 +365,8 @@ export const listTeamOptions = query({
 export const listAccountsForJobCards = query({
   args: {},
   handler: async (ctx) => {
-    await requireAnyPermission(ctx, [PERMISSIONS.VIEW_JOB_CARDS]);
+    // Only the Job Card creation flow uses this list (its caller already needs manage:jobCards).
+    await requireStaff(ctx, PERMISSIONS.MANAGE_JOB_CARDS);
     const rows = await ctx.db.query("staffUsers").collect();
     return rows
       .filter(
@@ -435,6 +459,7 @@ export const upsertStaff = mutation({
       .query("staffUsers")
       .withIndex("by_emailNormalized", (q) => q.eq("emailNormalized", emailNormalized))
       .unique();
+    assertNotExternalLogin(existingByEmail);
     const normalizedStaffId = args.staffId ? ctx.db.normalizeId("staffUsers", args.staffId) : null;
     const payload = buildStaffPayload(args, {
       emailAlertRoles,
@@ -450,6 +475,7 @@ export const upsertStaff = mutation({
       if (!current) {
         throw new ConvexError("Staff member not found");
       }
+      assertNotExternalLogin(current);
       if (existingByEmail && existingByEmail._id !== normalizedStaffId) {
         throw new ConvexError("Email is already assigned to another staff member");
       }
@@ -506,6 +532,7 @@ export const removeStaff = mutation({
     if (!staff) {
       throw new ConvexError("Staff member not found");
     }
+    assertNotExternalLogin(staff);
     if (staff.emailNormalized === normalizeEmail(access.email)) {
       throw new ConvexError("You cannot delete your own staff access");
     }
@@ -513,6 +540,40 @@ export const removeStaff = mutation({
     return { id: staffId };
   },
   returns: staffIdResultValidator,
+});
+
+/**
+ * An external tour manager's login must never share a Better Auth account with another staff
+ * record: provisioning links any existing account with the same email, which would otherwise
+ * attach the employee's account (and lock both out, since sign-in needs exactly one match).
+ */
+async function assertAuthUserFreeForExternalLogin(
+  ctx: Pick<MutationCtx, "db">,
+  authUserId: string,
+  staffId: Id<"staffUsers">
+) {
+  const holders = await ctx.db
+    .query("staffUsers")
+    .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
+    .take(2);
+  if (holders.some((holder) => holder._id !== staffId)) {
+    throw new ConvexError(
+      "This sign-in account belongs to another staff record and cannot become an external tour manager login"
+    );
+  }
+}
+
+/** Read by the provisioning action before it reuses an existing Better Auth account. */
+export const isAuthUserLinkedElsewhere = internalQuery({
+  args: { authUserId: v.string(), staffId: v.id("staffUsers") },
+  handler: async (ctx, args) => {
+    const holders = await ctx.db
+      .query("staffUsers")
+      .withIndex("by_authUserId", (q) => q.eq("authUserId", args.authUserId))
+      .take(2);
+    return holders.some((holder) => holder._id !== args.staffId);
+  },
+  returns: v.boolean(),
 });
 
 export const linkAuthUserId = internalMutation({
@@ -526,6 +587,9 @@ export const linkAuthUserId = internalMutation({
     const staff = await ctx.db.get("staffUsers", args.staffId);
     if (!staff) {
       return null;
+    }
+    if (isExternalTourManagerStaff(staff)) {
+      await assertAuthUserFreeForExternalLogin(ctx, args.authUserId, staff._id);
     }
 
     await ctx.db.patch("staffUsers", args.staffId, {

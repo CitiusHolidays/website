@@ -5,7 +5,7 @@ import { mutation, query } from "../_generated/server";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { canReceiveNotification } from "./lib/notifications";
 import { PERMISSIONS } from "./lib/rolePolicy";
-import { requireStaff } from "./lib/staffAccess";
+import { requireStaff, requireStaffSession } from "./lib/staffAccess";
 import {
   fetchAllNotificationsForAccess,
   fetchNotificationsForAccess,
@@ -83,7 +83,7 @@ export const listNotifications = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     return await notificationListForAccess(ctx, access, args.limit ?? 20);
   },
   returns: notificationListResultValidator,
@@ -92,7 +92,7 @@ export const listNotifications = query({
 export const notificationBellState = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     const [notifications, summary] = await Promise.all([
       notificationListForAccess(ctx, access, Math.min(20, Math.max(1, args.limit ?? 8))),
       notificationSummaryForAccessFromDb(ctx, access),
@@ -105,7 +105,7 @@ export const notificationBellState = query({
 export const notificationSummary = query({
   args: {},
   handler: async (ctx) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     return notificationSummaryForAccessFromDb(ctx, access);
   },
   returns: notificationSummaryResultValidator,
@@ -116,7 +116,7 @@ export const markNotificationRead = mutation({
     notificationId: v.string(),
   },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     const id = ctx.db.normalizeId("notifications", args.notificationId);
     if (!id) {
       return null;
@@ -178,7 +178,7 @@ export const markNotificationRead = mutation({
 export const markAllNotificationsRead = mutation({
   args: {},
   handler: async (ctx) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     const now = Date.now();
     const visible = await fetchAllNotificationsForAccess(ctx, access);
     const receiptTimes = await notificationReadTimesForAccess(ctx, access, visible);

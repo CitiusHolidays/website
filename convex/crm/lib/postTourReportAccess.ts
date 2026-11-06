@@ -37,6 +37,10 @@ export async function canPreparePostTourReport(
   if (active.some((a) => a.staffId === access.staffId)) {
     return true;
   }
+  if (access.externalTourManager === true) {
+    // An external tour manager's login prepares only on its own staff-id assignment.
+    return false;
+  }
   const name = access.name.trim().toLowerCase();
   if (
     active.some(

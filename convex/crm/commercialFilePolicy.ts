@@ -74,6 +74,7 @@ interface ProposalSource {
 interface JobCardSource {
   jobCard: {
     assignedTourManagerStaffIds?: unknown[] | null;
+    externalTourManagerStaffIds?: unknown[] | null;
     collaboratorStaffIds?: unknown[] | null;
     contractingOwnerId?: string | null;
     contractingOwnerName?: string | null;

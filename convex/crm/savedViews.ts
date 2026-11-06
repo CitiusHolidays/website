@@ -5,7 +5,7 @@ import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import { isRuntimeString } from "../lib/runtimeValues";
 import { ALL_ROLES, isStaffRole, PERMISSIONS } from "./lib/rolePolicy";
 import type { PortalAccess } from "./lib/staffAccess";
-import { requireStaff } from "./lib/staffAccess";
+import { requireStaffSession } from "./lib/staffAccess";
 
 const savedViewPatchValidator = {
   filterState: v.optional(v.any()),
@@ -151,7 +151,7 @@ function toApi(row: Doc<"portalSavedViews">, access: PortalAccess) {
 export const listForPortal = query({
   args: { view: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     const [privateRows, sharedBuckets] = await Promise.all([
       access.authUserId
         ? ctx.db
@@ -196,7 +196,7 @@ export const create = mutation({
     view: v.string(),
   },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     if (!access.authUserId) {
       throw new ConvexError("FORBIDDEN");
     }
@@ -235,7 +235,7 @@ export const update = mutation({
     ...savedViewPatchValidator,
   },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     const { id, savedView } = await getOwnedSavedView(ctx, access, args.savedViewId);
     if (args.sharedRole !== undefined && !canManageSharedViews(access)) {
       throw new ConvexError("FORBIDDEN");
@@ -275,7 +275,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { savedViewId: v.string() },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     const { id } = await getOwnedSavedView(ctx, access, args.savedViewId);
     await ctx.db.delete("portalSavedViews", id);
     return { id };

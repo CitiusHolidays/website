@@ -5,11 +5,13 @@ import {
   canManageAllExpenses,
   canMutateUnlinkedExpense,
   canViewUnlinkedExpense,
+  isExpenseCreator,
 } from "./expensePolicy";
 import { getVisibleJob } from "./jobCardVisibility";
 import {
   canSeeJobCardRecord,
   isDirectorOrAdmin,
+  isExternalTourManagerAccess,
   PERMISSIONS,
   type PortalAccess,
   requireAnyPermission,
@@ -23,6 +25,10 @@ export async function assertExpenseAccess(
 ) {
   if (canManageAllExpenses(access)) {
     return;
+  }
+  if (isExternalTourManagerAccess(access) && !isExpenseCreator(access, expense)) {
+    // An external tour manager's login reaches its own trip expenses only.
+    throw new ConvexError("FORBIDDEN");
   }
   if (mode === "mutate" && !canMutateUnlinkedExpense(access, expense)) {
     throw new ConvexError("FORBIDDEN");
@@ -57,6 +63,9 @@ export async function requireVisibleExpense(
   }
   if (canManageAllExpenses(access)) {
     return { access, expense, job: null };
+  }
+  if (isExternalTourManagerAccess(access) && !isExpenseCreator(access, expense)) {
+    throw new ConvexError("FORBIDDEN");
   }
   if (expense.jobCardId) {
     const job = await ctx.db.get("jobCards", expense.jobCardId);

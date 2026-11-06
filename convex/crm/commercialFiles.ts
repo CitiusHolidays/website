@@ -46,6 +46,7 @@ import {
   canSeeQueryRecord,
   createActivity,
   getPortalAccess,
+  isExternalTourManagerAccess,
   PERMISSIONS,
   type PortalAccess,
   requireAnyPermission,
@@ -373,6 +374,10 @@ async function authorizeEntryPoint(
   entryPoint: CommercialFileSourceType,
   entityId: string
 ) {
+  if (isExternalTourManagerAccess(access)) {
+    // Commercial files (proposal docs, pricing, working files) stay with Citius staff.
+    return null;
+  }
   const chain = await resolveCommercialChain(ctx, entryPoint, entityId);
   const source = await descriptorForSource(ctx, entryPoint, entityId);
   if (!(source && sourceCanRead(access, source))) {
@@ -938,7 +943,7 @@ export async function resolveCommercialFileRecord(
   access: PortalAccess,
   fileId: string
 ) {
-  if (isLegacyFileId(fileId)) {
+  if (isLegacyFileId(fileId) || isExternalTourManagerAccess(access)) {
     return null;
   }
   const id = ctx.db.normalizeId("commercialFiles", fileId);
@@ -1707,7 +1712,7 @@ function mutationWithAccess<
     args: config.args,
     handler: async (ctx, args) => {
       const access = await getPortalAccess(ctx);
-      if (!access.allowed) {
+      if (!access.allowed || isExternalTourManagerAccess(access)) {
         throw new ConvexError("FORBIDDEN");
       }
       return await config.handler(ctx, args, access);

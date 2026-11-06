@@ -8,8 +8,10 @@ overwrites that single field, so on a multi-batch Job Card every earlier-assigne
 Manager lost access. A colliding display name also granted access.
 
 `jobCards.assignedTourManagerStaffIds` is an additive optional array derived from
-`tourManagerAssignments`: every row on the Job Card with `status: "Assigned"` and a `staffId`,
-deduplicated and sorted. `canSeeJobCardRecord` (and the Tour Manager Commercial Files area) grants
+`tourManagerAssignments`: every row on the Job Card with `status: "Assigned"` and a `staffId`
+(and, since external tour manager logins, no `externalProfileId`; see
+[external tour manager logins](job-card-external-tour-manager-logins.md)), deduplicated and
+sorted. `canSeeJobCardRecord` (and the Tour Manager Commercial Files area) grants
 scope when the actor has the Tour Manager role and their staff ID is in that array. The legacy
 name match remains as a fallback until this backfill is verified on every deployment.
 

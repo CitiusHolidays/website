@@ -21,6 +21,7 @@ import {
   canSeeJobCardRecord,
   canSeeProposalRecord,
   canSeeQueryRecord,
+  isExternalTourManagerAccess,
   PERMISSIONS,
   type PortalAccess,
   requireAnyPermission,
@@ -49,6 +50,10 @@ async function canSeeQueryCommercialFiles(
   access: PortalAccess,
   query: Doc<"queries">
 ) {
+  if (isExternalTourManagerAccess(access)) {
+    // A Job Card reached by an external tour manager's login never opens its commercial chain.
+    return false;
+  }
   if (canSeeQueryRecord(access, query)) {
     return true;
   }

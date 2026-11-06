@@ -2,7 +2,13 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { type MutationCtx, mutation, type QueryCtx, query } from "../_generated/server";
 import type { RuntimeValue } from "../lib/runtimeValues";
-import { ALL_ROLES, normalizeEmail, PERMISSIONS, requireStaff } from "./lib";
+import {
+  ALL_ROLES,
+  isExternalTourManagerStaff,
+  normalizeEmail,
+  PERMISSIONS,
+  requireStaff,
+} from "./lib";
 import { staffWorkbookResultValidator } from "./staffSettingsReturnContracts";
 
 type StaffRole = (typeof ALL_ROLES)[number];
@@ -321,13 +327,18 @@ function summarize(rows: StaffWorkbookPreviewRow[]) {
   };
 }
 
+/** External tour manager logins never act as reporting managers or leave approvers. */
+function employeesOnly(rows: Doc<"staffUsers">[]) {
+  return rows.filter((staff) => !isExternalTourManagerStaff(staff));
+}
+
 export async function buildStaffWorkbookPreviewForTest(
   ctx: QueryCtx | MutationCtx,
   rows: StaffWorkbookRow[]
 ) {
   const staffRows = await ctx.db.query("staffUsers").collect();
   const staffByEmail = new Map(staffRows.map((staff) => [staff.emailNormalized, staff]));
-  const staffByName = staffNameIndex(staffRows);
+  const staffByName = staffNameIndex(employeesOnly(staffRows));
   const workbookEmailCounts = rows.reduce((counts, row) => {
     const emailNormalized = normalizeEmail(row.email);
     if (emailNormalized) {
@@ -354,6 +365,11 @@ export async function buildStaffWorkbookPreviewForTest(
         };
       }
       const existing = staffByEmail.get(emailNormalized) ?? null;
+      if (existing && isExternalTourManagerStaff(existing)) {
+        throw new Error(
+          "This email is an external tour manager's sign-in; manage it from their profile"
+        );
+      }
       const after = normalizeWorkbookPatch(row, {
         employee: { name: cleanText(row.name), staffId: existing?._id },
         staffByName,
@@ -414,7 +430,7 @@ export async function applyStaffWorkbookRowsForTest(
   const accepted = acceptedSet(args.acceptedEmailNormalized);
   const initialStaffRows = await ctx.db.query("staffUsers").collect();
   const initialByEmail = new Map(initialStaffRows.map((staff) => [staff.emailNormalized, staff]));
-  const initialByName = staffNameIndex(initialStaffRows);
+  const initialByName = staffNameIndex(employeesOnly(initialStaffRows));
   const preview = await buildStaffWorkbookPreviewForTest(ctx, args.rows);
   const rowsToApply = args.rows.filter((row) => {
     const emailNormalized = normalizeEmail(row.email);
@@ -485,7 +501,7 @@ export async function applyStaffWorkbookRowsForTest(
 
   const resolvedStaffRows = await ctx.db.query("staffUsers").collect();
   const resolvedByEmail = new Map(resolvedStaffRows.map((staff) => [staff.emailNormalized, staff]));
-  const resolvedByName = staffNameIndex(resolvedStaffRows);
+  const resolvedByName = staffNameIndex(employeesOnly(resolvedStaffRows));
 
   await Promise.all(
     rowsToApply.map(async (row) => {

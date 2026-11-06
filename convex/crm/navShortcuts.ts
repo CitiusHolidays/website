@@ -8,7 +8,7 @@ import {
   canSeeProposalRecord,
   canSeeQueryRecord,
   PERMISSIONS,
-  requireStaff,
+  requireStaffSession,
 } from "./lib";
 import { patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { navShortcutListResultValidator } from "./miscReturnContracts";
@@ -18,10 +18,11 @@ import {
   navigationStateForAccess,
 } from "./navigationWork";
 import { deleteNavigationSeenPage } from "./notificationUnreadProjection";
+import { createTravellerScopeReader } from "./tourManagerGroupScope";
 
 export const workState = query({
   args: {},
-  handler: async (ctx) => navigationStateForAccess(ctx, await requireStaff(ctx)),
+  handler: async (ctx) => navigationStateForAccess(ctx, await requireStaffSession(ctx)),
   returns: v.object({
     byHref: v.record(
       v.string(),
@@ -43,7 +44,7 @@ export const acknowledgeActivity = mutation({
     viewerKey: v.string(),
   },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     if (
       !access.staffId ||
       args.viewerKey !== String(access.staffId) ||
@@ -151,7 +152,7 @@ function ticketHref(id: string) {
 export const list = query({
   args: {},
   handler: async (ctx) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     const result: NavShortcutResult = {
       jobCards: [],
       proposals: [],
@@ -234,14 +235,15 @@ export const list = query({
 
     if (access.permissions.includes(PERMISSIONS.VIEW_TICKETING)) {
       const rows = await takeNewestByCreatedAt(ctx, "tickets", LIMIT * 3);
+      // Same group narrowing as the ticket list: a Tour Manager-only grant sees its own group.
+      const scopeReader = createTravellerScopeReader(ctx, access);
       const shortcuts = await Promise.all(
         rows.map(async (ticket) => {
-          const job = await ctx.db.get("jobCards", ticket.jobCardId);
+          const traveller = ticket.travellerId
+            ? await ctx.db.get("travellers", ticket.travellerId)
+            : null;
+          const job = await scopeReader.jobForTraveller(ticket.jobCardId, traveller);
           if (!job) {
-            return null;
-          }
-          const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
-          if (!canSeeJobCardRecord(access, job, linkedQuery ?? undefined)) {
             return null;
           }
           const dateLabel = formatShortcutDate(ticket.createdAt);

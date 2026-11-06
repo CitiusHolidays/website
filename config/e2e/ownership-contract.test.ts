@@ -13,6 +13,8 @@ const FRONTEND_CRM_MUTATION_PATTERN =
 const REVIEWED_NON_E2E_INSERT_OWNERS = [
   "convex/crm/commercialFilePurge.ts",
   "convex/crm/commercialFiles.ts",
+  // Granting app access inserts a staff login, like staff.ts; browser E2E runs never grant it.
+  "convex/crm/externalTourManagerProfiles.ts",
   "convex/crm/flightImports.ts",
   "convex/crm/inboundQueryIntents.ts",
   "convex/crm/invoiceCommands.ts",

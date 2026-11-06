@@ -12,7 +12,11 @@ import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnershi
 import { publishWorkNotification } from "./lib/notifications";
 import { canPreparePostTourReport } from "./lib/postTourReportAccess";
 import { canSeeJobCardRecord } from "./lib/recordScope";
-import { type PortalAccess, requireStaff } from "./lib/staffAccess";
+import {
+  isExternalTourManagerAccess,
+  type PortalAccess,
+  requireStaffSession,
+} from "./lib/staffAccess";
 
 type Ctx = QueryCtx | MutationCtx;
 async function activeReport(ctx: Ctx, jobCardId: Id<"jobCards">) {
@@ -73,10 +77,34 @@ async function reportJob(ctx: Ctx, args: { jobCardId?: string; reportId?: string
   }
   return id ? await ctx.db.get("jobCards", id) : null;
 }
+/**
+ * Who may open a Job Card's report workspace. Submitted reports are a staff-wide read; an
+ * external tour manager's login reads only trips it prepares for (its own assignments).
+ */
+async function canOpenWorkspace(
+  ctx: Ctx,
+  access: PortalAccess,
+  job: Doc<"jobCards">,
+  report: Doc<"postTourReports"> | null,
+  canPrepare: boolean
+) {
+  const admin = access.roles.includes("Admin");
+  if (isExternalTourManagerAccess(access) && !canPrepare) {
+    return false;
+  }
+  if (report?.status === "archived" && !admin) {
+    return false;
+  }
+  if (canPrepare || admin || report?.status === "submitted") {
+    return true;
+  }
+  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
+  return canSeeJobCardRecord(access, job, linkedQuery);
+}
 export const workspace = query({
   args: { jobCardId: v.optional(v.string()), reportId: v.optional(v.string()) },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     const job = await reportJob(ctx, args);
     if (!job) {
       return null;
@@ -86,16 +114,8 @@ export const workspace = query({
       ? await ctx.db.get("postTourReports", requestedId)
       : await activeReport(ctx, job._id);
     const canPrepare = await canPreparePostTourReport(ctx, access, job);
-    const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
     const admin = access.roles.includes("Admin");
-    if (report?.status === "archived" && !admin) {
-      return null;
-    }
-    if (
-      !(canPrepare || admin) &&
-      report?.status !== "submitted" &&
-      !canSeeJobCardRecord(access, job, linkedQuery)
-    ) {
+    if (!(await canOpenWorkspace(ctx, access, job, report, canPrepare))) {
       return null;
     }
     const archived = admin
@@ -140,7 +160,7 @@ export const workspace = query({
   returns: postTourReportWorkspaceValidator,
 });
 async function editable(ctx: MutationCtx, id: Id<"postTourReports">) {
-  const access = await requireStaff(ctx);
+  const access = await requireStaffSession(ctx);
   const report = await ctx.db.get("postTourReports", id);
   const job = report ? await ctx.db.get("jobCards", report.jobCardId) : null;
   if (!(report && job)) {
@@ -163,7 +183,7 @@ export const saveDraft = mutation({
     reportId: v.optional(v.id("postTourReports")),
   },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     const job = await ctx.db.get("jobCards", args.jobCardId);
     if (!(job && access.staffId && (await canPreparePostTourReport(ctx, access, job)))) {
       throw new ConvexError("FORBIDDEN");
