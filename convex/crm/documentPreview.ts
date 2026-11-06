@@ -40,7 +40,7 @@ import {
   resolveAuthorizedDocumentPreviewSource,
   resolveSystemDocumentPreviewSource,
 } from "./documentPreviewSource";
-import { requireStaff } from "./lib";
+import { requireStaffSession } from "./lib";
 import { recordOperationalEffect, resolveOperationalControl } from "./lib/operationalControls";
 
 const PREPARATION_LEASE_MS = 5 * 60 * 1000;
@@ -521,7 +521,7 @@ export const issuePortalDelivery = internalMutation({
     warningCodes: v.array(v.string()),
   },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     const source = await authorizeDocumentPreviewSource(ctx, args.sourceType, args.sourceId);
     const previewKind = classifyDocumentPreview(source.fileName, source.mimeType);
     assertDocumentPreviewRolloutAllowed(source.sourceType, previewKind);
@@ -647,7 +647,7 @@ export const issueWorkerDelivery = internalMutation({
 export const claimPortalDelivery = internalMutation({
   args: { tokenHash: v.string() },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     const delivery = await ctx.db
       .query("documentPreviewDeliveries")
       .withIndex("by_tokenHash", (q) => q.eq("tokenHash", args.tokenHash))
@@ -709,7 +709,7 @@ export const claimPortalDelivery = internalMutation({
 export const completePortalDelivery = internalMutation({
   args: { deliveryId: v.id("documentPreviewDeliveries") },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     const delivery = await ctx.db.get("documentPreviewDeliveries", args.deliveryId);
     if (
       delivery?.kind !== "portal" ||
@@ -896,7 +896,7 @@ export const recordCompletedAccess = internalMutation({
     sourceType: documentPreviewSourceTypeValidator,
   },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     const source = await authorizeDocumentPreviewSource(ctx, args.sourceType, args.sourceId);
     if (args.operation === "preview") {
       assertDocumentPreviewRolloutAllowed(

@@ -18,6 +18,7 @@ import {
   navigationStateForAccess,
 } from "./navigationWork";
 import { deleteNavigationSeenPage } from "./notificationUnreadProjection";
+import { createTravellerScopeReader } from "./tourManagerGroupScope";
 
 export const workState = query({
   args: {},
@@ -234,14 +235,15 @@ export const list = query({
 
     if (access.permissions.includes(PERMISSIONS.VIEW_TICKETING)) {
       const rows = await takeNewestByCreatedAt(ctx, "tickets", LIMIT * 3);
+      // Same group narrowing as the ticket list: a Tour Manager-only grant sees its own group.
+      const scopeReader = createTravellerScopeReader(ctx, access);
       const shortcuts = await Promise.all(
         rows.map(async (ticket) => {
-          const job = await ctx.db.get("jobCards", ticket.jobCardId);
+          const traveller = ticket.travellerId
+            ? await ctx.db.get("travellers", ticket.travellerId)
+            : null;
+          const job = await scopeReader.jobForTraveller(ticket.jobCardId, traveller);
           if (!job) {
-            return null;
-          }
-          const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
-          if (!canSeeJobCardRecord(access, job, linkedQuery ?? undefined)) {
             return null;
           }
           const dateLabel = formatShortcutDate(ticket.createdAt);

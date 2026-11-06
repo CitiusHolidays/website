@@ -46,8 +46,12 @@ export function holdsPassportExpiryAuthority(roles: readonly string[]) {
 }
 
 export function canReadPassportExpiryInStaffWorkspace(
-  access: Pick<PortalAccess, "roles">,
+  access: Pick<PortalAccess, "externalTourManager" | "roles">,
   grant: JobCardRecordGrant | null
 ) {
-  return grant === "office" && holdsPassportExpiryAuthority(access.roles);
+  return (
+    access.externalTourManager !== true &&
+    grant === "office" &&
+    holdsPassportExpiryAuthority(access.roles)
+  );
 }

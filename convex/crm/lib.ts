@@ -97,6 +97,7 @@ export {
   isHead,
   normalizeEmail,
   type PortalAccess,
+  portalAccessForStaff,
   requireAnyPermission,
   requireHeadOrAdmin,
   requireStaff,

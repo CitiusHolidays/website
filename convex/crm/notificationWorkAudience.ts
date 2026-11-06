@@ -3,8 +3,7 @@ import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import type { notificationWorkKeyValidator } from "../lib/notificationEmailValidators";
 import { canSeeJobCardRecord, canSeeQueryRecord } from "./lib/recordScope";
-import { getRolePermissions } from "./lib/rolePolicy";
-import type { PortalAccess } from "./lib/staffAccess";
+import { type PortalAccess, portalAccessForStaff } from "./lib/staffAccess";
 import { classifyPassportExpiryUrgency } from "./passportExpiry";
 
 export type NotificationWorkKey = Infer<typeof notificationWorkKeyValidator>;
@@ -280,15 +279,7 @@ export async function notificationWorkAudience(
     if (key === "post_tour_submission") {
       return true;
     }
-    const access: PortalAccess = {
-      allowed: true,
-      authUserId: member.authUserId,
-      email: member.email,
-      name: member.name,
-      permissions: getRolePermissions(member.roles),
-      roles: member.roles,
-      staffId: member._id,
-    };
+    const access: PortalAccess = portalAccessForStaff(member);
     return work.job
       ? canSeeJobCardRecord(access, work.job, work.query)
       : Boolean(work.query && canSeeQueryRecord(access, work.query));

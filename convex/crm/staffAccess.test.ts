@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { fromAny } from "@total-typescript/shoehorn";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
 import type { TestIndexQuery } from "../testSupport/runtimeContracts";
-import { getPortalAccess } from "./lib/staffAccess";
+import { getPortalAccess, portalAccessForStaff } from "./lib/staffAccess";
 import { getMyPortalAccess } from "./staff";
 
 interface Row {
@@ -275,5 +275,48 @@ describe("Portal staff identity scope", () => {
     const access = await getPortalAccess(fromAny<never, unknown>(ctx));
     expect(access.allowed).toBe(false);
     expect(access.authUserId).toBe("issuer-b|legacy-subject");
+  });
+});
+
+describe("Server-side access rebuilt from a staff record", () => {
+  // Notification audiences and navigation projections rebuild access from staff rows; they must
+  // narrow an external tour manager's login exactly as getPortalAccess does.
+  const base = {
+    _creationTime: 0,
+    active: true,
+    createdAt: 0,
+    email: "ext@example.test",
+    emailNormalized: "ext@example.test",
+    name: "Synthetic External",
+    updatedAt: 0,
+  };
+
+  test("narrows an external tour manager login whatever roles are stored", () => {
+    const access = portalAccessForStaff(
+      fromAny({
+        ...base,
+        _id: "staff-ext",
+        externalTourManagerProfileId: "profile-1",
+        roles: ["Tour Manager", "Operations Head"],
+      })
+    );
+    expect(access).toMatchObject({ externalTourManager: true, roles: ["Tour Manager"] });
+    expect(access.permissions).toEqual([
+      "create:expenses",
+      "view:expenses",
+      "view:jobCards",
+      "view:ticketing",
+      "view:travellers",
+      "view:visa",
+    ]);
+  });
+
+  test("keeps an employee's role permissions", () => {
+    const access = portalAccessForStaff(
+      fromAny({ ...base, _id: "staff-ops", roles: ["Operations Head"] })
+    );
+    expect(access.externalTourManager).toBe(false);
+    expect(access.permissions).toContain("manage:tourManagers");
+    expect(access.permissions).toContain("request:leave");
   });
 });

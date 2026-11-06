@@ -3,6 +3,7 @@ import { ConvexError, type Infer, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { type MutationCtx, mutation, type QueryCtx, query } from "../_generated/server";
+import { getBootstrapAdminEmails } from "../lib/bootstrapAuthority";
 import {
   externalTourManagerAppAccessValidator,
   externalTourManagerFields,
@@ -413,6 +414,12 @@ async function enableLogin(
   if (!profile.emailNormalized) {
     throw new ConvexError(
       "Add an email address to the profile first: it becomes the tour manager's sign-in"
+    );
+  }
+  if (getBootstrapAdminEmails().includes(profile.emailNormalized)) {
+    // A break-glass Admin address must never also be an external tour manager's sign-in.
+    throw new ConvexError(
+      "This email is reserved for an administrator. Use another email for the tour manager."
     );
   }
   const now = Date.now();

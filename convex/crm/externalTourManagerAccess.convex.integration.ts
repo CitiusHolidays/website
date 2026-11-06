@@ -1,5 +1,5 @@
 import { convexTest } from "convex-test";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { emptyPostTourReport } from "../lib/postTourReportContent";
@@ -191,7 +191,8 @@ async function seed(t: ReturnType<typeof harness>) {
   const actor = (key: StaffKey) => actorFor(t, key);
   const opsHead = actor("ops-head");
   const external = actorFor(t, EXTERNAL_SUBJECT);
-  const assignExternal = (travelBatchId?: Id<"travelBatches">) =>
+  // The seeded Job Card travels in series, so an external assignment always names its batch.
+  const assignExternal = (travelBatchId: Id<"travelBatches"> = ids.batchA) =>
     opsHead.mutation(api.crm.ops.createTourManager, {
       externalProfileId: ids.profileId,
       jobCardId: ids.jobCardId,
@@ -363,9 +364,9 @@ describe("what an external tour manager with access can reach", () => {
     await f.grant();
     await f.signInExternal();
     expect(await f.assignedJobCodes()).toEqual([]);
-    await f.assignExternal();
+    await f.assignExternal(f.ids.batchB);
     expect(await f.assignedJobCodes()).toEqual(["JC-EXT-01"]);
-    expect(await f.travellerNames()).toEqual(["Synthetic A One", "Synthetic B One"]);
+    expect(await f.travellerNames()).toEqual(["Synthetic B One"]);
   });
 
   test("no staff directory, leave, queries, dashboard or staff travel", async () => {
@@ -1074,6 +1075,341 @@ describe("post-tour feedback and the internal tour report", () => {
     ).rejects.toThrow("FORBIDDEN");
     await expect(
       ext.query(api.crm.travelerFeedback.listResponses, { paginationOpts: PAGE })
+    ).rejects.toThrow("FORBIDDEN");
+  });
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+/** Every ticket number on the shortcut list the caller sees. */
+async function shortcutTicketLabels(actor: ReturnType<typeof actorFor>) {
+  const shortcuts = await actor.query(api.crm.navShortcuts.list, {});
+  return shortcuts.tickets.map((row) => row.label);
+}
+
+describe("security review of #307: batch scope for external assignments (M1)", () => {
+  test("an external assignment on a Job Card in series must name its batch", async () => {
+    const t = harness();
+    const f = await seed(t);
+    await expect(
+      f.opsHead.mutation(api.crm.ops.createTourManager, {
+        externalProfileId: f.ids.profileId,
+        jobCardId: f.ids.jobCardId,
+        name: "ignored",
+      })
+    ).rejects.toThrow("travel series");
+    const { id } = await f.assignExternal(f.ids.batchA);
+    // Clearing the batch, or re-assigning without one, is refused the same way.
+    await expect(
+      f.opsHead.mutation(api.crm.ops.updateTourManager, { tourManagerId: id, travelBatchId: "" })
+    ).rejects.toThrow("travel series");
+    // A Job Card without series still takes a batchless external assignment.
+    await expect(
+      f.opsHead.mutation(api.crm.ops.createTourManager, {
+        externalProfileId: f.ids.profileId,
+        jobCardId: f.ids.otherJobCardId,
+        name: "ignored",
+      })
+    ).resolves.toBeDefined();
+  });
+
+  test("an existing batchless row on a Job Card in series opens no group until a batch is set", async () => {
+    const t = harness();
+    const f = await seed(t);
+    // A row written before this rule (or by another path): no batch, linked to the profile.
+    const rowId = await t.run(async (ctx) =>
+      ctx.db.insert("tourManagerAssignments", {
+        callingStatus: "Pending",
+        createdAt: NOW,
+        createdBy: "ops-head",
+        externalProfileId: f.ids.profileId,
+        jobCardId: f.ids.jobCardId,
+        name: "Meera Iyer",
+        status: "Assigned",
+        updatedAt: NOW,
+      })
+    );
+    await f.grant();
+    await f.signInExternal();
+    const rows = await seedTravelRows(t, f);
+    const ext = f.external;
+    // The Job Card itself is visible; no group inside it is.
+    expect(await f.assignedJobCodes()).toEqual(["JC-EXT-01"]);
+    expect(await f.travellerNames()).toEqual([]);
+    expect((await ext.query(api.crm.visa.list, { paginationOpts: PAGE })).page).toEqual([]);
+    expect((await ext.query(api.crm.ticketing.listTickets, { paginationOpts: PAGE })).page).toEqual(
+      []
+    );
+    await expect(
+      ext.query(api.crm.fieldPassports.listFieldPassports, {
+        jobCardId: f.ids.jobCardId,
+        referenceNow: NOW,
+      })
+    ).rejects.toThrow("FORBIDDEN");
+    await expect(
+      ext.mutation(internal.crm.fieldPassports.authorizeFieldPassportRead, { travellerId: rows.b1 })
+    ).rejects.toThrow("FORBIDDEN");
+
+    await f.opsHead.mutation(api.crm.ops.updateTourManager, {
+      tourManagerId: String(rowId),
+      travelBatchId: String(f.ids.batchA),
+    });
+    expect(await f.travellerNames()).toEqual(["Synthetic A One"]);
+    const narrowed = await ext.query(api.crm.fieldPassports.listFieldPassports, {
+      jobCardId: f.ids.jobCardId,
+      referenceNow: NOW,
+    });
+    expect(narrowed.travellers.map((row) => row.travellerId)).toEqual([rows.a1]);
+  });
+
+  test("on a Job Card without series a batchless external assignment keeps the whole Job Card", async () => {
+    const t = harness();
+    const f = await seed(t);
+    await f.opsHead.mutation(api.crm.ops.createTourManager, {
+      externalProfileId: f.ids.profileId,
+      jobCardId: f.ids.otherJobCardId,
+      name: "ignored",
+    });
+    await f.grant();
+    await f.signInExternal();
+    const rows = await seedTravelRows(t, f);
+    const page = await f.external.query(api.crm.travellers.listPage, {
+      jobCardId: f.ids.otherJobCardId,
+      paginationOpts: PAGE,
+    });
+    expect(page.page.map((row) => row.id)).toEqual([rows.other]);
+  });
+});
+
+describe("security review of #307: employees keep their legacy name route (M2)", () => {
+  test("granting an external login never ends a staff Tour Manager's name-only access", async () => {
+    const t = harness();
+    const f = await seed(t);
+    // A plain Job Card (no series, no linked query) run on a name-only staff assignment.
+    const { jobCardId, travellerId } = await t.run(async (ctx) => {
+      const id = await ctx.db.insert("jobCards", {
+        clientName: "Synthetic legacy group",
+        confirmedPax: 1,
+        createdAt: NOW,
+        createdBy: "accounts-owner",
+        jobCode: "JC-EXT-LEGACY",
+        queryType: "MICE",
+        status: "Open",
+        updatedAt: NOW,
+      });
+      const traveller = await ctx.db.insert("travellers", {
+        ...SYNTHETIC_TRAVELLER,
+        createdAt: NOW,
+        fullName: "Synthetic Legacy Traveller",
+        jobCardId: id,
+        updatedAt: NOW,
+      });
+      return { jobCardId: id, travellerId: traveller };
+    });
+    await f.opsHead.mutation(api.crm.ops.createTourManager, {
+      jobCardId,
+      name: STAFF["tm-namesake"].name,
+    });
+    await f.opsHead.mutation(api.crm.ops.createTourManager, {
+      externalProfileId: f.ids.profileId,
+      jobCardId,
+      name: "ignored",
+    });
+    const staffTm = f.actor("tm-namesake");
+    const travellerIds = async () =>
+      (
+        await staffTm.query(api.crm.travellers.listPage, { jobCardId, paginationOpts: PAGE })
+      ).page.map((row) => row.id);
+    expect(await travellerIds()).toEqual([travellerId]);
+
+    await f.grant();
+    const loginId = await f.externalStaffId();
+    const job = await t.run((ctx) => ctx.db.get("jobCards", jobCardId));
+    expect(job?.assignedTourManagerStaffIds).toEqual([]);
+    expect(job?.externalTourManagerStaffIds).toEqual([loginId]);
+    expect(job?.legacyTourManagerNames).toEqual(["meera iyer"]);
+    // The employee keeps the Job Card and its travellers; the external login gets it too.
+    expect(await travellerIds()).toEqual([travellerId]);
+    expect(await staffTm.query(api.crm.jobCards.getDetail, { jobCardId })).not.toBeNull();
+    await f.signInExternal();
+    const external = await f.external.query(api.crm.travellers.listPage, {
+      jobCardId,
+      paginationOpts: PAGE,
+    });
+    expect(external.page.map((row) => row.id)).toEqual([travellerId]);
+  });
+});
+
+describe("security review of #307: low findings", () => {
+  test("L1: the ticket dashboard is refused to an external login", async () => {
+    const t = harness();
+    const f = await seed(t);
+    await f.assignExternal();
+    await f.grant();
+    await f.signInExternal();
+    await seedTravelRows(t, f);
+    await expect(
+      f.external.query(api.crm.ticketing.dashboard, { referenceNow: NOW + 60_000 })
+    ).rejects.toThrow("FORBIDDEN");
+    await expect(
+      f.opsHead.query(api.crm.ticketing.dashboard, { referenceNow: NOW + 60_000 })
+    ).resolves.toBeDefined();
+  });
+
+  test("L2: the Accounts staff list needs Job Card management, so an external login gets none", async () => {
+    const t = harness();
+    const f = await seed(t);
+    await t.run((ctx) =>
+      ctx.db.insert("staffUsers", {
+        active: true,
+        createdAt: NOW,
+        email: "accounts-head@external-tm.test",
+        emailNormalized: "accounts-head@external-tm.test",
+        name: "Synthetic Accounts Head",
+        roles: ["Accounts Head"],
+        updatedAt: NOW,
+      })
+    );
+    await f.assignExternal();
+    await f.grant();
+    await f.signInExternal();
+    await expect(f.external.query(api.crm.staff.listAccountsForJobCards, {})).rejects.toThrow(
+      "FORBIDDEN"
+    );
+    const forOps = await f.opsHead.query(api.crm.staff.listAccountsForJobCards, {});
+    expect(forOps.map((row) => row.email)).toEqual(["accounts-head@external-tm.test"]);
+  });
+
+  test("L3: ticket shortcuts follow the caller's group", async () => {
+    const t = harness();
+    const f = await seed(t);
+    await f.assignExternal(f.ids.batchA);
+    await f.opsHead.mutation(api.crm.ops.createTourManager, {
+      jobCardId: f.ids.jobCardId,
+      name: "ignored for staff assignments",
+      staffId: f.staffIds.get("tm-namesake"),
+      travelBatchId: f.ids.batchB,
+    });
+    await f.grant();
+    await f.signInExternal();
+    await t.run(async (ctx) => {
+      const travellers = await ctx.db
+        .query("travellers")
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", f.ids.jobCardId))
+        .collect();
+      for (const row of travellers) {
+        await ctx.db.insert("tickets", {
+          createdAt: NOW,
+          createdBy: "ops-head",
+          jobCardId: f.ids.jobCardId,
+          paymentType: "Company Paid",
+          ticketNumber: row.travelBatchId === f.ids.batchA ? "TKT-GROUP-A" : "TKT-GROUP-B",
+          ticketStatus: "Pending Issue",
+          travellerId: row._id,
+          updatedAt: NOW,
+        });
+      }
+    });
+    const external = (await shortcutTicketLabels(f.external)).join(" | ");
+    expect(external).toContain("TKT-GROUP-A");
+    expect(external).not.toContain("TKT-GROUP-B");
+    // The same narrowing applies to a staff Tour Manager on the other batch.
+    const staff = (await shortcutTicketLabels(f.actor("tm-namesake"))).join(" | ");
+    expect(staff).toContain("TKT-GROUP-B");
+    expect(staff).not.toContain("TKT-GROUP-A");
+    const office = (await shortcutTicketLabels(f.opsHead)).join(" | ");
+    expect(office).toContain("TKT-GROUP-A");
+    expect(office).toContain("TKT-GROUP-B");
+  });
+
+  test("L4: a break-glass Admin email is refused as an external sign-in", async () => {
+    vi.stubEnv("PORTAL_BOOTSTRAP_ADMINS", "someone@else.test, MEERA.external@external-tm.test");
+    const t = harness();
+    const f = await seed(t);
+    await expect(f.grant()).rejects.toThrow("reserved for an administrator");
+    expect(await f.externalStaffId()).toBeNull();
+  });
+
+  test("L4: an external login never takes a sign-in account another staff record holds", async () => {
+    const t = harness();
+    const f = await seed(t);
+    await f.grant();
+    const loginId = await f.externalStaffId();
+    if (!loginId) {
+      throw new Error("no login");
+    }
+    // ops-exec's account id; provisioning would find it by email if the addresses matched.
+    await expect(
+      t.mutation(internal.crm.staff.linkAuthUserId, { authUserId: "ops-exec", staffId: loginId })
+    ).rejects.toThrow("belongs to another staff record");
+    expect(
+      await t.query(internal.crm.staff.isAuthUserLinkedElsewhere, {
+        authUserId: "ops-exec",
+        staffId: loginId,
+      })
+    ).toBe(true);
+    const login = await t.run((ctx) => ctx.db.get("staffUsers", loginId));
+    expect(login?.authUserId).toBeUndefined();
+  });
+});
+
+describe("security review of #307: informational fixes", () => {
+  test("an external login previews its own expense receipt and no other document", async () => {
+    const t = harness();
+    const f = await seed(t);
+    await f.assignExternal();
+    await f.grant();
+    await f.signInExternal();
+    const rows = await seedTravelRows(t, f);
+    const { id: ownExpense } = await f.external.mutation(api.crm.finance.createExpense, {
+      amount: 100,
+      category: "Meals",
+      jobCardId: f.ids.jobCardId,
+      paidBy: "Tour Manager",
+    });
+    const { id: officeExpense } = await f.opsHead.mutation(api.crm.finance.createExpense, {
+      amount: 200,
+      category: "Hotel",
+      jobCardId: f.ids.jobCardId,
+      paidBy: "Company",
+    });
+    const receipt = async (expenseId: Id<"expenseEntries">, createdBy: string) =>
+      await t.run(async (ctx) => {
+        const storageId = await ctx.storage.store(
+          new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], { type: "image/jpeg" })
+        );
+        const attachmentId = await ctx.db.insert("attachments", {
+          createdAt: NOW,
+          createdBy,
+          entityId: String(expenseId),
+          entityType: "expense",
+          fileName: "receipt.jpg",
+          mimeType: "image/jpeg",
+          storageId,
+        });
+        await ctx.db.patch("expenseEntries", expenseId, { proofAttachmentId: attachmentId });
+        return attachmentId;
+      });
+    const own = await receipt(ownExpense, EXTERNAL_SUBJECT);
+    const office = await receipt(officeExpense, "ops-head");
+    const status = await f.external.query(api.crm.documentPreview.getStatus, {
+      sourceId: String(own),
+      sourceType: "expenseAttachment",
+    });
+    expect(status.fileName).toBe("receipt.jpg");
+    await expect(
+      f.external.query(api.crm.documentPreview.getStatus, {
+        sourceId: String(office),
+        sourceType: "expenseAttachment",
+      })
+    ).rejects.toThrow("FORBIDDEN");
+    await expect(
+      f.external.query(api.crm.documentPreview.getStatus, {
+        sourceId: String(rows.a1),
+        sourceType: "passport",
+      })
     ).rejects.toThrow("FORBIDDEN");
   });
 });

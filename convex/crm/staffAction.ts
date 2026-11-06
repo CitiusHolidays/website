@@ -81,6 +81,22 @@ async function recoverExistingStaffAuth(
   args: { staffId: Id<"staffUsers">; email: string; name: string },
   auth: ReturnType<typeof createAuth>
 ): Promise<ProvisionResult | null> {
+  const existing = await findAuthUserByEmail(ctx, args.email);
+  if (
+    existing?._id &&
+    (await ctx.runQuery(internal.crm.staff.isAuthUserLinkedElsewhere, {
+      authUserId: String(existing._id),
+      staffId: args.staffId,
+    }))
+  ) {
+    // Sign-in needs exactly one staff match: reusing another staff record's account would lock
+    // both out, and would hand an employee's account to an external tour manager login.
+    return {
+      message: "This email's sign-in account belongs to another staff record",
+      ok: false,
+      step: "error",
+    };
+  }
   const [, , authUser] = await Promise.all([
     ctx.runMutation(internal.crm.staff.markPendingOnboarding, {
       staffId: args.staffId,

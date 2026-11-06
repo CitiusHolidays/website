@@ -422,6 +422,7 @@ describe("External tour manager logins", () => {
       expect(canAccessPage(external, page), page).toBe(true);
     }
     expect(canViewPassportScansInWorkspace(external)).toBe(false);
+    expect(canViewPassportExpiryInWorkspace(external)).toBe(false);
     const has = (permission) => external.permissions.includes(permission);
     for (const [view, allowed] of [
       ["passport", false],

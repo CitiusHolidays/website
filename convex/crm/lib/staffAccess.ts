@@ -1,5 +1,5 @@
 import { ConvexError } from "convex/values";
-import type { Id } from "../../_generated/dataModel";
+import type { Doc, Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import {
   type AuthIdentityLike,
@@ -88,21 +88,7 @@ export async function getPortalAccess(ctx: QueryCtx | MutationCtx): Promise<Port
   const authUserId = canonicalAuthUserId(identity) ?? undefined;
 
   if (staff) {
-    const external = isExternalTourManagerStaff(staff);
-    return {
-      allowed: true,
-      authUserId,
-      bootstrap: false,
-      email: staff.email,
-      externalTourManager: external,
-      // Never the identity's self-asserted name: staff names drive name-based record matches.
-      name: staff.name || staff.email,
-      permissions: external
-        ? [...EXTERNAL_TOUR_MANAGER_PERMISSIONS].sort()
-        : getRolePermissions(staff.roles),
-      roles: external ? [...EXTERNAL_TOUR_MANAGER_ROLES] : staff.roles,
-      staffId: staff._id,
-    };
+    return { ...portalAccessForStaff(staff), authUserId, bootstrap: false };
   }
 
   // Break-glass Admin access is fail-closed: an allowlisted email is not enough
@@ -129,6 +115,28 @@ export async function getPortalAccess(ctx: QueryCtx | MutationCtx): Promise<Port
     permissions: [],
     reason: "NOT_STAFF",
     roles: [],
+  };
+}
+
+/**
+ * The access a staff record carries, for the signed-in caller and for server-side audience checks
+ * alike, so an external tour manager's login is narrowed the same way everywhere. `authUserId` is
+ * the stored link; `getPortalAccess` replaces it with the session's canonical id.
+ */
+export function portalAccessForStaff(staff: Doc<"staffUsers">): PortalAccess {
+  const external = isExternalTourManagerStaff(staff);
+  return {
+    allowed: true,
+    authUserId: staff.authUserId,
+    email: staff.email,
+    externalTourManager: external,
+    // Never the identity's self-asserted name: staff names drive name-based record matches.
+    name: staff.name || staff.email,
+    permissions: external
+      ? [...EXTERNAL_TOUR_MANAGER_PERMISSIONS].sort()
+      : getRolePermissions(staff.roles),
+    roles: external ? [...EXTERNAL_TOUR_MANAGER_ROLES] : staff.roles,
+    staffId: staff._id,
   };
 }
 

@@ -2,7 +2,13 @@ import { paginationOptsValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
-import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  type MutationCtx,
+  mutation,
+  query,
+} from "../_generated/server";
 import { syncAuthRecords } from "../lib/authSync";
 import { getBootstrapAuthorityExpiry } from "../lib/bootstrapAuthority";
 import {
@@ -359,7 +365,8 @@ export const listTeamOptions = query({
 export const listAccountsForJobCards = query({
   args: {},
   handler: async (ctx) => {
-    await requireAnyPermission(ctx, [PERMISSIONS.VIEW_JOB_CARDS]);
+    // Only the Job Card creation flow uses this list (its caller already needs manage:jobCards).
+    await requireStaff(ctx, PERMISSIONS.MANAGE_JOB_CARDS);
     const rows = await ctx.db.query("staffUsers").collect();
     return rows
       .filter(
@@ -535,6 +542,40 @@ export const removeStaff = mutation({
   returns: staffIdResultValidator,
 });
 
+/**
+ * An external tour manager's login must never share a Better Auth account with another staff
+ * record: provisioning links any existing account with the same email, which would otherwise
+ * attach the employee's account (and lock both out, since sign-in needs exactly one match).
+ */
+async function assertAuthUserFreeForExternalLogin(
+  ctx: Pick<MutationCtx, "db">,
+  authUserId: string,
+  staffId: Id<"staffUsers">
+) {
+  const holders = await ctx.db
+    .query("staffUsers")
+    .withIndex("by_authUserId", (q) => q.eq("authUserId", authUserId))
+    .take(2);
+  if (holders.some((holder) => holder._id !== staffId)) {
+    throw new ConvexError(
+      "This sign-in account belongs to another staff record and cannot become an external tour manager login"
+    );
+  }
+}
+
+/** Read by the provisioning action before it reuses an existing Better Auth account. */
+export const isAuthUserLinkedElsewhere = internalQuery({
+  args: { authUserId: v.string(), staffId: v.id("staffUsers") },
+  handler: async (ctx, args) => {
+    const holders = await ctx.db
+      .query("staffUsers")
+      .withIndex("by_authUserId", (q) => q.eq("authUserId", args.authUserId))
+      .take(2);
+    return holders.some((holder) => holder._id !== args.staffId);
+  },
+  returns: v.boolean(),
+});
+
 export const linkAuthUserId = internalMutation({
   args: {
     authUserId: v.string(),
@@ -546,6 +587,9 @@ export const linkAuthUserId = internalMutation({
     const staff = await ctx.db.get("staffUsers", args.staffId);
     if (!staff) {
       return null;
+    }
+    if (isExternalTourManagerStaff(staff)) {
+      await assertAuthUserFreeForExternalLogin(ctx, args.authUserId, staff._id);
     }
 
     await ctx.db.patch("staffUsers", args.staffId, {

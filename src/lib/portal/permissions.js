@@ -49,6 +49,9 @@ export function canViewPassportScansInWorkspace(access) {
  * convex/crm/passportPolicy.ts; the server also requires office scope on the Job Card.
  */
 export function canViewPassportExpiryInWorkspace(access) {
+  if (isExternalTourManager(access)) {
+    return false;
+  }
   const roles = (access?.roles ?? []).filter((role) => role !== "Tour Manager");
   const permissions = getPermissionsForRoles(roles);
   return (
