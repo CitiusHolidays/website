@@ -11,6 +11,7 @@ import {
   canCreateJobCardFromAccounts,
   canManageJobCardCreatorAccess,
   canUseTeamPicker,
+  canViewPassportExpiryInWorkspace,
   canViewPassportScansInWorkspace,
   getAccessibleNavGroups,
   getPermissionsForRoles,
@@ -288,6 +289,16 @@ describe("Passport scans in the Staff Workspace", () => {
     expect(canViewPassportScansInWorkspace({ roles: ["Operations Head"] })).toBe(true);
     expect(canViewPassportScansInWorkspace({ roles: ["Sales"] })).toBe(false);
     expect(canViewPassportScansInWorkspace({})).toBe(false);
+    expect(canViewPassportScansInWorkspace({ roles: ["Ticketing"] })).toBe(false);
+  });
+
+  test("lets ticketing and visa staff see passport expiry dates, never a Tour Manager alone", () => {
+    expect(canViewPassportExpiryInWorkspace({ roles: ["Ticketing"] })).toBe(true);
+    expect(canViewPassportExpiryInWorkspace({ roles: ["Head of Ticketing"] })).toBe(true);
+    expect(canViewPassportExpiryInWorkspace({ roles: ["Operations Head"] })).toBe(true);
+    expect(canViewPassportExpiryInWorkspace({ roles: ["Tour Manager"] })).toBe(false);
+    expect(canViewPassportExpiryInWorkspace({ roles: ["Sales"] })).toBe(false);
+    expect(canViewPassportExpiryInWorkspace({})).toBe(false);
   });
 });
 

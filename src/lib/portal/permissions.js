@@ -43,6 +43,20 @@ export function canViewPassportScansInWorkspace(access) {
   return getPermissionsForRoles(roles).includes(PORTAL_PERMISSIONS.VIEW_VISA);
 }
 
+/**
+ * Passport expiry dates reach visa and ticketing staff (Ticketing books against them) but never
+ * a Tour Manager-only user. Mirrors `holdsPassportExpiryAuthority` in
+ * convex/crm/passportPolicy.ts; the server also requires office scope on the Job Card.
+ */
+export function canViewPassportExpiryInWorkspace(access) {
+  const roles = (access?.roles ?? []).filter((role) => role !== "Tour Manager");
+  const permissions = getPermissionsForRoles(roles);
+  return (
+    permissions.includes(PORTAL_PERMISSIONS.VIEW_VISA) ||
+    permissions.includes(PORTAL_PERMISSIONS.VIEW_TICKETING)
+  );
+}
+
 export function hasPermission(access, permission) {
   if (!permission) {
     return true;

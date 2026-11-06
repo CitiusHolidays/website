@@ -47,9 +47,11 @@ The group applies to `crm/travellers:listPage` and `getListRow`, `crm/visa:list`
 `listSeatAllocations`, the ticketing dashboard preview, and the traveller rows of
 `crm/jobCards:getCommandCenter`. A row without a traveller needs whole-Job Card scope. PNRs and
 flight groups carry no traveller names and keep Job Card scope. For a caller without Staff
-Workspace passport access the traveller rows blank `hasPassportScan` and `passportExpiryDate`
-(the `passportStatus` word stays, as the app shows it), and the `passportExpiryUrgency` filter is
-refused.
+Workspace passport access the traveller rows blank `hasPassportScan` (the `passportStatus` word
+stays, as the app shows it). `passportExpiryDate` and the `passportExpiryUrgency` filter are wider:
+visa or ticketing read authority from an office role on an office grant is enough, because
+Ticketing books against expiry dates (owner decision, 7 Nov 2026). A Tour Manager-only grant gets
+neither.
 
 **Exports.** Spreadsheet imports and exports ignore permissions that come only from the Tour
 Manager role (`convex/crm/passengerKindPolicy.ts`), and passenger-family exports also need an
@@ -138,8 +140,11 @@ The extra day on each side covers trips in other time zones.
 Passport notification emails (status, expiry, last four, file name) follow the same Staff
 Workspace passport rule, so a Tour Manager-only recipient never receives them.
 
-Audit rows hold identifiers and times only and are kept when the Job Card is deleted. Retention
-follows the passport retention schedule; none is configured yet (see ADR 0012).
+Audit rows hold identifiers and times only and are kept when the Job Card is deleted, but only
+until the trip is over (owner decision, 7 Nov 2026): each row stores the trip window's close as
+`retainUntil`, and the daily `jobs.purge_field_passport_audit` job
+(`crm/fieldPassportAuditRetention`) deletes rows past it. It re-reads the trip dates first, so an
+extended trip keeps its rows until the new close.
 
 ## External tour managers
 
@@ -255,6 +260,9 @@ calls only the functions listed above.
   and the [assigned Tour Manager backfill](migrations/job-card-assigned-tour-manager-staff-ids.md)
   on each deployment. Until they run, untouched Job Cards still grant Job Card-level access by
   `tourManagerName`, which can hold an external profile's name.
-- The traveller list's "Passport expiry" filter is hidden from users without Staff Workspace
-  passport access, and the Passport documents view never sends the expiry-urgency filter for
-  them.
+- The traveller list's "Passport expiry" filter is shown to visa and ticketing staff and hidden
+  from a Tour Manager alone; the Passport documents view never sends the expiry-urgency filter
+  without Staff Workspace passport access.
+- `fieldPassportAccessAudit` gains optional `retainUntil` and index `by_retainUntil`; rows written
+  before it are purged by the same job once their trip is over. The new operational control
+  `jobs.purge_field_passport_audit` is on by default.

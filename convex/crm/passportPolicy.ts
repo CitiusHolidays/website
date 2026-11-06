@@ -32,3 +32,22 @@ export function canReadPassportInStaffWorkspace(
     grant === "office" && holdsPermissionOutsideTourManagerRole(access.roles, PERMISSIONS.VIEW_VISA)
   );
 }
+
+/**
+ * Passport expiry dates are wider than scans: Ticketing needs them to book and check fares
+ * (owner decision, 7 Nov 2026), so visa or ticketing read authority from an office role is
+ * enough. Scans and numbers still need `canReadPassportInStaffWorkspace`.
+ */
+export function holdsPassportExpiryAuthority(roles: readonly string[]) {
+  return (
+    holdsPermissionOutsideTourManagerRole(roles, PERMISSIONS.VIEW_VISA) ||
+    holdsPermissionOutsideTourManagerRole(roles, PERMISSIONS.VIEW_TICKETING)
+  );
+}
+
+export function canReadPassportExpiryInStaffWorkspace(
+  access: Pick<PortalAccess, "roles">,
+  grant: JobCardRecordGrant | null
+) {
+  return grant === "office" && holdsPassportExpiryAuthority(access.roles);
+}

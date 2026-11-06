@@ -12,6 +12,7 @@ export const scheduledJobValidator = v.union(
   v.literal("cleanup_portal_rate_limits"),
   v.literal("cleanup_sacred_bharat_rate_limits"),
   v.literal("purge_commercial_files"),
+  v.literal("purge_field_passport_audit"),
   v.literal("purge_office_check_ins"),
   v.literal("reconcile_crm_metrics"),
   v.literal("reconcile_list_search"),
@@ -28,6 +29,7 @@ export const SCHEDULED_JOBS = [
   "cleanup_portal_rate_limits",
   "cleanup_sacred_bharat_rate_limits",
   "purge_commercial_files",
+  "purge_field_passport_audit",
   "purge_office_check_ins",
   "reconcile_crm_metrics",
   "reconcile_list_search",
@@ -46,6 +48,7 @@ const CONTROL_KEY_BY_JOB = {
   cleanup_portal_rate_limits: "jobs.cleanup_portal_rate_limits",
   cleanup_sacred_bharat_rate_limits: "jobs.cleanup_sacred_bharat_rate_limits",
   purge_commercial_files: "jobs.purge_commercial_files",
+  purge_field_passport_audit: "jobs.purge_field_passport_audit",
   purge_office_check_ins: "jobs.purge_office_check_ins",
   reconcile_crm_metrics: "jobs.reconcile_crm_metrics",
   reconcile_list_search: "jobs.reconcile_list_search",
@@ -79,6 +82,10 @@ const MUTATION_BY_JOB = {
   purge_commercial_files: {
     mutation: internal.crm.commercialFiles.purgeExpired,
     mutationName: "crm/commercialFiles:purgeExpired",
+  },
+  purge_field_passport_audit: {
+    mutation: internal.crm.fieldPassportAuditRetention.purgeExpired,
+    mutationName: "crm/fieldPassportAuditRetention:purgeExpired",
   },
   purge_office_check_ins: {
     mutation: internal.crm.officeCheckInRetention.purgeExpired,
@@ -202,6 +209,12 @@ export const cleanupSacredBharatRateLimits = internalAction({
 export const purgeCommercialFiles = internalAction({
   args: {},
   handler: controlledScheduledHandler("purge_commercial_files"),
+  returns: scheduledJobResult,
+});
+
+export const purgeFieldPassportAudit = internalAction({
+  args: {},
+  handler: controlledScheduledHandler("purge_field_passport_audit"),
   returns: scheduledJobResult,
 });
 

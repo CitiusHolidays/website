@@ -137,10 +137,10 @@ describe("Staff list filter recovery", () => {
   });
 
   test("Shows the passport expiry filter only to users who can open passport scans", async () => {
-    const labelsFor = async (canViewPassportScans) => {
+    const labelsFor = async (canViewPassportExpiry) => {
       const view = await mount({
         filtersActive: false,
-        listFilterConfig: getListFilterConfig("travellers", { canViewPassportScans }),
+        listFilterConfig: getListFilterConfig("travellers", { canViewPassportExpiry }),
         listFilters: {},
         onClearAllFilters: mock(),
         search: "",

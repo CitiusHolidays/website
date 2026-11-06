@@ -17,6 +17,7 @@ function harness() {
 
 const identities = {
   "ops-head": { name: "Synthetic Ops Head", roles: ["Operations Head"] },
+  ticketing: { name: "Synthetic Ticketing", roles: ["Ticketing"] },
   "tm-batch": { name: "Asha Rao", roles: ["Tour Manager"] },
   "tm-namesake": { name: "Asha  RAO", roles: ["Tour Manager"] },
   "tm-ops": { name: "Kiran Das", roles: ["Tour Manager", "Operations"] },
@@ -26,6 +27,7 @@ const identities = {
 type StaffKey = keyof typeof identities;
 const STAFF_KEYS = [
   "ops-head",
+  "ticketing",
   "tm-batch",
   "tm-namesake",
   "tm-ops",
@@ -299,6 +301,64 @@ describe("passports in the Staff Workspace", () => {
       travellerId: f.ids.a1,
     });
     expect(metadata?.fileName).toBe("passport.pdf");
+  });
+});
+
+describe("field passport audit retention", () => {
+  test("keeps audit rows until the trip is over, longer if the trip is extended", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const t = harness();
+    const f = await seed(t);
+    await f.assign("tm-batch", f.ids.batchA);
+    await withPassport(t, f.ids.a1);
+    // Batch A travels 10-12 Nov; the window closes at 13 Nov 24:00 IST (18:30 UTC).
+    const close = Date.parse("2026-11-13T18:30:00Z");
+    vi.setSystemTime(Date.parse("2026-11-10T06:00:00Z"));
+    await f.actor("tm-batch").mutation(internal.crm.fieldPassports.authorizeFieldPassportRead, {
+      travellerId: f.ids.a1,
+    });
+    const audit = () => t.run((ctx) => ctx.db.query("fieldPassportAccessAudit").collect());
+    expect((await audit()).map((row) => row.retainUntil)).toEqual([close]);
+
+    vi.setSystemTime(close - 60_000);
+    await t.mutation(internal.crm.fieldPassportAuditRetention.purgeExpired, {});
+    expect(await audit()).toHaveLength(1);
+
+    // The trip is extended to 13 Nov after the passport was opened: the row stays.
+    await t.run((ctx) =>
+      ctx.db.patch("travelBatches", f.ids.batchA, { travelEndDate: "2026-11-13" })
+    );
+    vi.setSystemTime(close + 60_000);
+    const extended = await t.mutation(internal.crm.fieldPassportAuditRetention.purgeExpired, {});
+    expect(extended).toMatchObject({ deleted: 0, kept: 1 });
+    expect((await audit()).map((row) => row.retainUntil)).toEqual([close + 24 * 60 * 60 * 1000]);
+
+    vi.setSystemTime(close + 24 * 60 * 60 * 1000 + 60_000);
+    const over = await t.mutation(internal.crm.fieldPassportAuditRetention.purgeExpired, {});
+    expect(over).toMatchObject({ deleted: 1, kept: 0 });
+    expect(await audit()).toEqual([]);
+  });
+
+  test("removes rows without a stored close whose Job Card is gone", async () => {
+    const t = harness();
+    const f = await seed(t);
+    const actorStaffId = f.staffIds.get("tm-batch");
+    if (!actorStaffId) {
+      throw new Error("seeded Tour Manager missing");
+    }
+    await t.run(async (ctx) => {
+      await ctx.db.insert("fieldPassportAccessAudit", {
+        accessedAt: NOW,
+        actorAuthUserId: "tm-batch",
+        actorName: "Asha Rao",
+        actorStaffId,
+        jobCardId: f.ids.jobCardId,
+        travellerId: f.ids.a1,
+      });
+      await ctx.db.delete("jobCards", f.ids.jobCardId);
+    });
+    const result = await t.mutation(internal.crm.fieldPassportAuditRetention.purgeExpired, {});
+    expect(result).toMatchObject({ deleted: 1, scheduledContinuation: false });
   });
 });
 
@@ -768,6 +828,26 @@ describe("review fixes: passport data and exports", () => {
         passportReferenceDate: "2026-11-06",
       })
     ).rejects.toThrow("FORBIDDEN");
+  });
+
+  test("Ticketing sees passport expiry dates but not scan flags", async () => {
+    const t = harness();
+    const f = await seed(t);
+    await withPassport(t, f.ids.a1);
+    await t.run((ctx) =>
+      ctx.db.patch("jobCards", f.ids.jobCardId, { ticketingOwnerId: f.staffIds.get("ticketing") })
+    );
+    const row = await f.actor("ticketing").query(api.crm.travellers.getListRow, {
+      travellerId: f.ids.a1,
+    });
+    expect(row).toMatchObject({ hasPassportScan: false, passportExpiryDate: "2031-01-01" });
+    const page = await f.actor("ticketing").query(api.crm.travellers.listPage, {
+      jobCardId: f.ids.jobCardId,
+      paginationOpts: { cursor: null, numItems: 10 },
+      passportExpiryUrgency: "ok",
+      passportReferenceDate: "2026-11-06",
+    });
+    expect(page.page.map((traveller) => traveller.id)).toContain(f.ids.a1);
   });
 
   test("a Tour Manager-only collaborator cannot export passengers or passports", async () => {
