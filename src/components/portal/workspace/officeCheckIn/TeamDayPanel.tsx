@@ -2,7 +2,7 @@
 
 import { PortalDateInput } from "@/components/portal/PortalDateInput";
 import { Select } from "@/components/ui/application-select";
-import { formatOfficeTime, formatWorkDate, teamStatusFor } from "@/lib/officeCheckIn/presentation";
+import { formatDaySpan, formatWorkDate, teamStatusFor } from "@/lib/officeCheckIn/presentation";
 import { Panel } from "../portalWorkspaceListUi";
 import { ToneBadge } from "./OfficeCheckInParts";
 import type { TeamDay, TeamDayRow } from "./officeCheckInTypes";
@@ -57,13 +57,17 @@ function SummaryText({ parts }: { parts: readonly string[] }) {
   ));
 }
 
-function timesFor(row: TeamDayRow) {
-  if (!row.checkIn) {
-    return "—";
-  }
-  const clockIn = formatOfficeTime(row.checkIn.clockInAt, row.timeZone);
-  const clockOut = formatOfficeTime(row.checkIn.clockOutAt, row.timeZone);
-  return `${clockIn} → ${clockOut}`;
+/** First in → last out across the day's sessions, plus "2 sessions" when there are more than one. */
+function Times({ row }: { row: TeamDayRow }) {
+  const count = row.sessions.length;
+  return (
+    <>
+      {formatDaySpan(row.sessions, row.timeZone)}
+      {count > 1 ? (
+        <span className="ms-2 whitespace-nowrap text-brand-muted text-xs">{count} sessions</span>
+      ) : null}
+    </>
+  );
 }
 
 function OpenButton({ onOpen, row }: { onOpen: (row: TeamDayRow) => void; row: TeamDayRow }) {
@@ -135,7 +139,7 @@ function TeamTable({
                   <ToneBadge label={status.label} tone={status.tone} />
                 </td>
                 <td className="whitespace-nowrap py-2.5 pe-4 text-end align-middle text-brand-dark tabular-nums">
-                  {timesFor(row)}
+                  <Times row={row} />
                 </td>
                 <td className="py-2.5 text-end align-middle">
                   <OpenButton onOpen={onOpen} row={row} />
@@ -154,7 +158,9 @@ function TeamTable({
                 <NameCell row={row} showOffice={showOffice} />
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <ToneBadge label={status.label} tone={status.tone} />
-                  <span className="text-brand-muted text-xs tabular-nums">{timesFor(row)}</span>
+                  <span className="text-brand-muted text-xs tabular-nums">
+                    <Times row={row} />
+                  </span>
                 </div>
               </div>
               <OpenButton onOpen={onOpen} row={row} />

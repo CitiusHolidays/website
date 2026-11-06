@@ -416,3 +416,57 @@ export function reasonProblem(reason: string) {
   }
   return null;
 }
+
+// ---------------------------------------------------------------------------
+// Sessions (a person may clock out and clock in again on one day)
+
+export interface SessionTimes {
+  clockInAt: number;
+  clockOutAt?: number;
+}
+
+/** "09:12 → 13:00", or "14:05 → open" while the session is still running. */
+export function formatSessionSpan(session: SessionTimes, timeZone: string) {
+  const out =
+    session.clockOutAt === undefined ? "open" : formatOfficeTime(session.clockOutAt, timeZone);
+  return `${formatOfficeTime(session.clockInAt, timeZone)} → ${out}`;
+}
+
+/** Oldest first, for reading a day left to right. */
+export function chronological<Session extends SessionTimes>(sessions: readonly Session[]) {
+  return [...sessions].sort((left, right) => left.clockInAt - right.clockInAt);
+}
+
+/** "09:12 → 13:00 · 14:05 → open" */
+export function formatSessionsLine(sessions: readonly SessionTimes[], timeZone: string) {
+  return chronological(sessions)
+    .map((session) => formatSessionSpan(session, timeZone))
+    .join(" · ");
+}
+
+/** First clock-in to last clock-out of a day, "—" for a still-open last session. */
+export function formatDaySpan(sessions: readonly SessionTimes[], timeZone: string) {
+  const ordered = chronological(sessions);
+  const [first] = ordered;
+  const last = ordered.at(-1);
+  if (!(first && last)) {
+    return "—";
+  }
+  return `${formatOfficeTime(first.clockInAt, timeZone)} → ${formatOfficeTime(last.clockOutAt, timeZone)}`;
+}
+
+/** Who may delete and what is kept: Admin erases, Directors leave a trail. */
+export type SessionDeletion = "erase" | "trail";
+
+export const DELETE_SESSION_COPY = {
+  erase: "This removes the session and its history completely.",
+  trail: "This removes the session. A record of the deletion and your reason is kept.",
+} satisfies Record<SessionDeletion, string>;
+
+/** Directors must give a reason; for Admin it is optional and not stored. */
+export function deleteReasonProblem(reason: string, deletion: SessionDeletion) {
+  if (deletion === "erase" && reason.trim().length === 0) {
+    return null;
+  }
+  return reasonProblem(reason);
+}

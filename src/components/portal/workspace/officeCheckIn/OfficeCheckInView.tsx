@@ -153,7 +153,7 @@ export function OfficeCheckInView({ access, allowed, canFetch, has }: OfficeChec
           ) : null}
         </>
       )}
-      <TeamRecordDialog onClose={closeDialog} target={liveDialog} />
+      <TeamRecordDialog deletion={status.deletion} onClose={closeDialog} target={liveDialog} />
     </div>
   );
 }

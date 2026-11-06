@@ -16,14 +16,18 @@ import { ControlledDialogClose, ControlledDialogTitle } from "@/components/ui/ap
 import {
   formatOfficeDateTime,
   formatOfficeTime,
+  formatSessionSpan,
+  formatSessionsLine,
   formatWorkDate,
   officeTimeToTimestamp,
   reasonProblem,
+  type SessionDeletion,
   teamStatusFor,
   timestampToClockTime,
 } from "@/lib/officeCheckIn/presentation";
 import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
 import { formatConvexError } from "../portalWorkspaceListHelpers";
+import { DeleteSessionForm } from "./DeleteSessionForm";
 import {
   DialogBody,
   DialogFooter,
@@ -43,18 +47,22 @@ export interface TeamRecordDialogTarget {
   workDate: string;
 }
 
-type Mode = "correct" | "details" | "manual" | "review";
+type SessionMode = "correct" | "delete" | "review";
+type Mode = { kind: "details" } | { kind: "manual" } | { kind: SessionMode; sessionId: SessionId };
+type SessionId = CheckInRecord["_id"];
+
+const DETAILS: Mode = { kind: "details" };
 
 /** Opens straight into the one job a row most likely needs. */
 function initialMode(row: TeamDayRow): Mode {
   const record = row.checkIn;
   if (!record) {
-    return row.canReview ? "manual" : "details";
+    return row.canReview ? { kind: "manual" } : DETAILS;
   }
   if (row.canReview && record.source === "self" && record.admission === "pending_review") {
-    return "review";
+    return { kind: "review", sessionId: record._id };
   }
-  return "details";
+  return DETAILS;
 }
 
 function reviewNote(record: CheckInRecord) {
@@ -206,10 +214,13 @@ interface ModeProps {
 }
 
 interface DialogContext {
+  deletion: SessionDeletion | null;
   heading: { subtitle: string; title: string };
   onBusyChange: (busy: boolean) => void;
   onDone: () => void;
   row: TeamDayRow;
+  /** The session a Review, Correct times or Delete acts on. */
+  session: CheckInRecord | null;
   workDate: string;
 }
 
@@ -227,8 +238,7 @@ function ReviewMode({ context, focusFirst, onBack }: ModeProps) {
   const decisionRef = useRef<HTMLInputElement | null>(null);
   useFocusOnMount(decisionRef, focusFirst);
   const id = useId();
-  const { row } = context;
-  const record = row.checkIn;
+  const { row, session: record } = context;
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -450,7 +460,9 @@ function TimesMode({
     <form className="flex min-h-0 flex-1 flex-col" noValidate onSubmit={submit}>
       <DialogBody>
         <DialogHeading {...context.heading} />
-        {row.checkIn ? <RecordSummary record={row.checkIn} timeZone={row.timeZone} /> : null}
+        {context.session ? (
+          <RecordSummary record={context.session} timeZone={row.timeZone} />
+        ) : null}
         <p className="mt-4 text-brand-dark text-sm">{intro}</p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <TimeField
@@ -488,8 +500,7 @@ function TimesMode({
 function CorrectMode(props: ModeProps) {
   const toast = usePortalToast();
   const correctTimes = useMutation(api.crm.officeCheckIns.correctTimes);
-  const { row } = props.context;
-  const record = row.checkIn;
+  const { row, session: record } = props.context;
   if (!record) {
     return null;
   }
@@ -513,6 +524,13 @@ function CorrectMode(props: ModeProps) {
   );
 }
 
+function manualIntro(row: TeamDayRow) {
+  if (row.sessions.length === 0) {
+    return `${row.name} has no check-in for this day. If they were in the office but couldn't check in, add their times. It's saved as a manual entry with no device evidence.`;
+  }
+  return `Add another session for ${row.name}. It can't overlap their other sessions (${formatSessionsLine(row.sessions, row.timeZone)}). It's saved as a manual entry with no device evidence.`;
+}
+
 function ManualMode(props: ModeProps) {
   const toast = usePortalToast();
   const recordManualEntry = useMutation(api.crm.officeCheckIns.recordManualEntry);
@@ -526,10 +544,72 @@ function ManualMode(props: ModeProps) {
     <TimesMode
       {...props}
       initial={{ clockIn: "", clockOut: "", reason: "" }}
-      intro={`${row.name} has no check-in for this day. If they were in the office but couldn't check in, add their times. It's saved as a manual entry with no device evidence.`}
+      intro={manualIntro(row)}
       onSave={save}
       submitLabel="Add entry"
     />
+  );
+}
+
+function DeleteMode({ context, onBack }: ModeProps) {
+  const { deletion, heading, row, session } = context;
+  if (!(deletion && session)) {
+    return null;
+  }
+  return (
+    <DeleteSessionForm
+      deletion={deletion}
+      onBack={onBack}
+      onBusyChange={context.onBusyChange}
+      onDone={context.onDone}
+      personName={row.name}
+      session={session}
+      subtitle={`${row.name} · ${heading.subtitle}`}
+      timeZone={row.timeZone}
+    />
+  );
+}
+
+/** One session's summary, history and the actions the caller may take on it. */
+function SessionBlock({
+  context,
+  onChoose,
+  session,
+}: {
+  context: DialogContext;
+  onChoose: (mode: Mode) => void;
+  session: CheckInRecord;
+}) {
+  const { deletion, row } = context;
+  const choose = (kind: SessionMode) => () => onChoose({ kind, sessionId: session._id });
+  const canReview = row.canReview && session.source === "self";
+  return (
+    <section
+      aria-label={`Session ${formatSessionSpan(session, row.timeZone)}`}
+      className="grid gap-2"
+    >
+      <RecordSummary record={session} timeZone={row.timeZone} />
+      {row.canReview || deletion ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {canReview ? (
+            <button className="portal-small-btn" onClick={choose("review")} type="button">
+              Review
+            </button>
+          ) : null}
+          {row.canReview ? (
+            <button className="portal-small-btn" onClick={choose("correct")} type="button">
+              Correct times
+            </button>
+          ) : null}
+          {deletion ? (
+            <button className="portal-small-btn" onClick={choose("delete")} type="button">
+              Delete session
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      <RecordHistory checkInId={session._id} timeZone={row.timeZone} />
+    </section>
   );
 }
 
@@ -541,21 +621,22 @@ function DetailsMode({
   onChoose: (mode: Mode) => void;
 }) {
   const { row } = context;
-  const record = row.checkIn;
-  const canReview = Boolean(row.canReview && record?.source === "self");
-  const review = () => onChoose("review");
-  const correct = () => onChoose("correct");
+  const addSession = () => onChoose({ kind: "manual" });
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <DialogBody>
         <DialogHeading {...context.heading} />
-        {record ? (
-          <>
-            <RecordSummary record={record} timeZone={row.timeZone} />
-            <div className="mt-3">
-              <RecordHistory checkInId={record._id} timeZone={row.timeZone} />
-            </div>
-          </>
+        {row.sessions.length > 0 ? (
+          <div className="grid gap-5">
+            {row.sessions.map((session) => (
+              <SessionBlock
+                context={context}
+                key={session._id}
+                onChoose={onChoose}
+                session={session}
+              />
+            ))}
+          </div>
         ) : (
           <p className="text-brand-dark text-sm">No check-in for this day.</p>
         )}
@@ -569,14 +650,9 @@ function DetailsMode({
         <ControlledDialogClose className="portal-outline-btn" type="button">
           Close
         </ControlledDialogClose>
-        {row.canReview && record ? (
-          <button className="portal-outline-btn" onClick={correct} type="button">
-            Correct times
-          </button>
-        ) : null}
-        {canReview ? (
-          <button className="portal-primary-btn" onClick={review} type="button">
-            Review
+        {row.canReview && row.sessions.length > 0 ? (
+          <button className="portal-outline-btn" onClick={addSession} type="button">
+            Add a session
           </button>
         ) : null}
       </DialogFooter>
@@ -585,52 +661,67 @@ function DetailsMode({
 }
 
 function RecordDialogContent({
+  deletion,
   onBusyChange,
   onDone,
   target,
 }: {
+  deletion: SessionDeletion | null;
   onBusyChange: (busy: boolean) => void;
   onDone: () => void;
   target: TeamRecordDialogTarget;
 }) {
   const { row, workDate } = target;
-  const firstMode = initialMode(row);
-  const [mode, setMode] = useState<Mode>(firstMode);
+  const [firstMode] = useState<Mode>(() => initialMode(row));
+  const [chosen, setMode] = useState<Mode>(firstMode);
+  const session =
+    "sessionId" in chosen
+      ? (row.sessions.find((candidate) => candidate._id === chosen.sessionId) ?? null)
+      : null;
+  // A session that disappeared (deleted elsewhere) falls back to the details.
+  const mode = "sessionId" in chosen && !session ? DETAILS : chosen;
   const office = row.officeName ? ` · ${row.officeName}` : "";
   const context: DialogContext = {
+    deletion,
     heading: {
       subtitle: `${formatWorkDate(workDate)}${office} · times in ${row.timeZone}`,
-      title: firstMode === "manual" ? `Add an entry for ${row.name}` : row.name,
+      title: firstMode.kind === "manual" ? `Add an entry for ${row.name}` : row.name,
     },
     onBusyChange,
     onDone,
     row,
+    session,
     workDate,
   };
-  // Back returns to the details only when the dialog opened there or has a record to show.
-  const back = row.checkIn ? () => setMode("details") : null;
+  // Back returns to the details whenever there are sessions to show there.
+  const back = row.sessions.length > 0 ? () => setMode(DETAILS) : null;
   const switched = mode !== firstMode;
-  switch (mode) {
+  switch (mode.kind) {
     case "review":
       return <ReviewMode context={context} focusFirst={switched} onBack={back} />;
     case "correct":
       return <CorrectMode context={context} focusFirst={switched} onBack={back} />;
+    case "delete":
+      return <DeleteMode context={context} focusFirst={switched} onBack={back} />;
     case "manual":
-      return <ManualMode context={context} focusFirst={switched} onBack={null} />;
+      return <ManualMode context={context} focusFirst={switched} onBack={back} />;
     default:
       return <DetailsMode context={context} onChoose={setMode} />;
   }
 }
 
 /**
- * The single dialog behind each team row's Open button. It shows the day's
- * record and offers Review, Correct times or Add entry as the row allows.
- * Every save needs a reason, which goes into the history.
+ * The single dialog behind each team row's Open button. It lists the day's
+ * sessions and offers Review, Correct times, Delete session (Admin and
+ * Directors) or Add entry as the row allows. Every save needs a reason,
+ * which goes into the history.
  */
 export function TeamRecordDialog({
+  deletion,
   onClose,
   target,
 }: {
+  deletion: SessionDeletion | null;
   onClose: () => void;
   target: TeamRecordDialogTarget | null;
 }) {
@@ -639,6 +730,7 @@ export function TeamRecordDialog({
     <OfficeDialog busy={busy} onClose={onClose} open={Boolean(target)}>
       {target ? (
         <RecordDialogContent
+          deletion={deletion}
           key={`${target.row.staffId}:${target.workDate}`}
           onBusyChange={setBusy}
           onDone={onClose}

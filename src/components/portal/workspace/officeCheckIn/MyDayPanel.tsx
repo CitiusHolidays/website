@@ -6,17 +6,21 @@ import { useRef, useState } from "react";
 import type { OfficeCheckInAction } from "@/lib/officeCheckIn/contracts";
 import { readLocation } from "@/lib/officeCheckIn/location";
 import {
+  chronological,
   dayStatusFor,
   describeCheckInError,
   describeEnforcement,
   describeLocationProblem,
   describeRule,
   formatOfficeTime,
+  formatSessionSpan,
+  formatSessionsLine,
   formatWorkDate,
 } from "@/lib/officeCheckIn/presentation";
 import { submitOfficeCheckIn } from "@/lib/officeCheckIn/submit";
 import { Panel } from "../portalWorkspaceListUi";
-import { DayStatusBadge, OutcomeBadge, SignalList } from "./OfficeCheckInParts";
+import { DeleteSessionForm } from "./DeleteSessionForm";
+import { DayStatusBadge, OfficeDialog, OutcomeBadge, SignalList } from "./OfficeCheckInParts";
 import type { CheckInRecord, MyCheckInStatus } from "./officeCheckInTypes";
 
 type ClockPhase = "idle" | "locating" | "sending";
@@ -30,7 +34,9 @@ const NOT_REQUESTED: LocationReading = { kind: "not_requested" };
 
 function successMessage(action: OfficeCheckInAction, replayed: boolean) {
   if (replayed) {
-    return "You were already clocked in today. Nothing changed.";
+    return action === "clock_in"
+      ? "You were already clocked in. Nothing changed."
+      : "You were already clocked out. Nothing changed.";
   }
   return action === "clock_in" ? "Clock-in recorded." : "Clock-out recorded.";
 }
@@ -84,16 +90,17 @@ const LOCATION_NOTE_ID = "office-check-in-location-note";
 function ClockButton({
   action,
   describedBy,
+  idleLabel,
   onPress,
   phase,
 }: {
   action: OfficeCheckInAction;
   describedBy?: string;
+  idleLabel: string;
   onPress: (action: OfficeCheckInAction) => void;
   phase: ClockPhase;
 }) {
   const busy = phase !== "idle";
-  const idleLabel = action === "clock_in" ? "Clock in" : "Clock out";
   const text = busy ? busyLabel(phase) : idleLabel;
   // Stays focusable while busy (aria-disabled, not disabled) so keyboard focus
   // is not dropped to the page when the press starts; useClockAction ignores
@@ -178,6 +185,86 @@ function TodayRecord({ record, timeZone }: { record: CheckInRecord; timeZone: st
   );
 }
 
+/**
+ * Today's sessions in one line ("09:12 → 13:00 · 14:05 → open"). An Admin
+ * gets one row per session with a small Delete, so test data can be wiped.
+ */
+function TodaySessions({
+  onDelete,
+  status,
+}: {
+  onDelete: ((session: CheckInRecord) => void) | null;
+  status: MyCheckInStatus;
+}) {
+  const { sessions, timeZone } = status;
+  if (!onDelete) {
+    return sessions.length > 1 ? (
+      <p className="text-brand-dark text-sm tabular-nums">
+        <span className="text-brand-muted">Today: </span>
+        {formatSessionsLine(sessions, timeZone)}
+      </p>
+    ) : null;
+  }
+  return (
+    <div className="grid gap-1">
+      <p className="text-brand-muted text-xs" id={SESSIONS_LABEL_ID}>
+        Today's sessions
+      </p>
+      <ul aria-labelledby={SESSIONS_LABEL_ID} className="grid gap-1">
+        {chronological(sessions).map((session) => {
+          const span = formatSessionSpan(session, timeZone);
+          const remove = () => onDelete(session);
+          return (
+            <li className="flex items-center justify-between gap-3" key={session._id}>
+              <span className="text-brand-dark text-sm tabular-nums">{span}</span>
+              <button
+                aria-label={`Delete session ${span}`}
+                className="portal-small-btn"
+                onClick={remove}
+                type="button"
+              >
+                Delete
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+const SESSIONS_LABEL_ID = "office-check-in-today-sessions";
+
+function DeleteOwnSessionDialog({
+  onClose,
+  session,
+  timeZone,
+  workDate,
+}: {
+  onClose: () => void;
+  session: CheckInRecord | null;
+  timeZone: string;
+  workDate: string;
+}) {
+  const [busy, setBusy] = useState(false);
+  return (
+    <OfficeDialog busy={busy} onClose={onClose} open={Boolean(session)}>
+      {session ? (
+        <DeleteSessionForm
+          deletion="erase"
+          onBack={null}
+          onBusyChange={setBusy}
+          onDone={onClose}
+          personName={null}
+          session={session}
+          subtitle={`Your session on ${formatWorkDate(workDate)} · times in ${timeZone}`}
+          timeZone={timeZone}
+        />
+      ) : null}
+    </OfficeDialog>
+  );
+}
+
 function blockedReason(status: MyCheckInStatus) {
   if (!status.hasStaffProfile) {
     return "Your staff profile isn't active, so you can't clock in. Contact an admin.";
@@ -191,11 +278,12 @@ function blockedReason(status: MyCheckInStatus) {
   return null;
 }
 
-function nextAction(today: CheckInRecord | null): OfficeCheckInAction | null {
-  if (!today) {
-    return "clock_in";
+/** Clock out while a session is open; otherwise clock in, or clock in again after a break. */
+function nextAction(status: MyCheckInStatus): { action: OfficeCheckInAction; label: string } {
+  if (status.hasOpenSession) {
+    return { action: "clock_out", label: "Clock out" };
   }
-  return today.status === "open" ? "clock_out" : null;
+  return { action: "clock_in", label: status.sessions.length > 0 ? "Clock in again" : "Clock in" };
 }
 
 function DayAction({
@@ -209,22 +297,17 @@ function DayAction({
   if (blocked) {
     return <p className="text-brand-dark text-sm">{blocked}</p>;
   }
-  const action = nextAction(status.today);
-  const showLocationNote = Boolean(action && status.rule.needsLocation);
+  const { action, label } = nextAction(status);
+  const showLocationNote = status.rule.needsLocation;
   return (
     <div className="grid gap-2">
-      {action ? (
-        <ClockButton
-          action={action}
-          describedBy={showLocationNote ? LOCATION_NOTE_ID : undefined}
-          onPress={clock.run}
-          phase={clock.phase}
-        />
-      ) : (
-        <p className="text-brand-dark text-sm">
-          You've clocked out for today. A manager can correct your times if something is wrong.
-        </p>
-      )}
+      <ClockButton
+        action={action}
+        describedBy={showLocationNote ? LOCATION_NOTE_ID : undefined}
+        idleLabel={label}
+        onPress={clock.run}
+        phase={clock.phase}
+      />
       {showLocationNote ? (
         <p className="max-w-prose text-brand-muted text-xs" id={LOCATION_NOTE_ID}>
           Your browser asks for your location once, when you press the button. It isn't tracked
@@ -246,6 +329,10 @@ function officeLabel(office: { city: string | null; name: string }) {
 
 export function MyDayPanel({ status }: { status: MyCheckInStatus }) {
   const clock = useClockAction(status.rule.needsLocation);
+  const [deleting, setDeleting] = useState<CheckInRecord | null>(null);
+  // Only Admin may delete their own sessions; Directors never delete their own.
+  const onDelete = status.deletion === "erase" ? setDeleting : null;
+  const closeDelete = () => setDeleting(null);
   const dayStatus = dayStatusFor(status.today);
   const officeName = status.office ? officeLabel(status.office) : "No office assigned";
   return (
@@ -289,7 +376,10 @@ export function MyDayPanel({ status }: { status: MyCheckInStatus }) {
         </div>
         <div className="min-w-0 border-brand-border/70 border-t pt-4 md:border-s md:border-t-0 md:ps-6 md:pt-0">
           {status.today ? (
-            <TodayRecord record={status.today} timeZone={status.timeZone} />
+            <div className="grid gap-4">
+              <TodayRecord record={status.today} timeZone={status.timeZone} />
+              <TodaySessions onDelete={onDelete} status={status} />
+            </div>
           ) : (
             <p className="text-brand-muted text-sm">
               Not clocked in yet. Your times and the result show here after you clock in.
@@ -298,6 +388,12 @@ export function MyDayPanel({ status }: { status: MyCheckInStatus }) {
           <p className="mt-4 text-brand-muted text-xs">Times in {status.timeZone}.</p>
         </div>
       </div>
+      <DeleteOwnSessionDialog
+        onClose={closeDelete}
+        session={deleting}
+        timeZone={status.timeZone}
+        workDate={status.workDate}
+      />
     </Panel>
   );
 }
