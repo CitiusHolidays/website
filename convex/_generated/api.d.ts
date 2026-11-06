@@ -270,6 +270,7 @@ import type * as lib_eventPhotoBoothValidators from "../lib/eventPhotoBoothValid
 import type * as lib_formatDate from "../lib/formatDate.js";
 import type * as lib_guestContacts from "../lib/guestContacts.js";
 import type * as lib_importContractValidators from "../lib/importContractValidators.js";
+import type * as lib_nativeAppOrigins from "../lib/nativeAppOrigins.js";
 import type * as lib_notificationEmailValidators from "../lib/notificationEmailValidators.js";
 import type * as lib_passportPayloadCrypto from "../lib/passportPayloadCrypto.js";
 import type * as lib_paymentMutationAuth from "../lib/paymentMutationAuth.js";
@@ -577,6 +578,7 @@ declare const fullApi: ApiFromModules<{
   "lib/formatDate": typeof lib_formatDate;
   "lib/guestContacts": typeof lib_guestContacts;
   "lib/importContractValidators": typeof lib_importContractValidators;
+  "lib/nativeAppOrigins": typeof lib_nativeAppOrigins;
   "lib/notificationEmailValidators": typeof lib_notificationEmailValidators;
   "lib/passportPayloadCrypto": typeof lib_passportPayloadCrypto;
   "lib/paymentMutationAuth": typeof lib_paymentMutationAuth;

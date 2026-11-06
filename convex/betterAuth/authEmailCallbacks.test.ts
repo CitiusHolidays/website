@@ -114,3 +114,12 @@ describe("Better Auth transactional email callbacks", () => {
     }
   });
 });
+
+describe("Native app sign-in configuration", () => {
+  test("Enables the Expo plugin and trusts only the Citius app schemes", () => {
+    // SAFETY: option construction reads environment only; no Convex context method is invoked.
+    const options = createAuthOptions(fromPartial<ActionCtx>({}));
+    expect(options.plugins.map((plugin) => plugin.id)).toContain("expo");
+    expect(options.trustedOrigins).toEqual(["citius://", "citiusconnect://"]);
+  });
+});

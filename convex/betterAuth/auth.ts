@@ -1,3 +1,4 @@
+import { expo } from "@better-auth/expo";
 import { createClient } from "@convex-dev/better-auth";
 import { convex } from "@convex-dev/better-auth/plugins";
 import {
@@ -17,6 +18,7 @@ import {
 } from "../lib/authEmailDelivery";
 import { AUTH_EMAIL_BRAND, prepareAuthEmailMessage } from "../lib/authEmailHtml";
 import { resolveAuthOrigin } from "../lib/authOriginPolicy";
+import { NATIVE_APP_TRUSTED_ORIGINS } from "../lib/nativeAppOrigins";
 import schema from "./schema";
 
 const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
@@ -236,7 +238,9 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
         }
       },
     },
-    plugins: [convex({ authConfig })],
+    // expo() lets the installed apps exchange sessions through their URL schemes; the issuer and
+    // Convex token path stay the same as the web, so identities match (ADR 0009).
+    plugins: [expo(), convex({ authConfig })],
     rateLimit: {
       enabled: true,
       max: 10,
@@ -248,6 +252,7 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       updateAge: TWENTY_FOUR_HOURS_IN_SECONDS,
     },
     socialProviders,
+    trustedOrigins: [...NATIVE_APP_TRUSTED_ORIGINS],
     user: {
       additionalFields: {
         phoneNumber: {
