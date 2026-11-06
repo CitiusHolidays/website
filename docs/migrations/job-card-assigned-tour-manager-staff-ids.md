@@ -22,6 +22,12 @@ the `by_jobCardId` assignment index. It runs after `createTourManager`, after `u
 deletion removes the Job Card first, so its cascade needs no sync. External-profile and name-only
 assignments have no `staffId` and add nothing.
 
+The same writer derives `jobCards.legacyTourManagerNames` (normalized names of active name-only
+assignments, never external profiles) and writes both fields the first time it runs, even when
+empty. A written list replaces the `tourManagerName` fallback for that Job Card, and any assigned
+staff Tour Manager ends the name fallback altogether. The backfill below does not write the name
+list; Job Cards it never touches keep the role-gated `tourManagerName` fallback.
+
 The derived patch does not change `updatedAt`, metrics, or list search text.
 
 ## Source capabilities
