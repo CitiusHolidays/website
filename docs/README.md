@@ -20,6 +20,7 @@ provider or production proof.
 - [Portal CRM workflows](PORTAL_CRM_WORKFLOWS.md) - operational flow reference.
 - [Portal roles and access](PORTAL_ROLES_AND_ACCESS.md) - policy-led role guide.
 - [Portal permissions architecture](PORTAL_PERMISSIONS_ARCHITECTURE.md) - authority design.
+- [Tour manager app field API](CITIUS_CONNECT_FIELD_API.md) - group-scoped travellers, field passports, headcount and announcement sync.
 - [Staff Workspace performance](STAFF_WORKSPACE_PERFORMANCE.md) - bounded reads, replay safety, and budgets.
 - [Convex return contracts](CONVEX_RETURN_CONTRACTS.md) - public function result rules.
 - [Role dashboard](ROLE_DASHBOARD.md) - persona and KPI contract.
