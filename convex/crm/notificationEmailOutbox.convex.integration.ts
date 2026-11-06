@@ -233,7 +233,12 @@ describe("durable notification email lifecycle", () => {
       throw new Error("Fixture missing job");
     }
     vi.stubEnv("RESEND_API_KEY", "test-only");
+    // Pin every origin key the auth-origin policy reads, so a developer's
+    // .env.local cannot make them disagree and silently block the send.
     vi.stubEnv("SITE_URL", "https://fixture.example");
+    vi.stubEnv("BETTER_AUTH_URL", "https://fixture.example");
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://fixture.example");
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "");
     const requests: RequestInit[] = [];
     vi.stubGlobal("fetch", (_url: string, init: RequestInit) => {
       requests.push(init);

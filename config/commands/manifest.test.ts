@@ -6,12 +6,23 @@ import { createCommandManifest } from "./manifest";
 
 const root = resolve(import.meta.dir, "../..");
 
+// spawnSync blocks the test process, so Bun's per-test timeout cannot stop a
+// stuck child. Bound the child itself so a hang fails in seconds, not at the
+// CI job's 30-minute limit.
+const CHILD_TIMEOUT_MS = 15_000;
+
 function runManifest(args: string[]) {
-  return spawnSync("bun", ["config/commands/manifest.ts", ...args], {
+  const result = spawnSync("bun", ["config/commands/manifest.ts", ...args], {
     cwd: root,
     encoding: "utf8",
     env: { PATH: process.env.PATH },
+    killSignal: "SIGKILL",
+    timeout: CHILD_TIMEOUT_MS,
   });
+  if (result.error) {
+    throw result.error;
+  }
+  return result;
 }
 
 describe("Repository command manifest", () => {
