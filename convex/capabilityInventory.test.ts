@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "d9afe9d9aac2c65a376ff7336ff2f34d0d9c18e47b7983022504698ee1c871f9";
+const EXPECTED_CAPABILITY_HASH = "c56396cd69ef146a25c1d69841c91007b27585e51ffeb65918c96a9efd31f9a2";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_CAPABILITIES = new Set(["crm/postTourReports.archive"]);
@@ -135,6 +135,18 @@ describe("Convex capability inventory", () => {
       "crm/fieldSync.listLatestHeadcounts:query:public-product",
       "crm/fieldSync.pushHeadcountStop:mutation:public-product",
       "crm/fieldSync.recordAnnouncement:mutation:public-product",
+    ]);
+  });
+
+  test("classifies the field passport audit purge as internal capabilities", () => {
+    expect(
+      discoverCapabilities()
+        .filter(({ module }) => module === "crm/fieldPassportAuditRetention")
+        .map(({ classification, kind, name }) => `${name}:${kind}:${classification}`)
+        .sort((left, right) => left.localeCompare(right))
+    ).toEqual([
+      "continuePurge:internalMutation:internal",
+      "purgeExpired:internalMutation:internal",
     ]);
   });
 

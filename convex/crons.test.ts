@@ -61,6 +61,11 @@ const EXPECTED_CRONS = {
     name: "operationalScheduledJobs:purgeOfficeCheckIns",
     schedule: { cron: "0 21 * * *", type: "cron" },
   },
+  "purge field passport audit after trips": {
+    args: [{}],
+    name: "operationalScheduledJobs:purgeFieldPassportAudit",
+    schedule: { cron: "0 19 * * *", type: "cron" },
+  },
   "reconcile bounded crm metrics": {
     args: [{}],
     name: "operationalScheduledJobs:reconcileCrmMetrics",
@@ -94,7 +99,7 @@ const EXPECTED_CRONS = {
 } satisfies Record<string, SerializedCron>;
 
 describe("Convex cron registry", () => {
-  test("Registers the exact thirteen internal jobs, arguments, and schedules", () => {
+  test("Registers the exact fourteen internal jobs, arguments, and schedules", () => {
     // SAFETY: Convex Crons stores its serializable registry on this runtime-owned field.
     const registry = fromPartial<typeof crons & { crons: Record<string, SerializedCron> }>(
       crons
@@ -102,7 +107,7 @@ describe("Convex cron registry", () => {
 
     expect(Object.keys(registry).sort()).toEqual(Object.keys(EXPECTED_CRONS).sort());
     expect(registry).toEqual(EXPECTED_CRONS);
-    expect(new Set(Object.keys(registry)).size).toBe(13);
+    expect(new Set(Object.keys(registry)).size).toBe(14);
     expect(Object.values(registry).every((job) => !job.name.startsWith("api."))).toBe(true);
   });
 
@@ -131,8 +136,8 @@ describe("Convex cron registry", () => {
       )
     );
 
-    expect(dispatches).toHaveLength(13);
-    expect(new Set(dispatches).size).toBe(13);
+    expect(dispatches).toHaveLength(14);
+    expect(new Set(dispatches).size).toBe(14);
     expect(dispatches.every((name) => name.includes(":"))).toBe(true);
   });
 
