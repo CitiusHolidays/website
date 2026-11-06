@@ -627,6 +627,8 @@ describe("Mounted live feature control sections", () => {
     // The failed restoration did not run, so the controls are still in their applied state.
     expect(failed.container.textContent).toContain("Inbound Sales bell: Normal behavior → Paused");
     expect(failed.container.textContent).toContain("nothing was restored");
+    // A restoration that already failed is not still scheduled.
+    expect(failed.container.textContent).not.toContain("Restores");
     await failed.unmount();
 
     const applied = await mount(

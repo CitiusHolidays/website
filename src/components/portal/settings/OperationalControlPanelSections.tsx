@@ -705,7 +705,9 @@ export function LatestChangeReceipt({
       ) : null}
       <p className="mt-2 text-brand-muted text-xs">
         {targetSummary(changeSet)}
-        {changeSet.restorationAt ? ` · Restores ${formatTimestamp(changeSet.restorationAt)}` : ""}
+        {changeSet.status === "applied" && changeSet.restorationAt
+          ? ` · Restores ${formatTimestamp(changeSet.restorationAt)}`
+          : ""}
       </p>
       <details className="mt-1 text-xs">
         <summary className="flex min-h-11 cursor-pointer items-center text-brand-muted">
