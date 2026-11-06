@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import type { BoothLanguage } from "@/lib/eventPhotoBooth/contracts";
 import { boothCopy } from "@/lib/eventPhotoBooth/visitorCopy";
@@ -25,9 +26,9 @@ export default function PhotoBoothError({ reset }: { reset: () => void }) {
         >
           {copy.retry}
         </button>
-        <a className="block min-h-11 underline" href="/">
+        <Link className="block min-h-11 underline" href="/">
           {copy.explore}
-        </a>
+        </Link>
       </div>
     </section>
   );

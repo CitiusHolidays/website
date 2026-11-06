@@ -223,6 +223,10 @@ describe("Photo Booth participant access and bilingual choices", () => {
         />
       )
     );
+    // The last published scene is retained, so the finished photo still offers its enquiry.
+    expect(
+      [...container.querySelectorAll("a")].some((link) => link.textContent === "Plan a trip here")
+    ).toBe(true);
     await act(() => button(document.body, "Continue without saving").click());
     await settle();
     expect(document.activeElement).toBe(container.querySelector("h1"));
