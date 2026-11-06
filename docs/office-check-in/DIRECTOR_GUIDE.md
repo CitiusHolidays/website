@@ -18,7 +18,7 @@ self-test in step 2.
 
 ## 1. Set up each office (about 10 minutes each, from anywhere)
 
-Open **Citius Connect → Admin → Office check-in** and scroll to **Office rules**.
+Open **Citius Connect → Me → Office check-in** and scroll to **Office rules**.
 
 1. Type the office name and code from the table, then press **Add office**.
 2. Select the office and fill in:

@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "804fdf637b489ae78beae2ab57118a28bfa74d3415676bfb162cac419a8226f6";
+const EXPECTED_CAPABILITY_HASH = "d0f31113a000e45e2b704fd26933f60ceaa6d0b1a1dcd6a4ac5afbbca9359008";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_CAPABILITIES = new Set(["crm/postTourReports.archive"]);
@@ -116,6 +116,32 @@ describe("Convex capability inventory", () => {
     const capabilities = discoverCapabilities();
     expect(capabilities.length).toBeGreaterThan(200);
     expect(capabilityHash(capabilities)).toBe(EXPECTED_CAPABILITY_HASH);
+  });
+
+  test("Classifies the assigned Tour Manager backfill as secret-guarded internal capabilities", () => {
+    const capabilities = discoverCapabilities().filter(
+      ({ module }) => module === "crm/tourManagerVisibilityMigration"
+    );
+    expect(capabilities).toEqual([
+      {
+        classification: "internal",
+        kind: "internalQuery",
+        module: "crm/tourManagerVisibilityMigration",
+        name: "getAssignedTourManagerStaffIdsMigrationStatus",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/tourManagerVisibilityMigration",
+        name: "migrateAssignedTourManagerStaffIds",
+      },
+      {
+        classification: "internal",
+        kind: "internalMutation",
+        module: "crm/tourManagerVisibilityMigration",
+        name: "verifyAssignedTourManagerStaffIds",
+      },
+    ]);
   });
 
   test("classifies scoped navigation reads and acknowledgements as product capabilities, with retention private", () => {

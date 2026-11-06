@@ -24,11 +24,46 @@ export function ownsStaffRecord(access: PortalAccess, ownerId?: string | null) {
   return Boolean(ownerId && access.staffId && ownerId === access.staffId);
 }
 
-export function isCollaborator(access: PortalAccess, collaboratorStaffIds?: unknown[] | null) {
-  if (!(access.staffId && Array.isArray(collaboratorStaffIds))) {
+function includesAccessStaffId(access: PortalAccess, staffIds?: unknown[] | null) {
+  if (!(access.staffId && Array.isArray(staffIds))) {
     return false;
   }
-  return collaboratorStaffIds.some((staffId) => String(staffId) === String(access.staffId));
+  return staffIds.some((staffId) => String(staffId) === String(access.staffId));
+}
+
+export function isCollaborator(access: PortalAccess, collaboratorStaffIds?: unknown[] | null) {
+  return includesAccessStaffId(access, collaboratorStaffIds);
+}
+
+/**
+ * True when the actor holds the Tour Manager role and their staff identity has an
+ * active ("Assigned") Tour Manager assignment on the Job Card. `assignedTourManagerStaffIds` is derived from
+ * `tourManagerAssignments` by `syncJobCardTourManagerVisibility`; it survives a
+ * later assignment overwriting the single denormalised `tourManagerName`.
+ */
+function isAssignedTourManagerStaff(
+  access: PortalAccess,
+  assignedTourManagerStaffIds?: unknown[] | null
+) {
+  return (
+    hasRole(access, "Tour Manager") && includesAccessStaffId(access, assignedTourManagerStaffIds)
+  );
+}
+
+/**
+ * Tour Manager grant on a Job Card: the role-gated staff-identity assignment set, then
+ * the legacy case-insensitive name match on the denormalised `tourManagerName`.
+ * The name fallback stays until the assigned-staff backfill is verified on every
+ * deployment (docs/migrations/job-card-assigned-tour-manager-staff-ids.md).
+ */
+export function ownsTourManagerJobCard(
+  access: PortalAccess,
+  job: { assignedTourManagerStaffIds?: unknown[] | null; tourManagerName?: string | null }
+) {
+  return (
+    isAssignedTourManagerStaff(access, job.assignedTourManagerStaffIds) ||
+    ownsNamedRecord(access, job.tourManagerName)
+  );
 }
 
 export function ownsNamedRecord(access: PortalAccess, ownerName?: string | null) {
@@ -177,6 +212,7 @@ export function canSeeProposalRecord(
 
 export interface JobCardVisibilityRecord {
   _id?: Id<"jobCards">;
+  assignedTourManagerStaffIds?: unknown[] | null;
   collaboratorStaffIds?: unknown[] | null;
   contractingOwnerId?: string | null;
   contractingOwnerName?: string | null;
@@ -219,7 +255,7 @@ export function canSeeJobCardRecord(
     ownsNamedRecord(access, job.contractingOwnerName) ||
     ownsNamedRecord(access, job.operationsOwnerName) ||
     ownsNamedRecord(access, job.ticketingOwnerName) ||
-    ownsNamedRecord(access, job.tourManagerName) ||
+    ownsTourManagerJobCard(access, job) ||
     (linkedQuery ? canSeeQueryRecord(access, linkedQuery) : false)
   );
 }

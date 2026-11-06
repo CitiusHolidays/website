@@ -18,7 +18,7 @@ Staff can add an assignment from a profile or deliberately link an existing unli
 
 ## Using the travel schedule
 
-1. Open **Admin → Travel schedule**. **Team travel** shows current and upcoming plans; **My trips** also keeps your past and cancelled plans.
+1. Open **Me → Travel schedule**. **Team travel** shows current and upcoming plans; **My trips** also keeps your past and cancelled plans.
 2. Choose **Add travel**, enter **Destination**, **From** and **Through**, then **Save travel**. Dates include both endpoints. **Job Card, optional** starts at **No Job Card**. Choose an existing authorized JC when the trip belongs to that work. Managers who can record travel for others also see **Person**.
 3. Use **Edit travel** to change dates, destination or the optional JC. Selecting **No Job Card** clears a previous link. **Cancel** in the form discards unsaved edits and leaves the saved trip unchanged.
 4. **Cancel trip** opens a confirmation. **Keep trip** dismisses it. Confirming **Cancel trip** removes the plan from Team travel and keeps it marked **Cancelled** in My trips. Cancelled plans cannot be edited or reopened; add a new plan if the travel resumes. Travel plans do not create or approve leave.

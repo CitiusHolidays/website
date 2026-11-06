@@ -35,6 +35,7 @@ import * as crm_staff from "./crm/staff";
 import * as crm_staffImport from "./crm/staffImport";
 import * as crm_staffWorkbookUpdates from "./crm/staffWorkbookUpdates";
 import * as crm_ticketing from "./crm/ticketing";
+import * as crm_tourManagerVisibilityMigration from "./crm/tourManagerVisibilityMigration";
 import * as crm_travellers from "./crm/travellers";
 import * as crm_visa from "./crm/visa";
 import * as lib_authEmailHtml from "./lib/authEmailHtml";
@@ -292,6 +293,9 @@ export const __convexExportSurface = [
   crm_closedLeadStageMigration.migrateClosedLeadStages,
   crm_closedLeadStageMigration.verifyClosedLeadStages,
   crm_closedLeadStageMigration.getClosedLeadStageMigrationStatus,
+  crm_tourManagerVisibilityMigration.migrateAssignedTourManagerStaffIds,
+  crm_tourManagerVisibilityMigration.verifyAssignedTourManagerStaffIds,
+  crm_tourManagerVisibilityMigration.getAssignedTourManagerStaffIdsMigrationStatus,
   crm_passport.listPassportDetailsForBackfill,
   crm_passport.backfillPassportExpiryDate,
   crm_visa.removeMany,

@@ -66,6 +66,7 @@ and proof boundary.
 - Restart Next.js fully after auth env changes (`SITE_URL`, `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL`); hot reload does not reload auth module URLs.
 - Staff sign in via **Forgot password** on `/auth/connect`, not sign-up.
 - Cloud agents may set `CONVEX_AGENT_MODE=anonymous` when running `npx convex dev` to avoid conflicting with your personal deployment.
+- The installed Citius apps sign in through the same Better Auth issuer with the `expo()` plugin and trust exactly the `citius://` and `citiusconnect://` schemes (`convex/lib/nativeAppOrigins.ts`). Use a development build (`expo run:ios|android`), which uses those schemes; Expo Go `exp://` origins are deliberately not trusted.
 
 ## Verification before push
 

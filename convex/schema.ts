@@ -1366,6 +1366,10 @@ export default defineSchema({
   jobCards: defineTable({
     airfarePerPax: v.optional(v.number()),
     approxMargin: v.optional(v.number()),
+    // Derived from tourManagerAssignments (status "Assigned" with a staffId) by
+    // syncJobCardTourManagerVisibility. Grants Job Card scope to every assigned
+    // staff Tour Manager, independent of the latest-wins tourManagerName.
+    assignedTourManagerStaffIds: v.optional(v.array(v.id("staffUsers"))),
     clientName: v.string(),
     collaboratorStaffIds: v.optional(v.array(v.id("staffUsers"))),
     confirmedOfferId: v.optional(v.id("confirmedOffers")),

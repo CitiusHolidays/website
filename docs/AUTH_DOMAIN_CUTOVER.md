@@ -26,6 +26,13 @@ calls another.
 `NEXT_PUBLIC_CONVEX_URL` and `NEXT_PUBLIC_CONVEX_SITE_URL` are the matching
 Convex data and auth-site endpoints and are intentionally different origins.
 
+The installed Citius apps add exactly two trusted origins, the custom schemes `citius://` and
+`citiusconnect://` (`convex/lib/nativeAppOrigins.ts`, passed to Better Auth `trustedOrigins` with
+the `expo()` plugin). They are code constants, not environment values, so no deployment can widen
+them; Expo Go `exp://` origins are never trusted. A domain cutover does not change them. Moving the
+apps to verified universal links / App Links later is the stronger option for OAuth redirects,
+because custom schemes are not ownership-verified.
+
 First capture a reviewed, names-only Convex runtime evidence file from the exact
 selected deployment. The artifact may contain variable names, the normalized
 auth origin, and a boolean `BETTER_AUTH_SECRET` minimum-length check; it must

@@ -7,6 +7,10 @@ import type { RuntimeObject } from "../lib/runtimeValues";
 import { getExternalTourManagerProfile } from "./externalTourManagerProfiles";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
+  MAX_TOUR_MANAGER_ASSIGNMENTS_PER_JOB_CARD,
+  syncJobCardTourManagerVisibility,
+} from "./jobCardVisibility";
+import {
   assertBulkDeleteMutationBatch,
   assertDateRangeOrder,
   canSeeJobCardRecord,
@@ -581,6 +585,7 @@ export async function createTourManagerForTest(
       },
       { authUserId: access.authUserId }
     );
+    await syncJobCardTourManagerVisibility(ctx, jobCardId, { authUserId: access.authUserId });
     await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
   }
   await notifyTourManagerCreated(ctx, {
@@ -741,46 +746,82 @@ async function resolveUpdatedExternalProfile(
   return profile._id;
 }
 
+async function releaseJobTourManagerLink(
+  ctx: MutationCtx,
+  jobCardId: Id<"jobCards">,
+  id: Id<"tourManagerAssignments">,
+  now: number,
+  actor: { authUserId?: string }
+) {
+  const job = await ctx.db.get("jobCards", jobCardId);
+  if (job?.tourManagerId !== id) {
+    return;
+  }
+  // Hand the named Tour Manager to the most recently updated remaining active
+  // assignment; blank it only when no other assignment on the Job Card is Assigned.
+  const remaining = await ctx.db
+    .query("tourManagerAssignments")
+    .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+    .take(MAX_TOUR_MANAGER_ASSIGNMENTS_PER_JOB_CARD);
+  const successor = remaining
+    .filter((assignment) => assignment._id !== id && assignment.status === "Assigned")
+    .reduce<Doc<"tourManagerAssignments"> | null>(
+      (latest, assignment) =>
+        !latest || assignment.updatedAt > latest.updatedAt ? assignment : latest,
+      null
+    );
+  await patchWithE2eOwnership(
+    ctx,
+    "jobCards",
+    jobCardId,
+    {
+      tourManagerId: successor?._id,
+      tourManagerName: successor?.name.trim() ?? "",
+      updatedAt: now,
+    },
+    actor
+  );
+  await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
+}
+
 async function syncTourManagerJobLinks(
   ctx: MutationCtx,
   id: Id<"tourManagerAssignments">,
   tourManager: Doc<"tourManagerAssignments">,
-  jobCardId: Id<"jobCards"> | undefined,
-  name: string,
+  next: { active: boolean; jobCardId: Id<"jobCards"> | undefined; name: string },
   now: number,
   access: PortalAccess
 ) {
+  const actor = { authUserId: access.authUserId };
+  const { jobCardId } = next;
   if (tourManager.jobCardId && tourManager.jobCardId !== jobCardId) {
-    const previousJob = await ctx.db.get("jobCards", tourManager.jobCardId);
-    if (previousJob?.tourManagerId === id) {
-      await patchWithE2eOwnership(
-        ctx,
-        "jobCards",
-        tourManager.jobCardId,
-        {
-          tourManagerId: undefined,
-          tourManagerName: "",
-          updatedAt: now,
-        },
-        { authUserId: access.authUserId }
-      );
-      await scheduleCrmMetricSync(ctx, "jobCards", String(tourManager.jobCardId));
-    }
+    await releaseJobTourManagerLink(ctx, tourManager.jobCardId, id, now, actor);
+    // Moving the assignment away must revoke this staff member's grant on the
+    // previous Job Card, even when a later assignment owns its tourManagerName.
+    await syncJobCardTourManagerVisibility(ctx, tourManager.jobCardId, actor);
   }
-  if (jobCardId) {
+  if (!jobCardId) {
+    return;
+  }
+  if (next.active) {
     await patchWithE2eOwnership(
       ctx,
       "jobCards",
       jobCardId,
       {
         tourManagerId: id,
-        tourManagerName: name,
+        tourManagerName: next.name,
         updatedAt: now,
       },
-      { authUserId: access.authUserId }
+      actor
     );
     await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
+  } else {
+    // An Inactive or Available assignment must not become (or stay) the Job
+    // Card's named Tour Manager: the legacy name match would keep its grant.
+    await releaseJobTourManagerLink(ctx, jobCardId, id, now, actor);
   }
+  await syncJobCardTourManagerVisibility(ctx, jobCardId, actor);
 }
 
 function tourManagerAllocationChanged(
@@ -916,7 +957,8 @@ export async function updateTourManagerForTest(
     authUserId: access.authUserId,
   });
 
-  await syncTourManagerJobLinks(ctx, id, tourManager, jobCardId, name, now, access);
+  const active = (patch.status ?? tourManager.status) === "Assigned";
+  await syncTourManagerJobLinks(ctx, id, tourManager, { active, jobCardId, name }, now, access);
   await notifyTourManagerUpdated(ctx, {
     access,
     args,
@@ -960,7 +1002,10 @@ async function deleteTourManagerRecord(
   ctx: MutationCtx,
   access: PortalAccess,
   id: Id<"tourManagerAssignments">,
-  deferredNotifications?: NotificationEntityIdentity[]
+  deferred?: {
+    jobCardIds: Set<Id<"jobCards">>;
+    notifications: NotificationEntityIdentity[];
+  }
 ) {
   const tourManager = await ctx.db.get("tourManagerAssignments", id);
   if (!tourManager) {
@@ -987,9 +1032,20 @@ async function deleteTourManagerRecord(
       entityType: "tourManager",
       message: `${tourManager.name} deleted`,
     }),
-    deleteEntityNotifications(ctx, "tourManager", id, deferredNotifications),
+    deleteEntityNotifications(ctx, "tourManager", id, deferred?.notifications),
     ctx.db.delete("tourManagerAssignments", id),
   ]);
+  if (!tourManager.jobCardId) {
+    return;
+  }
+  if (deferred) {
+    // Bulk deletes run concurrently; recompute each Job Card once, afterwards.
+    deferred.jobCardIds.add(tourManager.jobCardId);
+    return;
+  }
+  await syncJobCardTourManagerVisibility(ctx, tourManager.jobCardId, {
+    authUserId: access.authUserId,
+  });
 }
 
 export const removeTourManager = mutation({
@@ -1024,12 +1080,19 @@ export const removeManyTourManagers = mutation({
       ids.push(id);
     }
     const notifications: NotificationEntityIdentity[] = [];
+    const deferred = { jobCardIds: new Set<Id<"jobCards">>(), notifications };
     await mapInBoundedBatches(
       ids,
-      async (id) => await deleteTourManagerRecord(ctx, access, id, notifications),
+      async (id) => await deleteTourManagerRecord(ctx, access, id, deferred),
       4
     );
-    await flushDeferredNotificationCleanup(ctx, notifications);
+    // Distinct Job Cards, each recomputed after every delete has landed.
+    await Promise.all(
+      [...deferred.jobCardIds].map((jobCardId) =>
+        syncJobCardTourManagerVisibility(ctx, jobCardId, { authUserId: access.authUserId })
+      )
+    );
+    await flushDeferredNotificationCleanup(ctx, deferred.notifications);
     return { deletedCount: ids.length };
   },
   returns: deletedCountResultValidator,

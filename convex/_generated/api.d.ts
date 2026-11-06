@@ -236,6 +236,7 @@ import type * as crm_ticketingDashboardReads from "../crm/ticketingDashboardRead
 import type * as crm_ticketingIntakePolicy from "../crm/ticketingIntakePolicy.js";
 import type * as crm_ticketingPresentation from "../crm/ticketingPresentation.js";
 import type * as crm_ticketingValidators from "../crm/ticketingValidators.js";
+import type * as crm_tourManagerVisibilityMigration from "../crm/tourManagerVisibilityMigration.js";
 import type * as crm_travelBatchPolicy from "../crm/travelBatchPolicy.js";
 import type * as crm_travelerFeedback from "../crm/travelerFeedback.js";
 import type * as crm_travelerFeedbackActions from "../crm/travelerFeedbackActions.js";
@@ -270,6 +271,7 @@ import type * as lib_eventPhotoBoothValidators from "../lib/eventPhotoBoothValid
 import type * as lib_formatDate from "../lib/formatDate.js";
 import type * as lib_guestContacts from "../lib/guestContacts.js";
 import type * as lib_importContractValidators from "../lib/importContractValidators.js";
+import type * as lib_nativeAppOrigins from "../lib/nativeAppOrigins.js";
 import type * as lib_notificationEmailValidators from "../lib/notificationEmailValidators.js";
 import type * as lib_passportPayloadCrypto from "../lib/passportPayloadCrypto.js";
 import type * as lib_paymentMutationAuth from "../lib/paymentMutationAuth.js";
@@ -543,6 +545,7 @@ declare const fullApi: ApiFromModules<{
   "crm/ticketingIntakePolicy": typeof crm_ticketingIntakePolicy;
   "crm/ticketingPresentation": typeof crm_ticketingPresentation;
   "crm/ticketingValidators": typeof crm_ticketingValidators;
+  "crm/tourManagerVisibilityMigration": typeof crm_tourManagerVisibilityMigration;
   "crm/travelBatchPolicy": typeof crm_travelBatchPolicy;
   "crm/travelerFeedback": typeof crm_travelerFeedback;
   "crm/travelerFeedbackActions": typeof crm_travelerFeedbackActions;
@@ -577,6 +580,7 @@ declare const fullApi: ApiFromModules<{
   "lib/formatDate": typeof lib_formatDate;
   "lib/guestContacts": typeof lib_guestContacts;
   "lib/importContractValidators": typeof lib_importContractValidators;
+  "lib/nativeAppOrigins": typeof lib_nativeAppOrigins;
   "lib/notificationEmailValidators": typeof lib_notificationEmailValidators;
   "lib/passportPayloadCrypto": typeof lib_passportPayloadCrypto;
   "lib/paymentMutationAuth": typeof lib_paymentMutationAuth;

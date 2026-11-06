@@ -9,6 +9,7 @@ import {
   isDirectorOrAdmin,
   ownsNamedRecord,
   ownsStaffRecord,
+  ownsTourManagerJobCard,
   PERMISSIONS,
   type PortalAccess,
 } from "./lib";
@@ -72,6 +73,7 @@ interface ProposalSource {
 
 interface JobCardSource {
   jobCard: {
+    assignedTourManagerStaffIds?: unknown[] | null;
     collaboratorStaffIds?: unknown[] | null;
     contractingOwnerId?: string | null;
     contractingOwnerName?: string | null;
@@ -186,7 +188,7 @@ function writableJobCardAreas(
   ) {
     areas.push("ticketing");
   }
-  if (hasRole(access, "Tour Manager") && ownsNamedRecord(access, source.jobCard.tourManagerName)) {
+  if (hasRole(access, "Tour Manager") && ownsTourManagerJobCard(access, source.jobCard)) {
     areas.push("tourManager");
   }
   return areas;
