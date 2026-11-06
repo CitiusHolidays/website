@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "d0f31113a000e45e2b704fd26933f60ceaa6d0b1a1dcd6a4ac5afbbca9359008";
+const EXPECTED_CAPABILITY_HASH = "972dc607f3cd3a367f9986e3ba431c010ef08ec1ee9868093197a8c62caba557";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_CAPABILITIES = new Set(["crm/postTourReports.archive"]);
@@ -116,6 +116,26 @@ describe("Convex capability inventory", () => {
     const capabilities = discoverCapabilities();
     expect(capabilities.length).toBeGreaterThan(200);
     expect(capabilityHash(capabilities)).toBe(EXPECTED_CAPABILITY_HASH);
+  });
+
+  test("classifies Citius Connect field sync as product APIs with the passport grant internal", () => {
+    const field = discoverCapabilities().filter(({ module }) =>
+      ["crm/fieldSync", "crm/fieldPassports", "crm/fieldPassportActions"].includes(module)
+    );
+    expect(
+      field.map(
+        ({ classification, kind, module, name }) => `${module}.${name}:${kind}:${classification}`
+      )
+    ).toEqual([
+      "crm/fieldPassportActions.getFieldPassportFile:action:public-product",
+      "crm/fieldPassports.authorizeFieldPassportRead:internalMutation:internal",
+      "crm/fieldPassports.listFieldPassportAccess:query:public-product",
+      "crm/fieldPassports.listFieldPassports:query:public-product",
+      "crm/fieldSync.listAnnouncements:query:public-product",
+      "crm/fieldSync.listLatestHeadcounts:query:public-product",
+      "crm/fieldSync.pushHeadcountStop:mutation:public-product",
+      "crm/fieldSync.recordAnnouncement:mutation:public-product",
+    ]);
   });
 
   test("Classifies the assigned Tour Manager backfill as secret-guarded internal capabilities", () => {
