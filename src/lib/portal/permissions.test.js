@@ -314,3 +314,47 @@ test("Every allowed staff member can open their inbox without administrative per
   expect(canAccessPage(staff, "settings")).toBe(false);
   expect(canAccessPage({ ...staff, allowed: false }, "activity")).toBe(false);
 });
+
+describe("Staff Workspace navigation groups", () => {
+  const boothManager = {
+    canManage: true,
+    canManageAssignments: false,
+    canParticipateWhenClosed: false,
+  };
+  const layoutFor = (roles, booth) =>
+    getAccessibleNavGroups(
+      { allowed: true, permissions: getPermissionsForRoles(roles), roles },
+      booth
+    ).map((group) => [group.label, group.items.map((item) => item.label)]);
+
+  test("Every staff role gets the personal Me group second, after Overview", () => {
+    for (const role of Object.keys(roleExpectations)) {
+      expect(layoutFor([role])[1], role).toEqual([
+        "Me",
+        ["Notifications", "Leave", "Travel schedule", "Office check-in"],
+      ]);
+    }
+  });
+
+  test("Administration is last and lists only the destinations a role can open", () => {
+    expect(layoutFor(["Admin"]).at(-1)).toEqual(["Administration", ["Team Directory", "Settings"]]);
+    expect(layoutFor(["Admin"], boothManager).at(-1)).toEqual([
+      "Administration",
+      ["Team Directory", "Event Photo Booth", "Settings"],
+    ]);
+    expect(layoutFor(["HR"]).at(-1)).toEqual(["Administration", ["Team Directory"]]);
+    expect(layoutFor(["Sales"], boothManager).at(-1)).toEqual([
+      "Administration",
+      ["Event Photo Booth"],
+    ]);
+    expect(layoutFor(["Sales"]).map(([label]) => label)).not.toContain("Administration");
+  });
+
+  test("No role sees the retired Admin or System group labels", () => {
+    for (const role of Object.keys(roleExpectations)) {
+      const labels = layoutFor([role], boothManager).map(([label]) => label);
+      expect(labels, role).not.toContain("Admin");
+      expect(labels, role).not.toContain("System");
+    }
+  });
+});

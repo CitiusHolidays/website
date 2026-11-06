@@ -54,6 +54,15 @@ Backend guard patterns:
 Client helper patterns:
 
 - `canAccessPage` and `getAccessibleNavGroups` decide page navigation visibility.
+  `getAccessibleNavGroups` filters each item and drops a group with no allowed items, so group
+  labels and order are presentation only.
+- 2026-11-05: the sidebar groups are Overview, **Me** (Notifications, Leave, Travel schedule,
+  Office check-in), the work areas, then **Administration** (Team Directory, Event Photo Booth,
+  Settings). They replace the old "Admin" and "System" groups, and "Employees on Leave" is now
+  "Leave". Item permissions, pages, and URLs did not change.
+- The Notifications item and the `activity` route declare `view:emailDeliveryStatus`, but that is
+  not the gate. `navItemAllowed`, `canAccessPage`, and `canAccessPortalRoute` open `activity` to
+  every allowed staff member. The permission only adds the email-status panel on that page.
 - `canAccessPipeline` allows pipeline access from either sales-management or contracting visibility.
 - `isDirectorOrAdmin` includes Admin, Directors, and Director Cement.
 - `isCementScopedUser` excludes Admin, Directors, and Director Cement before limiting cement users to Cement query types.

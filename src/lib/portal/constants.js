@@ -310,12 +310,49 @@ export const APPROVAL_STATUSES = ["Pending", "Approved", "Rejected", "Needs Info
 export const EXPENSE_APPROVAL_STATUSES = ["Pending", "Approved", "Rejected", "Needs Info"];
 export const LEAVE_STATUSES = ["Pending", "Approved", "Rejected"];
 export const REIMBURSEMENT_STATUSES = ["Not Submitted", "Pending", "Reimbursed"];
+// Group labels and order are presentation only. Access is decided per item by
+// `navItemAllowed` and `canAccessPage` in ./permissions.js, and a group renders
+// only when at least one of its items is allowed. Order (2026-11-05): Overview,
+// then the personal "Me" group every staff member has, then the work areas,
+// then "Administration" last because only a few roles see it.
 export const PORTAL_NAV_GROUPS = [
   {
     items: [
       { href: "/portal", label: "Dashboard", page: "dashboard", permission: P.VIEW_DASHBOARD },
     ],
     label: "Overview",
+  },
+  {
+    items: [
+      {
+        href: "/portal/activity",
+        label: "Notifications",
+        page: "activity",
+        // Not the gate. Every allowed staff member reaches their inbox: the
+        // "activity" page is special-cased in navItemAllowed and canAccessPage
+        // (./permissions.js) and in canAccessPortalRoute (./portalRouteManifest.ts).
+        // VIEW_EMAIL_DELIVERY_STATUS only adds the email-status panel on the page.
+        permission: P.VIEW_EMAIL_DELIVERY_STATUS,
+      },
+      {
+        href: "/portal/employees-on-leave",
+        label: "Leave",
+        page: "employees-on-leave",
+        permission: P.VIEW_LEAVE,
+      },
+      {
+        href: "/portal/travel-schedule",
+        label: "Travel schedule",
+        page: "travel-schedule",
+      },
+      {
+        href: "/portal/office-check-in",
+        label: "Office check-in",
+        page: "office-check-in",
+        permission: P.REQUEST_LEAVE,
+      },
+    ],
+    label: "Me",
   },
   {
     items: [
@@ -476,37 +513,9 @@ export const PORTAL_NAV_GROUPS = [
         page: "event-photo-booth",
         permission: "event-photo-booth",
       },
-      {
-        href: "/portal/travel-schedule",
-        label: "Travel schedule",
-        page: "travel-schedule",
-      },
-      {
-        href: "/portal/employees-on-leave",
-        label: "Employees on Leave",
-        page: "employees-on-leave",
-        permission: P.VIEW_LEAVE,
-      },
-      {
-        href: "/portal/office-check-in",
-        label: "Office check-in",
-        page: "office-check-in",
-        permission: P.REQUEST_LEAVE,
-      },
-    ],
-    label: "Admin",
-  },
-  {
-    items: [
-      {
-        href: "/portal/activity",
-        label: "Notifications",
-        page: "activity",
-        permission: P.VIEW_EMAIL_DELIVERY_STATUS,
-      },
       { href: "/portal/settings", label: "Settings", page: "settings", permission: P.MANAGE_STAFF },
     ],
-    label: "System",
+    label: "Administration",
   },
 ];
 
