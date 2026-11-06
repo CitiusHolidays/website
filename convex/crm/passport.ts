@@ -8,10 +8,11 @@ import {
   scheduleDocumentPreviewPreparation,
 } from "./documentPreviewLifecycle";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
-import { canSeeJobCardRecord, PERMISSIONS, requireStaff } from "./lib";
+import { jobCardRecordGrant, PERMISSIONS, requireStaff } from "./lib";
 import { buildTravellerListSearchText, markListSearchDirty } from "./listSearch";
 import { passportMetadataResultValidator } from "./operationsReturnContracts";
 import { normalizePassportExpiryDate } from "./passportExpiry";
+import { canReadPassportInStaffWorkspace } from "./passportPolicy";
 
 async function passportTravellerPatch(
   ctx: MutationCtx,
@@ -52,7 +53,7 @@ export async function loadPassportMetadata(
     throw new ConvexError("FORBIDDEN");
   }
   const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
-  if (!canSeeJobCardRecord(access, job, linkedQuery)) {
+  if (!canReadPassportInStaffWorkspace(access, jobCardRecordGrant(access, job, linkedQuery))) {
     throw new ConvexError("FORBIDDEN");
   }
   const row = await ctx.db

@@ -24,6 +24,8 @@ const stageDefinitions = [
   ["hotels", "hotels", "hotel"],
   ["roomingListEntries", "roomingListEntries", "roomingListEntry"],
   ["tourManagerAssignments", "tourManagerAssignments", "tourManager"],
+  ["fieldHeadcountStops", "fieldHeadcountStops", "fieldHeadcountStop"],
+  ["fieldAnnouncements", "fieldAnnouncements", "fieldAnnouncement"],
   ["postTourFeedbackPhotos", "postTourFeedbackPhotos", "postTourFeedbackPhoto"],
   ["postTourFeedback", "postTourFeedback", "postTourFeedback"],
   ["travelerFeedbackPhotos", "travelerFeedbackPhotos", "travelerFeedbackPhoto"],

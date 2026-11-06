@@ -1050,6 +1050,9 @@ export default defineSchema({
     cardAmount: v.optional(v.number()),
     cashAmount: v.optional(v.number()),
     category: v.string(),
+    // Optional client-generated idempotency key. A retried create from the same author
+    // with the same key returns the first expense instead of inserting a duplicate.
+    clientRef: v.optional(v.string()),
     createdAt: v.number(),
     createdBy: v.string(),
     currency: v.optional(expenseCurrency),
@@ -1083,7 +1086,8 @@ export default defineSchema({
   })
     .index("by_jobCardId", ["jobCardId"])
     .index("by_approvalStatus", ["approvalStatus"])
-    .index("by_createdAt", ["createdAt"]),
+    .index("by_createdAt", ["createdAt"])
+    .index("by_createdBy_and_clientRef", ["createdBy", "clientRef"]),
 
   e2eRuns: defineTable({
     completedAt: v.optional(v.number()),
@@ -1129,6 +1133,70 @@ export default defineSchema({
   })
     .index("by_runId_createdAt", ["runId", "createdAt"])
     .index("by_runId_tableName_documentId", ["runId", "tableName", "documentId"]),
+
+  // Citius Connect field sync. A tour manager's phone pushes each headcount stop and each
+  // announcement with a client-generated id; repeated pushes upsert the same row.
+  fieldHeadcountStops: defineTable({
+    clientStopId: v.string(),
+    // Client clock of the pushed state. An older retry never overwrites a newer push.
+    clientUpdatedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    // The tour manager's local calendar day (YYYY-MM-DD) the stop belongs to.
+    day: v.string(),
+    // Travelling travellers in the recorder's group (or batch) when the stop was last pushed.
+    expectedTravellerIds: v.array(v.id("travellers")),
+    jobCardId: v.id("jobCards"),
+    label: v.string(),
+    presentTravellerIds: v.array(v.id("travellers")),
+    recordedByName: v.string(),
+    recordedByStaffId: v.id("staffUsers"),
+    startedAt: v.number(),
+    travelBatchId: v.optional(v.id("travelBatches")),
+    updatedAt: v.number(),
+  })
+    .index("by_jobCardId", ["jobCardId"])
+    .index("by_jobCardId_and_day_and_startedAt", ["jobCardId", "day", "startedAt"])
+    .index("by_recordedByStaffId_and_jobCardId_and_clientStopId", [
+      "recordedByStaffId",
+      "jobCardId",
+      "clientStopId",
+    ]),
+
+  fieldAnnouncements: defineTable({
+    authorName: v.string(),
+    authorStaffId: v.id("staffUsers"),
+    body: v.string(),
+    clientAnnouncementId: v.string(),
+    clientUpdatedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    jobCardId: v.id("jobCards"),
+    recipientTravellerIds: v.array(v.id("travellers")),
+    seenByTravellerIds: v.array(v.id("travellers")),
+    sharedAt: v.number(),
+    travelBatchId: v.optional(v.id("travelBatches")),
+    updatedAt: v.number(),
+  })
+    .index("by_jobCardId", ["jobCardId"])
+    .index("by_jobCardId_and_sharedAt", ["jobCardId", "sharedAt"])
+    .index("by_authorStaffId_and_jobCardId_and_clientAnnouncementId", [
+      "authorStaffId",
+      "jobCardId",
+      "clientAnnouncementId",
+    ]),
+
+  // One row per passport file a tour manager opened from the field. Kept when the Job Card or
+  // traveller is deleted; holds identifiers and time only, never document content.
+  fieldPassportAccessAudit: defineTable({
+    accessedAt: v.number(),
+    actorAuthUserId: v.string(),
+    actorName: v.string(),
+    actorStaffId: v.id("staffUsers"),
+    jobCardId: v.id("jobCards"),
+    travelBatchId: v.optional(v.id("travelBatches")),
+    travellerId: v.id("travellers"),
+  })
+    .index("by_jobCardId_and_accessedAt", ["jobCardId", "accessedAt"])
+    .index("by_travellerId_and_accessedAt", ["travellerId", "accessedAt"]),
 
   flightGroups: defineTable({
     airline: v.string(),
@@ -2967,7 +3035,8 @@ export default defineSchema({
       "travelBatchId",
     ])
     .index("by_status", ["status"])
-    .index("by_createdAt", ["createdAt"]),
+    .index("by_createdAt", ["createdAt"])
+    .index("by_staffId_and_status_and_jobCardId", ["staffId", "status", "jobCardId"]),
 
   travelBatches: defineTable({
     batchCode: v.string(),

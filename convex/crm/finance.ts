@@ -116,6 +116,7 @@ export const createExpense = mutation({
     cardAmount: v.optional(v.number()),
     cashAmount: v.optional(v.number()),
     category: v.string(),
+    clientRef: v.optional(v.string()),
     currency: v.optional(expenseCurrencyValidator),
     epayAmount: v.optional(v.number()),
     expenseDate: v.optional(v.string()),
