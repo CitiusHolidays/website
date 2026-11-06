@@ -1,10 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildCreateCommands,
+  buildNavigationCommands,
   buildRecentRecordCommands,
   buildSavedViewCommands,
   filterCommands,
 } from "./commandPalette";
+import { PORTAL_NAV_GROUPS } from "./constants";
+import { getAccessibleNavGroups, getPermissionsForRoles } from "./permissions";
+
+const byText = (first, second) => first.localeCompare(second);
 
 describe("CommandPalette", () => {
   test("Gates create commands by permission", () => {
@@ -63,5 +68,28 @@ describe("CommandPalette", () => {
       "operations"
     );
     expect(commands.map((command) => command.id)).toEqual(["b"]);
+  });
+
+  test("Offers every sidebar destination, with the regrouped labels and old URL as keywords", () => {
+    const roles = ["Admin"];
+    const navGroups = getAccessibleNavGroups(
+      { allowed: true, permissions: getPermissionsForRoles(roles), roles },
+      { canManage: true, canManageAssignments: false, canParticipateWhenClosed: false }
+    );
+    const commands = buildNavigationCommands({ navGroups });
+    expect(commands.map((command) => command.href).sort(byText)).toEqual(
+      PORTAL_NAV_GROUPS.flatMap((group) => group.items.map((item) => item.href)).sort(byText)
+    );
+
+    const leave = commands.find((command) => command.href === "/portal/employees-on-leave");
+    expect(leave).toMatchObject({ label: "Leave", subtitle: "Me" });
+    expect(filterCommands(commands, "employees").map((command) => command.label)).toEqual([
+      "Leave",
+    ]);
+    expect(
+      filterCommands(commands, "administration")
+        .map((command) => command.label)
+        .sort(byText)
+    ).toEqual(["Event Photo Booth", "Settings", "Team Directory"]);
   });
 });
