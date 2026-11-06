@@ -142,13 +142,17 @@ async function resolveVisibleExpenseJobCard(
 /** The expense an earlier create with the same author and key already inserted, if any. */
 async function findRetriedExpense(
   ctx: MutationCtx,
-  createdBy: string,
+  createdBy: string | undefined,
   rawClientRef: string | undefined,
   jobCardId: Id<"jobCards"> | null | undefined
 ) {
   const clientRef = normalizeExpenseClientRef(rawClientRef);
   if (!clientRef) {
     return { clientRef: undefined, retriedId: null };
+  }
+  if (!createdBy) {
+    // A shared fallback author would let two callers replay each other's expenses.
+    throw new ConvexError("An expense reference needs a signed-in staff account");
   }
   const existing = await ctx.db
     .query("expenseEntries")
@@ -182,10 +186,9 @@ export async function handleCreateExpense(
 ) {
   const access = await requireStaff(ctx, PERMISSIONS.CREATE_EXPENSES);
   const jobCardId = await resolveVisibleExpenseJobCard(ctx, access, args.jobCardId);
-  const createdBy = access.authUserId ?? "unknown";
   const { clientRef, retriedId } = await findRetriedExpense(
     ctx,
-    createdBy,
+    access.authUserId,
     args.clientRef,
     jobCardId
   );
@@ -211,7 +214,7 @@ export async function handleCreateExpense(
     category: args.category.trim(),
     clientRef,
     createdAt: now,
-    createdBy,
+    createdBy: access.authUserId ?? "unknown",
     currency: args.currency ?? "INR",
     epayAmount: args.epayAmount ?? 0,
     expenseDate: args.expenseDate || new Date(now).toISOString().slice(0, 10),

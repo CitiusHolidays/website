@@ -51,23 +51,50 @@ function isAssignedTourManagerStaff(
 }
 
 /**
- * Tour Manager grant on a Job Card: the role-gated staff-identity assignment set, then
- * the legacy case-insensitive name match on the denormalised `tourManagerName`.
- * The name fallback stays until the assigned-staff backfill is verified on every
- * deployment (docs/migrations/job-card-assigned-tour-manager-staff-ids.md).
+ * Person-name comparison key: Unicode NFKC, internal whitespace collapsed, case folded. An empty
+ * name never matches.
+ */
+export function personNameKey(value?: string | null) {
+  return String(value ?? "")
+    .normalize("NFKC")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Tour Manager grant on a Job Card. Staff identities decide first. The legacy name match is a
+ * fallback for the Tour Manager role only, and only while the Job Card has no assigned staff
+ * Tour Manager: a namesake never rides on someone else's assignment. Once
+ * `legacyTourManagerNames` is derived it is the only name source, so the name of an external
+ * profile (also copied into `tourManagerName`) never grants scope. Until a Job Card is synced the
+ * `tourManagerName` match stays, pending the assigned-staff backfill
+ * (docs/migrations/job-card-assigned-tour-manager-staff-ids.md).
  */
 export function ownsTourManagerJobCard(
   access: PortalAccess,
-  job: { assignedTourManagerStaffIds?: unknown[] | null; tourManagerName?: string | null }
+  job: {
+    assignedTourManagerStaffIds?: unknown[] | null;
+    legacyTourManagerNames?: string[] | null;
+    tourManagerName?: string | null;
+  }
 ) {
-  return (
-    isAssignedTourManagerStaff(access, job.assignedTourManagerStaffIds) ||
-    ownsNamedRecord(access, job.tourManagerName)
-  );
+  if (isAssignedTourManagerStaff(access, job.assignedTourManagerStaffIds)) {
+    return true;
+  }
+  if (!hasRole(access, "Tour Manager") || (job.assignedTourManagerStaffIds?.length ?? 0) > 0) {
+    return false;
+  }
+  if (Array.isArray(job.legacyTourManagerNames)) {
+    const key = personNameKey(access.name);
+    return Boolean(key) && job.legacyTourManagerNames.includes(key);
+  }
+  return ownsNamedRecord(access, job.tourManagerName);
 }
 
 export function ownsNamedRecord(access: PortalAccess, ownerName?: string | null) {
-  return Boolean(ownerName && ownerName.trim().toLowerCase() === access.name.trim().toLowerCase());
+  const key = personNameKey(ownerName);
+  return Boolean(key) && key === personNameKey(access.name);
 }
 
 export function hasCementRole(access: PortalAccess) {
@@ -217,6 +244,7 @@ export interface JobCardVisibilityRecord {
   contractingOwnerId?: string | null;
   contractingOwnerName?: string | null;
   createdBy?: string | null;
+  legacyTourManagerNames?: string[] | null;
   operationsOwnerId?: string | null;
   operationsOwnerName?: string | null;
   queryId?: Id<"queries"> | null;

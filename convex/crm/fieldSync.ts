@@ -25,8 +25,12 @@ const DAY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MAX_STOP_LABEL_LENGTH = 120;
 const MAX_ANNOUNCEMENT_LENGTH = 4000;
 const DEFAULT_HEADCOUNT_DAYS = 7;
-const MAX_HEADCOUNT_DAYS = 31;
-const MAX_HEADCOUNT_ROWS_READ = 400;
+const MAX_HEADCOUNT_DAYS = 14;
+// One stop holds up to 2 x 2000 traveller ids (~160 KB), so the office read stays far below
+// Convex's per-query read limits: at most 40 stops, and names for at most 25 missing travellers
+// per stop.
+const MAX_HEADCOUNT_ROWS_READ = 40;
+const MAX_MISSING_NAMES_PER_STOP = 25;
 
 const pushResultFields = {
   applied: v.boolean(),
@@ -355,6 +359,7 @@ const headcountStopSummaryValidator = v.object({
   id: v.id("fieldHeadcountStops"),
   label: v.string(),
   missing: v.array(v.object({ fullName: v.string(), id: v.id("travellers") })),
+  missingCount: v.number(),
   presentCount: v.number(),
   recordedByName: v.string(),
   startedAt: v.number(),
@@ -391,7 +396,8 @@ function groupLatestStopsByDay(rows: readonly Doc<"fieldHeadcountStops">[], dayL
 /**
  * Latest headcount per local day, newest day first. Each day lists the most recent stop from
  * each recorder (several tour managers can count different batches of one Job Card). Reads at
- * most the newest 400 stops of the Job Card.
+ * most the newest 40 stops of the Job Card; `missing` names the first 25 missing travellers and
+ * `missingCount` gives the total.
  */
 export const listLatestHeadcounts = query({
   args: { dayLimit: v.optional(v.number()), jobCardId: v.string() },
@@ -413,7 +419,9 @@ export const listLatestHeadcounts = query({
     const stops = days.flatMap((group) => group.latest);
     const missingIds = stops.flatMap((stop) => {
       const present = new Set(stop.presentTravellerIds.map(String));
-      return stop.expectedTravellerIds.filter((id) => !present.has(String(id)));
+      return stop.expectedTravellerIds
+        .filter((id) => !present.has(String(id)))
+        .slice(0, MAX_MISSING_NAMES_PER_STOP);
     });
     const travellers = await loadRowsByIdInBatches(
       ctx,
@@ -436,10 +444,11 @@ export const listLatestHeadcounts = query({
           expectedCount: stop.expectedTravellerIds.length,
           id: stop._id,
           label: stop.label,
-          missing: missing.map((id) => ({
+          missing: missing.slice(0, MAX_MISSING_NAMES_PER_STOP).map((id) => ({
             fullName: nameById.get(String(id)) ?? "Removed traveller",
             id,
           })),
+          missingCount: missing.length,
           presentCount: stop.expectedTravellerIds.length - missing.length,
           recordedByName: stop.recordedByName,
           startedAt: stop.startedAt,

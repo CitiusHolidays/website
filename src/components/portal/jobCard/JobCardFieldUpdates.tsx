@@ -16,11 +16,11 @@ function stopTime(timestamp: number) {
 }
 
 function missingSummary(stop: HeadcountStop) {
-  if (stop.missing.length === 0) {
+  if (stop.missingCount === 0) {
     return stop.expectedCount > 0 ? "Everyone is here." : "No travellers to count.";
   }
   const shown = stop.missing.slice(0, MISSING_NAMES_SHOWN).map((row) => row.fullName);
-  const more = stop.missing.length - shown.length;
+  const more = stop.missingCount - shown.length;
   return `Missing: ${shown.join(", ")}${more > 0 ? ` and ${more} more` : ""}`;
 }
 

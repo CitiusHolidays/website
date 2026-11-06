@@ -21,6 +21,7 @@ import {
   flushDeferredNotificationCleanup,
   hasRole,
   isDirectorOrAdmin,
+  type JobCardRecordGrant,
   PERMISSIONS,
   type PortalAccess,
   portalDateRangeValidator,
@@ -52,10 +53,10 @@ import {
 } from "./paginationPolicy";
 import { classifyPassportExpiryUrgency, normalizePassportExpiryDate } from "./passportExpiry";
 import {
-  resolveTravellerGroupScope,
-  type TravellerGroupScope,
-  travellerInGroupScope,
-} from "./tourManagerGroupScope";
+  canReadPassportInStaffWorkspace,
+  holdsPermissionOutsideTourManagerRole,
+} from "./passportPolicy";
+import { resolveTravellerAccess, travellerInGroupScope } from "./tourManagerGroupScope";
 
 const foodPreferenceValidator = v.union(
   v.literal("Veg"),
@@ -182,6 +183,23 @@ const publicTraveller = (
   visaRequired: traveller.visaRequired,
   visaStatus: traveller.visaStatus,
 });
+
+/**
+ * Passport scan flag and expiry date follow Staff Workspace passport access. Without it (for
+ * example a Tour Manager-only grant) both are blank; `passportStatus` stays, because it is a
+ * status word the tour manager app already shows (owner allowed field passport access).
+ */
+function scopedPublicTraveller(
+  access: PortalAccess,
+  grant: JobCardRecordGrant,
+  traveller: Doc<"travellers">,
+  job: Doc<"jobCards">,
+  travelBatch: TravelBatchLabel | null
+) {
+  return canReadPassportInStaffWorkspace(access, grant)
+    ? publicTraveller(traveller, job, travelBatch)
+    : publicTraveller(traveller, job, travelBatch, false, "");
+}
 
 interface TravellerCreateArgs {
   arrivingEarly?: boolean;
@@ -378,6 +396,12 @@ export const listPage = query({
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_TRAVELLERS);
+    if (
+      args.passportExpiryUrgency &&
+      !holdsPermissionOutsideTourManagerRole(access.roles, PERMISSIONS.VIEW_VISA)
+    ) {
+      throw new ConvexError("FORBIDDEN");
+    }
     const normalizedJobCardId = args.jobCardId
       ? ctx.db.normalizeId("jobCards", args.jobCardId)
       : null;
@@ -416,13 +440,13 @@ export const listPage = query({
       jobs.length
     );
     const queryById = new Map(linkedQueries.map((row) => [String(row._id), row]));
-    const scopeByJobId = new Map<string, TravellerGroupScope | null>(
+    const accessByJobId = new Map(
       await Promise.all(
         jobs.map(
           async (job) =>
             [
               String(job._id),
-              await resolveTravellerGroupScope(
+              await resolveTravellerAccess(
                 ctx,
                 access,
                 job,
@@ -432,25 +456,26 @@ export const listPage = query({
         )
       )
     );
-    const visibleRows = sourcePage.page.filter((traveller) => {
-      const scope = scopeByJobId.get(String(traveller.jobCardId));
-      return Boolean(scope && travellerInGroupScope(scope, traveller));
-    });
-    let page = visibleRows.map((traveller) => {
+    const page = sourcePage.page.flatMap((traveller) => {
       const job = jobById.get(String(traveller.jobCardId));
-      if (!job) {
-        throw new Error("Visible traveller is missing its visible Job Card");
+      const jobAccess = accessByJobId.get(String(traveller.jobCardId));
+      if (!(job && jobAccess && travellerInGroupScope(jobAccess.scope, traveller))) {
+        return [];
       }
-      return publicTraveller(
-        traveller,
-        job,
-        traveller.travelBatchId
-          ? {
-              batchCode: traveller.travelBatchCode,
-              batchReference: traveller.travelBatchReference,
-            }
-          : null
-      );
+      return [
+        scopedPublicTraveller(
+          access,
+          jobAccess.grant,
+          traveller,
+          job,
+          traveller.travelBatchId
+            ? {
+                batchCode: traveller.travelBatchCode,
+                batchReference: traveller.travelBatchReference,
+              }
+            : null
+        ),
+      ];
     });
     if (args.passportExpiryUrgency) {
       const referenceDate = normalizePassportExpiryDate(args.passportReferenceDate);
@@ -458,14 +483,17 @@ export const listPage = query({
         throw new ConvexError("A valid passport reference date is required");
       }
       const urgency = args.passportExpiryUrgency;
-      page = page.filter(
-        (traveller) =>
-          classifyPassportExpiryUrgency({
-            expiryDate: traveller.passportExpiryDate,
-            referenceDate,
-            travelDate: traveller.travelStartDate || traveller.travelDate,
-          }) === urgency
-      );
+      return {
+        ...sourcePage,
+        page: page.filter(
+          (traveller) =>
+            classifyPassportExpiryUrgency({
+              expiryDate: traveller.passportExpiryDate,
+              referenceDate,
+              travelDate: traveller.travelStartDate || traveller.travelDate,
+            }) === urgency
+        ),
+      };
     }
     return { ...sourcePage, page };
   },
@@ -620,8 +648,8 @@ export const getListRow = query({
       return null;
     }
     const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
-    const scope = await resolveTravellerGroupScope(ctx, access, job, linkedQuery);
-    if (!(scope && travellerInGroupScope(scope, traveller))) {
+    const jobAccess = await resolveTravellerAccess(ctx, access, job, linkedQuery);
+    if (!(jobAccess && travellerInGroupScope(jobAccess.scope, traveller))) {
       return null;
     }
     const travelBatch = traveller.travelBatchId
@@ -630,7 +658,7 @@ export const getListRow = query({
           batchReference: traveller.travelBatchReference,
         }
       : null;
-    return publicTraveller(traveller, job, travelBatch);
+    return scopedPublicTraveller(access, jobAccess.grant, traveller, job, travelBatch);
   },
   returns: travellerListRowResultValidator,
 });

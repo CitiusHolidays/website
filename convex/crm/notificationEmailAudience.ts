@@ -2,10 +2,16 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { hasOwnKey } from "../lib/runtimeValues";
 import { canViewUnlinkedExpense } from "./expensePolicy";
-import { canSeeJobCardRecord, canSeeProposalRecord, canSeeQueryRecord } from "./lib/recordScope";
+import {
+  canSeeJobCardRecord,
+  canSeeProposalRecord,
+  canSeeQueryRecord,
+  jobCardRecordGrant,
+} from "./lib/recordScope";
 import { getRolePermissions, PERMISSIONS } from "./lib/rolePolicy";
 import type { PortalAccess } from "./lib/staffAccess";
 import { legacyNotificationWorkKey, notificationWorkAudience } from "./notificationWorkAudience";
+import { canReadPassportInStaffWorkspace } from "./passportPolicy";
 
 // Revalidate the original delivery purpose and record access, including retries.
 // A queued notification is a delivery instruction, never an authorization grant.
@@ -109,7 +115,15 @@ async function jobLinkedAccess(
   }
   const linkedJob = await ctx.db.get("jobCards", jobCardId);
   const query = linkedJob?.queryId ? await ctx.db.get("queries", linkedJob.queryId) : null;
-  return Boolean(linkedJob && canSeeJobCardRecord(access, linkedJob, query));
+  if (!linkedJob) {
+    return false;
+  }
+  if (entityType === "passport") {
+    // Passport details (status, expiry, last four, file name) follow Staff Workspace passport
+    // access, so a Tour Manager-only recipient never receives them by email.
+    return canReadPassportInStaffWorkspace(access, jobCardRecordGrant(access, linkedJob, query));
+  }
+  return canSeeJobCardRecord(access, linkedJob, query);
 }
 
 async function queryAccess(ctx: QueryCtx, access: PortalAccess, id: string): Promise<boolean> {

@@ -18,6 +18,7 @@ function harness() {
 const identities = {
   "ops-head": { name: "Synthetic Ops Head", roles: ["Operations Head"] },
   "tm-batch": { name: "Asha Rao", roles: ["Tour Manager"] },
+  "tm-namesake": { name: "Asha  RAO", roles: ["Tour Manager"] },
   "tm-ops": { name: "Kiran Das", roles: ["Tour Manager", "Operations"] },
   "tm-outsider": { name: "Meera Iyer", roles: ["Tour Manager"] },
   "tm-whole": { name: "Vikram Singh", roles: ["Tour Manager"] },
@@ -26,6 +27,7 @@ type StaffKey = keyof typeof identities;
 const STAFF_KEYS = [
   "ops-head",
   "tm-batch",
+  "tm-namesake",
   "tm-ops",
   "tm-outsider",
   "tm-whole",
@@ -167,6 +169,33 @@ async function seed(t: ReturnType<typeof harness>) {
   return { actor, assign, ids, opsHead, staffIds, travellerNames };
 }
 
+async function withPassport(
+  t: ReturnType<typeof harness>,
+  travellerId: Id<"travellers">,
+  mimeType = "application/pdf"
+) {
+  await t.run(async (ctx) => {
+    const storageId = await ctx.storage.store(new Blob(["synthetic-encrypted"]));
+    await ctx.db.insert("passportDetails", {
+      createdAt: NOW,
+      createdBy: "ops-head",
+      encryptedPayload: "synthetic",
+      expiryDate: "2031-01-01",
+      fileName: "a1-passport.pdf",
+      mimeType,
+      status: "Received",
+      storageId,
+      travellerId,
+      updatedAt: NOW,
+    });
+    await ctx.db.patch("travellers", travellerId, {
+      hasPassportScan: true,
+      passportExpiryDate: "2031-01-01",
+      passportStatus: "Received",
+    });
+  });
+}
+
 afterEach(() => {
   vi.useRealTimers();
 });
@@ -274,24 +303,6 @@ describe("passports in the Staff Workspace", () => {
 });
 
 describe("field passports", () => {
-  async function withPassport(t: ReturnType<typeof harness>, travellerId: Id<"travellers">) {
-    await t.run(async (ctx) => {
-      const storageId = await ctx.storage.store(new Blob(["synthetic-encrypted"]));
-      await ctx.db.insert("passportDetails", {
-        createdAt: NOW,
-        createdBy: "ops-head",
-        encryptedPayload: "synthetic",
-        fileName: "a1-passport.pdf",
-        mimeType: "application/pdf",
-        status: "Received",
-        storageId,
-        travellerId,
-        updatedAt: NOW,
-      });
-      await ctx.db.patch("travellers", travellerId, { hasPassportScan: true });
-    });
-  }
-
   test("own group, inside the trip window, writes one audit row per read", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     const t = harness();
@@ -353,10 +364,10 @@ describe("field passports", () => {
       jobCardId: f.ids.jobCardId,
       referenceNow: Date.parse("2026-11-10T06:00:00Z"),
     });
-    expect(listing.travellers.map((row) => [row.travellerId, row.available])).toEqual(
+    expect(listing.travellers.map((row) => [row.travellerId, row.available, row.mimeType])).toEqual(
       expect.arrayContaining([
-        [f.ids.a1, true],
-        [f.ids.a3, false],
+        [f.ids.a1, true, "application/pdf"],
+        [f.ids.a3, false, null],
       ])
     );
     expect(listing.travellers.some((row) => row.travellerId === f.ids.b1)).toBe(false);
@@ -466,6 +477,7 @@ describe("headcount sync", () => {
     expect(latest[0]).toMatchObject({ expectedCount: 2, missing: [], presentCount: 2 });
     // The whole Job Card has four travelling travellers; only B One was counted.
     expect(latest[1]).toMatchObject({ expectedCount: 4, presentCount: 1 });
+    expect(latest[1]?.missingCount).toBe(3);
     expect(latest[1]?.missing.map((row) => row.fullName).sort(byText)).toEqual([
       "Synthetic A One",
       "Synthetic A Three",
@@ -645,5 +657,264 @@ describe("expense idempotency", () => {
       "already used for another Job Card"
     );
     expect(await t.run((ctx) => ctx.db.query("expenseEntries").collect())).toHaveLength(3);
+  });
+});
+
+describe("review fixes: name matches never borrow someone else's assignment", () => {
+  test("a staff namesake of an assigned Tour Manager gets no Job Card, roster or passport", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(Date.parse("2026-11-10T06:00:00Z"));
+    const t = harness();
+    const f = await seed(t);
+    await f.assign("tm-batch", f.ids.batchA);
+    await withPassport(t, f.ids.a1);
+    const job = await t.run((ctx) => ctx.db.get("jobCards", f.ids.jobCardId));
+    // createTourManager copies the name onto the Job Card; the namesake differs only in spacing/case.
+    expect(job?.tourManagerName).toBe("Asha Rao");
+    const namesake = f.actor("tm-namesake");
+    expect(await namesake.query(api.crm.jobCards.getDetail, { jobCardId: f.ids.jobCardId })).toBe(
+      null
+    );
+    expect(await f.travellerNames("tm-namesake")).toEqual([]);
+    await expect(
+      namesake.mutation(internal.crm.fieldPassports.authorizeFieldPassportRead, {
+        travellerId: f.ids.a1,
+      })
+    ).rejects.toThrow("FORBIDDEN");
+  });
+
+  test("an external profile's name grants a staff namesake nothing", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(Date.parse("2026-11-10T06:00:00Z"));
+    const t = harness();
+    const f = await seed(t);
+    const { id: profileId } = await f.opsHead.mutation(api.crm.externalTourManagerProfiles.create, {
+      destinations: ["Bali"],
+      email: "meera.external@connect-field.test",
+      experienceSummary: "",
+      experienceYears: null,
+      name: "Meera Iyer",
+      phone: "",
+      reportedPastTours: null,
+      reportedPastToursNote: "",
+      reportedPastToursSource: "staff_recorded",
+    });
+    await f.opsHead.mutation(api.crm.ops.createTourManager, {
+      externalProfileId: profileId,
+      jobCardId: f.ids.jobCardId,
+      name: "Meera Iyer",
+    });
+    await withPassport(t, f.ids.a1);
+    const job = await t.run((ctx) => ctx.db.get("jobCards", f.ids.jobCardId));
+    expect(job?.tourManagerName).toBe("Meera Iyer");
+    expect(job?.legacyTourManagerNames).toEqual([]);
+    const outsider = f.actor("tm-outsider");
+    expect(await outsider.query(api.crm.jobCards.getDetail, { jobCardId: f.ids.jobCardId })).toBe(
+      null
+    );
+    expect(await f.travellerNames("tm-outsider")).toEqual([]);
+    await expect(
+      outsider.mutation(internal.crm.fieldPassports.authorizeFieldPassportRead, {
+        travellerId: f.ids.a1,
+      })
+    ).rejects.toThrow("FORBIDDEN");
+  });
+
+  test("a legacy name-only assignment keeps the roster but never opens field passports", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(Date.parse("2026-11-10T06:00:00Z"));
+    const t = harness();
+    const f = await seed(t);
+    await f.opsHead.mutation(api.crm.ops.createTourManager, {
+      jobCardId: f.ids.jobCardId,
+      name: "Meera Iyer",
+    });
+    await withPassport(t, f.ids.a1);
+    expect(await f.travellerNames("tm-outsider")).toHaveLength(5);
+    await expect(
+      f.actor("tm-outsider").mutation(internal.crm.fieldPassports.authorizeFieldPassportRead, {
+        travellerId: f.ids.a1,
+      })
+    ).rejects.toThrow("FORBIDDEN");
+    // Once a staff Tour Manager is assigned, the name-only route closes.
+    await f.assign("tm-whole");
+    expect(await f.travellerNames("tm-outsider")).toEqual([]);
+  });
+});
+
+describe("review fixes: passport data and exports", () => {
+  test("the traveller list hides scan flags and expiry from a Tour Manager grant", async () => {
+    const t = harness();
+    const f = await seed(t);
+    await f.assign("tm-whole");
+    await withPassport(t, f.ids.a1);
+    const row = await f.actor("tm-whole").query(api.crm.travellers.getListRow, {
+      travellerId: f.ids.a1,
+    });
+    expect(row).toMatchObject({
+      hasPassportScan: false,
+      passportExpiryDate: "",
+      passportStatus: "Received",
+    });
+    const officeRow = await f.opsHead.query(api.crm.travellers.getListRow, {
+      travellerId: f.ids.a1,
+    });
+    expect(officeRow).toMatchObject({ hasPassportScan: true, passportExpiryDate: "2031-01-01" });
+    await expect(
+      f.actor("tm-whole").query(api.crm.travellers.listPage, {
+        jobCardId: f.ids.jobCardId,
+        paginationOpts: { cursor: null, numItems: 10 },
+        passportExpiryUrgency: "ok",
+        passportReferenceDate: "2026-11-06",
+      })
+    ).rejects.toThrow("FORBIDDEN");
+  });
+
+  test("a Tour Manager-only collaborator cannot export passengers or passports", async () => {
+    const t = harness();
+    const f = await seed(t);
+    await t.run((ctx) =>
+      ctx.db.patch("jobCards", f.ids.jobCardId, {
+        collaboratorStaffIds: [f.staffIds.get("tm-whole")].filter((id) => id !== undefined),
+      })
+    );
+    const tmAccess = await f.actor("tm-whole").query(api.crm.staff.getMyPortalAccess, {});
+    for (const exportKind of ["passenger", "passport", "visa", "traveller"] as const) {
+      await expect(
+        t.query(internal.crm.imports.getPassengerExportSourcePage, {
+          access: tmAccess,
+          exportKind,
+          jobCardId: f.ids.jobCardId,
+          paginationOpts: { cursor: null, numItems: 10 },
+        })
+      ).rejects.toThrow("FORBIDDEN");
+    }
+    await expect(
+      t.mutation(internal.crm.imports.beginPassengerExportOperation, {
+        access: tmAccess,
+        commandId: "export-1",
+        exportKind: "passport",
+        jobCardId: f.ids.jobCardId,
+        leaseId: "lease-1",
+      })
+    ).rejects.toThrow("FORBIDDEN");
+    const officeAccess = await f.opsHead.query(api.crm.staff.getMyPortalAccess, {});
+    const page = await t.query(internal.crm.imports.getPassengerExportSourcePage, {
+      access: officeAccess,
+      exportKind: "passport",
+      jobCardId: f.ids.jobCardId,
+      paginationOpts: { cursor: null, numItems: 10 },
+    });
+    expect(page.page).toHaveLength(5);
+  });
+});
+
+describe("review fixes: visa, ticket, seat and command center follow the group", () => {
+  test("a batch Tour Manager sees only their batch's rows", async () => {
+    const t = harness();
+    const f = await seed(t);
+    await f.assign("tm-batch", f.ids.batchA);
+    await t.run(async (ctx) => {
+      for (const travellerId of [f.ids.a1, f.ids.b1]) {
+        await ctx.db.insert("visaRecords", {
+          createdAt: NOW,
+          jobCardId: f.ids.jobCardId,
+          status: "Not Started",
+          travellerId,
+          updatedAt: NOW,
+          updatedBy: "ops-head",
+        });
+        await ctx.db.insert("tickets", {
+          createdAt: NOW,
+          createdBy: "ops-head",
+          jobCardId: f.ids.jobCardId,
+          paymentType: "Company Paid",
+          ticketStatus: "Pending Issue",
+          travellerId,
+          updatedAt: NOW,
+        });
+        await ctx.db.insert("seatAllocations", {
+          createdAt: NOW,
+          createdBy: "ops-head",
+          jobCardId: f.ids.jobCardId,
+          seatNumber: `S-${String(travellerId).slice(-3)}`,
+          status: "Assigned",
+          travellerId,
+          updatedAt: NOW,
+        });
+      }
+      await ctx.db.patch("travellers", f.ids.a3, { visaRequired: true });
+      await ctx.db.patch("travellers", f.ids.u1, { visaRequired: true });
+    });
+    const tm = f.actor("tm-batch");
+    const paginationOpts = { cursor: null, numItems: 20 };
+    const visas = await tm.query(api.crm.visa.list, { jobCardId: f.ids.jobCardId, paginationOpts });
+    expect(visas.page.map((row) => row.travellerId)).toEqual([f.ids.a1]);
+    const withoutVisa = await tm.query(api.crm.visa.listTravellersWithoutVisa, {});
+    expect(withoutVisa.map((row) => row.id)).toEqual([f.ids.a3]);
+    const tickets = await tm.query(api.crm.ticketing.listTickets, {
+      jobCardId: f.ids.jobCardId,
+      paginationOpts,
+    });
+    expect(tickets.page.map((row) => row.travellerId)).toEqual([f.ids.a1]);
+    const seats = await tm.query(api.crm.ticketing.listSeatAllocations, {
+      jobCardId: f.ids.jobCardId,
+      paginationOpts,
+    });
+    expect(seats.page.map((row) => row.travellerId)).toEqual([f.ids.a1]);
+    const center = await tm.query(api.crm.jobCards.getCommandCenter, {
+      jobCardId: f.ids.jobCardId,
+    });
+    expect(center.travellers).toHaveLength(3);
+    const officeVisas = await f.opsHead.query(api.crm.visa.list, {
+      jobCardId: f.ids.jobCardId,
+      paginationOpts,
+    });
+    expect(officeVisas.page).toHaveLength(2);
+  });
+});
+
+describe("review fixes: field passport window and file type", () => {
+  test("a batch with only a start date uses its own pair, not the Job Card end", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(Date.parse("2026-11-20T06:00:00Z"));
+    const t = harness();
+    const f = await seed(t);
+    const { batchC, c1 } = await t.run(async (ctx) => {
+      const batchId = await ctx.db.insert("travelBatches", {
+        batchCode: "B03",
+        batchReference: "JC-CONNECT-01 / B03",
+        confirmedPax: 1,
+        createdAt: NOW,
+        createdBy: "synthetic-ops",
+        jobCardId: f.ids.jobCardId,
+        status: "Open",
+        travelStartDate: "2026-11-20",
+        updatedAt: NOW,
+      });
+      const travellerId = await ctx.db.insert("travellers", {
+        ...SYNTHETIC_TRAVELLER,
+        createdAt: NOW,
+        fullName: "Synthetic C One",
+        jobCardId: f.ids.jobCardId,
+        travelBatchId: batchId,
+        updatedAt: NOW,
+      });
+      return { batchC: batchId, c1: travellerId };
+    });
+    await f.assign("tm-batch", batchC);
+    await withPassport(t, c1, "image/jpeg");
+    const tm = f.actor("tm-batch");
+    const grant = await tm.mutation(internal.crm.fieldPassports.authorizeFieldPassportRead, {
+      travellerId: c1,
+    });
+    expect(grant.mimeType).toBe("image/jpeg");
+    const listing = await tm.query(api.crm.fieldPassports.listFieldPassports, {
+      jobCardId: f.ids.jobCardId,
+      referenceNow: Date.parse("2026-11-20T06:00:00Z"),
+    });
+    expect(listing.travellers).toEqual([
+      expect.objectContaining({ available: true, mimeType: "image/jpeg", travellerId: c1 }),
+    ]);
   });
 });

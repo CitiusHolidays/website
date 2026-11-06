@@ -6,9 +6,11 @@ import type { Id } from "../_generated/dataModel";
 import { encryptBuffer } from "../lib/encryption";
 import { getFieldPassportFile } from "./fieldPassportActions";
 import { fieldPassportWindow } from "./fieldPassports";
-import { jobCardRecordGrant } from "./lib/recordScope";
+import { legacyTourManagerNamesFrom } from "./jobCardVisibility";
+import { jobCardRecordGrant, ownsTourManagerJobCard, personNameKey } from "./lib/recordScope";
 import { getRolePermissions } from "./lib/rolePolicy";
 import type { PortalAccess } from "./lib/staffAccess";
+import { canViewPassengerKinds } from "./passengerKindPolicy";
 import { canReadPassportInStaffWorkspace } from "./passportPolicy";
 import { tourManagerGroupScopeFrom } from "./tourManagerGroupScope";
 
@@ -107,6 +109,77 @@ describe("tour manager group scope", () => {
         job: { tourManagerName: "Asha Rao" },
       })
     ).toEqual({ kind: "jobCard" });
+  });
+});
+
+describe("review fixes: name fallbacks", () => {
+  const assignment = (
+    overrides: Partial<{
+      externalProfileId: Id<"externalTourManagerProfiles">;
+      name: string;
+      staffId: Id<"staffUsers">;
+      travelBatchId: Id<"travelBatches">;
+    }>
+  ) => ({
+    externalProfileId: undefined,
+    name: "Asha Rao",
+    staffId: undefined,
+    status: "Assigned" as const,
+    travelBatchId: undefined,
+    ...overrides,
+  });
+
+  test("names compare after Unicode and whitespace normalization", () => {
+    expect(personNameKey("  Asha\u00a0 RAO ")).toBe("asha rao");
+    expect(personNameKey("")).toBe("");
+  });
+
+  test("any staff assignment on the Job Card ends every name route", () => {
+    expect(
+      tourManagerGroupScopeFrom({
+        access: tm,
+        assignments: [assignment({}), assignment({ name: "Other", staffId: staffId("staff_x") })],
+        batches: [],
+        job: { tourManagerName: "Asha Rao" },
+      })
+    ).toEqual({ kind: "batches", travelBatchIds: new Set() });
+    expect(
+      ownsTourManagerJobCard(tm, {
+        assignedTourManagerStaffIds: [staffId("staff_x")],
+        tourManagerName: "Asha Rao",
+      })
+    ).toBe(false);
+  });
+
+  test("external names are never legacy names, and field reads ignore names entirely", () => {
+    expect(
+      legacyTourManagerNamesFrom([
+        assignment({ externalProfileId: profileId("profile_1"), name: "Asha Rao" }),
+        assignment({ name: " Meera  Iyer " }),
+      ])
+    ).toEqual(["meera iyer"]);
+    expect(
+      ownsTourManagerJobCard(tm, { legacyTourManagerNames: [], tourManagerName: "Asha Rao" })
+    ).toBe(false);
+    expect(ownsTourManagerJobCard(tm, { legacyTourManagerNames: ["asha rao"] })).toBe(true);
+    expect(
+      tourManagerGroupScopeFrom({
+        access: tm,
+        assignments: [assignment({})],
+        batches: [],
+        job: {},
+        legacyNames: false,
+      })
+    ).toEqual({ kind: "batches", travelBatchIds: new Set() });
+    // The legacy match needs the Tour Manager role.
+    expect(ownsTourManagerJobCard(access(["Sales"]), { tourManagerName: "Asha Rao" })).toBe(false);
+  });
+
+  test("passenger exports never count Tour Manager permissions", () => {
+    for (const kind of ["passenger", "passport", "visa", "traveller"]) {
+      expect(canViewPassengerKinds(tm, [kind])).toBe(false);
+      expect(canViewPassengerKinds(access(["Operations Head"], "staff_head"), [kind])).toBe(true);
+    }
   });
 });
 

@@ -2,14 +2,7 @@ import { paginationOptsValidator, paginationResultValidator } from "convex/serve
 import { ConvexError, v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx, query } from "../_generated/server";
-import {
-  hasRole,
-  jobCardRecordGrant,
-  ownsTourManagerJobCard,
-  PERMISSIONS,
-  type PortalAccess,
-  requireStaff,
-} from "./lib";
+import { hasRole, jobCardRecordGrant, PERMISSIONS, type PortalAccess, requireStaff } from "./lib";
 import { boundedPaginationOptions, loadRowsByIdInBatches } from "./paginationPolicy";
 import { canReadPassportInStaffWorkspace } from "./passportPolicy";
 import { assertReferenceNow } from "./referenceTimePolicy";
@@ -64,11 +57,15 @@ export function fieldPassportWindow(dates: {
   };
 }
 
+/** The batch's own date pair when it records a start date, else the Job Card's; never a mix. */
 function tripDates(job: Doc<"jobCards">, batch: Doc<"travelBatches"> | null) {
-  return {
-    travelEndDate: batch?.travelEndDate || job.travelEndDate,
-    travelStartDate: batch?.travelStartDate || job.travelStartDate,
-  };
+  const source = batch?.travelStartDate ? batch : job;
+  return { travelEndDate: source.travelEndDate, travelStartDate: source.travelStartDate };
+}
+
+/** The scan's stored type, with the same PDF default the file read returns. */
+function passportMimeType(passport: Pick<Doc<"passportDetails">, "mimeType">) {
+  return passport.mimeType || "application/pdf";
 }
 
 const isOpen = (window: { closesAt: number; opensAt: number } | null, now: number) =>
@@ -81,7 +78,10 @@ function requireFieldTourManager(access: PortalAccess) {
   return access.staffId;
 }
 
-/** The Job Card when the caller reaches it through their own Tour Manager assignment. */
+/**
+ * The Job Card and group when the caller holds their own active staff Tour Manager assignment on
+ * it. No name match of any kind opens field passports.
+ */
 async function loadFieldJobCard(
   ctx: QueryCtx | MutationCtx,
   access: PortalAccess,
@@ -91,10 +91,14 @@ async function loadFieldJobCard(
     throw new ConvexError("FORBIDDEN");
   }
   const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
-  if (!(jobCardRecordGrant(access, job, linkedQuery) && ownsTourManagerJobCard(access, job))) {
+  if (!jobCardRecordGrant(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
-  return { job, scope: await loadTourManagerGroupScope(ctx, access, job) };
+  const scope = await loadTourManagerGroupScope(ctx, access, job, { legacyNames: false });
+  if (scope.kind === "batches" && scope.travelBatchIds.size === 0) {
+    throw new ConvexError("FORBIDDEN");
+  }
+  return { job, scope };
 }
 
 /**
@@ -146,7 +150,7 @@ export const authorizeFieldPassportRead = internalMutation({
     });
     return {
       fileName: passport.fileName || "passport.pdf",
-      mimeType: passport.mimeType || "application/pdf",
+      mimeType: passportMimeType(passport),
       storageId: passport.storageId,
     };
   },
@@ -158,8 +162,10 @@ export const authorizeFieldPassportRead = internalMutation({
 });
 
 /**
- * The tour manager's own group on one Job Card with each traveller's passport availability.
- * Returns flags and window times only, never a file, number or storage id.
+ * The tour manager's own group on one Job Card with each traveller's passport availability and
+ * scan file type (null without a scan). Returns flags, types and window times only, never a
+ * file, number or storage id. The app offers in-app viewing only for types it can render, so it
+ * does not trigger an audited read for a file it cannot show.
  */
 export const listFieldPassports = query({
   args: { jobCardId: v.string(), referenceNow: v.number() },
@@ -188,6 +194,23 @@ export const listFieldPassports = query({
       Math.max(1, inGroup.length)
     );
     const batchById = new Map(batches.map((batch) => [String(batch._id), batch]));
+    // Same metadata row the field read uses; only the file type leaves the server.
+    const scanTypes = new Map(
+      await Promise.all(
+        inGroup
+          .filter((traveller) => traveller.hasPassportScan)
+          .map(async (traveller) => {
+            const passport = await ctx.db
+              .query("passportDetails")
+              .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
+              .unique();
+            return [
+              String(traveller._id),
+              passport?.storageId ? passportMimeType(passport) : null,
+            ] as const;
+          })
+      )
+    );
     return {
       timeZone: FIELD_PASSPORT_TIME_ZONE,
       travellers: inGroup.map((traveller) => {
@@ -195,11 +218,13 @@ export const listFieldPassports = query({
           ? (batchById.get(String(traveller.travelBatchId)) ?? null)
           : null;
         const window = fieldPassportWindow(tripDates(job, batch));
-        const hasPassportScan = traveller.hasPassportScan ?? false;
+        const mimeType = scanTypes.get(String(traveller._id)) ?? null;
+        const hasPassportScan = mimeType !== null;
         return {
           available: hasPassportScan && isOpen(window, referenceNow),
           closesAt: window?.closesAt ?? null,
           hasPassportScan,
+          mimeType,
           opensAt: window?.opensAt ?? null,
           travellerId: traveller._id,
         };
@@ -213,6 +238,7 @@ export const listFieldPassports = query({
         available: v.boolean(),
         closesAt: v.union(v.number(), v.null()),
         hasPassportScan: v.boolean(),
+        mimeType: v.union(v.string(), v.null()),
         opensAt: v.union(v.number(), v.null()),
         travellerId: v.id("travellers"),
       })

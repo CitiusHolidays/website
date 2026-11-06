@@ -1452,6 +1452,10 @@ export default defineSchema({
     lastEditedAt: v.optional(v.number()),
     lastEditedBy: v.optional(v.string()),
     lastEditedByName: v.optional(v.string()),
+    // Also derived by syncJobCardTourManagerVisibility: normalized names of active name-only
+    // assignments (no staff identity, no external profile). Once written it replaces the
+    // tourManagerName fallback, so an external tour manager's name never grants scope.
+    legacyTourManagerNames: v.optional(v.array(v.string())),
     listSearchText: v.optional(v.string()),
     operationsOwnerId: v.optional(v.string()),
     operationsOwnerName: v.optional(v.string()),

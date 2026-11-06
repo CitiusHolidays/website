@@ -1,4 +1,3 @@
-import { getVisibleJob } from "./jobCardVisibility";
 import { PERMISSIONS, requireStaff } from "./lib";
 import {
   applyCrmCursorFilters,
@@ -6,6 +5,7 @@ import {
   compactPageItems,
   mapInBoundedBatches,
 } from "./paginationPolicy";
+import { createTravellerScopeReader } from "./tourManagerGroupScope";
 
 export async function handleListSeatAllocations(
   ctx: QueryCtx,
@@ -16,15 +16,14 @@ export async function handleListSeatAllocations(
   }
 ) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_TICKETING);
+  const scopeReader = createTravellerScopeReader(ctx, access);
   const page = await applyCrmCursorFilters(
     ctx.db.query("seatAllocations").withIndex("by_createdAt").order("desc"),
     { equals: { jobCardId: args.jobCardId, status: args.status } }
   ).paginate(boundedPaginationOptions(args.paginationOpts));
   const rows = await mapInBoundedBatches(page.page, async (seat) => {
-    const [traveller, job] = await Promise.all([
-      seat.travellerId ? ctx.db.get("travellers", seat.travellerId) : null,
-      getVisibleJob(ctx, access, seat.jobCardId),
-    ]);
+    const traveller = seat.travellerId ? await ctx.db.get("travellers", seat.travellerId) : null;
+    const job = await scopeReader.jobForTraveller(seat.jobCardId, traveller);
     if (!job) {
       return null;
     }
