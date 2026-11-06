@@ -61,6 +61,7 @@ export {
   ownsAuthRecord,
   ownsNamedRecord,
   ownsStaffRecord,
+  ownsTourManagerJobCard,
   shouldApplyCementScope,
 } from "./lib/recordScope";
 export type { StaffRole } from "./lib/rolePolicy";

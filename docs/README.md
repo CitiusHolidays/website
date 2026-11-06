@@ -79,6 +79,7 @@ provider or production proof.
   historical normalization only; not Customer Account authorization.
 - [Expense lifecycle normalization](migrations/expense-lifecycle-normalization.md).
 - [Query lead-stage Closed-to-Lost migration](migrations/query-lead-stage-closed-to-lost.md).
+- [Job Card assigned Tour Manager staff IDs](migrations/job-card-assigned-tour-manager-staff-ids.md).
 - [Passenger import receipt positions](migrations/passenger-import-receipt-positions.md).
 - [Auth identity ownership migration](migrations/auth-identity-ownership.md).
 - [Sacred Bharat private-group counts](migrations/sacred-bharat-group-counts.md).

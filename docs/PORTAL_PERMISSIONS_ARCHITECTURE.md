@@ -103,6 +103,17 @@ Sales, Sales Head, and Sales Cement can use the Sales initial assignment form wh
 
 Heads remain selectable in their department's assignment dropdown. Contracting and Operations heads already have their department's work permissions. Head of Ticketing also has `manage:proposals` so a self-assigned Ticketing head can prepare costing. Existing record-level proposal guards remain authoritative. Leave permissions and approval routing are unchanged.
 
+## Tour Manager record scope
+
+Tour Manager Job Card scope is a record rule, not a permission. `canSeeJobCardRecord` grants it
+when the actor has the Tour Manager role and `access.staffId` is in
+`jobCards.assignedTourManagerStaffIds`, a field derived from active
+staff rows in `tourManagerAssignments`. Every assignment write path recomputes it through
+`syncJobCardTourManagerVisibility`, so scope does not depend on the latest-wins
+`tourManagerName`. The name match remains a legacy fallback until the backfill in
+[`migrations/job-card-assigned-tour-manager-staff-ids.md`](migrations/job-card-assigned-tour-manager-staff-ids.md)
+is verified. Cement scope still applies first.
+
 ## Cement roles
 
 Base cement roles are scoped roles:
