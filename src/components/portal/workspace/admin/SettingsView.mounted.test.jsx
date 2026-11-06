@@ -108,9 +108,11 @@ async function mountSettings({ access = admin, search = "", ...props } = {}) {
   };
 }
 
+const TRAILING_COUNT = /\d+$/;
+
 function tabLabels(container) {
   return [...container.querySelectorAll('[role="tab"]')].map((tab) =>
-    tab.textContent.replace(/\d+$/, "")
+    tab.textContent.replace(TRAILING_COUNT, "")
   );
 }
 

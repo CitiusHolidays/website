@@ -96,7 +96,7 @@ describe("Staff modal fields", () => {
     expect(container.textContent).toContain("HR always gives the second approval");
 
     const name = container.querySelector('input[value="Nina Sales"]');
-    await act(async () => {
+    await act(() => {
       const setValue = Object.getOwnPropertyDescriptor(
         dom.window.HTMLInputElement.prototype,
         "value"
