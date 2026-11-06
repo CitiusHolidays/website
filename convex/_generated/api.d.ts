@@ -241,6 +241,7 @@ import type * as crm_ticketingIntakePolicy from "../crm/ticketingIntakePolicy.js
 import type * as crm_ticketingPresentation from "../crm/ticketingPresentation.js";
 import type * as crm_ticketingValidators from "../crm/ticketingValidators.js";
 import type * as crm_tourManagerGroupScope from "../crm/tourManagerGroupScope.js";
+import type * as crm_tourManagerLegacyNamesMigration from "../crm/tourManagerLegacyNamesMigration.js";
 import type * as crm_tourManagerVisibilityMigration from "../crm/tourManagerVisibilityMigration.js";
 import type * as crm_travelBatchPolicy from "../crm/travelBatchPolicy.js";
 import type * as crm_travelerFeedback from "../crm/travelerFeedback.js";
@@ -555,6 +556,7 @@ declare const fullApi: ApiFromModules<{
   "crm/ticketingPresentation": typeof crm_ticketingPresentation;
   "crm/ticketingValidators": typeof crm_ticketingValidators;
   "crm/tourManagerGroupScope": typeof crm_tourManagerGroupScope;
+  "crm/tourManagerLegacyNamesMigration": typeof crm_tourManagerLegacyNamesMigration;
   "crm/tourManagerVisibilityMigration": typeof crm_tourManagerVisibilityMigration;
   "crm/travelBatchPolicy": typeof crm_travelBatchPolicy;
   "crm/travelerFeedback": typeof crm_travelerFeedback;

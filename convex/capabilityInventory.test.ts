@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "972dc607f3cd3a367f9986e3ba431c010ef08ec1ee9868093197a8c62caba557";
+const EXPECTED_CAPABILITY_HASH = "d9afe9d9aac2c65a376ff7336ff2f34d0d9c18e47b7983022504698ee1c871f9";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_CAPABILITIES = new Set(["crm/postTourReports.archive"]);
@@ -135,6 +135,18 @@ describe("Convex capability inventory", () => {
       "crm/fieldSync.listLatestHeadcounts:query:public-product",
       "crm/fieldSync.pushHeadcountStop:mutation:public-product",
       "crm/fieldSync.recordAnnouncement:mutation:public-product",
+    ]);
+  });
+
+  test("classifies the Tour Manager legacy-names backfill as internal capabilities", () => {
+    expect(
+      discoverCapabilities()
+        .filter(({ module }) => module === "crm/tourManagerLegacyNamesMigration")
+        .map(({ classification, kind, name }) => `${name}:${kind}:${classification}`)
+    ).toEqual([
+      "getTourManagerLegacyNamesMigrationStatus:internalQuery:internal",
+      "migrateTourManagerLegacyNames:internalMutation:internal",
+      "verifyTourManagerLegacyNames:internalMutation:internal",
     ]);
   });
 
