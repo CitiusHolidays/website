@@ -879,9 +879,24 @@ export interface PortalNotificationRow {
   title?: string;
 }
 
+/** Filters and paging for the collapsed workspace activity log (Admin and Directors only). */
+export interface ActivityLogControls {
+  clearFilters: PortalWorkspaceState["clearAllFilters"];
+  dateRange: PortalWorkspaceState["dateRange"];
+  filterConfig: PortalWorkspaceState["listFilterConfig"];
+  filterRows: unknown[];
+  filters: PortalWorkspaceState["listFilters"];
+  filtersActive: boolean;
+  pagination?: PortalPaginationSlice;
+  rows: PortalActivityRow[];
+  search: string;
+  setDateRange: PortalWorkspaceState["setDateRangeWithUrl"];
+  setFilter: PortalWorkspaceState["setListFilterValue"];
+  setSearch: PortalWorkspaceState["setSearchWithUrl"];
+}
+
 export interface ActivityViewProps {
-  activity: PortalActivityRow[];
-  canViewActivityLog: boolean;
+  activityLog?: ActivityLogControls;
   deleteItem: PortalDeleteHandler;
   emailDeliverySummaries?: {
     coverage: "complete" | "partial";

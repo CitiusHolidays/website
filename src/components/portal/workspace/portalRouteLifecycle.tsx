@@ -41,7 +41,7 @@ import {
   TravellersView,
   VisaTrackingView,
 } from "./portalLazyViews";
-import type { PortalPaginationSlice } from "./portalViewTypes";
+import type { ActivityLogControls, PortalPaginationSlice } from "./portalViewTypes";
 
 export interface PortalRouteModel {
   component: string;
@@ -126,6 +126,28 @@ export function PortalRouteLifecycleBoundary({
   );
 }
 
+function activityLogControls(
+  workspace: PortalWorkspaceImplementationState
+): ActivityLogControls | undefined {
+  if (!workspace.has(P.VIEW_ACTIVITY)) {
+    return undefined;
+  }
+  return {
+    clearFilters: workspace.clearAllFilters,
+    dateRange: workspace.dateRange,
+    filterConfig: workspace.listFilterConfig,
+    filterRows: workspace.periodFiltered.activity,
+    filters: workspace.listFilters,
+    filtersActive: workspace.filtersActive,
+    pagination: workspace.pagination.activity,
+    rows: workspace.filteredActivity,
+    search: workspace.search,
+    setDateRange: workspace.setDateRangeWithUrl,
+    setFilter: workspace.setListFilterValue,
+    setSearch: workspace.setSearchWithUrl,
+  };
+}
+
 function selectPortalRouteContent(
   view: string,
   workspace: PortalWorkspaceImplementationState
@@ -147,8 +169,7 @@ function selectPortalRouteContent(
     case "ActivityView":
       return (
         <ActivityView
-          activity={workspace.filteredActivity}
-          canViewActivityLog={workspace.has(P.VIEW_ACTIVITY)}
+          activityLog={activityLogControls(workspace)}
           deleteItem={workspace.deleteItem}
           emailDeliverySummaries={workspace.emailDeliverySummaries}
           markNotificationRead={workspace.markNotificationRead}
@@ -485,7 +506,11 @@ export function createPortalRouteModel(
     component: definition.component,
     content: selectPortalRouteContent(view, workspace),
     family: definition.family,
-    pagination: resolvePortalRoutePagination(view, workspace.pagination),
+    // The activity log pages inside its own section, not under the personal inbox.
+    pagination:
+      definition.component === "ActivityView"
+        ? undefined
+        : resolvePortalRoutePagination(view, workspace.pagination),
     view,
   });
 }

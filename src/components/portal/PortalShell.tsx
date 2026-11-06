@@ -401,8 +401,13 @@ export default function PortalShell({ access, user, children }: PortalShellProps
   const accountName = access.name || user?.name || "Staff";
   const accountEmail = access.email || user?.email;
   const accountImage = user?.image;
-  const unreadCount =
-    notificationBellState?.unreadCount ?? notificationRows.filter((item) => !item.readAt).length;
+  const shownUnreadCount = notificationRows.filter((item) => !item.readAt).length;
+  const unreadCount = notificationBellState?.unreadCount ?? shownUnreadCount;
+  const unreadCountIsLowerBound = Boolean(
+    notificationBellState &&
+      "hasMoreUnread" in notificationBellState &&
+      notificationBellState.hasMoreUnread
+  );
   const drawerMotion = portalOverlayMotion(!!shouldReduceMotion, "left", 0.2, "snap");
   const drawerBackdropMotion = portalOverlayMotion(!!shouldReduceMotion, "static", 0.15, "snap");
 
@@ -543,11 +548,16 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                             sideOffset={12}
                             trigger={renderNotificationTrigger}
                           >
-                            <div className="flex items-center justify-between border-brand-border border-b px-4 py-3">
+                            <div className="flex items-center justify-between gap-3 border-brand-border border-b px-4 py-3">
                               <div className="font-heading font-semibold text-citius-blue text-sm">
                                 Notifications
                               </div>
-                              <span className="text-brand-muted text-xs">Recent updates</span>
+                              {unreadCount > shownUnreadCount ? (
+                                <span className="text-brand-muted text-xs tabular-nums">
+                                  {shownUnreadCount} of {unreadCount}
+                                  {unreadCountIsLowerBound ? "+" : ""} unread
+                                </span>
+                              ) : null}
                             </div>
                             <NotificationInbox
                               compact

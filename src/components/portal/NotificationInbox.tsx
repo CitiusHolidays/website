@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowUpRight, Bell, Check } from "lucide-react";
-import { type Key, useState } from "react";
+import { type Key, useId, useState } from "react";
 import { Button } from "@/components/ui/application-button";
 
 interface InboxItem {
@@ -14,33 +14,92 @@ interface InboxItem {
   title?: string;
 }
 
-function notificationTime(createdAt?: string) {
+/** Older read history for the Notifications page. The bell never passes this. */
+export interface NotificationHistoryControl {
+  canLoadOlder: boolean;
+  limitReached: boolean;
+  loadingOlder: boolean;
+  loadOlder: () => void;
+  shownCount: number;
+}
+
+interface InboxDayGroup<T> {
+  items: T[];
+  key: string;
+  label: string;
+}
+
+const UNDATED_GROUP_KEY = "undated";
+
+const timeFormat = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" });
+const dayFormat = new Intl.DateTimeFormat("en-GB", {
+  day: "numeric",
+  month: "short",
+  weekday: "short",
+});
+
+function parseCreatedAt(createdAt?: string) {
   if (!createdAt) {
-    return "";
+    return null;
   }
   const date = new Date(createdAt);
-  return Number.isNaN(date.valueOf())
-    ? ""
-    : new Intl.DateTimeFormat("en-GB", {
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        month: "short",
-      }).format(date);
+  return Number.isNaN(date.valueOf()) ? null : date;
+}
+
+function localDayKey(date: Date) {
+  return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+}
+
+function dayLabel(date: Date, now: Date) {
+  const today = localDayKey(now);
+  const yesterday = localDayKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1));
+  const key = localDayKey(date);
+  if (key === today) {
+    return "Today";
+  }
+  if (key === yesterday) {
+    return "Yesterday";
+  }
+  const day = dayFormat.format(date);
+  return date.getFullYear() === now.getFullYear() ? day : `${day} ${date.getFullYear()}`;
+}
+
+/** Groups newest-first inbox items by the reader's local calendar day, keeping server order. */
+function groupInboxItemsByDay<T extends InboxItem>(items: T[], now: Date) {
+  const groups: InboxDayGroup<T>[] = [];
+  const byKey = new Map<string, InboxDayGroup<T>>();
+  for (const item of items) {
+    const date = parseCreatedAt(item.createdAt);
+    const key = date ? localDayKey(date) : UNDATED_GROUP_KEY;
+    let group = byKey.get(key);
+    if (!group) {
+      group = { items: [], key, label: date ? dayLabel(date, now) : "Earlier" };
+      byKey.set(key, group);
+      groups.push(group);
+    }
+    group.items.push(item);
+  }
+  return groups;
 }
 
 export function NotificationInbox<T extends InboxItem>({
   compact = false,
+  history,
   items,
   loading = false,
+  now,
   onActivate,
 }: {
   compact?: boolean;
+  history?: NotificationHistoryControl;
   items: T[];
   loading?: boolean;
+  /** Fixed reference time for tests; defaults to the time the inbox mounted. */
+  now?: number;
   onActivate: (item: T) => void;
 }) {
   const [filter, setFilter] = useState<"unread" | "all">("unread");
+  const [mountedAt] = useState(() => Date.now());
   const unread = items.filter((item) => !item.readAt);
   const visible = filter === "unread" ? unread : items;
   const showUnread = () => setFilter("unread");
@@ -73,11 +132,41 @@ export function NotificationInbox<T extends InboxItem>({
           compact={compact}
           hasItems={items.length > 0}
           loading={loading}
+          now={now ?? mountedAt}
           onActivate={onActivate}
           showAll={showAll}
           visible={visible}
         />
+        {history && filter === "all" && !loading && visible.length > 0 ? (
+          <NotificationHistoryFooter history={history} />
+        ) : null}
       </div>
+    </div>
+  );
+}
+
+function NotificationHistoryFooter({ history }: { history: NotificationHistoryControl }) {
+  if (!(history.canLoadOlder || history.loadingOlder || history.limitReached)) {
+    return null;
+  }
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-3 border-brand-border border-t px-4 py-4 sm:px-5">
+      <span aria-live="polite" className="text-brand-muted text-xs tabular-nums" role="status">
+        {history.limitReached
+          ? `Showing the latest ${history.shownCount} updates.`
+          : `${history.shownCount} updates shown`}
+      </span>
+      {history.canLoadOlder || history.loadingOlder ? (
+        <Button
+          aria-busy={history.loadingOlder || undefined}
+          className="portal-small-btn bg-white"
+          disabled={history.loadingOlder}
+          onClick={history.loadOlder}
+          type="button"
+        >
+          {history.loadingOlder ? "Loading older updates…" : "Show older updates"}
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -92,6 +181,7 @@ function NotificationInboxRow<T extends InboxItem>({
   onActivate: (item: T) => void;
 }) {
   const activate = () => onActivate(item);
+  const createdAt = parseCreatedAt(item.createdAt);
   return (
     <li>
       <Button
@@ -111,9 +201,12 @@ function NotificationInboxRow<T extends InboxItem>({
             {item.title}
           </span>
           <span className="mt-1 block text-brand-muted text-xs leading-5">{item.body}</span>
-          {item.createdAt ? (
-            <time className="mt-2 block text-[11px] text-brand-muted" dateTime={item.createdAt}>
-              {notificationTime(item.createdAt)}
+          {createdAt ? (
+            <time
+              className="mt-2 block text-[11px] text-brand-muted tabular-nums"
+              dateTime={item.createdAt}
+            >
+              {timeFormat.format(createdAt)}
             </time>
           ) : null}
         </span>
@@ -125,10 +218,53 @@ function NotificationInboxRow<T extends InboxItem>({
   );
 }
 
+function NotificationInboxDayGroups<T extends InboxItem>({
+  compact,
+  now,
+  onActivate,
+  visible,
+}: {
+  compact: boolean;
+  now: number;
+  onActivate: (item: T) => void;
+  visible: T[];
+}) {
+  const idPrefix = useId();
+  const groups = groupInboxItemsByDay(visible, new Date(now));
+  return (
+    <div>
+      {groups.map((group, index) => {
+        const headingId = `${idPrefix}-${group.key}`;
+        return (
+          <div className={index > 0 ? "border-brand-border border-t" : ""} key={group.key}>
+            <h3
+              className={`px-4 font-semibold text-brand-muted text-xs sm:px-5 ${compact ? "pt-4" : "pt-5"}`}
+              id={headingId}
+            >
+              {group.label}
+            </h3>
+            <ul aria-labelledby={headingId} className="divide-y divide-brand-border">
+              {group.items.map((item) => (
+                <NotificationInboxRow
+                  compact={compact}
+                  item={item}
+                  key={item.id}
+                  onActivate={onActivate}
+                />
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function NotificationInboxContents<T extends InboxItem>({
   compact,
   hasItems,
   loading,
+  now,
   onActivate,
   showAll,
   visible,
@@ -136,6 +272,7 @@ function NotificationInboxContents<T extends InboxItem>({
   compact: boolean;
   hasItems: boolean;
   loading: boolean;
+  now: number;
   onActivate: (item: T) => void;
   showAll: () => void;
   visible: T[];
@@ -183,10 +320,11 @@ function NotificationInboxContents<T extends InboxItem>({
     );
   }
   return (
-    <ul className="divide-y divide-brand-border">
-      {visible.map((item) => (
-        <NotificationInboxRow compact={compact} item={item} key={item.id} onActivate={onActivate} />
-      ))}
-    </ul>
+    <NotificationInboxDayGroups
+      compact={compact}
+      now={now}
+      onActivate={onActivate}
+      visible={visible}
+    />
   );
 }
