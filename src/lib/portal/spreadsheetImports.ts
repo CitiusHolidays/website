@@ -67,6 +67,7 @@ export interface ImportedPassportDetails {
 }
 
 export interface ImportedTravellerRow {
+  ageYears?: number;
   biometricAppointmentDate?: string;
   contactNo: string;
   domesticTravelRequired: boolean;
@@ -74,11 +75,14 @@ export interface ImportedTravellerRow {
   fullName: string;
   gender: string;
   givenName: string;
+  guardianContact?: string;
+  guardianName?: string;
   guestType: string;
   hotelAllocation?: string;
   id: string;
   importKey: string;
   importKind: ImportKind;
+  minorStatus?: "adult" | "minor";
   passport: ImportedPassportDetails;
   passportStatus: string;
   paymentType: string;
@@ -559,6 +563,101 @@ function templateImportKey({
 
 const TRAVEL_BATCH_HEADER_NAMES = ["Travel Batch", "Travel Batch Reference", "Batch Reference"];
 
+/** Parent/Guardian columns (ADR 0018); a minor is linked to the matching adult on import. */
+const GUARDIAN_NAME_HEADERS = [
+  "Parent/Guardian",
+  "Parent/Guardian Name",
+  "Parent or Guardian",
+  "Guardian",
+  "Guardian Name",
+  "Parent",
+  "Parent Name",
+  "Travelling with",
+  "Traveling with",
+  "Accompanied by",
+];
+const GUARDIAN_CONTACT_HEADERS = [
+  "Parent/Guardian Contact",
+  "Parent/Guardian Contact No",
+  "Parent/Guardian Phone",
+  "Parent/Guardian Email",
+  "Guardian Contact",
+  "Guardian Contact No",
+  "Guardian Contact Number",
+  "Guardian Mobile",
+  "Guardian Phone",
+  "Guardian Email",
+  "Parent Contact",
+  "Parent Contact No",
+  "Parent Mobile",
+  "Parent Phone",
+  "Parent Email",
+];
+const MINOR_HEADERS = [
+  "Minor",
+  "Is Minor",
+  "Minor (Y/N)",
+  "Minor Yes/No",
+  "Adult/Minor",
+  "Adult/Child",
+];
+const AGE_HEADERS = ["Age", "Age (years)", "Age at travel"];
+const MINOR_VALUES = new Set(["1", "child", "minor", "true", "y", "yes"]);
+const ADULT_VALUES = new Set(["0", "adult", "false", "n", "no"]);
+const WHOLE_NUMBER_RE = /^\d{1,3}$/;
+
+function firstHeaderIndex(headers: HeaderMap, names: string[]): number | undefined {
+  for (const name of names) {
+    const index = headers.get(headerKey(name));
+    if (index !== undefined) {
+      return index;
+    }
+  }
+}
+
+function minorStatusFromCell(value: WorkbookCellValue): "adult" | "minor" | undefined {
+  const key = headerKey(value);
+  if (MINOR_VALUES.has(key)) {
+    return "minor";
+  }
+  return ADULT_VALUES.has(key) ? "adult" : undefined;
+}
+
+function ageFromCell(value: WorkbookCellValue): number | undefined {
+  const text = clean(value);
+  return WHOLE_NUMBER_RE.test(text) ? Number(text) : undefined;
+}
+
+/** Only columns present on the sheet become fields, so other sheets leave links untouched. */
+function guardianFieldsFromRow(
+  row: WorkbookRow,
+  headers: HeaderMap
+): Pick<ImportedTravellerRow, "ageYears" | "guardianContact" | "guardianName" | "minorStatus"> {
+  const fields: Pick<
+    ImportedTravellerRow,
+    "ageYears" | "guardianContact" | "guardianName" | "minorStatus"
+  > = {};
+  const nameIndex = firstHeaderIndex(headers, GUARDIAN_NAME_HEADERS);
+  if (nameIndex !== undefined) {
+    fields.guardianName = clean(row[nameIndex]);
+  }
+  const contactIndex = firstHeaderIndex(headers, GUARDIAN_CONTACT_HEADERS);
+  if (contactIndex !== undefined) {
+    fields.guardianContact = clean(row[contactIndex]);
+  }
+  const minorIndex = firstHeaderIndex(headers, MINOR_HEADERS);
+  const minorStatus = minorIndex === undefined ? undefined : minorStatusFromCell(row[minorIndex]);
+  if (minorStatus) {
+    fields.minorStatus = minorStatus;
+  }
+  const ageIndex = firstHeaderIndex(headers, AGE_HEADERS);
+  const ageYears = ageIndex === undefined ? undefined : ageFromCell(row[ageIndex]);
+  if (ageYears !== undefined) {
+    fields.ageYears = ageYears;
+  }
+  return fields;
+}
+
 function travelBatchHeaderIndex(headers: HeaderMap): number | undefined {
   for (const name of TRAVEL_BATCH_HEADER_NAMES) {
     const index = headers.get(headerKey(name));
@@ -624,6 +723,7 @@ function templateRowBase({
   );
 
   return {
+    ...guardianFieldsFromRow(row, headers),
     biometricAppointmentDate: normalizeImportedDate(
       getByHeader(row, headers, ["Date of Appointmemt ", "Date of Appointment", "Appointment Date"])
     ),
@@ -876,6 +976,7 @@ function parsePassengerDataRow({
   return {
     kind: "row",
     value: {
+      ...guardianFieldsFromRow(row, headers),
       contactNo,
       domesticTravelRequired: Boolean(
         ticketing.domesticTicket || ticketing.domesticPnr || ticketing.domesticVendor

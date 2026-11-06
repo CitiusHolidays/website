@@ -248,6 +248,8 @@ import type * as crm_travelerFeedback from "../crm/travelerFeedback.js";
 import type * as crm_travelerFeedbackActions from "../crm/travelerFeedbackActions.js";
 import type * as crm_travelerFeedbackHttp from "../crm/travelerFeedbackHttp.js";
 import type * as crm_travelerFeedbackSecurity from "../crm/travelerFeedbackSecurity.js";
+import type * as crm_travellerGuardianPolicy from "../crm/travellerGuardianPolicy.js";
+import type * as crm_travellerGuardians from "../crm/travellerGuardians.js";
 import type * as crm_travellers from "../crm/travellers.js";
 import type * as crm_validateReturnContract from "../crm/validateReturnContract.js";
 import type * as crm_visa from "../crm/visa.js";
@@ -563,6 +565,8 @@ declare const fullApi: ApiFromModules<{
   "crm/travelerFeedbackActions": typeof crm_travelerFeedbackActions;
   "crm/travelerFeedbackHttp": typeof crm_travelerFeedbackHttp;
   "crm/travelerFeedbackSecurity": typeof crm_travelerFeedbackSecurity;
+  "crm/travellerGuardianPolicy": typeof crm_travellerGuardianPolicy;
+  "crm/travellerGuardians": typeof crm_travellerGuardians;
   "crm/travellers": typeof crm_travellers;
   "crm/validateReturnContract": typeof crm_validateReturnContract;
   "crm/visa": typeof crm_visa;

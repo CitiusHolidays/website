@@ -3106,12 +3106,20 @@ export default defineSchema({
     fullName: v.string(),
     gender: v.optional(v.string()),
     givenName: v.optional(v.string()),
+    // Minor guardianship (ADR 0018): an adult Traveller on the same Job Card. The import
+    // reference keeps the spreadsheet's Parent/Guardian text until it resolves to one adult.
+    guardianImportReference: v.optional(
+      v.object({ contact: v.optional(v.string()), name: v.string() })
+    ),
+    guardianTravellerId: v.optional(v.id("travellers")),
     guestCompanions: v.optional(v.string()),
     guestType,
     hasPassportScan: v.optional(v.boolean()),
     hotelAllocation: v.optional(v.string()),
     importKey: v.optional(v.string()),
     importSource: v.optional(v.string()),
+    // Under 18 on the trip's start date; undefined means the age is not recorded.
+    isMinor: v.optional(v.boolean()),
     jobCardId: v.id("jobCards"),
     lastMinuteDrop: v.optional(v.boolean()),
     listSearchText: v.optional(v.string()),
@@ -3151,6 +3159,7 @@ export default defineSchema({
     .index("by_travelBatchId", ["travelBatchId"])
     .index("by_jobCardId_and_travelBatchId", ["jobCardId", "travelBatchId"])
     .index("by_jobCardId_importKey", ["jobCardId", "importKey"])
+    .index("by_guardianTravellerId", ["guardianTravellerId"])
     .index("by_visaStatus", ["visaStatus"])
     .index("by_ticketStatus", ["ticketStatus"])
     .searchIndex("search_list", { searchField: "listSearchText" }),

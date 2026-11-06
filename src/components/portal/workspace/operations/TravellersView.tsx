@@ -28,6 +28,9 @@ function TravellerMobileCard({ row }: { row: TravellerRow }) {
         {row.jobCode} · {row.travelHub || "No hub"} · {travelBatchDisplayLabel(row)}
       </div>
       <GuestContactDetails row={row} />
+      {row.isMinor || row.guardianOf?.length || row.guardianSheetReference ? (
+        <TravellerGuardianDetails row={row} />
+      ) : null}
       <div className="flex flex-wrap gap-2 pt-1">
         <StatusBadge domain="visa" status={row.visaStatus} />
         <Badge label={formatPassportExpiryLabel(expiry)} tone={passportExpiryTone(expiry)} />
@@ -61,6 +64,56 @@ function GuestContactDetails({ row }: { row: TravellerRow }) {
   );
 }
 
+function ageGroupFormValue(isMinor: boolean | null | undefined) {
+  if (isMinor === true) {
+    return "minor";
+  }
+  return isMinor === false ? "adult" : "";
+}
+
+function guardianFormFields(row: TravellerRow) {
+  const guardianTravellerId = row.guardian ? String(row.guardian.id) : "";
+  return {
+    ageGroup: ageGroupFormValue(row.isMinor),
+    guardianTravellerId,
+    initialGuardianTravellerId: guardianTravellerId,
+  };
+}
+
+/** Minor status and guardian links (ADR 0018), kept to one compact cell. */
+export function TravellerGuardianDetails({ row }: { row: TravellerRow }) {
+  const minors = row.guardianOf ?? [];
+  if (row.isMinor) {
+    let guardianText = "No guardian linked";
+    if (row.guardian) {
+      guardianText = `Guardian: ${row.guardian.fullName}`;
+    } else if (row.guardianSheetReference) {
+      guardianText = `Sheet guardian not matched: ${row.guardianSheetReference}`;
+    }
+    return (
+      <div className="min-w-40 space-y-1 text-xs">
+        <Badge label="Minor" meaning="Under 18 on the trip start date" tone="amber" />
+        <div className={row.guardian ? "" : "text-amber-700"}>{guardianText}</div>
+      </div>
+    );
+  }
+  if (minors.length > 0) {
+    return (
+      <div className="min-w-40 text-xs">
+        Guardian of {minors.map((minor) => minor.fullName).join(", ")}
+      </div>
+    );
+  }
+  if (row.guardianSheetReference) {
+    return (
+      <div className="min-w-40 text-amber-700 text-xs">
+        Age not recorded · sheet guardian: {row.guardianSheetReference}
+      </div>
+    );
+  }
+  return <span className="text-brand-muted text-xs">{row.isMinor === false ? "Adult" : "-"}</span>;
+}
+
 function renderTravellerMobileCard(row: TravellerRow) {
   return <TravellerMobileCard row={row} />;
 }
@@ -75,6 +128,7 @@ function TravellerRowActions({
 }) {
   const edit = () => {
     openModal("traveller", {
+      ...guardianFormFields(row),
       arrivingEarly: row.arrivingEarly ? "Yes" : "No",
       biometricAppointmentDate: row.biometricAppointmentDate,
       contactNo: row.contactNo || "",
@@ -161,6 +215,12 @@ export function TravellersView({
             id: "guest-contact",
             label: "Guest contact",
             render: (row: TravellerRow) => <GuestContactDetails row={row} />,
+          },
+          {
+            hideable: true,
+            id: "guardian",
+            label: "Minor / guardian",
+            render: (row: TravellerRow) => <TravellerGuardianDetails row={row} />,
           },
           {
             hideable: true,

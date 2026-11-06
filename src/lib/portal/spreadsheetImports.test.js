@@ -144,6 +144,60 @@ describe("Passenger spreadsheet imports", () => {
     expect(result.rows[0].travelBatchReference).toBe("");
   });
 
+  test("Reads Parent/Guardian, contact, Minor and Age columns from a master list", () => {
+    const workbook = workbookFromSheets({
+      "Master list": [
+        [
+          "SURNAME",
+          "GIVEN NAME",
+          "Dealer Name",
+          "Date of Birth As per passport",
+          "Parent / Guardian",
+          "Guardian Contact No",
+          "Minor (Y/N)",
+          "Age",
+        ],
+        ["IYER", "MEERA", "SYNTHETIC DEALER", "1984-05-10", "", "", "No", ""],
+        ["IYER", "KAVYA", "SYNTHETIC DEALER", "02/03/2014", " Iyer  Meera ", "98765 00001", "", ""],
+        ["IYER", "ROHAN", "SYNTHETIC DEALER", "", "MEERA IYER", "", "Y", "9"],
+      ],
+    });
+
+    const [parent, child, sibling] = parseTravellerMasterWorkbook(workbook).rows;
+    expect(parent).toMatchObject({ guardianName: "", minorStatus: "adult" });
+    expect(parent.ageYears).toBeUndefined();
+    expect(child).toMatchObject({
+      guardianContact: "98765 00001",
+      guardianName: "Iyer Meera",
+      passport: { dateOfBirth: "2014-03-02" },
+    });
+    expect(child.minorStatus).toBeUndefined();
+    expect(sibling).toMatchObject({
+      ageYears: 9,
+      guardianName: "MEERA IYER",
+      minorStatus: "minor",
+    });
+  });
+
+  test("Reads a Travelling with column on passenger sheets and omits absent guardian columns", () => {
+    const header = ["Name As per Govt. ID Proof", "WILLING TO GO", "Date of Birth"];
+    const withGuardian = parsePassengerWorkbook(
+      workbookFromSheets({
+        Sheet1: [
+          [...header, "Travelling with"],
+          ["KAVYA IYER", "CONFIRMED", "2014-03-02", "MEERA IYER"],
+        ],
+      })
+    );
+    expect(withGuardian.rows[0]).toMatchObject({ guardianName: "MEERA IYER" });
+
+    const withoutGuardian = parsePassengerWorkbook(
+      workbookFromSheets({ Sheet1: [header, ["MEERA IYER", "CONFIRMED", "1984-05-10"]] })
+    );
+    expect(withoutGuardian.rows[0]).not.toHaveProperty("guardianName");
+    expect(withoutGuardian.rows[0]).not.toHaveProperty("minorStatus");
+  });
+
   test("Normalizes meal preferences", () => {
     expect(normalizeFoodPreference("NON VEG")).toBe("Non-Veg");
     expect(normalizeFoodPreference("Jain Meal")).toBe("Jain");

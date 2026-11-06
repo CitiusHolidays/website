@@ -22,6 +22,7 @@ export const SPREADSHEET_MODALS = [
 export type SpreadsheetModalId = (typeof SPREADSHEET_MODALS)[number];
 
 export const INITIAL_FORM = {
+  ageGroup: "",
   airfarePerPax: "",
   airline: "",
   amount: "",
@@ -75,10 +76,12 @@ export const INITIAL_FORM = {
   fullName: "",
   gender: "",
   givenName: "",
+  guardianTravellerId: "",
   guestCompanions: "",
   guestType: "Employee",
   hotelAllocation: "",
   hotelName: "",
+  initialGuardianTravellerId: "",
   invoiceNumber: "",
   itinerarySummary: "",
   jobCardId: "",

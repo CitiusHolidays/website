@@ -37,7 +37,9 @@ export interface PassengerExportRow {
   fullName?: string;
   gender?: string;
   givenName?: string;
+  guardianName?: string;
   hotelAllocation?: string;
+  isMinor?: boolean | null;
   passport?: PassengerExportPassport;
   paymentType?: string;
   roomType?: string;

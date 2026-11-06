@@ -132,8 +132,17 @@ function travellerRow(row: PassengerExportRow, index: number): PassengerExportRo
     row.travelHub || "",
     row.sourceRsoName || "",
     row.travelBatchReference || "",
+    minorLabel(row.isMinor),
+    row.guardianName || "",
     "",
   ];
+}
+
+function minorLabel(isMinor: boolean | null | undefined) {
+  if (isMinor === true) {
+    return "Yes";
+  }
+  return isMinor === false ? "No" : "";
 }
 
 function roomType(value: RuntimeValue) {

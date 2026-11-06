@@ -40,7 +40,7 @@ function presentVisa(traveller: Doc<"travellers">, visaRecord: Doc<"visaRecords"
 }
 
 async function passengerExportSourceRow(ctx: QueryCtx, traveller: Doc<"travellers">) {
-  const [passport, visaRecord, ticketRows, travelBatch] = await Promise.all([
+  const [passport, visaRecord, ticketRows, travelBatch, guardian] = await Promise.all([
     ctx.db
       .query("passportDetails")
       .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
@@ -54,6 +54,7 @@ async function passengerExportSourceRow(ctx: QueryCtx, traveller: Doc<"traveller
       .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
       .take(PASSENGER_EXPORT_MAX_TICKETS_PER_TRAVELLER + 1),
     traveller.travelBatchId ? ctx.db.get("travelBatches", traveller.travelBatchId) : null,
+    traveller.guardianTravellerId ? ctx.db.get("travellers", traveller.guardianTravellerId) : null,
   ]);
   if (ticketRows.length > PASSENGER_EXPORT_MAX_TICKETS_PER_TRAVELLER) {
     throw new ConvexError(
@@ -80,7 +81,13 @@ async function passengerExportSourceRow(ctx: QueryCtx, traveller: Doc<"traveller
     fullName: traveller.fullName,
     gender: textOrEmpty(traveller.gender),
     givenName: textOrEmpty(traveller.givenName),
+    // Office-only export of one Job Card: the guardian is on the same roster (ADR 0018).
+    guardianName:
+      guardian && String(guardian.jobCardId) === String(traveller.jobCardId)
+        ? guardian.fullName
+        : "",
     hotelAllocation: textOrEmpty(traveller.hotelAllocation),
+    isMinor: traveller.isMinor ?? null,
     lastMinuteDrop: booleanOrFalse(traveller.lastMinuteDrop),
     paymentType: traveller.paymentType,
     roomType: traveller.roomType,

@@ -1,5 +1,6 @@
 "use client";
 
+import { api } from "@convex/_generated/api";
 import { Input, Select, Textarea } from "@/components/portal/PortalModalForm";
 import {
   FOOD_PREFERENCES,
@@ -9,7 +10,59 @@ import {
   ROOM_TYPES,
 } from "@/lib/portal/constants";
 import { jobCardSelectOptions, travelBatchSelectOptions } from "@/lib/portal/entityModalLinks";
+import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
 import { EntityModalFieldSection } from "./EntityModalFieldSection";
+
+const AGE_GROUP_OPTIONS = [
+  { label: "Not recorded", value: "" },
+  { label: "Adult", value: "adult" },
+  { label: "Minor (under 18 on the trip start date)", value: "minor" },
+];
+
+/** Minor status and guardian (ADR 0018): an adult traveller on the same Job Card. */
+function TravellerGuardianFields({ form, updateForm }) {
+  const isMinor = form.ageGroup === "minor";
+  const options = useQuery(
+    api.crm.travellers.listGuardianOptions,
+    isMinor && form.entityId ? { travellerId: form.entityId } : "skip"
+  );
+  let guardianField = null;
+  if (isMinor && form.entityId) {
+    guardianField = (
+      <Select
+        formField="guardianTravellerId"
+        label="Parent / guardian"
+        onChange={updateForm}
+        options={[
+          { label: options ? "No guardian linked" : "Loading travellers…", value: "" },
+          ...(options ?? []).map((option) => ({ label: option.fullName, value: option.id })),
+        ]}
+        value={form.guardianTravellerId || ""}
+      />
+    );
+  } else if (isMinor) {
+    guardianField = (
+      <p className="font-sans text-brand-muted text-xs">
+        Save this traveller first, then choose their parent or guardian.
+      </p>
+    );
+  }
+  return (
+    <EntityModalFieldSection title="Minor and guardian">
+      <Select
+        formField="ageGroup"
+        label="Age group"
+        onChange={updateForm}
+        options={AGE_GROUP_OPTIONS}
+        value={form.ageGroup || ""}
+      />
+      {guardianField}
+      <p className="col-span-full font-sans text-brand-muted text-xs">
+        A minor has no login of their own; the guardian must be an adult on this Job Card.
+      </p>
+    </EntityModalFieldSection>
+  );
+}
 
 export function EntityModalTravellerFields({
   modal,
@@ -61,6 +114,7 @@ export function EntityModalTravellerFields({
               value={form.gender}
             />
           </EntityModalFieldSection>
+          <TravellerGuardianFields form={form} updateForm={updateForm} />
           <EntityModalFieldSection title="Guest contact">
             <Input
               autoComplete="tel"
