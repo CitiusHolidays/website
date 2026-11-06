@@ -32,7 +32,7 @@ const LazyStaffWorkbookImportPanel = dynamic(
 const STAFF_TAB = "staff";
 const LIVE_CONTROLS_TAB = "live-controls";
 
-function settingsTabs(canUseLiveControls: boolean, staffCount: number) {
+function settingsTabs(canUseLiveControls: boolean, staffCount: number | undefined) {
   const tabs = [
     { count: staffCount, id: STAFF_TAB, label: "Staff" },
     { id: "dropdowns", label: "Dropdown values" },
@@ -273,7 +273,7 @@ function StaffTab({
 }: {
   actions: StaffActionProps;
   searchTerm: string;
-  staff: StaffRow[];
+  staff: StaffRow[] | undefined;
 }) {
   const [showAllColumns, setShowAllColumns] = useState(false);
   const toggleColumns = () => setShowAllColumns((current) => !current);
@@ -375,7 +375,10 @@ export function SettingsView({
   const router = useRouter();
   const searchParams = useSearchParams();
   const canUseLiveControls = isExactAdmin(access);
-  const tabs = settingsTabs(canUseLiveControls, staff.length);
+  // The workspace passes undefined while staff rows load, despite the prop type; the table
+  // renders its loading state from that, so keep it and leave the tab count off until then.
+  const loadedStaff: StaffRow[] | undefined = Array.isArray(staff) ? staff : undefined;
+  const tabs = settingsTabs(canUseLiveControls, loadedStaff?.length);
   // An unknown tab, or Live controls for anyone but an exact Admin, falls back to Staff.
   const tab = resolveTabId(
     tabs.map((item) => item.id),
@@ -393,7 +396,7 @@ export function SettingsView({
   return (
     <PortalTabs ariaLabel="Settings sections" items={tabs} onValueChange={setTab} value={tab}>
       {tab === STAFF_TAB ? (
-        <StaffTab actions={actions} searchTerm={searchTerm} staff={staff} />
+        <StaffTab actions={actions} searchTerm={searchTerm} staff={loadedStaff} />
       ) : null}
       {tab === "dropdowns" ? (
         <DropdownValuesTab dropdowns={dropdowns} searchTerm={searchTerm} />

@@ -160,6 +160,15 @@ describe("Settings view", () => {
     await directorView.unmount();
   });
 
+  test("renders while the staff list is still loading", async () => {
+    // The workspace passes undefined until staff rows arrive.
+    const view = await mountSettings({ staff: undefined });
+    expect(tabLabels(view.container)).toContain("Staff");
+    expect(selectedTab(view.container)).toBe("Staff");
+    expect(view.container.textContent).toContain("Staff access");
+    await view.unmount();
+  });
+
   test("keeps the chosen tab in the URL so a refresh lands on the same section", async () => {
     replacedUrls.length = 0;
     const view = await mountSettings({ search: "tab=workbook" });
