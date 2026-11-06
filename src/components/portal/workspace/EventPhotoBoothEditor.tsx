@@ -3,7 +3,8 @@
 import type { Id } from "@convex/_generated/dataModel";
 
 import Image from "next/image";
-import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from "react";
+import { type ChangeEvent, type FormEvent, useEffect, useId, useRef, useState } from "react";
+import { usePortalConfirm } from "@/components/portal/PortalConfirmDialog";
 import { Button } from "@/components/ui/application-button";
 import type {
   BoothArtwork,
@@ -540,7 +541,7 @@ function StaffAssignment({
   change: (person: BoothStaffOption) => void;
 }) {
   const toggle = () => change(person);
-  const privileged = person.roles.some((role) => role === "Admin" || role === "Directors");
+  const privileged = hasAutomaticAccess(person);
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 border-brand-border border-t py-3">
       <div className="min-w-0">
@@ -570,6 +571,88 @@ function StaffAssignment({
   );
 }
 
+const SEARCH_RESULT_LIMIT = 8;
+
+function hasAutomaticAccess(person: BoothStaffOption) {
+  return person.roles.some((role) => role === "Admin" || role === "Directors");
+}
+
+function matchesStaffSearch(person: BoothStaffOption, term: string) {
+  return `${person.name} ${person.roles.join(" ")}`.toLowerCase().includes(term);
+}
+
+function StaffSearch({
+  busy,
+  change,
+  candidates,
+  props,
+}: {
+  busy: boolean;
+  change: (person: BoothStaffOption) => void;
+  candidates: BoothStaffOption[];
+  props: EventPhotoBoothEditorProps;
+}) {
+  const searchId = useId();
+  const resultsId = useId();
+  const [query, setQuery] = useState("");
+  const term = query.trim().toLowerCase();
+  const matches = term ? candidates.filter((person) => matchesStaffSearch(person, term)) : [];
+  const shown = matches.slice(0, SEARCH_RESULT_LIMIT);
+  const { staffStatus } = props;
+  const canLoadMore = staffStatus === "CanLoadMore" || staffStatus === "LoadingMore";
+  let summary = "Type a name or role to find someone.";
+  if (term && matches.length === 0) {
+    summary = canLoadMore
+      ? "No match among the staff loaded so far. Load more staff to search everyone."
+      : "No matching staff.";
+  } else if (matches.length > shown.length) {
+    summary = `Showing ${shown.length} of ${matches.length} matches. Keep typing to narrow the list.`;
+  } else if (term) {
+    summary = "";
+  }
+  return (
+    <div className="mt-6 border-brand-border border-t pt-5">
+      <label className="block font-semibold text-sm" htmlFor={searchId}>
+        Give someone access
+      </label>
+      <input
+        aria-controls={resultsId}
+        aria-describedby={`${resultsId}-summary`}
+        autoComplete="off"
+        className={`${INPUT} mt-2 max-w-md`}
+        id={searchId}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder="Search by name or role"
+        type="search"
+        value={query}
+      />
+      <p
+        aria-live="polite"
+        className="mt-2 text-brand-muted text-sm empty:hidden"
+        id={`${resultsId}-summary`}
+      >
+        {summary}
+      </p>
+      <ul className="mt-2" id={resultsId}>
+        {shown.map((person) => (
+          <StaffAssignment busy={busy} change={change} key={person.id} person={person} />
+        ))}
+      </ul>
+      {canLoadMore ? (
+        <Button
+          className="mt-3 min-h-11"
+          disabled={staffStatus === "LoadingMore"}
+          onClick={props.loadMoreStaff}
+          type="button"
+          variant="outline"
+        >
+          {staffStatus === "LoadingMore" ? "Loading staff…" : "Load more staff"}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
 function StaffAssignments({
   busy,
   change,
@@ -580,42 +663,46 @@ function StaffAssignments({
   props: EventPhotoBoothEditorProps;
 }) {
   const { staff, staffStatus } = props;
+  if (!props.state.canManageAssignments) {
+    return null;
+  }
+  const assigned = staff.filter((person) => person.assigned && !hasAutomaticAccess(person));
+  const candidates = staff.filter((person) => !assigned.includes(person));
   return (
-    <>
-      {props.state.canManageAssignments ? (
-        <section className={PANEL}>
-          <h2 className="font-semibold text-lg">Event staff access</h2>
-          <p className="mt-1 text-brand-muted text-sm">
-            Assigned staff can edit and publish scenes, and open or close the booth.
-          </p>
-          {staffStatus === "LoadingFirstPage" ? (
-            <p className="mt-3" role="status">
-              Loading staff…
-            </p>
-          ) : (
-            <ul className="mt-4">
-              {staff.map((person) => (
+    <section className={PANEL}>
+      <h2 className="font-semibold text-lg">Event staff access</h2>
+      <p className="mt-1 text-brand-muted text-sm">
+        Assigned staff can edit and publish scenes, and open or close the booth. Admins and
+        Directors always have access.
+      </p>
+      {staffStatus === "LoadingFirstPage" ? (
+        <p className="mt-3" role="status">
+          Loading staff…
+        </p>
+      ) : (
+        <>
+          <h3 className="mt-5 flex items-baseline gap-2 font-semibold text-base">
+            Has access
+            <span aria-hidden="true" className="font-normal text-brand-muted text-sm tabular-nums">
+              {assigned.length}
+            </span>
+            <span className="sr-only">, {assigned.length} assigned</span>
+          </h3>
+          {assigned.length > 0 ? (
+            <ul className="mt-2">
+              {assigned.map((person) => (
                 <StaffAssignment busy={busy} change={change} key={person.id} person={person} />
               ))}
             </ul>
+          ) : (
+            <p className="mt-2 text-brand-muted text-sm">
+              {staff.length === 0 ? "No staff records available." : "No one is assigned yet."}
+            </p>
           )}
-          {staffStatus !== "LoadingFirstPage" && staff.length === 0 ? (
-            <p className="mt-3 text-brand-muted text-sm">No staff records available.</p>
-          ) : null}
-          {staffStatus === "CanLoadMore" || staffStatus === "LoadingMore" ? (
-            <Button
-              className="min-h-11"
-              disabled={staffStatus === "LoadingMore"}
-              onClick={props.loadMoreStaff}
-              type="button"
-              variant="outline"
-            >
-              {staffStatus === "LoadingMore" ? "Loading staff…" : "Load more staff"}
-            </Button>
-          ) : null}
-        </section>
-      ) : null}
-    </>
+          <StaffSearch busy={busy} candidates={candidates} change={change} props={props} />
+        </>
+      )}
+    </section>
   );
 }
 
@@ -886,6 +973,21 @@ function useBoothEditor(props: EventPhotoBoothEditorProps) {
   };
 }
 
+function publishHintFor({
+  conflict,
+  dirty,
+  unpublished,
+}: {
+  conflict: boolean;
+  dirty: boolean;
+  unpublished: boolean;
+}) {
+  if (dirty) {
+    return "Save your draft first; publishing shows it to guests.";
+  }
+  return unpublished && !conflict ? "Publishing shows the saved draft to guests." : "";
+}
+
 function SceneEditor({ editor }: { editor: ReturnType<typeof useBoothEditor> }) {
   const {
     draft,
@@ -949,6 +1051,8 @@ function SceneEditor({ editor }: { editor: ReturnType<typeof useBoothEditor> }) 
     return failure;
   };
   const editingScene = selected && templateAction !== "add";
+  const publishHintId = useId();
+  const publishHint = publishHintFor({ conflict, dirty: draft.dirty, unpublished });
 
   return (
     <form
@@ -1107,6 +1211,7 @@ function SceneEditor({ editor }: { editor: ReturnType<typeof useBoothEditor> }) 
           Save draft
         </Button>
         <Button
+          aria-describedby={publishHint ? publishHintId : undefined}
           className="min-h-11"
           disabled={busy || draft.dirty || conflict || !unpublished || templateAction !== null}
           onClick={publish}
@@ -1130,23 +1235,53 @@ function SceneEditor({ editor }: { editor: ReturnType<typeof useBoothEditor> }) 
           </Button>
         ) : null}
       </div>
+      {publishHint ? (
+        <p className="mt-2 text-brand-muted text-sm" id={publishHintId}>
+          {publishHint}
+        </p>
+      ) : null}
       {editingScene ? <EventPhotoBoothPreview scene={selected} /> : null}
     </form>
   );
 }
 
-export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
-  const { state } = props;
-  const editor = useBoothEditor(props);
-  const { busy, error, statusMessage, toggleAvailability, assign } = editor;
+const AVAILABILITY_CONFIRMATIONS = {
+  closed: {
+    confirmLabel: "Close booth",
+    message: "Guests with the booth link will see that it is closed and can't create new photos.",
+    title: "Close the booth?",
+  },
+  open: {
+    confirmLabel: "Open booth",
+    message: "Anyone with the booth link can create photos until you close it.",
+    title: "Open the booth?",
+  },
+} as const;
 
+function BoothStatus({
+  busy,
+  requestToggle,
+  state,
+}: {
+  busy: boolean;
+  requestToggle: () => void;
+  state: BoothManagementState;
+}) {
+  const open = state.availability === "open";
   return (
-    <div className="space-y-5 text-brand-dark">
-      <section className={PANEL}>
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <h2 className="font-semibold text-xl">Event Photo Booth</h2>
-          </div>
+    <section aria-labelledby="event-photo-booth-heading" className={PANEL}>
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <h2 className="font-semibold text-xl" id="event-photo-booth-heading">
+            Event Photo Booth
+          </h2>
+          <span
+            className={`rounded-full px-3 py-1 font-medium text-sm ${open ? "bg-emerald-50 text-emerald-800" : "bg-brand-light text-brand-dark"}`}
+          >
+            {open ? "Open" : "Closed"}
+          </span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           <a
             className="flex min-h-11 items-center rounded-lg px-3 font-medium text-citius-blue text-sm underline underline-offset-4"
             href="/photo-booth"
@@ -1155,41 +1290,24 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
           >
             View booth<span className="sr-only"> in a new tab</span>
           </a>
-        </div>
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          <span className="rounded-full bg-brand-light px-3 py-1 font-medium text-sm">
-            {state.availability === "open" ? "Open" : "Closed"}
-          </span>
           <Button
             className="min-h-11"
             disabled={busy}
-            onClick={toggleAvailability}
+            onClick={requestToggle}
             type="button"
             variant="outline"
           >
-            {state.availability === "open" ? "Close booth" : "Open booth"}
+            {open ? "Close booth" : "Open booth"}
           </Button>
         </div>
-        {state.availability === "closed" ? (
-          <p className="mt-2 text-brand-muted text-sm">
-            Admins and Directors can try the booth while closed.
-          </p>
-        ) : null}
-      </section>
-      {error ? (
-        <p
-          className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-800 text-sm"
-          role="alert"
-        >
-          {error}
+      </div>
+      {open ? null : (
+        <p className="mt-2 text-brand-muted text-sm">
+          Admins and Directors can try the booth while closed.
         </p>
-      ) : null}
-      <p aria-atomic="true" className="text-brand-muted text-sm" role="status">
-        {statusMessage}
-      </p>
-      <SceneEditor editor={editor} />
-      <section className={PANEL}>
-        <h2 className="font-semibold text-lg">Event totals</h2>
+      )}
+      <div className="mt-5 border-brand-border border-t pt-5">
+        <h3 className="font-semibold text-base">Event totals</h3>
         <p className="mt-1 text-brand-muted text-sm">
           Action counts, not unique visitors or confirmed saves and shares.
         </p>
@@ -1203,7 +1321,39 @@ export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
             </div>
           ))}
         </dl>
-      </section>
+      </div>
+    </section>
+  );
+}
+
+export function EventPhotoBoothEditor(props: EventPhotoBoothEditorProps) {
+  const { state } = props;
+  const editor = useBoothEditor(props);
+  const { busy, error, statusMessage, toggleAvailability, assign } = editor;
+  const { confirm } = usePortalConfirm();
+  const requestToggle = async () => {
+    const next = state.availability === "open" ? "closed" : "open";
+    const confirmed = await confirm(AVAILABILITY_CONFIRMATIONS[next]);
+    if (confirmed) {
+      await toggleAvailability();
+    }
+  };
+
+  return (
+    <div className="space-y-5 text-brand-dark">
+      <BoothStatus busy={busy} requestToggle={requestToggle} state={state} />
+      {error ? (
+        <p
+          className="rounded-lg border border-red-200 bg-red-50 p-3 text-red-800 text-sm"
+          role="alert"
+        >
+          {error}
+        </p>
+      ) : null}
+      <p aria-atomic="true" className="text-brand-muted text-sm" role="status">
+        {statusMessage}
+      </p>
+      <SceneEditor editor={editor} />
       <StaffAssignments busy={busy} change={assign} props={props} />
     </div>
   );

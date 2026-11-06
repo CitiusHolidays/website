@@ -15,20 +15,47 @@ const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   url: "https://citiusholidays.com/portal/event-photo-booth",
 });
 let Editor: typeof import("./EventPhotoBoothEditor").EventPhotoBoothEditor;
+let ConfirmProvider: typeof import("../PortalConfirmDialog").PortalConfirmProvider;
 let createRoot: typeof import("react-dom/client").createRoot;
+const doNothing = () => undefined;
 beforeAll(async () => {
+  const requestFrame = (callback: () => void) => setTimeout(callback, 0);
+  const cancelFrame = (id: ReturnType<typeof setTimeout>) => clearTimeout(id);
+  const matchMedia = (query: string) => ({
+    addEventListener: doNothing,
+    addListener: doNothing,
+    dispatchEvent: () => false,
+    matches: query.includes("prefers-reduced-motion"),
+    media: query,
+    onchange: null,
+    removeEventListener: doNothing,
+    removeListener: doNothing,
+  });
+  Object.assign(dom.window, {
+    cancelAnimationFrame: cancelFrame,
+    matchMedia,
+    requestAnimationFrame: requestFrame,
+  });
   Object.assign(globalThis, {
+    cancelAnimationFrame: cancelFrame,
     document: dom.window.document,
     Element: dom.window.Element,
     Event: dom.window.Event,
     getComputedStyle: dom.window.getComputedStyle.bind(dom.window),
     HTMLElement: dom.window.HTMLElement,
     IS_REACT_ACT_ENVIRONMENT: true,
+    KeyboardEvent: dom.window.KeyboardEvent,
     MouseEvent: dom.window.MouseEvent,
+    MutationObserver: dom.window.MutationObserver,
+    matchMedia,
     Node: dom.window.Node,
+    PointerEvent: dom.window.MouseEvent,
+    requestAnimationFrame: requestFrame,
+    SVGElement: dom.window.SVGElement,
     window: dom.window,
   });
   ({ createRoot } = await import("react-dom/client"));
+  ({ PortalConfirmProvider: ConfirmProvider } = await import("../PortalConfirmDialog"));
   ({ EventPhotoBoothEditor: Editor } = await import("./EventPhotoBoothEditor"));
 });
 afterAll(() => dom.window.close());
@@ -65,7 +92,15 @@ async function mount(overrides: Partial<EventPhotoBoothEditorProps> = {}) {
     }),
     ...overrides,
   };
-  await act(async () => root.render(<Editor {...props} />));
+  const render = () =>
+    act(async () =>
+      root.render(
+        <ConfirmProvider>
+          <Editor {...props} />
+        </ConfirmProvider>
+      )
+    );
+  await render();
   return {
     button: (label: string) => {
       const button = [...container.querySelectorAll("button")].find(
@@ -79,13 +114,46 @@ async function mount(overrides: Partial<EventPhotoBoothEditorProps> = {}) {
     container,
     rerender: async (updates: Partial<EventPhotoBoothEditorProps>) => {
       props = { ...props, ...updates };
-      await act(async () => root.render(<Editor {...props} />));
+      await render();
     },
     unmount: async () => {
       await act(async () => root.unmount());
       container.remove();
     },
   };
+}
+/** Waits for the confirmation dialog's opening focus frame. */
+function settleDialog() {
+  return act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+  });
+}
+async function answerAvailabilityConfirmation(answer: "cancel" | "confirm") {
+  await settleDialog();
+  const dialog = document.querySelector('[role="alertdialog"]');
+  if (!dialog) {
+    throw new Error("Missing availability confirmation");
+  }
+  const target = dialog.querySelector<HTMLButtonElement>(
+    answer === "confirm"
+      ? '[data-testid="portal-confirm-submit"]'
+      : '[data-testid="portal-confirm-cancel"]'
+  );
+  await act(async () => target?.click());
+  await settleDialog();
+}
+async function search(container: HTMLElement, value: string) {
+  const input = container.querySelector<HTMLInputElement>('input[type="search"]');
+  if (!input) {
+    throw new Error("Missing staff search");
+  }
+  await act(() => {
+    Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value")?.set?.call(
+      input,
+      value
+    );
+    input.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+  });
 }
 async function enterEnglishName(container: HTMLElement, name: string) {
   const input = container.querySelector<HTMLInputElement>('input[maxlength="80"]');
@@ -718,6 +786,7 @@ describe("Event Photo Booth staff editor", () => {
     try {
       await enterEnglishName(view.container, "My draft");
       await act(async () => view.button("Open booth").click());
+      await answerAvailabilityConfirmation("confirm");
       expect(view.container.querySelector('[role="alert"]')?.textContent).toBe(
         "Show at least one scene and publish it before opening the booth."
       );
@@ -739,11 +808,114 @@ describe("Event Photo Booth staff editor", () => {
       expect(view.container.textContent).not.toContain("Event staff access");
       expect(view.container.querySelector('input[type="datetime-local"]')).toBeNull();
       await act(async () => view.button("Open booth").click());
+      await answerAvailabilityConfirmation("confirm");
       await view.rerender({ state: { ...management(), availability: "open" } });
       await act(async () => view.button("Close booth").click());
+      await answerAvailabilityConfirmation("confirm");
       expect(availability).toEqual(["open", "closed"]);
       expect(view.container.textContent).toContain("Share attempts");
       expect(view.container.textContent).toContain("not unique visitors");
+    } finally {
+      await view.unmount();
+    }
+  });
+  test("asks before opening or closing, starts on Cancel, and Escape or Cancel change nothing", async () => {
+    const availability: string[] = [];
+    const view = await mount({
+      setAvailability: (args) => {
+        availability.push(args.availability);
+        return Promise.resolve(null);
+      },
+    });
+    try {
+      const opener = view.button("Open booth");
+      opener.focus();
+      await act(async () => opener.click());
+      await settleDialog();
+      const dialog = document.querySelector('[role="alertdialog"]');
+      expect(dialog?.textContent).toContain("Open the booth?");
+      expect(dialog?.textContent).toContain("Anyone with the booth link can create photos");
+      expect(document.activeElement).toBe(
+        document.querySelector('[data-testid="portal-confirm-cancel"]')
+      );
+      await act(() => {
+        document.dispatchEvent(
+          new dom.window.KeyboardEvent("keydown", { bubbles: true, key: "Escape" })
+        );
+      });
+      await settleDialog();
+      expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+      expect(document.activeElement).toBe(view.button("Open booth"));
+
+      await act(async () => view.button("Open booth").click());
+      await answerAvailabilityConfirmation("cancel");
+      expect(availability).toEqual([]);
+
+      await view.rerender({ state: { ...management(), availability: "open" } });
+      await act(async () => view.button("Close booth").click());
+      await settleDialog();
+      expect(document.querySelector('[role="alertdialog"]')?.textContent).toContain(
+        "can't create new photos"
+      );
+      await act(() => {
+        document.dispatchEvent(
+          new dom.window.KeyboardEvent("keydown", { bubbles: true, key: "Escape" })
+        );
+      });
+      await settleDialog();
+      expect(availability).toEqual([]);
+    } finally {
+      await view.unmount();
+    }
+  });
+  test("shows the status and event totals before the scene editor", async () => {
+    const view = await mount();
+    try {
+      const headings = [...view.container.querySelectorAll("h2, h3")].map(
+        (heading) => heading.textContent
+      );
+      expect(headings.slice(0, 3)).toEqual([
+        "Event Photo Booth",
+        "Event totals",
+        "Destination scenes",
+      ]);
+    } finally {
+      await view.unmount();
+    }
+  });
+  test("lists assigned staff first and finds everyone else by search", async () => {
+    const person = (id: string, name: string, roles: string[], assigned = false) => ({
+      active: true,
+      assigned,
+      // SAFETY: Controlled staff DTO IDs stay inside this editor fixture; no backend call is made.
+      id: id as Id<"staffUsers">,
+      name,
+      roles,
+    });
+    const view = await mount({
+      staff: [
+        person("asha", "Asha Admin", ["Admin"]),
+        person("anil", "Anil Kumar", ["Sales"]),
+        person("kavya", "Kavya Reddy", ["Operations"], true),
+      ],
+      staffStatus: "CanLoadMore",
+      state: management(true),
+    });
+    try {
+      const assignedList = view.container.querySelector("h3 + ul");
+      expect(assignedList?.textContent).toContain("Kavya Reddy");
+      expect(assignedList?.textContent).not.toContain("Anil Kumar");
+      expect(view.container.textContent).not.toContain("Anil Kumar");
+      expect(view.button("Remove access for Kavya Reddy").disabled).toBe(false);
+
+      await search(view.container, "sales");
+      expect(view.button("Give access to Anil Kumar").disabled).toBe(false);
+      expect(view.container.textContent).not.toContain("Asha Admin");
+      await search(view.container, "admin");
+      expect(view.container.textContent).toContain("Automatic access");
+      await search(view.container, "nobody");
+      expect(view.container.textContent).toContain("Load more staff to search everyone");
+      expect(view.button("Load more staff")).toBeDefined();
     } finally {
       await view.unmount();
     }
@@ -785,6 +957,7 @@ describe("Event Photo Booth staff editor", () => {
       state: management(true),
     });
     try {
+      await search(view.container, "operator");
       expect(view.button("Give access to Inactive Operator").disabled).toBe(true);
       await act(async () => view.button("Give access to Active Operator").click());
       await act(async () => view.button("Remove access for Former Operator").click());
