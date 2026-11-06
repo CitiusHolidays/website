@@ -204,6 +204,7 @@ const productionTestRecipeIdValidator = v.union(
   v.literal("scheduled_job:cleanup_portal_rate_limits"),
   v.literal("scheduled_job:cleanup_sacred_bharat_rate_limits"),
   v.literal("scheduled_job:purge_commercial_files"),
+  v.literal("scheduled_job:purge_field_passport_audit"),
   v.literal("scheduled_job:purge_office_check_ins"),
   v.literal("scheduled_job:reconcile_crm_metrics"),
   v.literal("scheduled_job:reconcile_list_search"),
@@ -1185,17 +1186,21 @@ export default defineSchema({
     ]),
 
   // One row per passport file a tour manager opened from the field. Kept when the Job Card or
-  // traveller is deleted; holds identifiers and time only, never document content.
+  // traveller is deleted, and only until the trip is over (owner decision, 7 Nov 2026):
+  // `retainUntil` is the trip window's close, and `crm/fieldPassportAuditRetention` deletes the
+  // row after it. Holds identifiers and time only, never document content.
   fieldPassportAccessAudit: defineTable({
     accessedAt: v.number(),
     actorAuthUserId: v.string(),
     actorName: v.string(),
     actorStaffId: v.id("staffUsers"),
     jobCardId: v.id("jobCards"),
+    retainUntil: v.optional(v.number()),
     travelBatchId: v.optional(v.id("travelBatches")),
     travellerId: v.id("travellers"),
   })
     .index("by_jobCardId_and_accessedAt", ["jobCardId", "accessedAt"])
+    .index("by_retainUntil", ["retainUntil"])
     .index("by_travellerId_and_accessedAt", ["travellerId", "accessedAt"]),
 
   flightGroups: defineTable({

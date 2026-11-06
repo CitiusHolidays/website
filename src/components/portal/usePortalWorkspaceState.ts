@@ -29,7 +29,7 @@ import {
 } from "@/lib/portal/modalLifecycle";
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import { dateRangeQueryArg } from "@/lib/portal/periodFilter";
-import { canViewPassportScansInWorkspace } from "@/lib/portal/permissions";
+import { canViewPassportExpiryInWorkspace } from "@/lib/portal/permissions";
 import {
   canMoveContractingPipelineForAccess,
   canMoveSalesPipelineForAccess,
@@ -277,7 +277,7 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
   const access = liveAccess ?? serverAccess;
   const has = (permission: string) => Boolean(access?.permissions?.includes(permission));
   const listFilterConfig = getListFilterConfig(view, {
-    canViewPassportScans: canViewPassportScansInWorkspace(access),
+    canViewPassportExpiry: canViewPassportExpiryInWorkspace(access),
     pipelineMode,
   });
   const meta = getPortalRouteDefinition(view);

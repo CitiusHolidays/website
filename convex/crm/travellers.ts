@@ -54,8 +54,9 @@ import {
 } from "./paginationPolicy";
 import { classifyPassportExpiryUrgency, normalizePassportExpiryDate } from "./passportExpiry";
 import {
+  canReadPassportExpiryInStaffWorkspace,
   canReadPassportInStaffWorkspace,
-  holdsPermissionOutsideTourManagerRole,
+  holdsPassportExpiryAuthority,
 } from "./passportPolicy";
 import { resolveTravellerAccess, travellerInGroupScope } from "./tourManagerGroupScope";
 import {
@@ -195,9 +196,9 @@ const publicTraveller = (
 });
 
 /**
- * Passport scan flag and expiry date follow Staff Workspace passport access. Without it (for
- * example a Tour Manager-only grant) both are blank; `passportStatus` stays, because it is a
- * status word the tour manager app already shows (owner allowed field passport access).
+ * The passport scan flag follows Staff Workspace passport access; the expiry date also reaches
+ * Ticketing (see `passportPolicy`). A Tour Manager-only grant gets both blank; `passportStatus`
+ * stays, because it is a status word the tour manager app already shows.
  */
 function scopedPublicTraveller(
   access: PortalAccess,
@@ -206,9 +207,13 @@ function scopedPublicTraveller(
   job: Doc<"jobCards">,
   travelBatch: TravelBatchLabel | null
 ) {
-  return canReadPassportInStaffWorkspace(access, grant)
-    ? publicTraveller(traveller, job, travelBatch)
-    : publicTraveller(traveller, job, travelBatch, false, "");
+  return publicTraveller(
+    traveller,
+    job,
+    travelBatch,
+    canReadPassportInStaffWorkspace(access, grant) ? (traveller.hasPassportScan ?? false) : false,
+    canReadPassportExpiryInStaffWorkspace(access, grant) ? (traveller.passportExpiryDate ?? "") : ""
+  );
 }
 
 interface TravellerCreateArgs {
@@ -461,10 +466,7 @@ export const listPage = query({
   },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_TRAVELLERS);
-    if (
-      args.passportExpiryUrgency &&
-      !holdsPermissionOutsideTourManagerRole(access.roles, PERMISSIONS.VIEW_VISA)
-    ) {
+    if (args.passportExpiryUrgency && !holdsPassportExpiryAuthority(access.roles)) {
       throw new ConvexError("FORBIDDEN");
     }
     const normalizedJobCardId = args.jobCardId

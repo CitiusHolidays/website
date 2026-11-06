@@ -20,6 +20,7 @@ export const operationalControlKeyValidator = v.union(
   v.literal("jobs.cleanup_portal_rate_limits"),
   v.literal("jobs.cleanup_sacred_bharat_rate_limits"),
   v.literal("jobs.purge_commercial_files"),
+  v.literal("jobs.purge_field_passport_audit"),
   v.literal("jobs.purge_office_check_ins"),
   v.literal("jobs.reconcile_crm_metrics"),
   v.literal("jobs.reconcile_list_search"),
@@ -50,6 +51,7 @@ export type OperationalControlKey =
   | "jobs.cleanup_portal_rate_limits"
   | "jobs.cleanup_sacred_bharat_rate_limits"
   | "jobs.purge_commercial_files"
+  | "jobs.purge_field_passport_audit"
   | "jobs.purge_office_check_ins"
   | "jobs.reconcile_crm_metrics"
   | "jobs.reconcile_list_search"
@@ -79,6 +81,7 @@ export const LEGACY_OPERATIONAL_CONTROL_REPLACEMENTS = {
     "jobs.cleanup_portal_rate_limits",
     "jobs.cleanup_sacred_bharat_rate_limits",
     "jobs.purge_commercial_files",
+    "jobs.purge_field_passport_audit",
     "jobs.purge_office_check_ins",
     "jobs.reconcile_crm_metrics",
     "jobs.reconcile_list_search",
@@ -317,6 +320,17 @@ export const OPERATIONAL_CONTROL_CATALOG = [
     enforcement: "Scheduled-job action gateway",
     key: "jobs.purge_commercial_files",
     label: "Commercial file purge",
+    standardEnabled: true,
+  },
+  {
+    availability: "available",
+    category: "Infrastructure",
+    dependencies: [],
+    description:
+      "Delete records of tour managers opening passports in the field once the trip is over.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.purge_field_passport_audit",
+    label: "Field passport audit retention",
     standardEnabled: true,
   },
   {

@@ -61,6 +61,7 @@ import type * as crm_expenseReads from "../crm/expenseReads.js";
 import type * as crm_expenseScope from "../crm/expenseScope.js";
 import type * as crm_externalTourManagerProfiles from "../crm/externalTourManagerProfiles.js";
 import type * as crm_fieldPassportActions from "../crm/fieldPassportActions.js";
+import type * as crm_fieldPassportAuditRetention from "../crm/fieldPassportAuditRetention.js";
 import type * as crm_fieldPassports from "../crm/fieldPassports.js";
 import type * as crm_fieldSync from "../crm/fieldSync.js";
 import type * as crm_fileReturnContracts from "../crm/fileReturnContracts.js";
@@ -378,6 +379,7 @@ declare const fullApi: ApiFromModules<{
   "crm/expenseScope": typeof crm_expenseScope;
   "crm/externalTourManagerProfiles": typeof crm_externalTourManagerProfiles;
   "crm/fieldPassportActions": typeof crm_fieldPassportActions;
+  "crm/fieldPassportAuditRetention": typeof crm_fieldPassportAuditRetention;
   "crm/fieldPassports": typeof crm_fieldPassports;
   "crm/fieldSync": typeof crm_fieldSync;
   "crm/fileReturnContracts": typeof crm_fileReturnContracts;
