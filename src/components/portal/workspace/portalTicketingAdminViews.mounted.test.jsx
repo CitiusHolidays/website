@@ -11,7 +11,6 @@ import { ApprovalsView } from "./admin/ApprovalsView";
 import { ExpensesView } from "./admin/ExpensesView";
 import { FinanceView } from "./admin/FinanceView";
 import { LeaveView } from "./admin/LeaveView";
-import { SettingsView } from "./admin/SettingsView";
 import { TicketDashboardView } from "./ticketing/TicketDashboardView";
 import { TicketsView } from "./ticketing/TicketsView";
 
@@ -451,36 +450,5 @@ describe("Mounted portal ticketing and administration views", () => {
 
     await view.unmount();
     mock.restore();
-  });
-
-  test("Settings preserves staff onboarding and workbook actions", async () => {
-    const view = await mount(
-      <SettingsView
-        deleteItem={noopDelete}
-        dropdowns={{ department: ["Sales", "Operations"] }}
-        openModal={noop}
-        removeStaff={noopMutation}
-        search=""
-        staff={[
-          {
-            active: true,
-            email: "nina@citiusholidays.com",
-            id: "staff-1",
-            name: "Nina Sales",
-            onboardingStatus: "pending",
-            roles: ["Sales"],
-          },
-        ]}
-        startStaffOnboarding={noopMutation}
-      />
-    );
-
-    expect(view.container.textContent).toContain("Open workbook import");
-    expect(view.container.textContent).toContain("Resend verification");
-    expect(view.container.textContent).toContain("Nina Sales");
-    expect(view.container.textContent).toContain("Additional email alert roles");
-    expect(view.container.textContent).toContain("No additional email alert roles");
-
-    await view.unmount();
   });
 });

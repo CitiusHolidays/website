@@ -426,6 +426,17 @@ export function OperationalControlsPanel() {
       >
         {tab === "controls" ? (
           <>
+            {/* The latest result leads, so a failed restoration is read before the catalog. */}
+            <LatestChangeReceipt
+              changeSet={
+                panel.latestAppliedReceipt
+                  ? (panel.changeSets.results.find(
+                      (changeSet) => changeSet._id === panel.latestAppliedReceipt?._id
+                    ) ?? panel.latestAppliedReceipt)
+                  : panel.changeSets.results[0]
+              }
+              controlLabels={panel.controlLabels}
+            />
             <OperationalControlCatalog
               controlLabels={panel.controlLabels}
               controls={panel.visibleControls}
@@ -451,16 +462,6 @@ export function OperationalControlsPanel() {
                 restoration={panel.restoration}
               />
             ) : null}
-            <LatestChangeReceipt
-              changeSet={
-                panel.latestAppliedReceipt
-                  ? (panel.changeSets.results.find(
-                      (changeSet) => changeSet._id === panel.latestAppliedReceipt?._id
-                    ) ?? panel.latestAppliedReceipt)
-                  : panel.changeSets.results[0]
-              }
-              controlLabels={panel.controlLabels}
-            />
           </>
         ) : null}
         {tab === "tests" ? (
