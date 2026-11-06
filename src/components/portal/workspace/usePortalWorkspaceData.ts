@@ -25,7 +25,7 @@ import {
 import { getDeepLinkQueryId, NOTIFICATION_INBOX_PAGE_SIZE } from "@/lib/portal/notificationTargets";
 import { mergeFocusedRow } from "@/lib/portal/paginatedRows";
 import { endOfDateOnly, parseDateOnly } from "@/lib/portal/periodFilter";
-import { canUseTeamPicker } from "@/lib/portal/permissions";
+import { canUseTeamPicker, canViewPassportScansInWorkspace } from "@/lib/portal/permissions";
 import {
   getPortalDataDependencies,
   type PortalDataDependency,
@@ -643,17 +643,19 @@ function useJobCardWorkspaceData(context: WorkspaceQueryContext) {
 
 function travellerListArguments(context: WorkspaceQueryContext) {
   const isTravellerView = ["hotels", "passport", "travellers"].includes(context.view);
+  // The server refuses the expiry-urgency filter without Staff Workspace passport access.
+  const urgencyFilterAllowed =
+    context.view === "passport" && canViewPassportScansInWorkspace(context.access);
   return {
     ...propertiesWhen(isTravellerView, () => context.dateBounds),
     callingStatus:
       context.view === "travellers" ? context.listFilters.callingStatus || undefined : undefined,
     jobCardId: context.jobCardFilter || undefined,
-    passportExpiryUrgency:
-      context.view === "passport"
-        ? matchingOption(context.listFilters.passportExpiryUrgency, PASSPORT_EXPIRY_URGENCIES)
-        : undefined,
+    passportExpiryUrgency: urgencyFilterAllowed
+      ? matchingOption(context.listFilters.passportExpiryUrgency, PASSPORT_EXPIRY_URGENCIES)
+      : undefined,
     passportReferenceDate:
-      context.view === "passport" && context.listFilters.passportExpiryUrgency
+      urgencyFilterAllowed && context.listFilters.passportExpiryUrgency
         ? context.referenceDate
         : undefined,
     passportStatus:

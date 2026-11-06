@@ -29,6 +29,7 @@ import {
 } from "@/lib/portal/modalLifecycle";
 import { usePatchReducer } from "@/lib/portal/patchReducer";
 import { dateRangeQueryArg } from "@/lib/portal/periodFilter";
+import { canViewPassportScansInWorkspace } from "@/lib/portal/permissions";
 import {
   canMoveContractingPipelineForAccess,
   canMoveSalesPipelineForAccess,
@@ -244,7 +245,6 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
     patchState({ jobCardFilter: resolveUpdate(value, jobCardFilter) });
   const setListFilters = (value: StateUpdate<ListFiltersState>) =>
     patchState({ listFilters: resolveUpdate(value, listFilters) });
-  const listFilterConfig = getListFilterConfig(view, { pipelineMode });
   const dateRangeArg = dateRangeQueryArg(dateRange);
   const urlFilterSignature = searchParams.toString();
   const deepLinkId = searchParams.get("id");
@@ -276,6 +276,10 @@ function usePortalWorkspaceImplementation(view: string, searchParams: URLSearchP
   const liveAccess = useQuery(api.crm.staff.getMyPortalAccess, isAuthenticated ? {} : "skip");
   const access = liveAccess ?? serverAccess;
   const has = (permission: string) => Boolean(access?.permissions?.includes(permission));
+  const listFilterConfig = getListFilterConfig(view, {
+    canViewPassportScans: canViewPassportScansInWorkspace(access),
+    pipelineMode,
+  });
   const meta = getPortalRouteDefinition(view);
   const allowed = canAccessPortalRoute({
     access,
