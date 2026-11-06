@@ -3,7 +3,7 @@ import { ConvexError } from "convex/values";
 import type { PassengerExportKind } from "../../src/lib/portal/passengerExportContract";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
-import { getVisibleJob } from "./importProcessor";
+import { getOfficeVisibleJob } from "./importProcessor";
 import type { PortalAccess } from "./lib";
 import { mapInBoundedBatches } from "./paginationPolicy";
 import { PASSENGER_EXPORT_MAX_TICKETS_PER_TRAVELLER } from "./passengerExportPolicy";
@@ -117,7 +117,7 @@ export async function getPassengerExportSourcePageHandler(
   if (!jobCardId) {
     throw new ConvexError("Invalid Job Card id");
   }
-  const job = await getVisibleJob(ctx, args.access, jobCardId);
+  const job = await getOfficeVisibleJob(ctx, args.access, jobCardId);
   if (!job) {
     throw new ConvexError("FORBIDDEN");
   }

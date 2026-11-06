@@ -40,6 +40,7 @@ export {
   publicQuery,
   publicTravelBatch,
 } from "./lib/presentation";
+export type { JobCardRecordGrant } from "./lib/recordScope";
 export {
   applyCementPortalScope,
   applyPortalRecordScope,
@@ -58,6 +59,7 @@ export {
   hasCementRole,
   isCementQueryType,
   isCollaborator,
+  jobCardRecordGrant,
   ownsAuthRecord,
   ownsNamedRecord,
   ownsStaffRecord,

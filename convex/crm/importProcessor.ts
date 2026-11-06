@@ -6,7 +6,7 @@ import { propertiesWhen } from "../lib/runtimeValues";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import type { InternalPassengerImportRow } from "./importRows";
 import { classifyImportError, publicImportErrorMessage } from "./importWorkerPolicy";
-import { canSeeJobCardRecord, createActivity, type PortalAccess } from "./lib";
+import { canSeeJobCardRecord, createActivity, jobCardRecordGrant, type PortalAccess } from "./lib";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { buildTravellerListSearchText, markListSearchDirty } from "./listSearch";
 
@@ -44,6 +44,24 @@ export async function getVisibleJob(
   const job = await ctx.db.get("jobCards", jobCardId);
   const linkedQuery = job?.queryId ? await ctx.db.get("queries", job.queryId) : null;
   if (!(job && canSeeJobCardRecord(access, job, linkedQuery))) {
+    return null;
+  }
+  return job;
+}
+
+/**
+ * Passenger exports carry the whole roster, contact numbers and decrypted passport details,
+ * so they need office access. A Tour Manager-only grant reads its own group through the
+ * traveller list instead (owner decision, 6 Nov 2026).
+ */
+export async function getOfficeVisibleJob(
+  ctx: QueryCtx,
+  access: PortalAccess,
+  jobCardId: Id<"jobCards">
+) {
+  const job = await ctx.db.get("jobCards", jobCardId);
+  const linkedQuery = job?.queryId ? await ctx.db.get("queries", job.queryId) : null;
+  if (!(job && jobCardRecordGrant(access, job, linkedQuery) === "office")) {
     return null;
   }
   return job;

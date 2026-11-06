@@ -226,27 +226,35 @@ export interface JobCardVisibilityRecord {
   tourManagerName?: string | null;
 }
 
-export function canSeeJobCardRecord(
+/**
+ * How the actor reaches a Job Card. "office" covers department, ownership, collaborator and
+ * linked-query access. "tourManager" means the only route is a Tour Manager assignment (or the
+ * legacy `tourManagerName` match), which narrows traveller and passport access to the actor's
+ * own group. `null` means the Job Card is not visible.
+ */
+export type JobCardRecordGrant = "office" | "tourManager";
+
+export function jobCardRecordGrant(
   access: PortalAccess,
   job: JobCardVisibilityRecord,
   linkedQuery?: QueryVisibilityRecord | null
-) {
+): JobCardRecordGrant | null {
   const queryType = linkedQuery?.queryType ?? job.queryType ?? "";
   if (shouldApplyCementScope(access)) {
     if (!isCementQueryType(queryType)) {
-      return false;
+      return null;
     }
     if (canSeeAllCementRecords(access)) {
-      return true;
+      return "office";
     }
   } else if (
     canSeeDepartmentRecords(access, ["Contracting Head", "Operations Head", "Head of Ticketing"]) ||
     hasRole(access, "Accounts") ||
     hasRole(access, "Finance")
   ) {
-    return true;
+    return "office";
   }
-  return (
+  if (
     ownsAuthRecord(access, job.createdBy) ||
     ownsStaffRecord(access, job.contractingOwnerId) ||
     ownsStaffRecord(access, job.operationsOwnerId) ||
@@ -255,9 +263,19 @@ export function canSeeJobCardRecord(
     ownsNamedRecord(access, job.contractingOwnerName) ||
     ownsNamedRecord(access, job.operationsOwnerName) ||
     ownsNamedRecord(access, job.ticketingOwnerName) ||
-    ownsTourManagerJobCard(access, job) ||
     (linkedQuery ? canSeeQueryRecord(access, linkedQuery) : false)
-  );
+  ) {
+    return "office";
+  }
+  return ownsTourManagerJobCard(access, job) ? "tourManager" : null;
+}
+
+export function canSeeJobCardRecord(
+  access: PortalAccess,
+  job: JobCardVisibilityRecord,
+  linkedQuery?: QueryVisibilityRecord | null
+) {
+  return jobCardRecordGrant(access, job, linkedQuery) !== null;
 }
 
 export interface ContractingEditRecord {

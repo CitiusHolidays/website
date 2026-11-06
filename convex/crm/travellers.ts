@@ -51,6 +51,11 @@ import {
   mapInBoundedBatches,
 } from "./paginationPolicy";
 import { classifyPassportExpiryUrgency, normalizePassportExpiryDate } from "./passportExpiry";
+import {
+  resolveTravellerGroupScope,
+  type TravellerGroupScope,
+  travellerInGroupScope,
+} from "./tourManagerGroupScope";
 
 const foodPreferenceValidator = v.union(
   v.literal("Veg"),
@@ -411,13 +416,25 @@ export const listPage = query({
       jobs.length
     );
     const queryById = new Map(linkedQueries.map((row) => [String(row._id), row]));
+    const scopeByJobId = new Map<string, TravellerGroupScope | null>(
+      await Promise.all(
+        jobs.map(
+          async (job) =>
+            [
+              String(job._id),
+              await resolveTravellerGroupScope(
+                ctx,
+                access,
+                job,
+                job.queryId ? queryById.get(String(job.queryId)) : null
+              ),
+            ] as const
+        )
+      )
+    );
     const visibleRows = sourcePage.page.filter((traveller) => {
-      const job = jobById.get(String(traveller.jobCardId));
-      if (!job) {
-        return false;
-      }
-      const linkedQuery = job.queryId ? queryById.get(String(job.queryId)) : null;
-      return canSeeJobCardRecord(access, job, linkedQuery);
+      const scope = scopeByJobId.get(String(traveller.jobCardId));
+      return Boolean(scope && travellerInGroupScope(scope, traveller));
     });
     let page = visibleRows.map((traveller) => {
       const job = jobById.get(String(traveller.jobCardId));
@@ -603,7 +620,8 @@ export const getListRow = query({
       return null;
     }
     const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
-    if (!canSeeJobCardRecord(access, job, linkedQuery)) {
+    const scope = await resolveTravellerGroupScope(ctx, access, job, linkedQuery);
+    if (!(scope && travellerInGroupScope(scope, traveller))) {
       return null;
     }
     const travelBatch = traveller.travelBatchId
