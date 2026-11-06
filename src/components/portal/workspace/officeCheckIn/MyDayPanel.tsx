@@ -279,11 +279,12 @@ function blockedReason(status: MyCheckInStatus) {
 }
 
 /** Clock out while a session is open; otherwise clock in, or clock in again after a break. */
-function nextAction(status: MyCheckInStatus): { action: OfficeCheckInAction; label: string } {
+function nextAction(status: MyCheckInStatus) {
   if (status.hasOpenSession) {
-    return { action: "clock_out", label: "Clock out" };
+    return { action: "clock_out", label: "Clock out" } as const;
   }
-  return { action: "clock_in", label: status.sessions.length > 0 ? "Clock in again" : "Clock in" };
+  const label = status.sessions.length > 0 ? "Clock in again" : "Clock in";
+  return { action: "clock_in", label } as const;
 }
 
 function DayAction({
