@@ -657,6 +657,24 @@ describe("Office check-in: several sessions a day", () => {
     expect(toastSuccess).toHaveBeenCalledWith("Session deleted for Asha Rao.");
     await view.unmount();
   });
+
+  test("Keeps the delete dialog open and usable when the delete fails", async () => {
+    deleteCheckIn.mockImplementationOnce(async () => {
+      throw new Error("Network down");
+    });
+    toastSuccess.mockClear();
+    state.status = myStatus({ deletion: "erase", sessions: daySessions("staff_me") });
+    const view = await mount();
+    await press(findButton(view.container, "Delete session 09:15 → 13:00"));
+    const dialog = dialogEl();
+    await press(findButton(dialog, "Delete session"));
+    expect(deleteCheckIn).toHaveBeenCalledWith({ checkInId: "officeCheckIns_morning" });
+    expect(toastSuccess).not.toHaveBeenCalled();
+    expect(dialogEl()).toBe(dialog);
+    expect(dialog.textContent).toContain("Network down");
+    expect(findButton(dialog, "Delete session").disabled).toBe(false);
+    await view.unmount();
+  });
 });
 
 /** [newest, ...earlier] as teamRow's record and earlier arguments. */

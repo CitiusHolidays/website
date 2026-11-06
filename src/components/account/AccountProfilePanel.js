@@ -38,6 +38,33 @@ function profileReducer(state, action) {
   return reduce ? reduce(state, action) : state;
 }
 
+// Kept outside the component so the handler needs no try/finally, which React Compiler cannot
+// compile. This request never throws, so the caller always unlocks after awaiting it.
+async function putProfile(name, phoneNumber) {
+  try {
+    const response = await fetch("/api/profile", {
+      body: JSON.stringify({ name, phoneNumber }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "PUT",
+    });
+    if (!response.ok) {
+      return {
+        message: formatProfileUpdateError({
+          message: await readJsonError(response),
+          status: response.status,
+        }),
+        ok: false,
+      };
+    }
+    const data = await response.json();
+    return { ok: true, user: data.user };
+  } catch {
+    return { message: formatProfileUpdateError(), ok: false };
+  }
+}
+
 export function AccountProfilePanel({ user }) {
   const [state, dispatch] = useReducer(profileReducer, user, createProfileState);
   const { savedProfileData, profileForm, isEditingProfile, isSavingProfile, profileAlert } = state;
@@ -124,72 +151,42 @@ export function AccountProfilePanel({ user }) {
 
     savingRef.current = true;
     dispatch({ patch: { isSavingProfile: true, profileAlert: null }, type: "patch" });
+    const result = await putProfile(trimmedName, trimmedPhone);
+    savingRef.current = false;
 
-    try {
-      const response = await fetch("/api/profile", {
-        body: JSON.stringify({
-          name: trimmedName,
-          phoneNumber: trimmedPhone,
-        }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-        method: "PUT",
-      });
-
-      if (!response.ok) {
-        const message = formatProfileUpdateError({
-          message: await readJsonError(response),
-          status: response.status,
-        });
-        dispatch({
-          patch: {
-            isSavingProfile: false,
-            profileAlert: {
-              message,
-              type: "error",
-            },
-          },
-          type: "patch",
-        });
-        return;
-      }
-
-      const data = await response.json();
-
-      dispatch({
-        patch: {
-          isEditingProfile: false,
-          isSavingProfile: false,
-          profileAlert: {
-            message: "Profile updated successfully.",
-            type: "success",
-          },
-          profileForm: {
-            name: data.user?.name || "",
-            phoneNumber: data.user?.phoneNumber || "",
-          },
-          savedProfileData: {
-            ...profileData,
-            ...data.user,
-          },
-        },
-        type: "patch",
-      });
-    } catch {
+    if (!result.ok) {
       dispatch({
         patch: {
           isSavingProfile: false,
           profileAlert: {
-            message: formatProfileUpdateError(),
+            message: result.message,
             type: "error",
           },
         },
         type: "patch",
       });
-    } finally {
-      savingRef.current = false;
+      return;
     }
+
+    dispatch({
+      patch: {
+        isEditingProfile: false,
+        isSavingProfile: false,
+        profileAlert: {
+          message: "Profile updated successfully.",
+          type: "success",
+        },
+        profileForm: {
+          name: result.user?.name || "",
+          phoneNumber: result.user?.phoneNumber || "",
+        },
+        savedProfileData: {
+          ...profileData,
+          ...result.user,
+        },
+      },
+      type: "patch",
+    });
   };
   const beginProfileEdit = () => {
     dispatch({

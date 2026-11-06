@@ -54,6 +54,16 @@ limitations. Every override names the exact file and rule whose behavior was ins
 | Better Auth delivery correlation | `url-prefilled-privileged-action` | The URL carries only a random opaque correlation. Staff-setup routing requires a matching server-written, expiring intent bound to the recipient digest and purpose; crafted URL values fall back to the ordinary verification/reset control in regression tests. |
 | Exact vendored Oxlint anti-slop source files | `unused-file` | Oxlint loads the plugin entrypoint and its rule modules through `oxlint.config.ts`; `bun run lint:anti-slop` is the executable contract. |
 | `package.json` | `unused-dependency` | `brace-expansion` and `undici` are deliberate patched transitive security floors protected by ADR 0010 and the package contract test. |
+| Office staff assignment dialog | `async-await-in-loop` | Each person is saved in turn so every row shows its own outcome and one failure does not stop the rest. |
+| Transactional email template (`convex/lib/transactionalEmail.tsx`) | `only-export-components` | Rendered to HTML inside Convex; it is never loaded by the browser, so Fast Refresh does not apply. |
+| Auth layout artwork script | `nextjs-no-native-script`, `rendering-script-defer-async` | The script must choose and preload one hero image before first paint. `next/script` `beforeInteractive` is only allowed in the root layout, and `afterInteractive` would flash a different image. The config path uses `[(]auth[)]` because the matcher treats bare parentheses as a group. |
+| Notification inbox times | `no-locale-format-in-render` | Inbox rows come only from client Convex subscriptions (`useQuery`; no server preloading), so no time is rendered during server rendering and no hydration mismatch can occur. |
+| Document preview host polling | `effect-needs-cleanup` | The poll timer lives in `pollTimerRef`; the effect cleanup and `close()` both clear it. The analyzer does not follow the ref. |
+| Delete session form | `no-loading-flag-reset-outside-finally` | The request is settled with `.then(onFulfilled, onRejected)` before the busy flags reset, so no path skips the reset. A `finally` block would make React Compiler skip the component (`Handle TryStatement with a finalizer`). |
+
+On 2026-11-06, with React Doctor `0.9.22`, the integration tests for notification email outbox,
+notification audience, post-tour feedback and reports, team travel and traveler feedback were added
+to the ordered-await test exception for the same reason as the existing integration tests.
 
 Each exception is a claim to re-check when the scoped code changes. New suppressions require the
 same source inspection and a focused behavior test; React Doctor output alone is a hypothesis, not

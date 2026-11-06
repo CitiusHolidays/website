@@ -157,4 +157,21 @@ describe("Account profile editing", () => {
     expect(view.container.textContent).toContain("Passport details on file");
     await view.unmount();
   });
+
+  test("Unlocks the form after a network failure so the reader can retry", async () => {
+    globalThis.fetch = mock(() => Promise.reject(new TypeError("Failed to fetch")));
+    const view = await mount();
+    await act(() => view.button("Edit Details").click());
+    await act(() => edit(view.input("name"), "Avery Sen"));
+    await act(async () => {
+      view.submit();
+      await Promise.resolve();
+    });
+    expect(view.container.textContent).toContain("Your changes are still here");
+    expect(view.input("name").value).toBe("Avery Sen");
+    expect(view.input("name").disabled).toBe(false);
+    await act(() => view.button("Save Changes").click());
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    await view.unmount();
+  });
 });
