@@ -29,7 +29,8 @@ else's assignment. `syncJobCardTourManagerVisibility` now also derives
 profile) and writes both derived fields on every assignment change; once written, that list is
 the only name source, so an external profile's name (which `createTourManager` copies into
 `tourManagerName`) grants nothing. Job Cards untouched since this change keep the
-`tourManagerName` fallback until the assigned-staff backfill is verified.
+`tourManagerName` fallback until the [legacy-names backfill](migrations/job-card-tour-manager-legacy-names.md)
+runs.
 
 For a `"tourManager"` grant, `convex/crm/tourManagerGroupScope.ts` derives the group:
 
@@ -163,5 +164,10 @@ this change does not make; see the PR description for the proposal.
   `expenseEntries.by_createdBy_and_clientRef` and
   `tourManagerAssignments.by_staffId_and_status_and_jobCardId`. No backfill.
 - Job Card deletion removes field headcounts and announcements.
-- The [assigned Tour Manager backfill](migrations/job-card-assigned-tour-manager-staff-ids.md)
-  should be verified on each deployment; until then older assignments rely on the name fallback.
+- Run the [Tour Manager legacy-names backfill](migrations/job-card-tour-manager-legacy-names.md)
+  and the [assigned Tour Manager backfill](migrations/job-card-assigned-tour-manager-staff-ids.md)
+  on each deployment. Until they run, untouched Job Cards still grant Job Card-level access by
+  `tourManagerName`, which can hold an external profile's name.
+- The traveller list's "Passport expiry" filter is hidden from users without Staff Workspace
+  passport access, and the Passport documents view never sends the expiry-urgency filter for
+  them.
