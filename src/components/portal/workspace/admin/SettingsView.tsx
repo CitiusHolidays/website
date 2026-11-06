@@ -21,6 +21,15 @@ import { Badge, Panel } from "../portalWorkspaceListUi";
 type StaffRow = PortalStaffSettingsRow;
 type BadgeTone = "blue" | "gray" | "green" | "red";
 
+interface StaffBadge {
+  label: string;
+  tone: BadgeTone;
+}
+
+interface StaffStatus extends StaffBadge {
+  meaning: string;
+}
+
 const LazyStaffWorkbookImportPanel = dynamic(
   () =>
     import("@/components/portal/settings/StaffWorkbookImportPanel").then(
@@ -41,7 +50,7 @@ function settingsTabs(canUseLiveControls: boolean, staffCount: number | undefine
   return canUseLiveControls ? [...tabs, { id: LIVE_CONTROLS_TAB, label: "Live controls" }] : tabs;
 }
 
-function onboardingBadge(row: StaffRow): { label: string; tone: BadgeTone } {
+function onboardingBadge(row: StaffRow): StaffBadge {
   if (row.onboardingStatus === "ready") {
     return { label: "Ready", tone: "green" };
   }
@@ -52,7 +61,7 @@ function onboardingBadge(row: StaffRow): { label: string; tone: BadgeTone } {
 }
 
 /** One status per row: inactive staff cannot sign in, so their onboarding state is secondary. */
-function staffStatus(row: StaffRow): { label: string; meaning: string; tone: BadgeTone } {
+function staffStatus(row: StaffRow): StaffStatus {
   if (!row.active) {
     return { label: "Inactive", meaning: "Inactive: cannot sign in", tone: "red" };
   }
