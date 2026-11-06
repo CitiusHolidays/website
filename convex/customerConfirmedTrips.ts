@@ -32,9 +32,11 @@ const confirmedTripPacketValidator = v.object({
   jobStatus: v.union(v.string(), v.null()),
   queryCode: v.string(),
   readOnly: v.literal(true as const),
-  sellingPricePerPax: v.number(),
+  // Commercial facts belong to the Organizer's view only. A Traveller entitlement must not
+  // expose the organizer's commercial facts (docs/customer-account/CONTEXT.md, "Traveller").
+  sellingPricePerPax: v.optional(v.number()),
   source: v.union(v.string(), v.null()),
-  taxRate: v.number(),
+  taxRate: v.optional(v.number()),
   ticketingScope: v.union(v.string(), v.null()),
   travelEndDate: v.string(),
   travelStartDate: v.string(),
@@ -76,6 +78,10 @@ async function packetForQuery(
     return null;
   }
   const itinerary = jobCard ? await latestFrozenItinerary(ctx, jobCard._id) : null;
+  const commercialFacts =
+    entitlement.role === "organizer"
+      ? { sellingPricePerPax: offer.sellingPricePerPax, taxRate: offer.taxRate ?? 0 }
+      : {};
   return {
     confirmedOfferId: offer._id,
     confirmedPax: offer.confirmedPax,
@@ -88,9 +94,8 @@ async function packetForQuery(
     jobStatus: jobCard?.status ?? null,
     queryCode: queryRow.queryCode,
     readOnly: true as const,
-    sellingPricePerPax: offer.sellingPricePerPax,
+    ...commercialFacts,
     source: offer.source ?? queryRow.source ?? null,
-    taxRate: offer.taxRate ?? 0,
     ticketingScope: queryRow.ticketingScope ?? null,
     travelEndDate: offer.travelEndDate ?? "",
     travelStartDate: offer.travelStartDate,

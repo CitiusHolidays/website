@@ -185,6 +185,34 @@ describe("Read-only Customer confirmed trip packets", () => {
     expect(JSON.stringify(result)).not.toContain("landCost");
   });
 
+  test("Withholds the organizer's commercial facts from a Traveller entitlement", async () => {
+    const context = makeContext(undefined, (tables) => {
+      tables.customerJourneyEntitlements = [
+        {
+          _id: "customerJourneyEntitlements_traveller",
+          authUserId: "issuer-a|traveller",
+          capabilities: ["view_confirmed_trip"],
+          confirmedOfferId: "confirmedOffers_1",
+          createdAt: 10,
+          queryId: "queries_1",
+          role: "traveller",
+          source: "crm_operator_grant",
+        },
+      ];
+    });
+    // SAFETY: This test controls the asserted value at the framework boundary below.
+    const result = await fromAny<any, unknown>(getMyConfirmedTripPackets)._handler(context, {
+      paginationOpts: { cursor: null, numItems: 20 },
+    });
+    expect(result.page).toHaveLength(1);
+    const [packet] = result.page;
+    expect(packet.entitlement).toEqual({ role: "traveller", source: "crm_operator_grant" });
+    expect(packet.destination).toBe("Kyoto");
+    expect(packet).not.toHaveProperty("sellingPricePerPax");
+    expect(packet).not.toHaveProperty("taxRate");
+    expect(JSON.stringify(result)).not.toContain("200000");
+  });
+
   test("Does not expose packets to an identity without an entitlement", async () => {
     expect(
       // SAFETY: This test controls the asserted value at the framework boundary below.
