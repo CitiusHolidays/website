@@ -3107,16 +3107,25 @@ export default defineSchema({
     domesticTravelRequired: v.optional(v.boolean()),
     email: v.optional(v.string()),
     extensionOfTour: v.optional(v.boolean()),
+    // Minor guardianship (ADR 0018): up to two adult Travellers on the same Job Card, held in two
+    // indexed slots because Convex cannot index array membership.
+    firstGuardianTravellerId: v.optional(v.id("travellers")),
     foodPreference,
     fullName: v.string(),
     gender: v.optional(v.string()),
     givenName: v.optional(v.string()),
+    // Spreadsheet Parent/Guardian names not yet resolved to exactly one adult (ADR 0018).
+    guardianImportReferences: v.optional(
+      v.array(v.object({ contact: v.optional(v.string()), name: v.string() }))
+    ),
     guestCompanions: v.optional(v.string()),
     guestType,
     hasPassportScan: v.optional(v.boolean()),
     hotelAllocation: v.optional(v.string()),
     importKey: v.optional(v.string()),
     importSource: v.optional(v.string()),
+    // Under 18 on the trip's start date; undefined means the age is not recorded.
+    isMinor: v.optional(v.boolean()),
     jobCardId: v.id("jobCards"),
     lastMinuteDrop: v.optional(v.boolean()),
     listSearchText: v.optional(v.string()),
@@ -3130,6 +3139,7 @@ export default defineSchema({
     passportStatus: v.optional(v.string()),
     paymentType,
     roomType,
+    secondGuardianTravellerId: v.optional(v.id("travellers")),
     sourceDealerCode: v.optional(v.string()),
     sourceDealerName: v.optional(v.string()),
     sourceDescription: v.optional(v.string()),
@@ -3156,6 +3166,8 @@ export default defineSchema({
     .index("by_travelBatchId", ["travelBatchId"])
     .index("by_jobCardId_and_travelBatchId", ["jobCardId", "travelBatchId"])
     .index("by_jobCardId_importKey", ["jobCardId", "importKey"])
+    .index("by_firstGuardianTravellerId", ["firstGuardianTravellerId"])
+    .index("by_secondGuardianTravellerId", ["secondGuardianTravellerId"])
     .index("by_visaStatus", ["visaStatus"])
     .index("by_ticketStatus", ["ticketStatus"])
     .searchIndex("search_list", { searchField: "listSearchText" }),

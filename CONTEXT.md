@@ -116,6 +116,14 @@ _Avoid_: Treating the Client record as the Traveller, using a Job Card as an ide
 An individual person travelling under a Job Card. Traveller is the canonical unit for operational records and for customer document intake, even when several Travellers share one Client or booking.
 _Avoid_: Passenger as a separate domain entity, one document scope for an entire Job Card, assuming the Query creator is the Traveller
 
+**Minor**:
+A Traveller under 18 on the trip's start date (the Travel in Series start, else the Job Card start). A minor has no login of their own and is linked to a Guardian; an unrecorded age is unknown, not adult.
+_Avoid_: Child room type, infant fare type, treating an unrecorded age as adult
+
+**Guardian**:
+An adult Traveller on the same Job Card responsible for a Minor; a Minor has up to two Guardians (for example both parents). The link is recorded on the Minor; it is not parental consent and grants no Customer Travel Account access by itself.
+_Avoid_: Guests travelling with, Client contact, a minor or a traveller on another Job Card as guardian
+
 **Customer Document Intake**:
 The time-limited, customer-facing workflow through which one Traveller submits requested sensitive travel documents to the Citius CRM without receiving staff portal access.
 _Avoid_: Commercial Files upload, open public upload, granting a customer CRM credentials

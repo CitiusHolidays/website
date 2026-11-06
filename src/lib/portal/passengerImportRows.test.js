@@ -100,4 +100,19 @@ describe("ToPassengerImportInput", () => {
       ticketing: undefined,
     });
   });
+
+  test("Sends the Parent/Guardian, Minor and Age columns to the import", () => {
+    expect(
+      toPassengerImportInput({
+        ageYears: 9,
+        guardians: [{ contact: "98765 00001", name: "MEERA IYER" }, { name: "RAVI IYER" }],
+        minorStatus: "minor",
+        passport: {},
+      })
+    ).toMatchObject({
+      ageYears: 9,
+      guardians: [{ contact: "98765 00001", name: "MEERA IYER" }, { name: "RAVI IYER" }],
+      minorStatus: "minor",
+    });
+  });
 });

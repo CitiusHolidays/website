@@ -43,4 +43,21 @@ describe("BuildPassengerImportResultMessage", () => {
     expect(output.message).toContain("1 row failed");
     expect(output.message).toContain("Room summary: Twin: 2");
   });
+
+  test("Reports guardian links and unlinked guardian references", () => {
+    const output = buildPassengerImportResultMessage(
+      {
+        ...result,
+        guardianLinks: {
+          linked: 2,
+          warnings: [{ fullName: "Isha Rao", message: "Guardian Anil Rao not linked" }],
+        },
+      },
+      "Passenger import complete"
+    );
+    expect(output.isPartialFailure).toBe(false);
+    expect(output.message).toBe(
+      "Passenger import complete. Created 3, updated 1, total processed 4. Linked 2 minors to a guardian; 1 guardian reference needs review."
+    );
+  });
 });

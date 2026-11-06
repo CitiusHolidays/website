@@ -1,6 +1,32 @@
 import { toNumber } from "@/lib/portal/formUtils";
 import { withoutUndefinedValues } from "./shared";
 
+function isMinorFromAgeGroup(ageGroup) {
+  if (ageGroup === "minor") {
+    return true;
+  }
+  return ageGroup === "adult" ? false : null;
+}
+
+/**
+ * Minor status and up to two guardians (ADR 0018). The guardians are sent only when Operations
+ * changed them, so saving other fields never discards unmatched spreadsheet guardian names.
+ */
+export function travellerGuardianPayload(form) {
+  const payload = { isMinor: isMinorFromAgeGroup(form.ageGroup) };
+  const guardianTravellerIds = [form.guardianTravellerId, form.secondGuardianTravellerId].filter(
+    Boolean
+  );
+  if (
+    form.entityId &&
+    form.ageGroup === "minor" &&
+    guardianTravellerIds.join(",") !== (form.initialGuardianTravellerIds || "")
+  ) {
+    payload.guardianTravellerIds = guardianTravellerIds;
+  }
+  return payload;
+}
+
 export function createOperationsModalCommands(deps) {
   return {
     hotel: async (form) => {
@@ -134,6 +160,7 @@ export function createOperationsModalCommands(deps) {
         travelDate: form.travelDate,
         travelHub: form.travelHub,
         visaRequired: form.visaRequired === "Yes",
+        ...travellerGuardianPayload(form),
       };
       if (form.entityId) {
         await deps.updateTraveller({ travellerId: form.entityId, ...payload });

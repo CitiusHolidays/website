@@ -168,4 +168,28 @@ describe("Server passenger export workbooks", () => {
       visaStatus: "Approved",
     });
   });
+
+  test("Lists minor status and both guardians on the traveller master list and reads them back", () => {
+    const minor = {
+      ...row,
+      fullName: "Kavya Iyer",
+      guardianNames: ["Meera Iyer", "Ravi Iyer"],
+      isMinor: true,
+    };
+    const adult = { ...row, isMinor: false, passport: { ...row.passport, number: "P7654321" } };
+    const rows = buildPassengerExportRows("traveller", [minor, adult]);
+    const header = rows[0] ?? [];
+    expect(rows[1]?.[header.indexOf("Minor")]).toBe("Yes");
+    expect(rows[1]?.[header.indexOf("Parent/Guardian")]).toBe("Meera Iyer");
+    expect(rows[1]?.[header.indexOf("Parent/Guardian 2")]).toBe("Ravi Iyer");
+    expect(rows[2]?.[header.indexOf("Minor")]).toBe("No");
+    expect(rows[2]?.[header.indexOf("Parent/Guardian")]).toBe("");
+
+    const parsed = parseTravellerMasterWorkbook(workbookFromSheets({ "Master list": rows }));
+    expect(parsed.rows[0]).toMatchObject({
+      guardians: [{ name: "Meera Iyer" }, { name: "Ravi Iyer" }],
+      minorStatus: "minor",
+    });
+    expect(parsed.rows[1]).toMatchObject({ guardians: [], minorStatus: "adult" });
+  });
 });

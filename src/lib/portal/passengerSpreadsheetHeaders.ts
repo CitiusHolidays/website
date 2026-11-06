@@ -51,6 +51,9 @@ export const TRAVELLER_MASTER_EXPORT_HEADERS = [
   "Hub",
   "Airlines",
   "Travel Batch",
+  "Minor",
+  "Parent/Guardian",
+  "Parent/Guardian 2",
   "",
 ];
 

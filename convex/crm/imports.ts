@@ -13,6 +13,7 @@ import {
 import {
   flightImportResultValidator,
   flightItineraryListPageResultValidator,
+  guardianImportLinkResultValidator,
   passengerExportOperationListValidator,
   passengerImportOperationListValidator,
   passengerImportPreviewResultValidator,
@@ -51,6 +52,7 @@ import {
   passengerImportBatchResultValidator,
   previewPassengerImportRowsHandler,
 } from "./passengerImportRows";
+import { resolveImportedGuardianLinksHandler } from "./travellerGuardians";
 
 export const previewPassengerImportRows = internalQuery({
   args: {
@@ -83,6 +85,16 @@ export const commitPassengerImportRow = internalMutation({
     travellerId: v.id("travellers"),
     updated: v.number(),
   }),
+});
+
+/** Links imported minors to their sheet-named guardian once the whole sheet is committed. */
+export const resolveImportedGuardianLinks = internalMutation({
+  args: {
+    access: portalAccessArgumentValidator,
+    jobCardId: v.id("jobCards"),
+  },
+  handler: resolveImportedGuardianLinksHandler,
+  returns: guardianImportLinkResultValidator,
 });
 
 export const claimPassengerImportOperationBatch = internalMutation({

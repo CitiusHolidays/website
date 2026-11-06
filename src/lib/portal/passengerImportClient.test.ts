@@ -70,6 +70,10 @@ describe("Passenger import client batching", () => {
           completed: true,
           created: 20,
           failed: 0,
+          guardianLinks: {
+            linked: 2,
+            warnings: [{ fullName: "Isha Rao", message: "Guardian Anil Rao not linked" }],
+          },
           operationId: "operation-1",
           processed: 23,
           remaining: 0,
@@ -84,6 +88,10 @@ describe("Passenger import client batching", () => {
     expect(result).toMatchObject({
       accepted: 73,
       created: 60,
+      guardianLinks: {
+        linked: 2,
+        warnings: [{ fullName: "Isha Rao", message: "Guardian Anil Rao not linked" }],
+      },
       operationId: "operation-1",
       processed: 73,
       roomSummary: { Single: 3, Twin: 60 },

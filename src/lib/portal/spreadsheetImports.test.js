@@ -144,6 +144,102 @@ describe("Passenger spreadsheet imports", () => {
     expect(result.rows[0].travelBatchReference).toBe("");
   });
 
+  test("Reads Parent/Guardian, contact, Minor and Age columns from a master list", () => {
+    const workbook = workbookFromSheets({
+      "Master list": [
+        [
+          "SURNAME",
+          "GIVEN NAME",
+          "Dealer Name",
+          "Date of Birth As per passport",
+          "Parent / Guardian",
+          "Guardian Contact No",
+          "Minor (Y/N)",
+          "Age",
+        ],
+        ["IYER", "MEERA", "SYNTHETIC DEALER", "1984-05-10", "", "", "No", ""],
+        ["IYER", "KAVYA", "SYNTHETIC DEALER", "02/03/2014", " Iyer  Meera ", "98765 00001", "", ""],
+        ["IYER", "ROHAN", "SYNTHETIC DEALER", "", "MEERA IYER", "", "Y", "9"],
+      ],
+    });
+
+    const [parent, child, sibling] = parseTravellerMasterWorkbook(workbook).rows;
+    expect(parent).toMatchObject({ guardians: [], minorStatus: "adult" });
+    expect(parent.ageYears).toBeUndefined();
+    expect(child).toMatchObject({
+      guardians: [{ contact: "98765 00001", name: "Iyer Meera" }],
+      passport: { dateOfBirth: "2014-03-02" },
+    });
+    expect(child.minorStatus).toBeUndefined();
+    expect(sibling).toMatchObject({
+      ageYears: 9,
+      guardians: [{ name: "MEERA IYER" }],
+      minorStatus: "minor",
+    });
+  });
+
+  test("Reads a second guardian from Parent 2 columns or from one cell naming two people", () => {
+    const columns = parseTravellerMasterWorkbook(
+      workbookFromSheets({
+        "Master list": [
+          [
+            "SURNAME",
+            "GIVEN NAME",
+            "Dealer Name",
+            "Parent 1",
+            "Parent 1 Mobile",
+            "Parent 2",
+            "Parent 2 Email",
+          ],
+          ["IYER", "KAVYA", "D", "Meera Iyer", "98765 00001", "Ravi Iyer", "ravi@example.test"],
+          ["IYER", "ROHAN", "D", "Meera Iyer", "", "", ""],
+        ],
+      })
+    ).rows;
+    expect(columns[0].guardians).toEqual([
+      { contact: "98765 00001", name: "Meera Iyer" },
+      { contact: "ravi@example.test", name: "Ravi Iyer" },
+    ]);
+    expect(columns[1].guardians).toEqual([{ name: "Meera Iyer" }]);
+
+    const combined = parseTravellerMasterWorkbook(
+      workbookFromSheets({
+        "Master list": [
+          ["SURNAME", "GIVEN NAME", "Dealer Name", "Parent/Guardian", "Guardian Contact"],
+          ["IYER", "KAVYA", "D", "Meera Iyer & Ravi Iyer", "98765 00001 / 98765 00002"],
+          ["IYER", "ROHAN", "D", "Meera Iyer and Ravi Iyer", "98765 00001"],
+          ["RAO", "ISHA", "D", "Anil Rao / Asha Rao", ""],
+        ],
+      })
+    ).rows;
+    expect(combined[0].guardians).toEqual([
+      { contact: "98765 00001", name: "Meera Iyer" },
+      { contact: "98765 00002", name: "Ravi Iyer" },
+    ]);
+    // One contact for two names cannot be attributed, so it is left off both.
+    expect(combined[1].guardians).toEqual([{ name: "Meera Iyer" }, { name: "Ravi Iyer" }]);
+    expect(combined[2].guardians).toEqual([{ name: "Anil Rao" }, { name: "Asha Rao" }]);
+  });
+
+  test("Reads a Travelling with column on passenger sheets and omits absent guardian columns", () => {
+    const header = ["Name As per Govt. ID Proof", "WILLING TO GO", "Date of Birth"];
+    const withGuardian = parsePassengerWorkbook(
+      workbookFromSheets({
+        Sheet1: [
+          [...header, "Travelling with"],
+          ["KAVYA IYER", "CONFIRMED", "2014-03-02", "MEERA IYER"],
+        ],
+      })
+    );
+    expect(withGuardian.rows[0]).toMatchObject({ guardians: [{ name: "MEERA IYER" }] });
+
+    const withoutGuardian = parsePassengerWorkbook(
+      workbookFromSheets({ Sheet1: [header, ["MEERA IYER", "CONFIRMED", "1984-05-10"]] })
+    );
+    expect(withoutGuardian.rows[0]).not.toHaveProperty("guardians");
+    expect(withoutGuardian.rows[0]).not.toHaveProperty("minorStatus");
+  });
+
   test("Normalizes meal preferences", () => {
     expect(normalizeFoodPreference("NON VEG")).toBe("Non-Veg");
     expect(normalizeFoodPreference("Jain Meal")).toBe("Jain");

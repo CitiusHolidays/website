@@ -1,5 +1,6 @@
 "use client";
 
+import { api } from "@convex/_generated/api";
 import { Input, Select, Textarea } from "@/components/portal/PortalModalForm";
 import {
   FOOD_PREFERENCES,
@@ -9,7 +10,74 @@ import {
   ROOM_TYPES,
 } from "@/lib/portal/constants";
 import { jobCardSelectOptions, travelBatchSelectOptions } from "@/lib/portal/entityModalLinks";
+import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
 import { EntityModalFieldSection } from "./EntityModalFieldSection";
+
+const AGE_GROUP_OPTIONS = [
+  { label: "Not recorded", value: "" },
+  { label: "Adult", value: "adult" },
+  { label: "Minor (under 18 on the trip start date)", value: "minor" },
+];
+
+function guardianSelectOptions(options, excludedId) {
+  return [
+    { label: options ? "No guardian" : "Loading travellers…", value: "" },
+    ...(options ?? [])
+      .filter((option) => option.id !== excludedId)
+      .map((option) => ({ label: option.fullName, value: option.id })),
+  ];
+}
+
+/** Minor status and up to two guardians (ADR 0018): adult travellers on the same Job Card. */
+function TravellerGuardianFields({ form, updateForm }) {
+  const isMinor = form.ageGroup === "minor";
+  const options = useQuery(
+    api.crm.travellers.listGuardianOptions,
+    isMinor && form.entityId ? { travellerId: form.entityId } : "skip"
+  );
+  let guardianFields = null;
+  if (isMinor && form.entityId) {
+    guardianFields = (
+      <>
+        <Select
+          formField="guardianTravellerId"
+          label="Parent / guardian"
+          onChange={updateForm}
+          options={guardianSelectOptions(options, form.secondGuardianTravellerId)}
+          value={form.guardianTravellerId || ""}
+        />
+        <Select
+          formField="secondGuardianTravellerId"
+          label="Second parent / guardian"
+          onChange={updateForm}
+          options={guardianSelectOptions(options, form.guardianTravellerId)}
+          value={form.secondGuardianTravellerId || ""}
+        />
+      </>
+    );
+  } else if (isMinor) {
+    guardianFields = (
+      <p className="font-sans text-brand-muted text-xs">
+        Save this traveller first, then choose their parents or guardians.
+      </p>
+    );
+  }
+  return (
+    <EntityModalFieldSection title="Minor and guardians">
+      <Select
+        formField="ageGroup"
+        label="Age group"
+        onChange={updateForm}
+        options={AGE_GROUP_OPTIONS}
+        value={form.ageGroup || ""}
+      />
+      {guardianFields}
+      <p className="col-span-full font-sans text-brand-muted text-xs">
+        A minor has no login of their own. Up to two guardians, each an adult on this Job Card.
+      </p>
+    </EntityModalFieldSection>
+  );
+}
 
 export function EntityModalTravellerFields({
   modal,
@@ -61,6 +129,7 @@ export function EntityModalTravellerFields({
               value={form.gender}
             />
           </EntityModalFieldSection>
+          <TravellerGuardianFields form={form} updateForm={updateForm} />
           <EntityModalFieldSection title="Guest contact">
             <Input
               autoComplete="tel"
