@@ -8,10 +8,10 @@ import { patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { type TravellerGroupScope, travellerInGroupScope } from "./tourManagerGroupScope";
 import {
   type GuardianCandidate,
-  guardianLinkProblem,
+  guardianSetProblem,
   nameVariants,
   normalizePersonName,
-  resolveGuardianReference,
+  resolveGuardianReferences,
 } from "./travellerGuardianPolicy";
 
 /** Upper bound on one Job Card's roster read when resolving or offering guardians. */
@@ -45,11 +45,39 @@ async function loadJobRoster(ctx: QueryCtx, jobCardId: Id<"jobCards">) {
   return roster;
 }
 
+/** The minor's guardians in slot order (first, then second). */
+export function guardianIdsOf(traveller: Doc<"travellers">): Id<"travellers">[] {
+  return [traveller.firstGuardianTravellerId, traveller.secondGuardianTravellerId].filter(
+    (id): id is Id<"travellers"> => id !== undefined
+  );
+}
+
+/** Stores up to two guardians in the indexed slots, compacted so the first slot fills first. */
+export function guardianSlotsPatch(guardianIds: readonly Id<"travellers">[]) {
+  return {
+    firstGuardianTravellerId: guardianIds[0],
+    secondGuardianTravellerId: guardianIds[1],
+  };
+}
+
+function warningFor(traveller: Doc<"travellers">, message: string) {
+  return {
+    fullName: traveller.fullName,
+    message,
+    ...propertiesWhen(traveller.sourceRowNumber !== undefined, () => ({
+      sourceRowNumber: traveller.sourceRowNumber,
+    })),
+    ...propertiesWhen(traveller.sourceSheet, () => ({ sourceSheet: traveller.sourceSheet })),
+    travellerId: traveller._id,
+  };
+}
+
 /**
  * Resolves every pending spreadsheet Parent/Guardian reference on one Job Card. Runs once,
  * after the final import batch, so a guardian may appear on any row or batch of the sheet or
- * already be on the Job Card. A reference that does not resolve to exactly one eligible adult
- * stays on the Traveller and is reported; nothing is linked by guesswork.
+ * already be on the Job Card. Each named guardian is matched on its own; when at least one
+ * matches exactly one eligible adult, the matches become the minor's guardians and the other
+ * names stay pending and are reported. Nothing is linked by guesswork.
  */
 export async function resolveImportedGuardianLinksHandler(
   ctx: MutationCtx,
@@ -60,6 +88,7 @@ export async function resolveImportedGuardianLinksHandler(
     throw new ConvexError("FORBIDDEN");
   }
   const roster = await loadJobRoster(ctx, job._id);
+  // Only same-name travellers can match, so the roster is indexed by name once.
   const candidatesByName = new Map<string, GuardianCandidate[]>();
   for (const candidate of roster.map(toGuardianCandidate)) {
     for (const name of nameVariants(candidate)) {
@@ -69,81 +98,82 @@ export async function resolveImportedGuardianLinksHandler(
   const byId = new Map(roster.map((traveller) => [String(traveller._id), traveller]));
   const now = Date.now();
   let linked = 0;
-  const warnings: Array<{
-    fullName: string;
-    message: string;
-    sourceRowNumber?: number;
-    sourceSheet?: string;
-    travellerId: Id<"travellers">;
-  }> = [];
+  const warnings: ReturnType<typeof warningFor>[] = [];
   for (const traveller of roster) {
-    const reference = traveller.guardianImportReference;
-    if (!reference) {
+    const references = traveller.guardianImportReferences ?? [];
+    if (references.length === 0) {
       continue;
     }
-    // Only same-name travellers can match, so the roster is indexed by name once.
-    const resolution = resolveGuardianReference(
+    const { guardianIds, unresolved } = resolveGuardianReferences(
       toGuardianCandidate(traveller),
-      reference,
-      candidatesByName.get(normalizePersonName(reference.name)) ?? []
+      references,
+      (reference) => candidatesByName.get(normalizePersonName(reference.name)) ?? []
     );
-    if (resolution.kind === "linked") {
-      const guardian = byId.get(resolution.guardianId);
-      if (guardian) {
-        // biome-ignore lint/performance/noAwaitInLoops: one bounded Job Card roster, patched in order.
-        await patchWithE2eOwnership(
-          ctx,
-          "travellers",
-          traveller._id,
-          { guardianImportReference: undefined, guardianTravellerId: guardian._id, updatedAt: now },
-          { authUserId: args.access.authUserId }
-        );
-        linked += 1;
-        continue;
-      }
-    }
-    warnings.push({
-      fullName: traveller.fullName,
-      message:
-        resolution.kind === "linked"
-          ? "Guardian not linked: the matched traveller no longer exists."
-          : resolution.message,
-      ...propertiesWhen(traveller.sourceRowNumber !== undefined, () => ({
-        sourceRowNumber: traveller.sourceRowNumber,
-      })),
-      ...propertiesWhen(traveller.sourceSheet, () => ({ sourceSheet: traveller.sourceSheet })),
-      travellerId: traveller._id,
+    const guardians = guardianIds.flatMap((id) => {
+      const guardian = byId.get(id);
+      return guardian ? [guardian._id] : [];
     });
+    for (const { message } of unresolved) {
+      warnings.push(warningFor(traveller, message));
+    }
+    if (guardians.length > 0) {
+      // biome-ignore lint/performance/noAwaitInLoops: one bounded Job Card roster, patched in order.
+      await patchWithE2eOwnership(
+        ctx,
+        "travellers",
+        traveller._id,
+        {
+          ...guardianSlotsPatch(guardians),
+          guardianImportReferences:
+            unresolved.length > 0 ? unresolved.map(({ reference }) => reference) : undefined,
+          updatedAt: now,
+        },
+        { authUserId: args.access.authUserId }
+      );
+      linked += guardians.length;
+    }
   }
   return { linked, warnings };
 }
 
-/** Throws the reason a manual guardian link is invalid. */
-export function assertGuardianLink(
+/** Throws the reason a manual set of guardians is invalid. */
+export function assertGuardianSet(
   minor: Doc<"travellers">,
   nextIsMinor: boolean | undefined,
-  guardian: Doc<"travellers"> | null
+  guardians: readonly (Doc<"travellers"> | null)[]
 ) {
-  if (!guardian) {
+  const found = guardians.filter((guardian): guardian is Doc<"travellers"> => guardian !== null);
+  if (found.length !== guardians.length) {
     throw new ConvexError("Guardian not found");
   }
-  const problem = guardianLinkProblem(
+  const problem = guardianSetProblem(
     { ...toGuardianCandidate(minor), isMinor: nextIsMinor },
-    toGuardianCandidate(guardian)
+    found.map(toGuardianCandidate)
   );
   if (problem) {
     throw new ConvexError(problem);
   }
 }
 
+/** Minors that name this traveller in either guardian slot (two index reads). */
 export async function minorsCoveredBy(ctx: QueryCtx, guardianId: Id<"travellers">) {
-  return await ctx.db
-    .query("travellers")
-    .withIndex("by_guardianTravellerId", (q) => q.eq("guardianTravellerId", guardianId))
-    .take(GUARDIAN_MINORS_LIMIT);
+  const [first, second] = await Promise.all([
+    ctx.db
+      .query("travellers")
+      .withIndex("by_firstGuardianTravellerId", (q) => q.eq("firstGuardianTravellerId", guardianId))
+      .take(GUARDIAN_MINORS_LIMIT),
+    ctx.db
+      .query("travellers")
+      .withIndex("by_secondGuardianTravellerId", (q) =>
+        q.eq("secondGuardianTravellerId", guardianId)
+      )
+      .take(GUARDIAN_MINORS_LIMIT),
+  ]);
+  const byId = new Map([...first, ...second].map((minor) => [String(minor._id), minor]));
+  return [...byId.values()];
 }
 
-/** A deleted guardian leaves its minors unlinked rather than pointing at a missing row. */
+/** A deleted guardian leaves its minors' other guardian in place and no missing link behind. */
 export async function clearGuardianLinksTo(
   ctx: MutationCtx,
   guardianId: Id<"travellers">,
@@ -157,7 +187,10 @@ export async function clearGuardianLinksTo(
         ctx,
         "travellers",
         minor._id,
-        { guardianTravellerId: undefined, updatedAt: now },
+        {
+          ...guardianSlotsPatch(guardianIdsOf(minor).filter((id) => id !== guardianId)),
+          updatedAt: now,
+        },
         actor
       )
     )
@@ -165,35 +198,33 @@ export async function clearGuardianLinksTo(
 }
 
 /**
- * Guardian facts for the Staff Workspace traveller row. Linked people are named only when the
- * reader may already see them under the same Job Card group scope, so a link never discloses a
- * minor (or a guardian) outside the reader's existing traveller access.
+ * Guardian facts for the Staff Workspace traveller row. Each linked person is named only when
+ * the reader may already see them under the same Job Card group scope, so a link never
+ * discloses a minor (or a guardian) outside the reader's existing traveller access.
  */
 export async function travellerGuardianFacts(
   ctx: QueryCtx,
   traveller: Doc<"travellers">,
   scope: TravellerGroupScope
 ) {
-  const guardianDoc = traveller.guardianTravellerId
-    ? await ctx.db.get("travellers", traveller.guardianTravellerId)
-    : null;
-  const guardian =
-    guardianDoc &&
-    String(guardianDoc.jobCardId) === String(traveller.jobCardId) &&
-    travellerInGroupScope(scope, guardianDoc)
-      ? { fullName: guardianDoc.fullName, id: guardianDoc._id }
-      : null;
+  const visible = (other: Doc<"travellers"> | null): other is Doc<"travellers"> =>
+    other !== null &&
+    String(other.jobCardId) === String(traveller.jobCardId) &&
+    travellerInGroupScope(scope, other);
+  const guardianDocs = await Promise.all(
+    guardianIdsOf(traveller).map((id) => ctx.db.get("travellers", id))
+  );
   const minors = traveller.isMinor === true ? [] : await minorsCoveredBy(ctx, traveller._id);
   return {
-    guardian,
     guardianOf: minors
-      .filter(
-        (minor) =>
-          String(minor.jobCardId) === String(traveller.jobCardId) &&
-          travellerInGroupScope(scope, minor)
-      )
+      .filter(visible)
       .map((minor) => ({ fullName: minor.fullName, id: minor._id })),
-    guardianSheetReference: traveller.guardianImportReference?.name ?? "",
+    guardianSheetReferences: (traveller.guardianImportReferences ?? []).map(
+      (reference) => reference.name
+    ),
+    guardians: guardianDocs
+      .filter(visible)
+      .map((guardian) => ({ fullName: guardian.fullName, id: guardian._id })),
     isMinor: traveller.isMinor ?? null,
   };
 }

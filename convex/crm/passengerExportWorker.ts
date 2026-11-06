@@ -109,7 +109,7 @@ export function mapPassengerExportRow(row: PassengerExportSourceRow): PassengerE
     fullName: row.fullName,
     gender: row.gender,
     givenName: row.givenName,
-    guardianName: row.guardianName,
+    guardianNames: row.guardianNames,
     hotelAllocation: row.hotelAllocation,
     isMinor: row.isMinor,
     passport,

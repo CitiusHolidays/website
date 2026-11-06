@@ -59,9 +59,11 @@ import {
 } from "./passportPolicy";
 import { resolveTravellerAccess, travellerInGroupScope } from "./tourManagerGroupScope";
 import {
-  assertGuardianLink,
+  assertGuardianSet,
   clearGuardianLinksTo,
+  guardianIdsOf,
   guardianOptionsFor,
+  guardianSlotsPatch,
   minorsCoveredBy,
   travellerGuardianFacts,
 } from "./travellerGuardians";
@@ -348,15 +350,26 @@ function addVisaRequirementPatch(
 }
 
 interface GuardianChangeArgs {
-  guardianTravellerId?: string | null;
+  guardianTravellerIds?: string[];
   isMinor?: boolean | null;
 }
 
+async function loadRequestedGuardians(ctx: MutationCtx, rawIds: readonly string[]) {
+  const ids = rawIds.map((rawId) => {
+    const id = ctx.db.normalizeId("travellers", rawId.trim());
+    if (!id) {
+      throw new ConvexError("Invalid guardian id");
+    }
+    return id;
+  });
+  return { docs: await Promise.all(ids.map((id) => ctx.db.get("travellers", id))), ids };
+}
+
 /**
- * Applies a manual minor/guardian edit (ADR 0018). A guardian must be an adult Traveller on the
- * same Job Card, a minor cannot become someone's guardian, and a traveller who is no longer a
- * minor keeps no guardian link. Choosing or clearing a guardian retires any pending
- * spreadsheet reference.
+ * Applies a manual minor/guardian edit (ADR 0018). A minor has up to two guardians, each an
+ * adult Traveller on the same Job Card and never the minor themself; a minor cannot become
+ * someone's guardian, and a traveller who is no longer a minor keeps no guardian links. Setting
+ * the guardians (an empty list clears them) retires any pending spreadsheet references.
  */
 async function addGuardianPatch(
   ctx: MutationCtx,
@@ -365,8 +378,8 @@ async function addGuardianPatch(
   patch: RuntimeObject
 ) {
   const touchesAge = args.isMinor !== undefined;
-  const touchesGuardian = args.guardianTravellerId !== undefined;
-  if (!(touchesAge || touchesGuardian)) {
+  const touchesGuardians = args.guardianTravellerIds !== undefined;
+  if (!(touchesAge || touchesGuardians)) {
     return;
   }
   const nextIsMinor = touchesAge ? (args.isMinor ?? undefined) : traveller.isMinor;
@@ -381,21 +394,14 @@ async function addGuardianPatch(
       );
     }
   }
-  let nextGuardianId = traveller.guardianTravellerId;
-  if (touchesGuardian) {
-    const rawGuardianId = args.guardianTravellerId?.trim() ?? "";
-    nextGuardianId = undefined;
-    if (rawGuardianId) {
-      const guardianId = ctx.db.normalizeId("travellers", rawGuardianId);
-      if (!guardianId) {
-        throw new ConvexError("Invalid guardian id");
-      }
-      assertGuardianLink(traveller, nextIsMinor, await ctx.db.get("travellers", guardianId));
-      nextGuardianId = guardianId;
-    }
-    patch.guardianImportReference = undefined;
+  let nextGuardianIds = guardianIdsOf(traveller);
+  if (args.guardianTravellerIds !== undefined) {
+    const requested = await loadRequestedGuardians(ctx, args.guardianTravellerIds);
+    assertGuardianSet(traveller, nextIsMinor, requested.docs);
+    nextGuardianIds = requested.ids;
+    patch.guardianImportReferences = undefined;
   }
-  patch.guardianTravellerId = nextIsMinor === true ? nextGuardianId : undefined;
+  Object.assign(patch, guardianSlotsPatch(nextIsMinor === true ? nextGuardianIds : []));
 }
 
 async function syncTravellerVisaRecord(
@@ -759,7 +765,7 @@ export const create = mutation({
     fullName: v.string(),
     gender: v.optional(v.string()),
     givenName: v.optional(v.string()),
-    guardianTravellerId: v.optional(v.union(v.string(), v.null())),
+    guardianTravellerIds: v.optional(v.array(v.string())),
     guestCompanions: v.optional(v.string()),
     guestType: guestTypeValidator,
     hotelAllocation: v.optional(v.string()),
@@ -814,14 +820,14 @@ export const create = mutation({
         isMinor: args.isMinor === true,
       })),
     });
-    if (args.guardianTravellerId) {
+    if (args.guardianTravellerIds?.length) {
       const inserted = await ctx.db.get("travellers", id);
       if (inserted) {
         const guardianPatch: RuntimeObject = {};
         await addGuardianPatch(
           ctx,
           inserted,
-          { guardianTravellerId: args.guardianTravellerId },
+          { guardianTravellerIds: args.guardianTravellerIds },
           guardianPatch
         );
         await patchWithE2eOwnership(ctx, "travellers", id, guardianPatch);
@@ -863,7 +869,7 @@ export const update = mutation({
     fullName: v.optional(v.string()),
     gender: v.optional(v.string()),
     givenName: v.optional(v.string()),
-    guardianTravellerId: v.optional(v.union(v.string(), v.null())),
+    guardianTravellerIds: v.optional(v.array(v.string())),
     guestCompanions: v.optional(v.string()),
     guestType: v.optional(guestTypeValidator),
     hotelAllocation: v.optional(v.string()),

@@ -105,15 +105,13 @@ describe("ToPassengerImportInput", () => {
     expect(
       toPassengerImportInput({
         ageYears: 9,
-        guardianContact: "98765 00001",
-        guardianName: "MEERA IYER",
+        guardians: [{ contact: "98765 00001", name: "MEERA IYER" }, { name: "RAVI IYER" }],
         minorStatus: "minor",
         passport: {},
       })
     ).toMatchObject({
       ageYears: 9,
-      guardianContact: "98765 00001",
-      guardianName: "MEERA IYER",
+      guardians: [{ contact: "98765 00001", name: "MEERA IYER" }, { name: "RAVI IYER" }],
       minorStatus: "minor",
     });
   });

@@ -53,6 +53,7 @@ export const TRAVELLER_MASTER_EXPORT_HEADERS = [
   "Travel Batch",
   "Minor",
   "Parent/Guardian",
+  "Parent/Guardian 2",
   "",
 ];
 

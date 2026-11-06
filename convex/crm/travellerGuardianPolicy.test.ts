@@ -3,9 +3,12 @@ import {
   ageOnDate,
   type GuardianCandidate,
   guardianLinkProblem,
+  guardianSetProblem,
+  MAX_GUARDIANS,
   minorReferenceDate,
   normalizeIsoDate,
   resolveGuardianReference,
+  resolveGuardianReferences,
   resolveMinorStatus,
 } from "./travellerGuardianPolicy";
 
@@ -147,5 +150,73 @@ describe("manual guardian links", () => {
       "cannot be a guardian"
     );
     expect(guardianLinkProblem({ ...child, isMinor: false }, parent)).toMatch("minor");
+  });
+});
+
+describe("two guardians", () => {
+  const father: GuardianCandidate = {
+    contactNo: "+91 98765 00002",
+    fullName: "Ravi Iyer",
+    id: "father",
+    isMinor: false,
+    jobCardId: "job",
+  };
+  const roster = [parent, father, child];
+
+  test("Allows at most two guardians per minor", () => {
+    expect(MAX_GUARDIANS).toBe(2);
+  });
+
+  test("Links both parents named in the sheet, each matched on its own", () => {
+    expect(
+      resolveGuardianReferences(
+        child,
+        [{ name: "Meera Iyer" }, { name: "Ravi Iyer" }],
+        () => roster
+      )
+    ).toEqual({ guardianIds: ["parent", "father"], unresolved: [] });
+  });
+
+  test("Links the parent that matches and reports the one that does not", () => {
+    const result = resolveGuardianReferences(
+      child,
+      [{ name: "Meera Iyer" }, { name: "Somebody Else" }],
+      () => roster
+    );
+    expect(result.guardianIds).toEqual(["parent"]);
+    expect(result.unresolved).toHaveLength(1);
+    expect(result.unresolved[0]?.reference).toEqual({ name: "Somebody Else" });
+    expect(result.unresolved[0]?.message).toContain("no traveller with that name");
+  });
+
+  test("Does not link the same adult twice or more than two adults", () => {
+    const duplicate = resolveGuardianReferences(
+      child,
+      [{ name: "Meera Iyer" }, { contact: "9876500001", name: "meera iyer" }],
+      () => roster
+    );
+    expect(duplicate.guardianIds).toEqual(["parent"]);
+    expect(duplicate.unresolved[0]?.message).toContain("already named");
+
+    const third = { ...father, fullName: "Asha Iyer", id: "aunt" };
+    const tooMany = resolveGuardianReferences(
+      child,
+      [{ name: "Meera Iyer" }, { name: "Ravi Iyer" }, { name: "Asha Iyer" }],
+      () => [...roster, third]
+    );
+    expect(tooMany.guardianIds).toEqual(["parent", "father"]);
+    expect(tooMany.unresolved[0]?.message).toContain("at most two guardians");
+  });
+
+  test("Rejects a manual set with duplicates, three people or an ineligible guardian", () => {
+    expect(guardianSetProblem(child, [parent, father])).toBeNull();
+    expect(guardianSetProblem(child, [])).toBeNull();
+    expect(guardianSetProblem(child, [parent, parent])).toMatch("twice");
+    expect(guardianSetProblem(child, [parent, father, { ...father, id: "third" }])).toMatch(
+      "at most two"
+    );
+    expect(guardianSetProblem(child, [parent, { ...father, isMinor: true }])).toMatch(
+      "cannot be a guardian"
+    );
   });
 });

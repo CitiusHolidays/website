@@ -9,18 +9,20 @@ function isMinorFromAgeGroup(ageGroup) {
 }
 
 /**
- * Minor status and guardian (ADR 0018). The guardian is sent only when Operations changed it,
- * so saving other fields never discards an unmatched spreadsheet guardian reference.
+ * Minor status and up to two guardians (ADR 0018). The guardians are sent only when Operations
+ * changed them, so saving other fields never discards unmatched spreadsheet guardian names.
  */
 export function travellerGuardianPayload(form) {
   const payload = { isMinor: isMinorFromAgeGroup(form.ageGroup) };
-  const guardianTravellerId = form.guardianTravellerId || "";
+  const guardianTravellerIds = [form.guardianTravellerId, form.secondGuardianTravellerId].filter(
+    Boolean
+  );
   if (
     form.entityId &&
     form.ageGroup === "minor" &&
-    guardianTravellerId !== (form.initialGuardianTravellerId || "")
+    guardianTravellerIds.join(",") !== (form.initialGuardianTravellerIds || "")
   ) {
-    payload.guardianTravellerId = guardianTravellerId || null;
+    payload.guardianTravellerIds = guardianTravellerIds;
   }
   return payload;
 }

@@ -164,19 +164,61 @@ describe("Passenger spreadsheet imports", () => {
     });
 
     const [parent, child, sibling] = parseTravellerMasterWorkbook(workbook).rows;
-    expect(parent).toMatchObject({ guardianName: "", minorStatus: "adult" });
+    expect(parent).toMatchObject({ guardians: [], minorStatus: "adult" });
     expect(parent.ageYears).toBeUndefined();
     expect(child).toMatchObject({
-      guardianContact: "98765 00001",
-      guardianName: "Iyer Meera",
+      guardians: [{ contact: "98765 00001", name: "Iyer Meera" }],
       passport: { dateOfBirth: "2014-03-02" },
     });
     expect(child.minorStatus).toBeUndefined();
     expect(sibling).toMatchObject({
       ageYears: 9,
-      guardianName: "MEERA IYER",
+      guardians: [{ name: "MEERA IYER" }],
       minorStatus: "minor",
     });
+  });
+
+  test("Reads a second guardian from Parent 2 columns or from one cell naming two people", () => {
+    const columns = parseTravellerMasterWorkbook(
+      workbookFromSheets({
+        "Master list": [
+          [
+            "SURNAME",
+            "GIVEN NAME",
+            "Dealer Name",
+            "Parent 1",
+            "Parent 1 Mobile",
+            "Parent 2",
+            "Parent 2 Email",
+          ],
+          ["IYER", "KAVYA", "D", "Meera Iyer", "98765 00001", "Ravi Iyer", "ravi@example.test"],
+          ["IYER", "ROHAN", "D", "Meera Iyer", "", "", ""],
+        ],
+      })
+    ).rows;
+    expect(columns[0].guardians).toEqual([
+      { contact: "98765 00001", name: "Meera Iyer" },
+      { contact: "ravi@example.test", name: "Ravi Iyer" },
+    ]);
+    expect(columns[1].guardians).toEqual([{ name: "Meera Iyer" }]);
+
+    const combined = parseTravellerMasterWorkbook(
+      workbookFromSheets({
+        "Master list": [
+          ["SURNAME", "GIVEN NAME", "Dealer Name", "Parent/Guardian", "Guardian Contact"],
+          ["IYER", "KAVYA", "D", "Meera Iyer & Ravi Iyer", "98765 00001 / 98765 00002"],
+          ["IYER", "ROHAN", "D", "Meera Iyer and Ravi Iyer", "98765 00001"],
+          ["RAO", "ISHA", "D", "Anil Rao / Asha Rao", ""],
+        ],
+      })
+    ).rows;
+    expect(combined[0].guardians).toEqual([
+      { contact: "98765 00001", name: "Meera Iyer" },
+      { contact: "98765 00002", name: "Ravi Iyer" },
+    ]);
+    // One contact for two names cannot be attributed, so it is left off both.
+    expect(combined[1].guardians).toEqual([{ name: "Meera Iyer" }, { name: "Ravi Iyer" }]);
+    expect(combined[2].guardians).toEqual([{ name: "Anil Rao" }, { name: "Asha Rao" }]);
   });
 
   test("Reads a Travelling with column on passenger sheets and omits absent guardian columns", () => {
@@ -189,12 +231,12 @@ describe("Passenger spreadsheet imports", () => {
         ],
       })
     );
-    expect(withGuardian.rows[0]).toMatchObject({ guardianName: "MEERA IYER" });
+    expect(withGuardian.rows[0]).toMatchObject({ guardians: [{ name: "MEERA IYER" }] });
 
     const withoutGuardian = parsePassengerWorkbook(
       workbookFromSheets({ Sheet1: [header, ["MEERA IYER", "CONFIRMED", "1984-05-10"]] })
     );
-    expect(withoutGuardian.rows[0]).not.toHaveProperty("guardianName");
+    expect(withoutGuardian.rows[0]).not.toHaveProperty("guardians");
     expect(withoutGuardian.rows[0]).not.toHaveProperty("minorStatus");
   });
 

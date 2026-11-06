@@ -28,7 +28,7 @@ function TravellerMobileCard({ row }: { row: TravellerRow }) {
         {row.jobCode} · {row.travelHub || "No hub"} · {travelBatchDisplayLabel(row)}
       </div>
       <GuestContactDetails row={row} />
-      {row.isMinor || row.guardianOf?.length || row.guardianSheetReference ? (
+      {row.isMinor || row.guardianOf?.length || row.guardianSheetReferences?.length ? (
         <TravellerGuardianDetails row={row} />
       ) : null}
       <div className="flex flex-wrap gap-2 pt-1">
@@ -72,42 +72,54 @@ function ageGroupFormValue(isMinor: boolean | null | undefined) {
 }
 
 function guardianFormFields(row: TravellerRow) {
-  const guardianTravellerId = row.guardian ? String(row.guardian.id) : "";
+  const guardianIds = (row.guardians ?? []).map((guardian) => String(guardian.id));
   return {
     ageGroup: ageGroupFormValue(row.isMinor),
-    guardianTravellerId,
-    initialGuardianTravellerId: guardianTravellerId,
+    guardianTravellerId: guardianIds[0] ?? "",
+    initialGuardianTravellerIds: guardianIds.join(","),
+    secondGuardianTravellerId: guardianIds[1] ?? "",
   };
 }
 
-/** Minor status and guardian links (ADR 0018), kept to one compact cell. */
+function joinNames(people: Array<{ fullName: string }>) {
+  return people.map((person) => person.fullName).join(", ");
+}
+
+function MinorGuardianLines({ row }: { row: TravellerRow }) {
+  const guardians = row.guardians ?? [];
+  const unmatched = row.guardianSheetReferences ?? [];
+  let guardianText = "No guardian linked";
+  if (guardians.length > 0) {
+    guardianText = `${guardians.length === 1 ? "Guardian" : "Guardians"}: ${joinNames(guardians)}`;
+  }
+  return (
+    <div className="min-w-40 space-y-1 text-xs">
+      <Badge label="Minor" meaning="Under 18 on the trip start date" tone="amber" />
+      {guardians.length > 0 || unmatched.length === 0 ? (
+        <div className={guardians.length > 0 ? "" : "text-amber-700"}>{guardianText}</div>
+      ) : null}
+      {unmatched.length > 0 ? (
+        <div className="text-amber-700">Sheet guardian not matched: {unmatched.join(", ")}</div>
+      ) : null}
+    </div>
+  );
+}
+
+/** Minor status and up to two guardian links (ADR 0018), kept to one compact cell. */
 export function TravellerGuardianDetails({ row }: { row: TravellerRow }) {
   const minors = row.guardianOf ?? [];
+  const unmatched = row.guardianSheetReferences ?? [];
   if (row.isMinor) {
-    let guardianText = "No guardian linked";
-    if (row.guardian) {
-      guardianText = `Guardian: ${row.guardian.fullName}`;
-    } else if (row.guardianSheetReference) {
-      guardianText = `Sheet guardian not matched: ${row.guardianSheetReference}`;
-    }
-    return (
-      <div className="min-w-40 space-y-1 text-xs">
-        <Badge label="Minor" meaning="Under 18 on the trip start date" tone="amber" />
-        <div className={row.guardian ? "" : "text-amber-700"}>{guardianText}</div>
-      </div>
-    );
+    return <MinorGuardianLines row={row} />;
   }
   if (minors.length > 0) {
-    return (
-      <div className="min-w-40 text-xs">
-        Guardian of {minors.map((minor) => minor.fullName).join(", ")}
-      </div>
-    );
+    return <div className="min-w-40 text-xs">Guardian of {joinNames(minors)}</div>;
   }
-  if (row.guardianSheetReference) {
+  if (unmatched.length > 0) {
     return (
       <div className="min-w-40 text-amber-700 text-xs">
-        Age not recorded · sheet guardian: {row.guardianSheetReference}
+        Age not recorded · sheet {unmatched.length === 1 ? "guardian" : "guardians"}:{" "}
+        {unmatched.join(", ")}
       </div>
     );
   }

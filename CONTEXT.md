@@ -121,7 +121,7 @@ A Traveller under 18 on the trip's start date (the Travel in Series start, else 
 _Avoid_: Child room type, infant fare type, treating an unrecorded age as adult
 
 **Guardian**:
-The adult Traveller on the same Job Card responsible for a Minor. The link is recorded on the Minor; it is not parental consent and grants no Customer Travel Account access by itself.
+An adult Traveller on the same Job Card responsible for a Minor; a Minor has up to two Guardians (for example both parents). The link is recorded on the Minor; it is not parental consent and grants no Customer Travel Account access by itself.
 _Avoid_: Guests travelling with, Client contact, a minor or a traveller on another Job Card as guardian
 
 **Customer Document Intake**:

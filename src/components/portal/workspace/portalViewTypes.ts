@@ -333,9 +333,9 @@ export interface PortalTravellerListRow {
   fullName: string;
   gender?: string;
   givenName?: string;
-  guardian?: PortalTravellerLink | null;
   guardianOf?: PortalTravellerLink[];
-  guardianSheetReference?: string;
+  guardianSheetReferences?: string[];
+  guardians?: PortalTravellerLink[];
   guestCompanions?: string;
   guestType?: string;
   hotelAllocation?: string;

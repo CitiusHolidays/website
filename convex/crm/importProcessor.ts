@@ -591,33 +591,40 @@ function addKindSpecificTravellerFields(
  * known to be an adult needs no guardian: a "Travelling with" value there names companions,
  * so it is ignored and any earlier link is retired.
  */
+type ImportGuardianFields = Pick<
+  Partial<Doc<"travellers">>,
+  "firstGuardianTravellerId" | "guardianImportReferences" | "isMinor" | "secondGuardianTravellerId"
+>;
+
 function guardianFieldsForImport(
   row: InternalPassengerImportRow,
   job: Doc<"jobCards">,
   now: number,
   travelBatch?: Doc<"travelBatches"> | null
-): Pick<Partial<Doc<"travellers">>, "guardianImportReference" | "guardianTravellerId" | "isMinor"> {
-  const fields: Pick<
-    Partial<Doc<"travellers">>,
-    "guardianImportReference" | "guardianTravellerId" | "isMinor"
-  > = {};
+): ImportGuardianFields {
   const isMinor = resolveMinorStatus(
     { ageYears: row.ageYears, birthDate: row.birthDate, minorStatus: row.minorStatus },
     minorReferenceDate(travelBatch?.travelStartDate, job.travelStartDate, now)
   );
   if (isMinor === false) {
-    return { guardianImportReference: undefined, guardianTravellerId: undefined, isMinor };
+    return {
+      firstGuardianTravellerId: undefined,
+      guardianImportReferences: undefined,
+      isMinor,
+      secondGuardianTravellerId: undefined,
+    };
   }
+  const fields: ImportGuardianFields = {};
   if (isMinor !== undefined) {
     fields.isMinor = isMinor;
   }
-  const guardianName = trimmed(row.guardianName);
-  if (guardianName) {
-    const guardianContact = trimmed(row.guardianContact);
-    fields.guardianImportReference = {
-      ...propertiesWhen(guardianContact, () => ({ contact: guardianContact })),
-      name: guardianName,
-    };
+  const references = (row.guardians ?? []).flatMap((guardian) => {
+    const name = trimmed(guardian.name);
+    const contact = trimmed(guardian.contact);
+    return name ? [{ ...propertiesWhen(contact, () => ({ contact })), name }] : [];
+  });
+  if (references.length > 0) {
+    fields.guardianImportReferences = references;
   }
   return fields;
 }

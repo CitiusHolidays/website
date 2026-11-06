@@ -11,13 +11,32 @@ const text = (row) =>
     .trim();
 
 describe("Traveller guardian cell", () => {
-  test("Names the guardian on a minor, or says none is linked", () => {
-    expect(text({ guardian: { fullName: "Meera Iyer", id: "g1" }, isMinor: true })).toBe(
+  test("Names both guardians on a minor, or says none is linked", () => {
+    expect(
+      text({
+        guardians: [
+          { fullName: "Meera Iyer", id: "g1" },
+          { fullName: "Ravi Iyer", id: "g2" },
+        ],
+        isMinor: true,
+      })
+    ).toBe("Minor Guardians: Meera Iyer, Ravi Iyer");
+    expect(text({ guardians: [{ fullName: "Meera Iyer", id: "g1" }], isMinor: true })).toBe(
       "Minor Guardian: Meera Iyer"
     );
-    expect(text({ guardian: null, isMinor: true })).toBe("Minor No guardian linked");
-    expect(text({ guardian: null, guardianSheetReference: "Anil Rao", isMinor: true })).toBe(
-      "Minor Sheet guardian not matched: Anil Rao"
+    expect(text({ guardians: [], isMinor: true })).toBe("Minor No guardian linked");
+  });
+
+  test("Shows sheet guardians that did not match next to the linked one", () => {
+    expect(
+      text({
+        guardianSheetReferences: ["Anil Rao"],
+        guardians: [{ fullName: "Meera Iyer", id: "g1" }],
+        isMinor: true,
+      })
+    ).toBe("Minor Guardian: Meera Iyer Sheet guardian not matched: Anil Rao");
+    expect(text({ guardianSheetReferences: ["Anil Rao", "Asha Rao"], isMinor: null })).toBe(
+      "Age not recorded · sheet guardians: Anil Rao, Asha Rao"
     );
   });
 

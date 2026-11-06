@@ -7,6 +7,8 @@
  */
 
 export const MINOR_AGE_LIMIT = 18;
+/** Owner decision 2026-11-06: a minor may have up to two guardians (for example both parents). */
+export const MAX_GUARDIANS = 2;
 const MAX_PLAUSIBLE_AGE = 130;
 const ISO_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const NON_NAME_CHARACTERS = /[^\p{L}\p{N}]+/gu;
@@ -245,6 +247,69 @@ export function guardianLinkProblem(
   }
   if (guardian.isMinor === true) {
     return "A minor cannot be a guardian.";
+  }
+  return null;
+}
+
+export interface UnresolvedGuardianReference {
+  message: string;
+  reference: GuardianReference;
+}
+
+export interface GuardianReferenceResolution {
+  guardianIds: string[];
+  unresolved: UnresolvedGuardianReference[];
+}
+
+/**
+ * Resolves every guardian a sheet names for one minor. Each name is matched on its own with the
+ * unique-adult rule; matches are linked (at most two, never the same adult twice) and every
+ * other name is returned with the reason it was not linked.
+ */
+export function resolveGuardianReferences(
+  minor: GuardianCandidate,
+  references: readonly GuardianReference[],
+  candidatesFor: (reference: GuardianReference) => readonly GuardianCandidate[]
+): GuardianReferenceResolution {
+  const guardianIds: string[] = [];
+  const unresolved: UnresolvedGuardianReference[] = [];
+  for (const reference of references) {
+    const resolution = resolveGuardianReference(minor, reference, candidatesFor(reference));
+    if (resolution.kind !== "linked") {
+      unresolved.push({ message: resolution.message, reference });
+    } else if (guardianIds.includes(resolution.guardianId)) {
+      unresolved.push({
+        message: `Guardian ${displayName(reference)} not linked: already named as this minor's guardian.`,
+        reference,
+      });
+    } else if (guardianIds.length >= MAX_GUARDIANS) {
+      unresolved.push({
+        message: `Guardian ${displayName(reference)} not linked: a minor can have at most two guardians.`,
+        reference,
+      });
+    } else {
+      guardianIds.push(resolution.guardianId);
+    }
+  }
+  return { guardianIds, unresolved };
+}
+
+/** Why a manual set of guardians is not allowed, or null when it is. An empty set clears. */
+export function guardianSetProblem(
+  minor: GuardianCandidate,
+  guardians: readonly GuardianCandidate[]
+): string | null {
+  if (guardians.length > MAX_GUARDIANS) {
+    return "A minor can have at most two guardians.";
+  }
+  if (new Set(guardians.map((guardian) => guardian.id)).size !== guardians.length) {
+    return "The same guardian cannot be chosen twice.";
+  }
+  for (const guardian of guardians) {
+    const problem = guardianLinkProblem(minor, guardian);
+    if (problem) {
+      return problem;
+    }
   }
   return null;
 }

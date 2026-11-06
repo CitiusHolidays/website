@@ -3102,16 +3102,17 @@ export default defineSchema({
     domesticTravelRequired: v.optional(v.boolean()),
     email: v.optional(v.string()),
     extensionOfTour: v.optional(v.boolean()),
+    // Minor guardianship (ADR 0018): up to two adult Travellers on the same Job Card, held in two
+    // indexed slots because Convex cannot index array membership.
+    firstGuardianTravellerId: v.optional(v.id("travellers")),
     foodPreference,
     fullName: v.string(),
     gender: v.optional(v.string()),
     givenName: v.optional(v.string()),
-    // Minor guardianship (ADR 0018): an adult Traveller on the same Job Card. The import
-    // reference keeps the spreadsheet's Parent/Guardian text until it resolves to one adult.
-    guardianImportReference: v.optional(
-      v.object({ contact: v.optional(v.string()), name: v.string() })
+    // Spreadsheet Parent/Guardian names not yet resolved to exactly one adult (ADR 0018).
+    guardianImportReferences: v.optional(
+      v.array(v.object({ contact: v.optional(v.string()), name: v.string() }))
     ),
-    guardianTravellerId: v.optional(v.id("travellers")),
     guestCompanions: v.optional(v.string()),
     guestType,
     hasPassportScan: v.optional(v.boolean()),
@@ -3133,6 +3134,7 @@ export default defineSchema({
     passportStatus: v.optional(v.string()),
     paymentType,
     roomType,
+    secondGuardianTravellerId: v.optional(v.id("travellers")),
     sourceDealerCode: v.optional(v.string()),
     sourceDealerName: v.optional(v.string()),
     sourceDescription: v.optional(v.string()),
@@ -3159,7 +3161,8 @@ export default defineSchema({
     .index("by_travelBatchId", ["travelBatchId"])
     .index("by_jobCardId_and_travelBatchId", ["jobCardId", "travelBatchId"])
     .index("by_jobCardId_importKey", ["jobCardId", "importKey"])
-    .index("by_guardianTravellerId", ["guardianTravellerId"])
+    .index("by_firstGuardianTravellerId", ["firstGuardianTravellerId"])
+    .index("by_secondGuardianTravellerId", ["secondGuardianTravellerId"])
     .index("by_visaStatus", ["visaStatus"])
     .index("by_ticketStatus", ["ticketStatus"])
     .searchIndex("search_list", { searchField: "listSearchText" }),

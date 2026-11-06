@@ -193,10 +193,10 @@ Batches (the whole Job Card when the assignment has no batch) and no passport sc
 portal. Their headcounts and announcements from the tour manager app appear read-only in the Job
 Card's **Field updates** panel for Operations. See [the field API](CITIUS_CONNECT_FIELD_API.md).
 
-A traveller can be recorded as a Minor and linked to a Guardian: an adult traveller on the same
-Job Card. Operations set the age group and guardian in the traveller editor; the Travellers list
-shows the guardian on a minor and the minors a guardian covers, naming only travellers the reader
-can already see. See [ADR 0018](adr/0018-link-minors-to-a-guardian-traveller.md).
+A traveller can be recorded as a Minor and linked to up to two Guardians: adult travellers on the
+same Job Card. Operations set the age group and guardians in the traveller editor; the Travellers
+list shows the guardians on a minor and the minors a guardian covers, naming only travellers the
+reader can already see. See [ADR 0018](adr/0018-link-minors-to-a-guardian-traveller.md).
 
 Traveller master includes gender (`Male` or `Female`) and passport expiry. Passport expiry display should use the same resolved date as exports, with critical/warning countdowns when expiry blocks or nears blocking travel relative to job start.
 
@@ -223,12 +223,14 @@ Passenger import/export supports:
 
 Traveller master, rooming, passport, visa, and ticketing templates include Travel Batch and gender where relevant.
 
-Any passenger-family sheet may carry Parent/Guardian name and contact columns plus Minor or Age
-columns. Minor status comes from Minor, then Age, then Date of Birth on the trip start date. After
-the final batch commits, each minor's guardian name is matched once against the Job Card roster
-(narrowed by phone or email when given); anything other than exactly one eligible adult is listed
-as a warning in the reconciliation report, never guessed. The traveller master export adds Minor
-and Parent/Guardian columns that import reads back.
+Any passenger-family sheet may carry Parent/Guardian name and contact columns (a second pair such
+as Parent 2 / Guardian 2, or one cell naming two people joined by "&", "and" or "/") plus Minor or
+Age columns. Minor status comes from Minor, then Age, then Date of Birth on the trip start date.
+After the final batch commits, each named guardian is matched on its own against the Job Card
+roster (narrowed by phone or email when given). Matches are linked; anything other than exactly
+one eligible adult is listed as a warning in the reconciliation report, never guessed. The
+traveller master export adds Minor, Parent/Guardian and Parent/Guardian 2 columns that import
+reads back.
 
 Room type labels are canonicalized as Single, Twin, Double, Triple, Child with Bed, and Family Room. Legacy `SGL`, `DBL`, and `TPL` values map into the canonical labels.
 

@@ -133,7 +133,8 @@ function travellerRow(row: PassengerExportRow, index: number): PassengerExportRo
     row.sourceRsoName || "",
     row.travelBatchReference || "",
     minorLabel(row.isMinor),
-    row.guardianName || "",
+    row.guardianNames?.[0] || "",
+    row.guardianNames?.[1] || "",
     "",
   ];
 }

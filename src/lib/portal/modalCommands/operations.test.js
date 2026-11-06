@@ -8,19 +8,26 @@ describe("Traveller guardian form payload", () => {
     expect(travellerGuardianPayload({ ageGroup: "" })).toEqual({ isMinor: null });
   });
 
-  test("Sends a guardian only when Operations changed it on an existing minor", () => {
-    const saved = { ageGroup: "minor", entityId: "t1", initialGuardianTravellerId: "g1" };
-    expect(travellerGuardianPayload({ ...saved, guardianTravellerId: "g1" })).toEqual({
-      isMinor: true,
-    });
-    expect(travellerGuardianPayload({ ...saved, guardianTravellerId: "g2" })).toEqual({
-      guardianTravellerId: "g2",
+  test("Sends both guardians only when Operations changed them on an existing minor", () => {
+    const saved = {
+      ageGroup: "minor",
+      entityId: "t1",
+      guardianTravellerId: "g1",
+      initialGuardianTravellerIds: "g1,g2",
+      secondGuardianTravellerId: "g2",
+    };
+    expect(travellerGuardianPayload(saved)).toEqual({ isMinor: true });
+    expect(travellerGuardianPayload({ ...saved, secondGuardianTravellerId: "g3" })).toEqual({
+      guardianTravellerIds: ["g1", "g3"],
       isMinor: true,
     });
     expect(travellerGuardianPayload({ ...saved, guardianTravellerId: "" })).toEqual({
-      guardianTravellerId: null,
+      guardianTravellerIds: ["g2"],
       isMinor: true,
     });
+    expect(
+      travellerGuardianPayload({ ...saved, guardianTravellerId: "", secondGuardianTravellerId: "" })
+    ).toEqual({ guardianTravellerIds: [], isMinor: true });
     expect(travellerGuardianPayload({ ageGroup: "minor", guardianTravellerId: "g1" })).toEqual({
       isMinor: true,
     });

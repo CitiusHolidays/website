@@ -60,8 +60,8 @@ const minorStatusValidator = v.optional(v.union(v.literal("adult"), v.literal("m
 /** Parent/Guardian columns and age evidence from the sheet (ADR 0018). */
 const guardianImportFields = {
   ageYears: v.optional(v.number()),
-  guardianContact: v.optional(v.string()),
-  guardianName: v.optional(v.string()),
+  // Up to two Parent/Guardian names per row, each with an optional phone or email.
+  guardians: v.optional(v.array(v.object({ contact: v.optional(v.string()), name: v.string() }))),
   minorStatus: minorStatusValidator,
 };
 

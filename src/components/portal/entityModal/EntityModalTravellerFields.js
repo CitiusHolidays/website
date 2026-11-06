@@ -19,36 +19,51 @@ const AGE_GROUP_OPTIONS = [
   { label: "Minor (under 18 on the trip start date)", value: "minor" },
 ];
 
-/** Minor status and guardian (ADR 0018): an adult traveller on the same Job Card. */
+function guardianSelectOptions(options, excludedId) {
+  return [
+    { label: options ? "No guardian" : "Loading travellers…", value: "" },
+    ...(options ?? [])
+      .filter((option) => option.id !== excludedId)
+      .map((option) => ({ label: option.fullName, value: option.id })),
+  ];
+}
+
+/** Minor status and up to two guardians (ADR 0018): adult travellers on the same Job Card. */
 function TravellerGuardianFields({ form, updateForm }) {
   const isMinor = form.ageGroup === "minor";
   const options = useQuery(
     api.crm.travellers.listGuardianOptions,
     isMinor && form.entityId ? { travellerId: form.entityId } : "skip"
   );
-  let guardianField = null;
+  let guardianFields = null;
   if (isMinor && form.entityId) {
-    guardianField = (
-      <Select
-        formField="guardianTravellerId"
-        label="Parent / guardian"
-        onChange={updateForm}
-        options={[
-          { label: options ? "No guardian linked" : "Loading travellers…", value: "" },
-          ...(options ?? []).map((option) => ({ label: option.fullName, value: option.id })),
-        ]}
-        value={form.guardianTravellerId || ""}
-      />
+    guardianFields = (
+      <>
+        <Select
+          formField="guardianTravellerId"
+          label="Parent / guardian"
+          onChange={updateForm}
+          options={guardianSelectOptions(options, form.secondGuardianTravellerId)}
+          value={form.guardianTravellerId || ""}
+        />
+        <Select
+          formField="secondGuardianTravellerId"
+          label="Second parent / guardian"
+          onChange={updateForm}
+          options={guardianSelectOptions(options, form.guardianTravellerId)}
+          value={form.secondGuardianTravellerId || ""}
+        />
+      </>
     );
   } else if (isMinor) {
-    guardianField = (
+    guardianFields = (
       <p className="font-sans text-brand-muted text-xs">
-        Save this traveller first, then choose their parent or guardian.
+        Save this traveller first, then choose their parents or guardians.
       </p>
     );
   }
   return (
-    <EntityModalFieldSection title="Minor and guardian">
+    <EntityModalFieldSection title="Minor and guardians">
       <Select
         formField="ageGroup"
         label="Age group"
@@ -56,9 +71,9 @@ function TravellerGuardianFields({ form, updateForm }) {
         options={AGE_GROUP_OPTIONS}
         value={form.ageGroup || ""}
       />
-      {guardianField}
+      {guardianFields}
       <p className="col-span-full font-sans text-brand-muted text-xs">
-        A minor has no login of their own; the guardian must be an adult on this Job Card.
+        A minor has no login of their own. Up to two guardians, each an adult on this Job Card.
       </p>
     </EntityModalFieldSection>
   );
