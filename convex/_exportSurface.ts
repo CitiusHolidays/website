@@ -98,6 +98,7 @@ export const __convexExportSurface = [
   crm_finance.removeExpense,
   crm_imports.previewPassengerImportRows,
   crm_imports.commitPassengerImportRow,
+  crm_imports.resolveImportedGuardianLinks,
   crm_imports.claimPassengerImportOperationBatch,
   crm_imports.getPassengerImportBatchResult,
   crm_imports.finalizePassengerImportBatch,

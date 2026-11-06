@@ -66,7 +66,13 @@ export interface ImportedPassportDetails {
   number: string;
 }
 
+export interface ImportedGuardian {
+  contact?: string;
+  name: string;
+}
+
 export interface ImportedTravellerRow {
+  ageYears?: number;
   biometricAppointmentDate?: string;
   contactNo: string;
   domesticTravelRequired: boolean;
@@ -74,11 +80,13 @@ export interface ImportedTravellerRow {
   fullName: string;
   gender: string;
   givenName: string;
+  guardians?: ImportedGuardian[];
   guestType: string;
   hotelAllocation?: string;
   id: string;
   importKey: string;
   importKind: ImportKind;
+  minorStatus?: "adult" | "minor";
   passport: ImportedPassportDetails;
   passportStatus: string;
   paymentType: string;
@@ -559,6 +567,173 @@ function templateImportKey({
 
 const TRAVEL_BATCH_HEADER_NAMES = ["Travel Batch", "Travel Batch Reference", "Batch Reference"];
 
+/** Parent/Guardian columns (ADR 0018); a minor is linked to up to two matching adults. */
+const GUARDIAN_NAME_HEADERS = [
+  "Parent/Guardian",
+  "Parent/Guardian Name",
+  "Parent/Guardian 1",
+  "Parent or Guardian",
+  "Guardian",
+  "Guardian Name",
+  "Guardian 1",
+  "Guardian 1 Name",
+  "Parent",
+  "Parent Name",
+  "Parent 1",
+  "Parent 1 Name",
+  "Travelling with",
+  "Traveling with",
+  "Accompanied by",
+];
+const GUARDIAN_CONTACT_HEADERS = [
+  "Parent/Guardian Contact",
+  "Parent/Guardian Contact No",
+  "Parent/Guardian Phone",
+  "Parent/Guardian Email",
+  "Guardian Contact",
+  "Guardian Contact No",
+  "Guardian Contact Number",
+  "Guardian Mobile",
+  "Guardian Phone",
+  "Guardian Email",
+  "Guardian 1 Contact",
+  "Guardian 1 Mobile",
+  "Guardian 1 Phone",
+  "Guardian 1 Email",
+  "Parent Contact",
+  "Parent Contact No",
+  "Parent Mobile",
+  "Parent Phone",
+  "Parent Email",
+  "Parent 1 Contact",
+  "Parent 1 Mobile",
+  "Parent 1 Phone",
+  "Parent 1 Email",
+];
+const SECOND_GUARDIAN_NAME_HEADERS = [
+  "Parent/Guardian 2",
+  "Parent/Guardian 2 Name",
+  "Guardian 2",
+  "Guardian 2 Name",
+  "Parent 2",
+  "Parent 2 Name",
+  "Second Guardian",
+  "Second Parent",
+];
+const SECOND_GUARDIAN_CONTACT_HEADERS = [
+  "Parent/Guardian 2 Contact",
+  "Parent/Guardian 2 Phone",
+  "Parent/Guardian 2 Email",
+  "Guardian 2 Contact",
+  "Guardian 2 Contact No",
+  "Guardian 2 Mobile",
+  "Guardian 2 Phone",
+  "Guardian 2 Email",
+  "Parent 2 Contact",
+  "Parent 2 Contact No",
+  "Parent 2 Mobile",
+  "Parent 2 Phone",
+  "Parent 2 Email",
+];
+const MINOR_HEADERS = [
+  "Minor",
+  "Is Minor",
+  "Minor (Y/N)",
+  "Minor Yes/No",
+  "Adult/Minor",
+  "Adult/Child",
+];
+const AGE_HEADERS = ["Age", "Age (years)", "Age at travel"];
+const MINOR_VALUES = new Set(["1", "child", "minor", "true", "y", "yes"]);
+const ADULT_VALUES = new Set(["0", "adult", "false", "n", "no"]);
+const WHOLE_NUMBER_RE = /^\d{1,3}$/;
+/** One cell may name two guardians: "Meera Iyer & Ravi Iyer", "... and ...", ".../...". */
+const GUARDIAN_NAME_SEPARATOR_RE = /\s*(?:&|\/|\band\b)\s*/i;
+const GUARDIAN_CONTACT_SEPARATOR_RE = /\s*[&/,;]\s*/;
+
+function firstHeaderIndex(headers: HeaderMap, names: string[]): number | undefined {
+  for (const name of names) {
+    const index = headers.get(headerKey(name));
+    if (index !== undefined) {
+      return index;
+    }
+  }
+}
+
+function minorStatusFromCell(value: WorkbookCellValue): "adult" | "minor" | undefined {
+  const key = headerKey(value);
+  if (MINOR_VALUES.has(key)) {
+    return "minor";
+  }
+  return ADULT_VALUES.has(key) ? "adult" : undefined;
+}
+
+function ageFromCell(value: WorkbookCellValue): number | undefined {
+  const text = clean(value);
+  return WHOLE_NUMBER_RE.test(text) ? Number(text) : undefined;
+}
+
+function splitCell(value: WorkbookCellValue, separator: RegExp) {
+  return clean(value)
+    .split(separator)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Guardians named in one column pair. A cell naming two people splits on "&", "and" or "/";
+ * contacts pair up by position only when there is one per name, so a single phone number
+ * beside two names is not attributed to either.
+ */
+function guardiansFromColumns(
+  row: WorkbookRow,
+  nameIndex: number | undefined,
+  contactIndex: number | undefined
+): ImportedGuardian[] {
+  if (nameIndex === undefined) {
+    return [];
+  }
+  const names = splitCell(row[nameIndex], GUARDIAN_NAME_SEPARATOR_RE);
+  const rawContacts =
+    contactIndex === undefined ? [] : splitCell(row[contactIndex], GUARDIAN_CONTACT_SEPARATOR_RE);
+  const contacts = rawContacts.length === names.length ? rawContacts : [];
+  return names.map((name, index) => {
+    const contact = contacts[index];
+    return contact ? { contact, name } : { name };
+  });
+}
+
+/** Only columns present on the sheet become fields, so other sheets leave links untouched. */
+function guardianFieldsFromRow(
+  row: WorkbookRow,
+  headers: HeaderMap
+): Pick<ImportedTravellerRow, "ageYears" | "guardians" | "minorStatus"> {
+  const fields: Pick<ImportedTravellerRow, "ageYears" | "guardians" | "minorStatus"> = {};
+  const nameIndex = firstHeaderIndex(headers, GUARDIAN_NAME_HEADERS);
+  const secondNameIndex = firstHeaderIndex(headers, SECOND_GUARDIAN_NAME_HEADERS);
+  if (nameIndex !== undefined || secondNameIndex !== undefined) {
+    fields.guardians = [
+      ...guardiansFromColumns(row, nameIndex, firstHeaderIndex(headers, GUARDIAN_CONTACT_HEADERS)),
+      ...guardiansFromColumns(
+        row,
+        secondNameIndex,
+        firstHeaderIndex(headers, SECOND_GUARDIAN_CONTACT_HEADERS)
+      ),
+    ];
+  }
+  const minorIndex = firstHeaderIndex(headers, MINOR_HEADERS);
+  const minorStatus = minorIndex === undefined ? undefined : minorStatusFromCell(row[minorIndex]);
+  if (minorStatus) {
+    fields.minorStatus = minorStatus;
+  }
+  const ageIndex = firstHeaderIndex(headers, AGE_HEADERS);
+  const ageYears = ageIndex === undefined ? undefined : ageFromCell(row[ageIndex]);
+  if (ageYears !== undefined) {
+    fields.ageYears = ageYears;
+  }
+  return fields;
+}
+
 function travelBatchHeaderIndex(headers: HeaderMap): number | undefined {
   for (const name of TRAVEL_BATCH_HEADER_NAMES) {
     const index = headers.get(headerKey(name));
@@ -624,6 +799,7 @@ function templateRowBase({
   );
 
   return {
+    ...guardianFieldsFromRow(row, headers),
     biometricAppointmentDate: normalizeImportedDate(
       getByHeader(row, headers, ["Date of Appointmemt ", "Date of Appointment", "Appointment Date"])
     ),
@@ -876,6 +1052,7 @@ function parsePassengerDataRow({
   return {
     kind: "row",
     value: {
+      ...guardianFieldsFromRow(row, headers),
       contactNo,
       domesticTravelRequired: Boolean(
         ticketing.domesticTicket || ticketing.domesticPnr || ticketing.domesticVendor

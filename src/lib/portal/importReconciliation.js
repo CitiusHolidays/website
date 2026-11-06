@@ -9,8 +9,27 @@ function commitReportRow(row, index) {
   };
 }
 
-/** Build per-row import reconciliation rows from commit rowResults or preview + batch errors. */
-export function buildPassengerImportReportRows(previewRows, batches, rowResults) {
+function guardianWarningRow(warning, index) {
+  return {
+    disposition: "warning",
+    message: warning.message ?? "",
+    rowNumber: warning.sourceRowNumber ?? index + 1,
+    travellerName: warning.fullName ?? "",
+  };
+}
+
+/**
+ * Build per-row import reconciliation rows from commit rowResults or preview + batch errors,
+ * followed by any guardian references the import could not link (ADR 0018).
+ */
+export function buildPassengerImportReportRows(previewRows, batches, rowResults, guardianWarnings) {
+  return [
+    ...buildCommittedReportRows(previewRows, batches, rowResults),
+    ...(guardianWarnings ?? []).map(guardianWarningRow),
+  ];
+}
+
+function buildCommittedReportRows(previewRows, batches, rowResults) {
   if (rowResults?.length) {
     const committedById = new Map(rowResults.map((row) => [row.id, row]));
     const matchedIds = new Set();

@@ -276,7 +276,8 @@ function usePassengerImportModal({
       const reportRows = buildPassengerImportReportRows(
         previewRows,
         result.batches,
-        result.rowResults
+        result.rowResults,
+        result.guardianLinks?.warnings
       );
       setReconciliation({
         jobCode: selectedJob?.jobCode,

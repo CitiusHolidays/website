@@ -9,6 +9,7 @@ import { classifyImportError, publicImportErrorMessage } from "./importWorkerPol
 import { canSeeJobCardRecord, createActivity, jobCardRecordGrant, type PortalAccess } from "./lib";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { buildTravellerListSearchText, markListSearchDirty } from "./listSearch";
+import { minorReferenceDate, resolveMinorStatus } from "./travellerGuardianPolicy";
 
 export interface TravellerDoc {
   _id: Id<"travellers">;
@@ -583,6 +584,51 @@ function addKindSpecificTravellerFields(
   }
 }
 
+/**
+ * Minor status and the sheet's Parent/Guardian reference (ADR 0018). Absent evidence leaves
+ * the stored values alone, so a rooming or visa sheet without these columns changes nothing.
+ * The reference is resolved to a Traveller only after the whole sheet is committed. A row
+ * known to be an adult needs no guardian: a "Travelling with" value there names companions,
+ * so it is ignored and any earlier link is retired.
+ */
+type ImportGuardianFields = Pick<
+  Partial<Doc<"travellers">>,
+  "firstGuardianTravellerId" | "guardianImportReferences" | "isMinor" | "secondGuardianTravellerId"
+>;
+
+function guardianFieldsForImport(
+  row: InternalPassengerImportRow,
+  job: Doc<"jobCards">,
+  now: number,
+  travelBatch?: Doc<"travelBatches"> | null
+): ImportGuardianFields {
+  const isMinor = resolveMinorStatus(
+    { ageYears: row.ageYears, birthDate: row.birthDate, minorStatus: row.minorStatus },
+    minorReferenceDate(travelBatch?.travelStartDate, job.travelStartDate, now)
+  );
+  if (isMinor === false) {
+    return {
+      firstGuardianTravellerId: undefined,
+      guardianImportReferences: undefined,
+      isMinor,
+      secondGuardianTravellerId: undefined,
+    };
+  }
+  const fields: ImportGuardianFields = {};
+  if (isMinor !== undefined) {
+    fields.isMinor = isMinor;
+  }
+  const references = (row.guardians ?? []).flatMap((guardian) => {
+    const name = trimmed(guardian.name);
+    const contact = trimmed(guardian.contact);
+    return name ? [{ ...propertiesWhen(contact, () => ({ contact })), name }] : [];
+  });
+  if (references.length > 0) {
+    fields.guardianImportReferences = references;
+  }
+  return fields;
+}
+
 function travellerPatchForImport(
   row: InternalPassengerImportRow,
   job: Doc<"jobCards">,
@@ -613,6 +659,7 @@ function travellerPatchForImport(
   }
   addImportSourceFields(patch, row);
   addKindSpecificTravellerFields(patch, row, importKind);
+  Object.assign(patch, guardianFieldsForImport(row, job, now, travelBatch));
   return patch;
 }
 
@@ -673,6 +720,7 @@ function travellerCreateDefaults(
     updatedAt: now,
     visaRequired: row.visaStatus ? row.visaStatus !== "Not Required" : row.visaRequired,
     visaStatus,
+    ...guardianFieldsForImport(row, job, now, travelBatch),
   };
 }
 

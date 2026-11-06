@@ -315,6 +315,11 @@ export interface PortalJobCardListRow {
   travelStartDate?: string;
 }
 
+export interface PortalTravellerLink {
+  fullName: string;
+  id: Key;
+}
+
 export interface PortalTravellerListRow {
   arrivingEarly?: boolean;
   biometricAppointmentDate?: string;
@@ -328,10 +333,14 @@ export interface PortalTravellerListRow {
   fullName: string;
   gender?: string;
   givenName?: string;
+  guardianOf?: PortalTravellerLink[];
+  guardianSheetReferences?: string[];
+  guardians?: PortalTravellerLink[];
   guestCompanions?: string;
   guestType?: string;
   hotelAllocation?: string;
   id: Key;
+  isMinor?: boolean | null;
   jobCardId?: string;
   jobCode?: string;
   marketingConsent?: string;

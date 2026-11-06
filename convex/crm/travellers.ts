@@ -41,6 +41,7 @@ import {
   deletedCountResultValidator,
   roomCountSummaryResultValidator,
   travellerIdResultValidator,
+  travellerLinkValidator,
   travellerListPageResultValidator,
   travellerListRowResultValidator,
 } from "./operationsReturnContracts";
@@ -58,6 +59,15 @@ import {
   holdsPassportExpiryAuthority,
 } from "./passportPolicy";
 import { resolveTravellerAccess, travellerInGroupScope } from "./tourManagerGroupScope";
+import {
+  assertGuardianSet,
+  clearGuardianLinksTo,
+  guardianIdsOf,
+  guardianOptionsFor,
+  guardianSlotsPatch,
+  minorsCoveredBy,
+  travellerGuardianFacts,
+} from "./travellerGuardians";
 
 const foodPreferenceValidator = v.union(
   v.literal("Veg"),
@@ -344,6 +354,61 @@ function addVisaRequirementPatch(
   patch.visaStatus = traveller.visaStatus === "Not Required" ? "Not Started" : traveller.visaStatus;
 }
 
+interface GuardianChangeArgs {
+  guardianTravellerIds?: string[];
+  isMinor?: boolean | null;
+}
+
+async function loadRequestedGuardians(ctx: MutationCtx, rawIds: readonly string[]) {
+  const ids = rawIds.map((rawId) => {
+    const id = ctx.db.normalizeId("travellers", rawId.trim());
+    if (!id) {
+      throw new ConvexError("Invalid guardian id");
+    }
+    return id;
+  });
+  return { docs: await Promise.all(ids.map((id) => ctx.db.get("travellers", id))), ids };
+}
+
+/**
+ * Applies a manual minor/guardian edit (ADR 0018). A minor has up to two guardians, each an
+ * adult Traveller on the same Job Card and never the minor themself; a minor cannot become
+ * someone's guardian, and a traveller who is no longer a minor keeps no guardian links. Setting
+ * the guardians (an empty list clears them) retires any pending spreadsheet references.
+ */
+async function addGuardianPatch(
+  ctx: MutationCtx,
+  traveller: Doc<"travellers">,
+  args: GuardianChangeArgs,
+  patch: RuntimeObject
+) {
+  const touchesAge = args.isMinor !== undefined;
+  const touchesGuardians = args.guardianTravellerIds !== undefined;
+  if (!(touchesAge || touchesGuardians)) {
+    return;
+  }
+  const nextIsMinor = touchesAge ? (args.isMinor ?? undefined) : traveller.isMinor;
+  if (touchesAge) {
+    patch.isMinor = nextIsMinor;
+  }
+  if (nextIsMinor === true && traveller.isMinor !== true) {
+    const covered = await minorsCoveredBy(ctx, traveller._id);
+    if (covered.length > 0) {
+      throw new ConvexError(
+        `${traveller.fullName} is the guardian of ${covered.length === 1 ? "a minor" : `${covered.length} minors`}; unlink them before marking this traveller as a minor`
+      );
+    }
+  }
+  let nextGuardianIds = guardianIdsOf(traveller);
+  if (args.guardianTravellerIds !== undefined) {
+    const requested = await loadRequestedGuardians(ctx, args.guardianTravellerIds);
+    assertGuardianSet(traveller, nextIsMinor, requested.docs);
+    nextGuardianIds = requested.ids;
+    patch.guardianImportReferences = undefined;
+  }
+  Object.assign(patch, guardianSlotsPatch(nextIsMinor === true ? nextGuardianIds : []));
+}
+
 async function syncTravellerVisaRecord(
   ctx: MutationCtx,
   args: TravellerUpdateArgs,
@@ -458,27 +523,29 @@ export const listPage = query({
         )
       )
     );
-    const page = sourcePage.page.flatMap((traveller) => {
+    const visibleRows = sourcePage.page.flatMap((traveller) => {
       const job = jobById.get(String(traveller.jobCardId));
       const jobAccess = accessByJobId.get(String(traveller.jobCardId));
       if (!(job && jobAccess && travellerInGroupScope(jobAccess.scope, traveller))) {
         return [];
       }
-      return [
-        scopedPublicTraveller(
-          access,
-          jobAccess.grant,
-          traveller,
-          job,
-          traveller.travelBatchId
-            ? {
-                batchCode: traveller.travelBatchCode,
-                batchReference: traveller.travelBatchReference,
-              }
-            : null
-        ),
-      ];
+      return [{ job, jobAccess, traveller }];
     });
+    const page = await mapInBoundedBatches(visibleRows, async ({ job, jobAccess, traveller }) => ({
+      ...scopedPublicTraveller(
+        access,
+        jobAccess.grant,
+        traveller,
+        job,
+        traveller.travelBatchId
+          ? {
+              batchCode: traveller.travelBatchCode,
+              batchReference: traveller.travelBatchReference,
+            }
+          : null
+      ),
+      ...(await travellerGuardianFacts(ctx, traveller, jobAccess.scope)),
+    }));
     if (args.passportExpiryUrgency) {
       const referenceDate = normalizePassportExpiryDate(args.passportReferenceDate);
       if (!referenceDate) {
@@ -660,9 +727,33 @@ export const getListRow = query({
           batchReference: traveller.travelBatchReference,
         }
       : null;
-    return scopedPublicTraveller(access, jobAccess.grant, traveller, job, travelBatch);
+    return {
+      ...scopedPublicTraveller(access, jobAccess.grant, traveller, job, travelBatch),
+      ...(await travellerGuardianFacts(ctx, traveller, jobAccess.scope)),
+    };
   },
   returns: travellerListRowResultValidator,
+});
+
+/** Adults on the traveller's Job Card that Operations may pick as the minor's guardian. */
+export const listGuardianOptions = query({
+  args: { travellerId: v.string() },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx, PERMISSIONS.MANAGE_TRAVELLERS);
+    const travellerId = ctx.db.normalizeId("travellers", args.travellerId);
+    const traveller = travellerId ? await ctx.db.get("travellers", travellerId) : null;
+    const job = traveller ? await ctx.db.get("jobCards", traveller.jobCardId) : null;
+    if (!(traveller && job)) {
+      return [];
+    }
+    const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
+    const jobAccess = await resolveTravellerAccess(ctx, access, job, linkedQuery);
+    if (!(jobAccess && travellerInGroupScope(jobAccess.scope, traveller))) {
+      return [];
+    }
+    return await guardianOptionsFor(ctx, traveller, jobAccess.scope);
+  },
+  returns: v.array(travellerLinkValidator),
 });
 
 export const create = mutation({
@@ -676,9 +767,11 @@ export const create = mutation({
     fullName: v.string(),
     gender: v.optional(v.string()),
     givenName: v.optional(v.string()),
+    guardianTravellerIds: v.optional(v.array(v.string())),
     guestCompanions: v.optional(v.string()),
     guestType: guestTypeValidator,
     hotelAllocation: v.optional(v.string()),
+    isMinor: v.optional(v.union(v.boolean(), v.null())),
     jobCardId: v.string(),
     passportStatus: v.optional(v.string()),
     paymentType: paymentTypeValidator,
@@ -723,7 +816,25 @@ export const create = mutation({
       travelBatchId,
       now
     );
-    const id = await insertWithE2eOwnership(ctx, "travellers", travellerRow);
+    const id = await insertWithE2eOwnership(ctx, "travellers", {
+      ...travellerRow,
+      ...propertiesWhen(args.isMinor === true || args.isMinor === false, () => ({
+        isMinor: args.isMinor === true,
+      })),
+    });
+    if (args.guardianTravellerIds?.length) {
+      const inserted = await ctx.db.get("travellers", id);
+      if (inserted) {
+        const guardianPatch: RuntimeObject = {};
+        await addGuardianPatch(
+          ctx,
+          inserted,
+          { guardianTravellerIds: args.guardianTravellerIds },
+          guardianPatch
+        );
+        await patchWithE2eOwnership(ctx, "travellers", id, guardianPatch);
+      }
+    }
     await markListSearchDirty(ctx, "travellers", String(id));
     await scheduleCrmMetricSync(ctx, "travellers", String(id));
 
@@ -760,9 +871,11 @@ export const update = mutation({
     fullName: v.optional(v.string()),
     gender: v.optional(v.string()),
     givenName: v.optional(v.string()),
+    guardianTravellerIds: v.optional(v.array(v.string())),
     guestCompanions: v.optional(v.string()),
     guestType: v.optional(guestTypeValidator),
     hotelAllocation: v.optional(v.string()),
+    isMinor: v.optional(v.union(v.boolean(), v.null())),
     passportStatus: v.optional(v.string()),
     paymentType: v.optional(paymentTypeValidator),
     roomType: v.optional(roomTypeValidator),
@@ -810,6 +923,7 @@ export const update = mutation({
     }
     addOptionalTravellerFields(patch, args);
     addVisaRequirementPatch(patch, args, traveller);
+    await addGuardianPatch(ctx, traveller, args, patch);
     // SAFETY: both operands are travelBatches IDs produced by Convex validators or the stored traveller row.
     const nextTravelBatchId = (patch.travelBatchId ?? traveller.travelBatchId) as
       | Id<"travelBatches">
@@ -898,6 +1012,7 @@ export async function deleteTravellerRecord(
   }
 
   await Promise.all([
+    clearGuardianLinksTo(ctx, travellerId, { authUserId: access.authUserId }),
     createActivity(ctx, access, {
       action: "deleted",
       entityId: travellerId,

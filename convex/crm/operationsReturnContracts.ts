@@ -4,6 +4,7 @@ import { marketingConsentValidator } from "../lib/guestContacts";
 import { roomTypeValidator } from "../lib/roomTypeValidators";
 
 const isoDateTimeValidator = v.string();
+export const travellerLinkValidator = v.object({ fullName: v.string(), id: v.id("travellers") });
 const callingStatusValidator = v.union(
   v.literal("Pending"),
   v.literal("Done"),
@@ -37,11 +38,15 @@ export const travellerOutputValidator = v.object({
   fullName: v.string(),
   gender: v.string(),
   givenName: v.string(),
+  guardianOf: v.array(travellerLinkValidator),
+  guardianSheetReferences: v.array(v.string()),
+  guardians: v.array(travellerLinkValidator),
   guestCompanions: v.string(),
   guestType: guestTypeValidator,
   hasPassportScan: v.boolean(),
   hotelAllocation: v.string(),
   id: v.id("travellers"),
+  isMinor: v.union(v.boolean(), v.null()),
   jobCardId: v.id("jobCards"),
   jobCode: v.string(),
   lastMinuteDrop: v.boolean(),
