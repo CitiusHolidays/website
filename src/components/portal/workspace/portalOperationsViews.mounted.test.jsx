@@ -317,6 +317,7 @@ describe("Mounted portal operations views", () => {
     const { PassportDocumentsView } = await import("./operations/PassportDocumentsView");
     const view = await mount(
       <PassportDocumentsView
+        canViewPassportScans
         deleteItem={noopDelete}
         deleteSelected={noopBulkDelete}
         encryptAndStorePassport={noopMutation}
@@ -345,6 +346,42 @@ describe("Mounted portal operations views", () => {
         button.textContent?.includes("Upload")
       )
     ).toBe(true);
+
+    await view.unmount();
+  });
+
+  test("Passport documents send Tour Manager-only users to the tour manager app for scans", async () => {
+    const { PassportDocumentsView } = await import("./operations/PassportDocumentsView");
+    const view = await mount(
+      <PassportDocumentsView
+        canViewPassportScans={false}
+        deleteItem={noopDelete}
+        deleteSelected={noopBulkDelete}
+        encryptAndStorePassport={noopMutation}
+        generateUploadUrl={uploadUrl}
+        getPassportDocument={noopMutation}
+        has={noopHas}
+        removeManyTravellers={noopMutation}
+        removePassport={noopMutation}
+        removeTraveller={noopMutation}
+        travellers={[
+          {
+            fullName: "Asha Patel",
+            hasPassportScan: true,
+            id: "trav-1",
+            jobCode: "JC-0001-NS",
+            passportStatus: "Received",
+          },
+        ]}
+      />
+    );
+
+    expect(view.container.textContent).toContain("Opens in the tour manager app during the trip");
+    expect(
+      [...view.container.querySelectorAll("button")].some((button) =>
+        button.textContent?.includes("Decrypt")
+      )
+    ).toBe(false);
 
     await view.unmount();
   });

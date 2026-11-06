@@ -11,6 +11,7 @@ import {
   canCreateJobCardFromAccounts,
   canManageJobCardCreatorAccess,
   canUseTeamPicker,
+  canViewPassportScansInWorkspace,
   getAccessibleNavGroups,
   getPermissionsForRoles,
   getQueryTypeOptions,
@@ -275,6 +276,16 @@ describe("Portal permissions", () => {
       }
     });
   }
+});
+
+describe("Passport scans in the Staff Workspace", () => {
+  test("Tour Manager visa read alone does not show scans; office roles still do", () => {
+    expect(canViewPassportScansInWorkspace({ roles: ["Tour Manager"] })).toBe(false);
+    expect(canViewPassportScansInWorkspace({ roles: ["Tour Manager", "Operations"] })).toBe(true);
+    expect(canViewPassportScansInWorkspace({ roles: ["Operations Head"] })).toBe(true);
+    expect(canViewPassportScansInWorkspace({ roles: ["Sales"] })).toBe(false);
+    expect(canViewPassportScansInWorkspace({})).toBe(false);
+  });
 });
 
 describe("Event Photo Booth dedicated access", () => {

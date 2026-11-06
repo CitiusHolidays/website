@@ -4,7 +4,11 @@ import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import type { PortalWorkspaceImplementationState } from "@/components/portal/usePortalWorkspaceState";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
-import { canAssignTourManagers, canHeadAssignQueryTeams } from "@/lib/portal/permissions";
+import {
+  canAssignTourManagers,
+  canHeadAssignQueryTeams,
+  canViewPassportScansInWorkspace,
+} from "@/lib/portal/permissions";
 import {
   getPortalRouteAccessibilityMetadata,
   getPortalRouteDefinition,
@@ -334,6 +338,7 @@ function selectPortalRouteContent(
     case "PassportDocumentsView":
       return (
         <PassportDocumentsView
+          canViewPassportScans={canViewPassportScansInWorkspace(workspace.access)}
           deleteItem={workspace.deleteItem}
           deleteSelected={workspace.deleteSelected}
           encryptAndStorePassport={workspace.encryptAndStorePassport}
