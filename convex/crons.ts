@@ -88,6 +88,14 @@ crons.cron(
   {}
 );
 
+// 19:00 UTC is 00:30 IST, just after a field passport window closes at 24:00 IST.
+crons.cron(
+  "purge field passport audit after trips",
+  "0 19 * * *",
+  scheduledJob("operationalScheduledJobs:purgeFieldPassportAudit"),
+  {}
+);
+
 // 21:00 UTC is 02:30 in the office default time zone (Asia/Kolkata).
 crons.cron(
   "purge expired office check-ins",

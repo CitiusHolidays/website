@@ -324,14 +324,14 @@ export function getViewFilterSearchKeys(view) {
 }
 
 /**
- * `canViewPassportScans: false` (a Tour Manager-only user) drops the passport-expiry filter:
- * those users see no expiry dates, and the server refuses the expiry-urgency filter for them.
+ * `canViewPassportExpiry: false` (for example a Tour Manager-only user) drops the passport-expiry
+ * filter: those users see no expiry dates, and the server refuses the expiry-urgency filter.
  */
 export function getListFilterConfig(
   view,
-  { canViewPassportScans = true, pipelineMode = "sales" } = {}
+  { canViewPassportExpiry = true, pipelineMode = "sales" } = {}
 ) {
-  if (!canViewPassportScans) {
+  if (!canViewPassportExpiry) {
     return getListFilterConfig(view, { pipelineMode }).filter(
       (def) => def.field !== "passportExpiryUrgency"
     );

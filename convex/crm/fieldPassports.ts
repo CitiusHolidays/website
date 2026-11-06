@@ -58,7 +58,7 @@ export function fieldPassportWindow(dates: {
 }
 
 /** The batch's own date pair when it records a start date, else the Job Card's; never a mix. */
-function tripDates(job: Doc<"jobCards">, batch: Doc<"travelBatches"> | null) {
+export function tripDates(job: Doc<"jobCards">, batch: Doc<"travelBatches"> | null) {
   const source = batch?.travelStartDate ? batch : job;
   return { travelEndDate: source.travelEndDate, travelStartDate: source.travelStartDate };
 }
@@ -127,7 +127,8 @@ export const authorizeFieldPassportRead = internalMutation({
       ? await ctx.db.get("travelBatches", traveller.travelBatchId)
       : null;
     const now = Date.now();
-    if (!isOpen(fieldPassportWindow(tripDates(job, batch)), now)) {
+    const window = fieldPassportWindow(tripDates(job, batch));
+    if (!(window && isOpen(window, now))) {
       throw new ConvexError(
         "Passports open in the app from the day before the trip starts until the day after it ends"
       );
@@ -145,6 +146,7 @@ export const authorizeFieldPassportRead = internalMutation({
       actorName: access.name,
       actorStaffId,
       jobCardId: job._id,
+      retainUntil: window.closesAt,
       travelBatchId: traveller.travelBatchId,
       travellerId: traveller._id,
     });
