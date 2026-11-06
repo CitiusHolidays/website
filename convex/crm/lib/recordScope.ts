@@ -76,19 +76,21 @@ export function ownsTourManagerJobCard(
   access: PortalAccess,
   job: {
     assignedTourManagerStaffIds?: unknown[] | null;
+    externalTourManagerStaffIds?: unknown[] | null;
     legacyTourManagerNames?: string[] | null;
     tourManagerName?: string | null;
   }
 ) {
+  if (isExternalTourManagerAccess(access)) {
+    // An external tour manager's login reaches a Job Card only through its own assignment,
+    // recorded in its own list; employee lists and names never apply to it.
+    return isAssignedTourManagerStaff(access, job.externalTourManagerStaffIds);
+  }
   if (isAssignedTourManagerStaff(access, job.assignedTourManagerStaffIds)) {
     return true;
   }
-  // An external tour manager's login reaches a Job Card only through its own assignment.
-  if (
-    isExternalTourManagerAccess(access) ||
-    !hasRole(access, "Tour Manager") ||
-    (job.assignedTourManagerStaffIds?.length ?? 0) > 0
-  ) {
+  // Only employee assignments end the legacy name route; an external login never does.
+  if (!hasRole(access, "Tour Manager") || (job.assignedTourManagerStaffIds?.length ?? 0) > 0) {
     return false;
   }
   if (Array.isArray(job.legacyTourManagerNames)) {
@@ -256,6 +258,7 @@ export interface JobCardVisibilityRecord {
   contractingOwnerId?: string | null;
   contractingOwnerName?: string | null;
   createdBy?: string | null;
+  externalTourManagerStaffIds?: unknown[] | null;
   legacyTourManagerNames?: string[] | null;
   operationsOwnerId?: string | null;
   operationsOwnerName?: string | null;

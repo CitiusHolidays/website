@@ -1439,8 +1439,8 @@ export default defineSchema({
   jobCards: defineTable({
     airfarePerPax: v.optional(v.number()),
     approxMargin: v.optional(v.number()),
-    // Derived from tourManagerAssignments (status "Assigned" with a staffId) by
-    // syncJobCardTourManagerVisibility. Grants Job Card scope to every assigned
+    // Derived from tourManagerAssignments (status "Assigned" with a staffId and no external
+    // profile) by syncJobCardTourManagerVisibility. Grants Job Card scope to every assigned
     // staff Tour Manager, independent of the latest-wins tourManagerName.
     assignedTourManagerStaffIds: v.optional(v.array(v.id("staffUsers"))),
     clientName: v.string(),
@@ -1452,6 +1452,11 @@ export default defineSchema({
     createdAt: v.number(),
     createdBy: v.string(),
     destination: v.optional(v.string()),
+    // Also derived by syncJobCardTourManagerVisibility: the app logins of external tour managers
+    // with an active assignment (rows with both an external profile and a staffId). Kept apart
+    // from assignedTourManagerStaffIds so an external login never ends an employee's legacy
+    // name route. Missing means none.
+    externalTourManagerStaffIds: v.optional(v.array(v.id("staffUsers"))),
     jobCode: v.string(),
     landCostPerPax: v.optional(v.number()),
     lastEditedAt: v.optional(v.number()),

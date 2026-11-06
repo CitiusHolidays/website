@@ -14,7 +14,26 @@ interface SetAppAccessArgs {
   enabled: boolean;
   profileId: string;
 }
-const mutationCalls: { args: SetAppAccessArgs; reference: string }[] = [];
+interface CreateAssignmentArgs {
+  externalProfileId: string;
+  jobCardId: string;
+  name: string;
+  travelBatchId?: string;
+}
+const mutationCalls: { args: SetAppAccessArgs | CreateAssignmentArgs; reference: string }[] = [];
+const JOBS = [
+  {
+    canCompose: false,
+    clientName: "Synthetic group",
+    destination: "Bali",
+    jobCardId: "jc-1",
+    jobCode: "JC-1",
+  },
+];
+const SERIES = [
+  { batchCode: "B01", batchReference: "JC-1 / B01", id: "batch-a", travelStartDate: "" },
+  { batchCode: "B02", batchReference: "JC-1 / B02", id: "batch-b", travelStartDate: "" },
+];
 let canManage = true;
 let appAccess: AppAccess = { onboarding: "not_started", status: "none" };
 let email = "meera.external@example.test";
@@ -51,21 +70,31 @@ mock.module("@convex/_generated/api", () => ({
         setAppAccess: "setAppAccess",
         update: "update",
       },
+      jobCards: { listTravelBatches: "listTravelBatches" },
       ops: { createTourManager: "createTourManager", listTourManagers: "listTourManagers" },
       postTourFeedback: { listJobs: "listJobs" },
     },
   },
 }));
 mock.module("convex/react", () => ({
-  useMutation: (reference: string) => (args: SetAppAccessArgs) => {
+  useMutation: (reference: string) => (args: SetAppAccessArgs | CreateAssignmentArgs) => {
     mutationCalls.push({ args, reference });
     return Promise.resolve(null);
   },
-  usePaginatedQuery: (reference: string) => ({
-    loadMore: () => undefined,
-    results: reference === "list" ? [profile()] : [],
-    status: "Exhausted",
-  }),
+  usePaginatedQuery: (
+    reference: string,
+    args: { includeInactive?: boolean; jobCardId?: string; profileId?: string } | "skip"
+  ) => {
+    let results: readonly object[] = [];
+    if (reference === "list") {
+      results = [profile()];
+    } else if (reference === "listJobs") {
+      results = JOBS;
+    } else if (reference === "listTravelBatches" && args !== "skip") {
+      results = SERIES;
+    }
+    return { loadMore: () => undefined, results, status: "Exhausted" };
+  },
   useQuery: (reference: string) => {
     if (reference === "getAccess") {
       return { canManage };
@@ -102,6 +131,16 @@ afterEach(() => {
   email = "meera.external@example.test";
   document.body.replaceChildren();
 });
+
+async function setValue(element: HTMLSelectElement, value: string) {
+  await act(() => {
+    Object.getOwnPropertyDescriptor(dom.window.HTMLSelectElement.prototype, "value")?.set?.call(
+      element,
+      value
+    );
+    element.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+  });
+}
 
 async function mount() {
   const container = document.createElement("div");
@@ -187,6 +226,43 @@ describe("App and CRM access on an external tour manager profile", () => {
       expect(noEmail.container.textContent).toContain("Add an email to the profile first");
     } finally {
       await noEmail.unmount();
+    }
+  });
+
+  test("assigning to a Job Card in series requires choosing the series", async () => {
+    const view = await mount();
+    try {
+      const selects = () => [...view.container.querySelectorAll("select")];
+      const jobSelect = selects().find((item) => item.textContent?.includes("Choose a Job Card"));
+      if (!jobSelect) {
+        throw new Error("Missing Job Card select");
+      }
+      await setValue(jobSelect, "jc-1");
+      const seriesSelect = selects().find((item) =>
+        item.textContent?.includes("Choose the series they lead")
+      );
+      expect(seriesSelect?.required).toBe(true);
+      if (!seriesSelect) {
+        throw new Error("Missing series select");
+      }
+      await setValue(seriesSelect, "batch-b");
+      const form = jobSelect.closest("form");
+      await act(() => {
+        form?.dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
+      });
+      expect(mutationCalls).toEqual([
+        {
+          args: {
+            externalProfileId: "profile-meera",
+            jobCardId: "jc-1",
+            name: "Meera Iyer",
+            travelBatchId: "batch-b",
+          },
+          reference: "createTourManager",
+        },
+      ]);
+    } finally {
+      await view.unmount();
     }
   });
 

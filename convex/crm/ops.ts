@@ -490,6 +490,31 @@ async function resolveTourManagerAssignment(
   };
 }
 
+/**
+ * An external tour manager reaches only the group they are assigned to. On a Job Card split into
+ * Travel Batches, an external-profile assignment must name its batch: without one the login would
+ * get every group's travellers and field passports (it gets none until a batch is set).
+ */
+async function assertExternalBatchChosen(
+  ctx: MutationCtx,
+  externalProfileId: Id<"externalTourManagerProfiles"> | undefined,
+  jobCardId: Id<"jobCards"> | null | undefined,
+  travelBatchId: Id<"travelBatches"> | null | undefined
+) {
+  if (!(externalProfileId && jobCardId) || travelBatchId) {
+    return;
+  }
+  const batch = await ctx.db
+    .query("travelBatches")
+    .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+    .first();
+  if (batch) {
+    throw new ConvexError(
+      "Choose the travel series this external tour manager leads. This Job Card travels in series."
+    );
+  }
+}
+
 async function assertUniqueExternalAssignment(
   ctx: MutationCtx,
   externalProfileId: Id<"externalTourManagerProfiles"> | undefined,
@@ -577,6 +602,7 @@ export async function createTourManagerForTest(
     args
   );
   const { jobCardId, travelBatch } = await resolveTourManagerAssignment(ctx, access, args);
+  await assertExternalBatchChosen(ctx, externalProfileId, jobCardId, travelBatch?._id);
   await assertUniqueExternalAssignment(ctx, externalProfileId, jobCardId, travelBatch?._id);
   const now = Date.now();
   const id = await insertWithE2eOwnership(
@@ -983,6 +1009,20 @@ export async function updateTourManagerForTest(
     staffId = externalProfile.loginId;
   }
   await assertUniqueExternalAssignment(ctx, externalProfileId, jobCardId, travelBatch?._id, id);
+  const nextStatus = String(patch.status ?? tourManager.status);
+  const allocationTouched = [
+    args.externalProfileId,
+    args.jobCardId,
+    args.status,
+    args.travelBatchId,
+  ].some((value) => value !== undefined);
+  if (nextStatus === "Assigned" && allocationTouched) {
+    const nextBatchId =
+      args.travelBatchId !== undefined || args.jobCardId !== undefined
+        ? travelBatch?._id
+        : tourManager.travelBatchId;
+    await assertExternalBatchChosen(ctx, externalProfileId, jobCardId, nextBatchId);
+  }
 
   const name = String(patch.name ?? tourManager.name).trim();
   await patchWithE2eOwnership(ctx, "tourManagerAssignments", id, patch, {

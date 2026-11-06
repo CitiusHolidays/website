@@ -275,22 +275,81 @@ function ProfileForm({
   );
 }
 
+/**
+ * The Travel Batches ("travel in series") of the chosen Job Card. An external tour manager must be
+ * assigned to one series when the Job Card has them, so the login sees only that group.
+ */
+function SeriesPicker({
+  busy,
+  jobCardId,
+  onChange,
+  value,
+}: {
+  busy: boolean;
+  jobCardId: string;
+  onChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
+  value: string;
+}) {
+  const batches = usePaginatedQuery(
+    api.crm.jobCards.listTravelBatches,
+    jobCardId ? { jobCardId } : "skip",
+    { initialNumItems: 50 }
+  );
+  if (!(jobCardId && batches.results.length)) {
+    return null;
+  }
+  return (
+    <label className="block space-y-1">
+      <span className="font-semibold text-sm">Travel in series</span>
+      <select
+        className={inputVariants({ surface: "staff" })}
+        disabled={busy}
+        onChange={onChange}
+        required
+        value={value}
+      >
+        <option value="">Choose the series they lead</option>
+        {batches.results.map((batch) => (
+          <option key={batch.id} value={batch.id}>
+            {batch.batchReference || batch.batchCode}
+            {batch.travelStartDate ? ` · ${formatDisplayDate(batch.travelStartDate)}` : ""}
+          </option>
+        ))}
+      </select>
+      <span className="block text-brand-muted text-xs">
+        With app access they see only this series' travellers.
+      </span>
+    </label>
+  );
+}
+
 function AssignmentForm({ profile }: { profile: Profile }) {
   const jobs = usePaginatedQuery(api.crm.postTourFeedback.listJobs, {}, { initialNumItems: 30 });
   const [jobCardId, setJob] = useState("");
+  const [travelBatchId, setBatch] = useState("");
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const create = useMutation(api.crm.ops.createTourManager);
-  const choose = (event: React.ChangeEvent<HTMLSelectElement>) => setJob(event.target.value);
+  const choose = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setJob(event.target.value);
+    setBatch("");
+  };
+  const chooseBatch = (event: React.ChangeEvent<HTMLSelectElement>) => setBatch(event.target.value);
   const save = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setBusy(true);
     setError("");
     setStatus("");
     try {
-      await create({ externalProfileId: profile.id, jobCardId, name: profile.name });
+      await create({
+        externalProfileId: profile.id,
+        jobCardId,
+        name: profile.name,
+        travelBatchId: travelBatchId || undefined,
+      });
       setJob("");
+      setBatch("");
       setStatus("Assignment added.");
     } catch (failure) {
       setError(travelError(failure, "The assignment could not be added. Try again."));
@@ -317,6 +376,12 @@ function AssignmentForm({ profile }: { profile: Profile }) {
         </select>
       </label>
       <MoreRows loadMore={jobs.loadMore} status={jobs.status} />
+      <SeriesPicker
+        busy={busy}
+        jobCardId={jobCardId}
+        onChange={chooseBatch}
+        value={travelBatchId}
+      />
       <Button disabled={busy} loading={busy} type="submit" variant="outline">
         Add assignment
       </Button>

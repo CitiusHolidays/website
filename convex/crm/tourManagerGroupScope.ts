@@ -46,18 +46,23 @@ function scopeFromAssignments(own: readonly ScopeAssignment[]): TravellerGroupSc
  *
  * 1. The caller's own active staff assignments: any without a batch opens the whole Job Card,
  *    otherwise the assigned batches.
- * 2. Only when `legacyNames` is allowed and no assignment on the Job Card has a staff identity:
+ * 2. Only when `legacyNames` is allowed and no employee assignment (a staff identity without an
+ *    external profile) is on the Job Card:
  *    active name-only rows (no staff id, no external profile) that match the caller's name.
  * 3. Only when the Job Card has no assignment rows at all: the batch-level, then Job Card-level,
  *    `tourManagerName`.
  *
- * External profile names never match. Anything else is an empty group, never the whole roster.
+ * External profile names never match. An external tour manager's login uses rule 1 alone, and on
+ * a Job Card with Travel Batches only its assignments that name a batch count. Anything else is an
+ * empty group, never the whole roster.
  */
 export function tourManagerGroupScopeFrom(input: {
   access: PortalAccess;
   assignments: readonly ScopeAssignment[];
   batches: readonly ScopeBatch[];
   job: { tourManagerName?: string | null };
+  /** Whether the Job Card has Travel Batches; only read for an external tour manager's login. */
+  jobHasBatches?: boolean;
   legacyNames?: boolean;
 }): TravellerGroupScope {
   const { access, assignments } = input;
@@ -67,14 +72,23 @@ export function tourManagerGroupScopeFrom(input: {
       Boolean(assignment.staffId && access.staffId) &&
       String(assignment.staffId) === String(access.staffId)
   );
+  if (access.externalTourManager === true) {
+    // Fail closed: on a Job Card split into Travel Batches, an external login's assignment
+    // without a batch opens no group until Operations sets the batch.
+    const usable =
+      input.jobHasBatches === false
+        ? ownStaff
+        : ownStaff.filter((assignment) => Boolean(assignment.travelBatchId));
+    return scopeFromAssignments(usable) ?? NO_TRAVELLERS;
+  }
   const fromStaff = scopeFromAssignments(ownStaff);
   if (fromStaff) {
     return fromStaff;
   }
+  // Only employee assignments end the legacy name route; an external login never does.
   if (
     input.legacyNames === false ||
-    access.externalTourManager === true ||
-    assignments.some((assignment) => assignment.staffId)
+    assignments.some((assignment) => assignment.staffId && !assignment.externalProfileId)
   ) {
     return NO_TRAVELLERS;
   }
@@ -125,7 +139,21 @@ export async function loadTourManagerGroupScope(
           .query("travelBatches")
           .withIndex("by_jobCardId", (q) => q.eq("jobCardId", job._id))
           .take(MAX_TOUR_MANAGER_ASSIGNMENTS_PER_JOB_CARD);
-  return tourManagerGroupScopeFrom({ access, assignments, batches, job, ...options });
+  const jobHasBatches =
+    access.externalTourManager === true
+      ? (await ctx.db
+          .query("travelBatches")
+          .withIndex("by_jobCardId", (q) => q.eq("jobCardId", job._id))
+          .first()) !== null
+      : undefined;
+  return tourManagerGroupScopeFrom({
+    access,
+    assignments,
+    batches,
+    job,
+    jobHasBatches,
+    ...options,
+  });
 }
 
 /**

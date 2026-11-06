@@ -759,10 +759,12 @@ describe("review fixes: name matches never borrow someone else's assignment", ()
       reportedPastToursNote: "",
       reportedPastToursSource: "staff_recorded",
     });
+    // The Job Card travels in series, so the external assignment names its batch.
     await f.opsHead.mutation(api.crm.ops.createTourManager, {
       externalProfileId: profileId,
       jobCardId: f.ids.jobCardId,
       name: "Meera Iyer",
+      travelBatchId: f.ids.batchA,
     });
     await withPassport(t, f.ids.a1);
     const job = await t.run((ctx) => ctx.db.get("jobCards", f.ids.jobCardId));

@@ -22,7 +22,10 @@ export async function getVisibleJob(
 /** Upper bound on assignment rows read when deriving one Job Card's Tour Manager set. */
 export const MAX_TOUR_MANAGER_ASSIGNMENTS_PER_JOB_CARD = 500;
 
-type AssignmentIdentity = Pick<Doc<"tourManagerAssignments">, "staffId" | "status">;
+type AssignmentIdentity = Pick<
+  Doc<"tourManagerAssignments">,
+  "externalProfileId" | "staffId" | "status"
+>;
 type AssignmentName = Pick<
   Doc<"tourManagerAssignments">,
   "externalProfileId" | "name" | "staffId" | "status"
@@ -48,19 +51,36 @@ export function legacyTourManagerNamesFrom(assignments: readonly AssignmentName[
   return [...names].sort((left, right) => left.localeCompare(right));
 }
 
-/**
- * Staff Tour Managers with an active assignment, deduplicated and sorted so the
- * stored array is deterministic. External (profile-only) and name-only
- * assignments carry no staff identity and grant nothing here.
- */
-export function assignedTourManagerStaffIdsFrom(assignments: readonly AssignmentIdentity[]) {
+function activeStaffIds(
+  assignments: readonly AssignmentIdentity[],
+  external: boolean
+): Id<"staffUsers">[] {
   const ids = new Set<Id<"staffUsers">>();
   for (const assignment of assignments) {
-    if (assignment.status === "Assigned" && assignment.staffId) {
+    if (
+      assignment.status === "Assigned" &&
+      assignment.staffId &&
+      Boolean(assignment.externalProfileId) === external
+    ) {
       ids.add(assignment.staffId);
     }
   }
   return [...ids].sort((left, right) => String(left).localeCompare(String(right)));
+}
+
+/**
+ * Employee Tour Managers with an active assignment, deduplicated and sorted so the stored array
+ * is deterministic. Name-only and external-profile rows (even when they carry an external app
+ * login's staffId) are left out: this list also decides whether the legacy name route still
+ * applies, and an external login must never switch that off for an employee.
+ */
+export function assignedTourManagerStaffIdsFrom(assignments: readonly AssignmentIdentity[]) {
+  return activeStaffIds(assignments, false);
+}
+
+/** App logins of external tour managers with an active assignment (profile and staffId). */
+export function externalTourManagerStaffIdsFrom(assignments: readonly AssignmentIdentity[]) {
+  return activeStaffIds(assignments, true);
 }
 
 export function sameTourManagerStaffIds(
@@ -91,12 +111,17 @@ export async function expectedAssignedTourManagerStaffIds(
 }
 
 /**
- * The derived Tour Manager fields a Job Card should hold, or null when both are already
- * stored and current. Shared by the live writer and the backfill migration.
+ * The derived Tour Manager fields a Job Card should hold, or null when all are already stored and
+ * current. Shared by the live writer and the backfill migrations. A missing
+ * `externalTourManagerStaffIds` counts as empty, so Job Cards without an external login are not
+ * stale on its account.
  */
 export async function staleTourManagerVisibilityPatch(
   ctx: MutationCtx | QueryCtx,
-  job: Pick<Doc<"jobCards">, "_id" | "assignedTourManagerStaffIds" | "legacyTourManagerNames">
+  job: Pick<
+    Doc<"jobCards">,
+    "_id" | "assignedTourManagerStaffIds" | "externalTourManagerStaffIds" | "legacyTourManagerNames"
+  >
 ) {
   const assignments = await ctx.db
     .query("tourManagerAssignments")
@@ -108,18 +133,24 @@ export async function staleTourManagerVisibilityPatch(
     );
   }
   const next = assignedTourManagerStaffIdsFrom(assignments);
+  const external = externalTourManagerStaffIdsFrom(assignments);
   const names = legacyTourManagerNamesFrom(assignments);
   const storedNames = job.legacyTourManagerNames;
   if (
     job.assignedTourManagerStaffIds !== undefined &&
     sameTourManagerStaffIds(job.assignedTourManagerStaffIds, next) &&
+    sameTourManagerStaffIds(job.externalTourManagerStaffIds, external) &&
     storedNames !== undefined &&
     storedNames.length === names.length &&
     storedNames.every((name, index) => name === names[index])
   ) {
     return null;
   }
-  return { assignedTourManagerStaffIds: next, legacyTourManagerNames: names };
+  return {
+    assignedTourManagerStaffIds: next,
+    externalTourManagerStaffIds: external,
+    legacyTourManagerNames: names,
+  };
 }
 
 /**
