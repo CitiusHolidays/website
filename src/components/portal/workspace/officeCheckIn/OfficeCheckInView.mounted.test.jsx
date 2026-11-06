@@ -659,9 +659,7 @@ describe("Office check-in: several sessions a day", () => {
   });
 
   test("Keeps the delete dialog open and usable when the delete fails", async () => {
-    deleteCheckIn.mockImplementationOnce(async () => {
-      throw new Error("Network down");
-    });
+    deleteCheckIn.mockImplementationOnce(() => Promise.reject(new Error("Network down")));
     toastSuccess.mockClear();
     state.status = myStatus({ deletion: "erase", sessions: daySessions("staff_me") });
     const view = await mount();
