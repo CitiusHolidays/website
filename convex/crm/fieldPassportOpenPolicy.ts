@@ -10,6 +10,20 @@ export type FieldPassportVariant = Infer<typeof fieldPassportVariantValidator>;
 
 /** Calls with the same actor, traveller and `openId` within this time share one audit row. */
 export const FIELD_PASSPORT_OPEN_WINDOW_MS = 10 * 60 * 1000;
+
+/**
+ * The open window rule, measured on the server clock from the open's first call (its row's
+ * `accessedAt`): a call at `now` joins the open while `now - openedAt` is under ten minutes. At
+ * exactly ten minutes, or later, it starts a new open.
+ */
+export function joinsFieldPassportOpen(openedAt: number, now: number) {
+  return now >= openedAt && now - openedAt < FIELD_PASSPORT_OPEN_WINDOW_MS;
+}
+
+/** Rows with `accessedAt` strictly after this can still be joined at `now`. */
+export function fieldPassportOpenCutoff(now: number) {
+  return now - FIELD_PASSPORT_OPEN_WINDOW_MS;
+}
 export const FIELD_PASSPORT_OPEN_ID_MAX_LENGTH = 128;
 /** Matching rows read per open lookup; a miss only writes one more audit row. */
 export const FIELD_PASSPORT_OPEN_LOOKUP_LIMIT = 20;

@@ -5,6 +5,11 @@ import { getFunctionName } from "convex/server";
 import type { Id } from "../_generated/dataModel";
 import { encryptBuffer } from "../lib/encryption";
 import { getFieldPassportFile } from "./fieldPassportActions";
+import {
+  FIELD_PASSPORT_OPEN_WINDOW_MS,
+  fieldPassportOpenCutoff,
+  joinsFieldPassportOpen,
+} from "./fieldPassportOpenPolicy";
 import { fieldPassportWindow } from "./fieldPassports";
 import { legacyTourManagerNamesFrom } from "./jobCardVisibility";
 import { jobCardRecordGrant, ownsTourManagerJobCard, personNameKey } from "./lib/recordScope";
@@ -235,6 +240,28 @@ describe("field passport trip window", () => {
     expect(
       fieldPassportWindow({ travelEndDate: "2026-11-01", travelStartDate: "2026-11-10" })
     ).toBeNull();
+  });
+});
+
+describe("field passport open window", () => {
+  const openedAt = Date.parse("2026-11-10T06:00:00Z");
+
+  test("joins under ten minutes after the first call and starts a new open at ten", () => {
+    expect(FIELD_PASSPORT_OPEN_WINDOW_MS).toBe(600_000);
+    expect(joinsFieldPassportOpen(openedAt, openedAt)).toBe(true);
+    expect(joinsFieldPassportOpen(openedAt, openedAt + 599_999)).toBe(true);
+    expect(joinsFieldPassportOpen(openedAt, openedAt + 600_000)).toBe(false);
+    expect(joinsFieldPassportOpen(openedAt, openedAt + 600_001)).toBe(false);
+    // A row stamped after `now` (another clock) is never joined.
+    expect(joinsFieldPassportOpen(openedAt, openedAt - 1)).toBe(false);
+  });
+
+  test("the index cutoff admits exactly the joinable rows", () => {
+    const now = openedAt + 600_000;
+    expect(fieldPassportOpenCutoff(now)).toBe(openedAt);
+    // The lookup reads `accessedAt > cutoff`, so the row opened exactly ten minutes ago is out.
+    expect(openedAt > fieldPassportOpenCutoff(now)).toBe(false);
+    expect(openedAt + 1 > fieldPassportOpenCutoff(now)).toBe(true);
   });
 });
 

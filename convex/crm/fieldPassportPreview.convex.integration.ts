@@ -29,6 +29,16 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+/**
+ * Freezes only `Date`, so `Date.now()` in the action and mutations is exactly the time the test
+ * sets and never drifts with real time (as `shouldAdvanceTime` would); real timers keep
+ * convex-test's scheduler running.
+ */
+function freezeClockAt(time: number) {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(time);
+}
+
 const staff = {
   "ops-head": { name: "Synthetic Ops Head", roles: ["Operations Head"] },
   tm: { name: "Synthetic Tour Manager", roles: ["Tour Manager"] },
@@ -172,8 +182,7 @@ async function seed() {
 
 describe("field passport preview", () => {
   test("an image scan's preview is a small upright JPEG with no EXIF or GPS", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(IN_WINDOW);
+    freezeClockAt(IN_WINDOW);
     const f = await seed();
     const scan = await syntheticCameraJpeg(3000, 2000);
     await f.storeScan(f.ids.photo, scan, "image/jpeg");
@@ -221,8 +230,7 @@ describe("field passport preview", () => {
 
 describe("field passport variants", () => {
   test("a PDF has no preview; the full call completes the same open", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(IN_WINDOW);
+    freezeClockAt(IN_WINDOW);
     const f = await seed();
     await f.storeScan(f.ids.pdf, SYNTHETIC_PDF, "application/pdf");
     const tm = f.actor("tm");
@@ -259,8 +267,7 @@ describe("field passport variants", () => {
   });
 
   test("an image sharp cannot read has no preview, and the row does not claim one", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(IN_WINDOW);
+    freezeClockAt(IN_WINDOW);
     const f = await seed();
     const unreadable = Buffer.from("synthetic bytes that are not an image");
     await f.storeScan(f.ids.photo, unreadable, "image/jpeg");
@@ -279,8 +286,7 @@ describe("field passport variants", () => {
   });
 
   test("without a variant the response is the original shape and every call is audited", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(IN_WINDOW);
+    freezeClockAt(IN_WINDOW);
     const f = await seed();
     await f.storeScan(f.ids.pdf, SYNTHETIC_PDF, "application/pdf");
     const tm = f.actor("tm");
@@ -300,8 +306,7 @@ describe("field passport variants", () => {
   });
 
   test("the full variant of an image reports its upright size", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(IN_WINDOW);
+    freezeClockAt(IN_WINDOW);
     const f = await seed();
     const scan = await syntheticCameraJpeg(1200, 800);
     await f.storeScan(f.ids.photo, scan, "image/jpeg");
@@ -325,8 +330,7 @@ describe("field passport variants", () => {
 
 describe("one audit row per open", () => {
   test("preview and full with one openId share a row; without it each call writes one", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(IN_WINDOW);
+    freezeClockAt(IN_WINDOW);
     const f = await seed();
     await f.storeScan(f.ids.photo, await syntheticCameraJpeg(1200, 800), "image/jpeg");
     const read = (variant: "full" | "preview", openId?: string) =>
@@ -353,21 +357,45 @@ describe("one audit row per open", () => {
       [undefined, ["preview"]],
       [undefined, ["full"]],
     ]);
+  });
 
-    // The same openId more than ten minutes after the open starts a new open.
-    vi.setSystemTime(IN_WINDOW + 10 * 60 * 1000 + 1);
-    await read("full", "open-a");
-    expect((await f.audit()).map((row) => [row.openId, row.variants])).toEqual([
-      ["open-a", ["preview", "full"]],
-      [undefined, ["preview"]],
-      [undefined, ["full"]],
-      ["open-a", ["full"]],
+  test("an open lasts under ten minutes from its first call, then the openId starts a new one", async () => {
+    freezeClockAt(IN_WINDOW);
+    const f = await seed();
+    await f.storeScan(f.ids.photo, await syntheticCameraJpeg(1200, 800), "image/jpeg");
+    const read = (variant: "full" | "preview") =>
+      f.actor("tm").action(api.crm.fieldPassportActions.getFieldPassportFile, {
+        openId: "open-b",
+        travellerId: f.ids.photo,
+        variant,
+      });
+    const rows = async () =>
+      (await f.audit()).map((row) => [row.accessedAt, row.openId, row.variants]);
+    const TEN_MINUTES = 10 * 60 * 1000;
+
+    await read("preview");
+    const [first] = await f.audit();
+    // The open starts on the server clock, which the test froze.
+    expect(first?.accessedAt).toBe(IN_WINDOW);
+
+    // One millisecond before ten minutes: still the same open.
+    vi.setSystemTime(IN_WINDOW + TEN_MINUTES - 1);
+    await read("full");
+    expect(await rows()).toEqual([[IN_WINDOW, "open-b", ["preview", "full"]]]);
+
+    // Exactly ten minutes: a new open with its own row, which later calls join.
+    vi.setSystemTime(IN_WINDOW + TEN_MINUTES);
+    await read("full");
+    vi.setSystemTime(IN_WINDOW + TEN_MINUTES + 1);
+    await read("preview");
+    expect(await rows()).toEqual([
+      [IN_WINDOW, "open-b", ["preview", "full"]],
+      [IN_WINDOW + TEN_MINUTES, "open-b", ["preview", "full"]],
     ]);
   });
 
   test("an openId never joins another traveller's open", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(IN_WINDOW);
+    freezeClockAt(IN_WINDOW);
     const f = await seed();
     await f.storeScan(f.ids.photo, await syntheticCameraJpeg(1200, 800), "image/jpeg");
     await f.storeScan(f.ids.pdf, SYNTHETIC_PDF, "application/pdf");
@@ -383,8 +411,7 @@ describe("one audit row per open", () => {
   });
 
   test("another Tour Manager's call with the same openId is their own open", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(IN_WINDOW);
+    freezeClockAt(IN_WINDOW);
     const f = await seed();
     await f.storeScan(f.ids.pdf, SYNTHETIC_PDF, "application/pdf");
     for (const key of ["tm", "tm-co"] as const) {
@@ -401,8 +428,7 @@ describe("one audit row per open", () => {
   });
 
   test("an unbounded openId is refused", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(IN_WINDOW);
+    freezeClockAt(IN_WINDOW);
     const f = await seed();
     await f.storeScan(f.ids.pdf, SYNTHETIC_PDF, "application/pdf");
     for (const openId of ["", "x".repeat(129), "open id"]) {
@@ -420,8 +446,7 @@ describe("one audit row per open", () => {
 
 describe("the rate limit counts opens", () => {
   test("preview plus full of one open count once against the portal file limit", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(IN_WINDOW);
+    freezeClockAt(IN_WINDOW);
     const f = await seed();
     await f.storeScan(f.ids.photo, await syntheticCameraJpeg(600, 400), "image/jpeg");
     const tm = f.actor("tm");
@@ -445,8 +470,7 @@ describe("the rate limit counts opens", () => {
   });
 
   test("serving a variant the open already served counts again", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(IN_WINDOW);
+    freezeClockAt(IN_WINDOW);
     const f = await seed();
     await f.storeScan(f.ids.photo, await syntheticCameraJpeg(600, 400), "image/jpeg");
     await f.t.run((ctx) =>
@@ -472,8 +496,7 @@ describe("the rate limit counts opens", () => {
   });
 
   test("a PDF preview call starts an open, so it is held to the limit", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(IN_WINDOW);
+    freezeClockAt(IN_WINDOW);
     const f = await seed();
     await f.storeScan(f.ids.pdf, SYNTHETIC_PDF, "application/pdf");
     await f.t.run((ctx) =>
@@ -497,8 +520,7 @@ describe("the rate limit counts opens", () => {
 
 describe("a preview is held to every field passport check", () => {
   test("another Tour Manager, an office role, outside the window, pilot off", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(IN_WINDOW);
+    freezeClockAt(IN_WINDOW);
     const f = await seed();
     await f.storeScan(f.ids.photo, await syntheticCameraJpeg(1200, 800), "image/jpeg");
     await f.storeScan(f.ids.pdf, SYNTHETIC_PDF, "application/pdf");
@@ -531,8 +553,7 @@ describe("a preview is held to every field passport check", () => {
   });
 
   test("a rate-limited caller gets no preview", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(IN_WINDOW);
+    freezeClockAt(IN_WINDOW);
     const f = await seed();
     await f.storeScan(f.ids.photo, await syntheticCameraJpeg(600, 400), "image/jpeg");
     await f.t.run((ctx) =>
@@ -554,8 +575,7 @@ describe("a preview is held to every field passport check", () => {
   });
 
   test("a refused call still counts against the rate limit", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(IN_WINDOW);
+    freezeClockAt(IN_WINDOW);
     const f = await seed();
     await f.storeScan(f.ids.photo, await syntheticCameraJpeg(600, 400), "image/jpeg");
     await f.t.run((ctx) =>

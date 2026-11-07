@@ -5,10 +5,11 @@ import { internalMutation, type MutationCtx, type QueryCtx, query } from "../_ge
 import { requireAppPilotOn } from "./appPilot";
 import {
   FIELD_PASSPORT_OPEN_LOOKUP_LIMIT,
-  FIELD_PASSPORT_OPEN_WINDOW_MS,
   type FieldPassportVariant,
+  fieldPassportOpenCutoff,
   fieldPassportVariantValidator,
   isPreviewableFieldPassportMimeType,
+  joinsFieldPassportOpen,
   mergeFieldPassportVariants,
   normalizeFieldPassportOpenId,
 } from "./fieldPassportOpenPolicy";
@@ -125,16 +126,23 @@ async function findRecentOpen(
   }
 ) {
   // Only the caller's own rows: another login reusing the openId can never touch this open.
+  // Newest first, so the latest open of this traveller is the one joined.
   const rows = await ctx.db
     .query("fieldPassportAccessAudit")
     .withIndex("by_actorAuthUserId_and_openId_and_accessedAt", (q) =>
       q
         .eq("actorAuthUserId", open.actorAuthUserId)
         .eq("openId", open.openId)
-        .gt("accessedAt", open.now - FIELD_PASSPORT_OPEN_WINDOW_MS)
+        .gt("accessedAt", fieldPassportOpenCutoff(open.now))
     )
+    .order("desc")
     .take(FIELD_PASSPORT_OPEN_LOOKUP_LIMIT);
-  return rows.find((row) => row.travellerId === open.travellerId) ?? null;
+  return (
+    rows.find(
+      (row) =>
+        row.travellerId === open.travellerId && joinsFieldPassportOpen(row.accessedAt, open.now)
+    ) ?? null
+  );
 }
 
 /** Counts against the portal file rate limit, or throws its refusal. */
@@ -208,8 +216,9 @@ async function recordFieldPassportOpen(
  * Called by `crm/fieldPassportActions:getFieldPassportFile` with the caller's identity.
  *
  * Every call runs every check. A new open then counts once against the portal file rate limit
- * and inserts its audit row; a later call of the same open (same actor, traveller and `openId`
- * within `FIELD_PASSPORT_OPEN_WINDOW_MS`) adds its variant to that row without counting again.
+ * and inserts its audit row; a later call of the same open (same actor, traveller and `openId`,
+ * under ten minutes after the open's first call: `joinsFieldPassportOpen`) adds its variant to
+ * that row without counting again.
  * Serving a variant the open already served counts again, so one open cannot be replayed past
  * the limit. A preview of a scan the server cannot downscale serves nothing (`serve: "none"`)
  * but still starts or joins the open, so the full call that follows counts with it.

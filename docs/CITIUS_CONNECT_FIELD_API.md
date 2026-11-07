@@ -191,8 +191,10 @@ quick low-resolution image, then `variant: "full"` to swap in the full-quality s
 - **Same checks.** A preview is a passport read: the Tour Manager role, own staff assignment,
   own group, trip window and app pilot apply exactly as for the full file, it is held to the
   portal file rate limit, and it is audited.
-- **One audit row per open.** Calls with the same actor, traveller and `openId` within 10 minutes
-  of the open's first call share one `fieldPassportAccessAudit` row: the first call writes it and
+- **One audit row per open.** Calls with the same actor, traveller and `openId` less than 10
+  minutes after the open's first call (server clock, measured from the row's `accessedAt`) share
+  one `fieldPassportAccessAudit` row; at exactly 10 minutes or later the `openId` starts a new
+  open with its own row (`joinsFieldPassportOpen`). The first call writes the row and
   later calls only add their variant to its `variants` (`["preview", "full"]`; `[]` while a
   PDF's open has served nothing). The row keeps the first call's time. Only the caller's own
   rows are matched, so another login sending the same `openId` gets its own open. Without an
