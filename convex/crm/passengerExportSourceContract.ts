@@ -24,6 +24,7 @@ export interface PassengerExportSourceRow {
   hotelAllocation: string;
   isMinor: boolean | null;
   lastMinuteDrop: boolean;
+  parentalConsentReceived: boolean | null;
   paymentType: string;
   roomType: string;
   sourceDealerCode: string;
@@ -64,6 +65,7 @@ export const passengerExportSourceRowValidator = v.object({
   hotelAllocation: v.string(),
   isMinor: v.union(v.boolean(), v.null()),
   lastMinuteDrop: v.boolean(),
+  parentalConsentReceived: v.union(v.boolean(), v.null()),
   paymentType: v.string(),
   roomType: v.string(),
   sourceDealerCode: v.string(),

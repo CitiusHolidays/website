@@ -60,6 +60,12 @@ import {
 } from "./passportPolicy";
 import { resolveTravellerAccess, travellerInGroupScope } from "./tourManagerGroupScope";
 import {
+  logParentalConsentChange,
+  parentalConsentDecisionFor,
+  publicParentalConsent,
+} from "./travellerGuardianConsent";
+import { parentalConsentNoteProblem } from "./travellerGuardianPolicy";
+import {
   assertGuardianSet,
   clearGuardianLinksTo,
   guardianIdsOf,
@@ -175,6 +181,7 @@ const publicTraveller = (
   marketingConsentNote: traveller.marketingConsentNote ?? "",
   marketingConsentRecordedAt: traveller.marketingConsentRecordedAt ?? null,
   marketingConsentRecordedBy: traveller.marketingConsentRecordedBy ?? "",
+  parentalConsent: publicParentalConsent(traveller),
   passportExpiryDate,
   passportStatus: travellerText(traveller.passportStatus),
   paymentType: traveller.paymentType,
@@ -407,6 +414,49 @@ async function addGuardianPatch(
     patch.guardianImportReferences = undefined;
   }
   Object.assign(patch, guardianSlotsPatch(nextIsMinor === true ? nextGuardianIds : []));
+}
+
+/** The "Parental consent received" mark (ADR 0018): set or clear it; a note is optional. */
+const parentalConsentArgs = {
+  parentalConsentNote: v.optional(v.string()),
+  parentalConsentReceived: v.optional(v.boolean()),
+};
+
+interface ParentalConsentArgs {
+  parentalConsentNote?: string;
+  parentalConsentReceived?: boolean;
+}
+
+/**
+ * Decides the consent mark for a manual edit against the traveller's next minor status. A
+ * minor's mark is cleared when they stop being a minor; recording it for anyone else is refused.
+ */
+function parentalConsentForEdit(
+  access: PortalAccess,
+  current: Doc<"travellers">["parentalConsent"],
+  nextIsMinor: boolean | undefined,
+  args: ParentalConsentArgs,
+  now: number
+) {
+  const noteProblem = parentalConsentNoteProblem(args.parentalConsentNote);
+  if (noteProblem) {
+    throw new ConvexError(noteProblem);
+  }
+  const decision = parentalConsentDecisionFor(
+    access,
+    current,
+    nextIsMinor,
+    args.parentalConsentReceived === undefined
+      ? undefined
+      : { note: args.parentalConsentNote, received: args.parentalConsentReceived },
+    now
+  );
+  if (decision.refused) {
+    throw new ConvexError(
+      "Parental consent can be recorded only for a minor. Set the age group to Minor first."
+    );
+  }
+  return decision;
 }
 
 async function syncTravellerVisaRecord(
@@ -773,6 +823,7 @@ export const create = mutation({
     hotelAllocation: v.optional(v.string()),
     isMinor: v.optional(v.union(v.boolean(), v.null())),
     jobCardId: v.string(),
+    ...parentalConsentArgs,
     passportStatus: v.optional(v.string()),
     paymentType: paymentTypeValidator,
     roomType: roomTypeValidator,
@@ -816,11 +867,12 @@ export const create = mutation({
       travelBatchId,
       now
     );
+    const isMinor = args.isMinor === true || args.isMinor === false ? args.isMinor : undefined;
+    const consent = parentalConsentForEdit(access, undefined, isMinor, args, now);
     const id = await insertWithE2eOwnership(ctx, "travellers", {
       ...travellerRow,
-      ...propertiesWhen(args.isMinor === true || args.isMinor === false, () => ({
-        isMinor: args.isMinor === true,
-      })),
+      ...propertiesWhen(isMinor !== undefined, () => ({ isMinor })),
+      ...propertiesWhen(consent.next, () => ({ parentalConsent: consent.next })),
     });
     if (args.guardianTravellerIds?.length) {
       const inserted = await ctx.db.get("travellers", id);
@@ -854,6 +906,7 @@ export const create = mutation({
         message: `${args.fullName.trim()} added to ${job.jobCode}`,
       }),
     ]);
+    await logParentalConsentChange(ctx, access, { fullName: args.fullName, id }, consent.change);
     await scheduleCrmMetricSync(ctx, "visaRecords", String(visaRecordId));
     return { id };
   },
@@ -876,6 +929,7 @@ export const update = mutation({
     guestType: v.optional(guestTypeValidator),
     hotelAllocation: v.optional(v.string()),
     isMinor: v.optional(v.union(v.boolean(), v.null())),
+    ...parentalConsentArgs,
     passportStatus: v.optional(v.string()),
     paymentType: v.optional(paymentTypeValidator),
     roomType: v.optional(roomTypeValidator),
@@ -924,6 +978,17 @@ export const update = mutation({
     addOptionalTravellerFields(patch, args);
     addVisaRequirementPatch(patch, args, traveller);
     await addGuardianPatch(ctx, traveller, args, patch);
+    const consent = parentalConsentForEdit(
+      access,
+      traveller.parentalConsent,
+      // SAFETY: addGuardianPatch writes isMinor only as a boolean or undefined.
+      "isMinor" in patch ? (patch.isMinor as boolean | undefined) : traveller.isMinor,
+      args,
+      now
+    );
+    if (consent.change) {
+      patch.parentalConsent = consent.next;
+    }
     // SAFETY: both operands are travelBatches IDs produced by Convex validators or the stored traveller row.
     const nextTravelBatchId = (patch.travelBatchId ?? traveller.travelBatchId) as
       | Id<"travelBatches">
@@ -953,6 +1018,12 @@ export const update = mutation({
       entityType: "traveller",
       message: `${(args.fullName ?? traveller.fullName).trim()} updated`,
     });
+    await logParentalConsentChange(
+      ctx,
+      access,
+      { fullName: args.fullName ?? traveller.fullName, id: travellerId },
+      consent.change
+    );
     return { id: travellerId };
   },
   returns: travellerIdResultValidator,

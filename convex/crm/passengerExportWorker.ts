@@ -112,6 +112,7 @@ export function mapPassengerExportRow(row: PassengerExportSourceRow): PassengerE
     guardianNames: row.guardianNames,
     hotelAllocation: row.hotelAllocation,
     isMinor: row.isMinor,
+    parentalConsentReceived: row.parentalConsentReceived,
     passport,
     paymentType: row.paymentType,
     roomType: row.roomType,

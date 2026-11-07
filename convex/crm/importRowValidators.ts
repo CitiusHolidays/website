@@ -63,6 +63,9 @@ const guardianImportFields = {
   // Up to two Parent/Guardian names per row, each with an optional phone or email.
   guardians: v.optional(v.array(v.object({ contact: v.optional(v.string()), name: v.string() }))),
   minorStatus: minorStatusValidator,
+  // Parental consent column: true records Operations' mark on a minor, false clears it, absent
+  // leaves it unchanged.
+  parentalConsentReceived: v.optional(v.boolean()),
 };
 
 const ticketingImportRow = v.optional(

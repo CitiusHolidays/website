@@ -1,12 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import {
   ageOnDate,
+  decideParentalConsent,
   type GuardianCandidate,
   guardianLinkProblem,
   guardianSetProblem,
   MAX_GUARDIANS,
   minorReferenceDate,
   normalizeIsoDate,
+  parentalConsentNoteProblem,
   resolveGuardianReference,
   resolveGuardianReferences,
   resolveMinorStatus,
@@ -218,5 +220,67 @@ describe("two guardians", () => {
     expect(guardianSetProblem(child, [parent, { ...father, isMinor: true }])).toMatch(
       "cannot be a guardian"
     );
+  });
+});
+
+describe("parental consent mark", () => {
+  const actor = { name: "Synthetic Ops Lead", staffId: "staff-1" };
+  const mark = { receivedAt: 1, recordedByName: "Earlier Staff", recordedByStaffId: "staff-0" };
+  const decide = (
+    isMinor: boolean | undefined,
+    current: typeof mark | undefined,
+    request: { note?: string; received: boolean } | undefined
+  ) => decideParentalConsent({ actor, current, isMinor, now: 50, request });
+
+  test("records once on a minor and keeps who and when on later saves", () => {
+    expect(decide(true, undefined, { note: "  Form ", received: true })).toEqual({
+      change: "recorded",
+      next: {
+        note: "Form",
+        receivedAt: 50,
+        recordedByName: "Synthetic Ops Lead",
+        recordedByStaffId: "staff-1",
+      },
+      refused: false,
+    });
+    expect(decide(true, mark, { received: true })).toEqual({
+      change: null,
+      next: mark,
+      refused: false,
+    });
+    expect(decide(true, mark, { note: "New", received: true })).toEqual({
+      change: "note_updated",
+      next: { ...mark, note: "New" },
+      refused: false,
+    });
+    expect(decide(true, { ...mark, note: "Old" }, { note: " ", received: true }).next).toEqual(
+      mark
+    );
+  });
+
+  test("clears on request or when the traveller is not a minor, and refuses non-minors", () => {
+    expect(decide(true, mark, { received: false })).toEqual({
+      change: "cleared",
+      next: undefined,
+      refused: false,
+    });
+    expect(decide(true, undefined, { received: false }).change).toBeNull();
+    expect(decide(false, mark, undefined)).toEqual({
+      change: "cleared_not_minor",
+      next: undefined,
+      refused: false,
+    });
+    expect(decide(undefined, undefined, { received: true })).toEqual({
+      change: null,
+      next: undefined,
+      refused: true,
+    });
+    expect(decide(true, mark, undefined)).toEqual({ change: null, next: mark, refused: false });
+  });
+
+  test("bounds the note at 500 characters after trimming", () => {
+    expect(parentalConsentNoteProblem(` ${"x".repeat(500)} `)).toBeNull();
+    expect(parentalConsentNoteProblem("x".repeat(501))).toContain("500 characters");
+    expect(parentalConsentNoteProblem(undefined)).toBeNull();
   });
 });

@@ -9,7 +9,12 @@ import { classifyImportError, publicImportErrorMessage } from "./importWorkerPol
 import { canSeeJobCardRecord, createActivity, jobCardRecordGrant, type PortalAccess } from "./lib";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { buildTravellerListSearchText, markListSearchDirty } from "./listSearch";
+import { logParentalConsentChange, parentalConsentDecisionFor } from "./travellerGuardianConsent";
 import { minorReferenceDate, resolveMinorStatus } from "./travellerGuardianPolicy";
+
+/** Shown on the import row when the sheet says consent was received for a non-minor. */
+const CONSENT_IGNORED_MESSAGE =
+  "Parental consent ignored: the traveller is not recorded as a minor.";
 
 export interface TravellerDoc {
   _id: Id<"travellers">;
@@ -629,6 +634,35 @@ function guardianFieldsForImport(
   return fields;
 }
 
+/**
+ * The Parental consent column against the row's minor status after this import (ADR 0018):
+ * "Yes" records Operations' mark once, by the importing staff member at import time; "No"
+ * clears it; a blank or missing column leaves it. A traveller who is no longer a minor loses
+ * the mark, and "Yes" on anyone who is not a known minor is ignored with a row message.
+ */
+function importedParentalConsent(
+  access: PortalAccess,
+  row: InternalPassengerImportRow,
+  travellerPatch: RuntimeObject,
+  match: TravellerDoc | null | undefined,
+  now: number
+) {
+  // SAFETY: guardianFieldsForImport writes isMinor only as a boolean, and a match is a stored
+  // traveller row whose isMinor follows the schema.
+  const nextIsMinor = (travellerPatch.isMinor ?? match?.isMinor) as boolean | undefined;
+  // SAFETY: a match is a stored traveller row, so its parentalConsent follows the schema.
+  const current = match?.parentalConsent as Doc<"travellers">["parentalConsent"];
+  return parentalConsentDecisionFor(
+    access,
+    current,
+    nextIsMinor,
+    row.parentalConsentReceived === undefined
+      ? undefined
+      : { received: row.parentalConsentReceived },
+    now
+  );
+}
+
 function travellerPatchForImport(
   row: InternalPassengerImportRow,
   job: Doc<"jobCards">,
@@ -727,6 +761,8 @@ function travellerCreateDefaults(
 interface ImportedTravellerOutcome {
   committedTraveller: TravellerDoc;
   isNewTraveller: boolean;
+  /** A row-level note for the reconciliation report. */
+  message?: string;
   travellerId: Id<"travellers">;
 }
 
@@ -959,6 +995,10 @@ async function saveImportedTraveller(
   const travelBatchId = await resolveImportTravelBatchId(ctx, jobCardId, row);
   const travelBatch = travelBatchId ? await ctx.db.get("travelBatches", travelBatchId) : null;
   const travellerPatch = travellerPatchForImport(row, job, now, travelBatchId, travelBatch);
+  const consent = importedParentalConsent(access, row, travellerPatch, match, now);
+  if (consent.change) {
+    travellerPatch.parentalConsent = consent.next;
+  }
   let travellerId: Id<"travellers">;
   if (match) {
     const patch = { ...travellerPatch };
@@ -973,10 +1013,19 @@ async function saveImportedTraveller(
     travellerId = await insertWithE2eOwnership(
       ctx,
       "travellers",
-      travellerCreateDefaults(row, job, access, now, travelBatchId, travelBatch),
+      {
+        ...travellerCreateDefaults(row, job, access, now, travelBatchId, travelBatch),
+        ...propertiesWhen(consent.next, () => ({ parentalConsent: consent.next })),
+      },
       { authUserId: access.authUserId }
     );
   }
+  await logParentalConsentChange(
+    ctx,
+    access,
+    { fullName: row.fullName, id: travellerId },
+    consent.change
+  );
   const isNewTraveller = !match;
   await upsertImportedVisaRecords(ctx, {
     access,
@@ -1025,7 +1074,12 @@ async function saveImportedTraveller(
   if (row.passportNumberHash) {
     matchIndex.byPassportHash.set(row.passportNumberHash, committedTraveller);
   }
-  return { committedTraveller, isNewTraveller, travellerId };
+  return {
+    committedTraveller,
+    isNewTraveller,
+    ...propertiesWhen(consent.refused, () => ({ message: CONSENT_IGNORED_MESSAGE })),
+    travellerId,
+  };
 }
 
 function recordSuccessfulImport(
@@ -1045,6 +1099,7 @@ function recordSuccessfulImport(
     disposition: outcome.isNewTraveller ? "created" : "updated",
     fullName: String(row.fullName ?? "").trim(),
     id: String(row.id ?? row.importKey ?? outcome.travellerId),
+    ...propertiesWhen(outcome.message, () => ({ message: outcome.message })),
     sourceRowNumber: row.sourceRowNumber,
     sourceSheet: row.sourceSheet,
   });

@@ -3175,6 +3175,17 @@ export default defineSchema({
     marketingConsentNote: v.optional(v.string()),
     marketingConsentRecordedAt: v.optional(v.number()),
     marketingConsentRecordedBy: v.optional(v.string()),
+    // Operations' "Parental consent received" mark on a minor (ADR 0018). Present only while
+    // isMinor is true; receivedAt is server time. recordedByStaffId is absent only for a
+    // break-glass Admin session that has no staff record.
+    parentalConsent: v.optional(
+      v.object({
+        note: v.optional(v.string()),
+        receivedAt: v.number(),
+        recordedByName: v.string(),
+        recordedByStaffId: v.optional(v.id("staffUsers")),
+      })
+    ),
     passportExpiryDate: v.optional(v.string()),
     passportStatus: v.optional(v.string()),
     paymentType,
