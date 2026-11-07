@@ -796,7 +796,7 @@ describe("customer app email sign-in guards", () => {
     for (let n = 0; n < SIGN_IN_LINKS_PER_HOUR; n += 1) {
       first.push(await request("victim@gmail.com"));
     }
-    expect(first).toEqual(new Array(SIGN_IN_LINKS_PER_HOUR).fill("recorded"));
+    expect(first).toEqual(Array.from({ length: SIGN_IN_LINKS_PER_HOUR }, () => "recorded"));
     const aliases: string[] = [];
     for (const alias of [
       "VICTIM@gmail.com",
@@ -806,7 +806,7 @@ describe("customer app email sign-in guards", () => {
     ]) {
       aliases.push(await request(alias));
     }
-    expect(aliases).toEqual(new Array(4).fill("inbox_limited"));
+    expect(aliases).toEqual(Array.from({ length: 4 }, () => "inbox_limited"));
     // Dots matter outside Gmail.
     expect(await request("v.ictim@example.test")).toBe("recorded");
 

@@ -745,7 +745,10 @@ async function verificationRows(t: Harness) {
     model: "verification",
     paginationOpts: { cursor: null, numItems: 100 },
   });
-  return page.page as { identifier: string; value: string }[];
+  return page.page.map((row: { identifier?: unknown; value?: unknown }) => ({
+    identifier: String(row.identifier),
+    value: String(row.value),
+  }));
 }
 
 describe("customer app sign-in links", () => {
