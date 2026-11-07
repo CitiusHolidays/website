@@ -296,7 +296,8 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
         expiresIn: APP_SIGN_IN_LINK_TTL_SECONDS,
         sendMagicLink: async ({ email, metadata, token }) => {
           const actionCtx = requireActionCtx(ctx);
-          // Every refusal below answers like a sent link, so the form reveals nothing.
+          // Refusals that concern the address answer like a sent link, so the form reveals
+          // nothing about it; the phone's own limit and the overall ceiling say "try later".
           const deviceDigest = deviceDigestFrom(metadata);
           if (!deviceDigest) {
             // Only the app asks for these links, and it always binds them to its device.
@@ -305,12 +306,18 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
           if (await actionCtx.runQuery(internal.customerAppAuth.isStaffEmail, { email })) {
             return;
           }
-          const allowed = await actionCtx.runMutation(internal.customerAppAuth.recordSignInLink, {
+          const recorded = await actionCtx.runMutation(internal.customerAppAuth.recordSignInLink, {
             deviceDigest,
             recipientDigest: await signInRecipientDigest(email),
             tokenDigest: await sha256Hex(token),
           });
-          if (!allowed) {
+          if (recorded === "busy" || recorded === "device_limited") {
+            throw new APIError("TOO_MANY_REQUESTS", {
+              code: "SIGN_IN_LINKS_LIMITED",
+              message: "Too many sign-in links were asked for. Try again in an hour.",
+            });
+          }
+          if (recorded === "inbox_limited") {
             return;
           }
           try {

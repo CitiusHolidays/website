@@ -15,6 +15,7 @@ export const scheduledJobValidator = v.union(
   v.literal("issue_pending_booking_invoices"),
   v.literal("purge_activity_logs"),
   v.literal("purge_commercial_files"),
+  v.literal("purge_customer_app_sign_in_links"),
   v.literal("purge_field_passport_audit"),
   v.literal("purge_inactive_customer_accounts"),
   v.literal("purge_office_check_ins"),
@@ -40,6 +41,7 @@ export const SCHEDULED_JOBS = [
   "issue_pending_booking_invoices",
   "purge_activity_logs",
   "purge_commercial_files",
+  "purge_customer_app_sign_in_links",
   "purge_field_passport_audit",
   "purge_inactive_customer_accounts",
   "purge_office_check_ins",
@@ -67,6 +69,7 @@ const CONTROL_KEY_BY_JOB = {
   issue_pending_booking_invoices: "jobs.issue_pending_booking_invoices",
   purge_activity_logs: "jobs.purge_activity_logs",
   purge_commercial_files: "jobs.purge_commercial_files",
+  purge_customer_app_sign_in_links: "jobs.purge_customer_app_sign_in_links",
   purge_field_passport_audit: "jobs.purge_field_passport_audit",
   purge_inactive_customer_accounts: "jobs.purge_inactive_customer_accounts",
   purge_office_check_ins: "jobs.purge_office_check_ins",
@@ -118,6 +121,10 @@ const MUTATION_BY_JOB = {
   purge_commercial_files: {
     mutation: internal.crm.commercialFiles.purgeExpired,
     mutationName: "crm/commercialFiles:purgeExpired",
+  },
+  purge_customer_app_sign_in_links: {
+    mutation: internal.crm.customerAppSignInRetention.purgeExpired,
+    mutationName: "crm/customerAppSignInRetention:purgeExpired",
   },
   purge_field_passport_audit: {
     mutation: internal.crm.fieldPassportAuditRetention.purgeExpired,
@@ -271,6 +278,12 @@ export const issuePendingBookingInvoices = internalAction({
 export const purgeCommercialFiles = internalAction({
   args: {},
   handler: controlledScheduledHandler("purge_commercial_files"),
+  returns: scheduledJobResult,
+});
+
+export const purgeCustomerAppSignInLinks = internalAction({
+  args: {},
+  handler: controlledScheduledHandler("purge_customer_app_sign_in_links"),
   returns: scheduledJobResult,
 });
 

@@ -4,7 +4,14 @@ import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { passportStatusWord } from "./customerApp";
 import { eraseCustomerAccount, isMagicLinkFor } from "./lib/accountErasure";
-import { SIGN_IN_LINKS_PER_HOUR, sha256Hex } from "./lib/customerAppSignIn";
+import {
+  SIGN_IN_LINKS_OVERALL_PER_HOUR,
+  SIGN_IN_LINKS_PER_DEVICE_PER_HOUR,
+  SIGN_IN_LINKS_PER_HOUR,
+  sha256Hex,
+  signInInbox,
+  signInRecipientDigest,
+} from "./lib/customerAppSignIn";
 import { hashTripInviteToken, TRIP_INVITE_ERRORS } from "./lib/customerTripInvites";
 import schema from "./schema";
 import { modules } from "./test.setup";
@@ -100,7 +107,8 @@ async function seed(t: ReturnType<typeof harness>) {
     const groupB = await batch("B02");
     const parent = await ctx.db.insert("travellers", {
       ...travellerDefaults,
-      createdAt: NOW,
+      // On the trip before any announcement was sent.
+      createdAt: NOW - 60_000,
       fullName: "Asha Testguest",
       isMinor: false,
       jobCardId,
@@ -110,7 +118,8 @@ async function seed(t: ReturnType<typeof harness>) {
     });
     const child = await ctx.db.insert("travellers", {
       ...travellerDefaults,
-      createdAt: NOW,
+      // On the trip before any announcement was sent.
+      createdAt: NOW - 60_000,
       firstGuardianTravellerId: parent,
       fullName: "Kiran Testguest",
       isMinor: true,
@@ -121,7 +130,8 @@ async function seed(t: ReturnType<typeof harness>) {
     });
     const stranger = await ctx.db.insert("travellers", {
       ...travellerDefaults,
-      createdAt: NOW,
+      // On the trip before any announcement was sent.
+      createdAt: NOW - 60_000,
       fullName: "Ravi Othertraveller",
       isMinor: false,
       jobCardId,
@@ -536,6 +546,23 @@ describe("customer app privacy and safety (review of PR 315)", () => {
     });
     expect(organizer?.announcements.map((row) => row.body)).toEqual(["Coach at 08:00"]);
     expect(organizer?.contacts.map((row) => row.name)).toEqual(["Trip Lead"]);
+
+    // A traveller added after the whole-trip message does not hide it.
+    await t.run((ctx) =>
+      ctx.db.insert("travellers", {
+        ...travellerDefaults,
+        createdAt: NOW + 1000,
+        fullName: "Late Addition",
+        isMinor: false,
+        jobCardId: ids.jobCardId,
+        updatedAt: NOW + 1000,
+      })
+    );
+    const later = await asCustomer(t, "organizer").query(api.customerApp.getMyTrip, {
+      referenceNow: NOW,
+      tripId: organizerGrant,
+    });
+    expect(later?.announcements.map((row) => row.body)).toEqual(["Coach at 08:00"]);
   });
 
   test("F2: a guardian sees their minors by name, and only their own documents", async () => {
@@ -749,22 +776,68 @@ describe("customer app privacy and safety (review of PR 315)", () => {
 });
 
 describe("customer app email sign-in guards", () => {
-  test("M7: an address gets a few sign-in links an hour, then none until the hour passes", async () => {
+  test("N1: aliases of one inbox share its hourly links; a phone and the whole app have limits too", async () => {
     vi.useFakeTimers({ now: NOW });
     const t = harness();
-    const request = (n: number) =>
-      t.mutation(internal.customerAppAuth.recordSignInLink, {
-        deviceDigest: "d".repeat(64),
-        recipientDigest: "r".repeat(64),
-        tokenDigest: n.toString(16).padStart(64, "0"),
+    let counter = 0;
+    const nextId = (kind: string) => {
+      counter += 1;
+      return `${kind}-${counter}`;
+    };
+    const request = async (email: string, deviceDigest?: string) =>
+      await t.mutation(internal.customerAppAuth.recordSignInLink, {
+        // A new phone for each request unless one is named, so only the inbox limit applies.
+        deviceDigest: deviceDigest ?? nextId("device"),
+        recipientDigest: await signInRecipientDigest(email),
+        tokenDigest: nextId("token"),
       });
-    const results: boolean[] = [];
-    for (let n = 0; n <= SIGN_IN_LINKS_PER_HOUR; n += 1) {
-      results.push(await request(n));
+
+    const first: string[] = [];
+    for (let n = 0; n < SIGN_IN_LINKS_PER_HOUR; n += 1) {
+      first.push(await request("victim@gmail.com"));
     }
-    expect(results).toEqual([...new Array(SIGN_IN_LINKS_PER_HOUR).fill(true), false]);
+    expect(first).toEqual(new Array(SIGN_IN_LINKS_PER_HOUR).fill("recorded"));
+    const aliases: string[] = [];
+    for (const alias of [
+      "VICTIM@gmail.com",
+      " victim+1@gmail.com ",
+      "v.ictim@gmail.com",
+      "vi.c.tim+news@googlemail.com",
+    ]) {
+      aliases.push(await request(alias));
+    }
+    expect(aliases).toEqual(new Array(4).fill("inbox_limited"));
+    // Dots matter outside Gmail.
+    expect(await request("v.ictim@example.test")).toBe("recorded");
+
+    const phone = "b".repeat(64);
+    const fromOnePhone: string[] = [];
+    for (let n = 0; n <= SIGN_IN_LINKS_PER_DEVICE_PER_HOUR; n += 1) {
+      fromOnePhone.push(await request(`person${n}@example.test`, phone));
+    }
+    expect(fromOnePhone[SIGN_IN_LINKS_PER_DEVICE_PER_HOUR]).toBe("device_limited");
+    expect(fromOnePhone.slice(0, -1).every((result) => result === "recorded")).toBe(true);
+
+    await t.run(async (ctx) => {
+      for (let n = 0; n < SIGN_IN_LINKS_OVERALL_PER_HOUR; n += 1) {
+        await ctx.db.insert("customerAppSignInLinks", {
+          deviceDigest: `d${n}`,
+          recipientDigest: `r${n}`,
+          requestedAt: NOW,
+          tokenDigest: `t${n}`,
+        });
+      }
+    });
+    expect(await request("someone.new@example.test")).toBe("busy");
+
     vi.setSystemTime(NOW + 61 * 60 * 1000);
-    expect(await request(99)).toBe(true);
+    expect(await request("victim+again@gmail.com")).toBe("recorded");
+  });
+
+  test("N1: the inbox an address reaches is what is counted", () => {
+    expect(signInInbox(" Vi.Ctim+Tag@GoogleMail.com ")).toBe("victim@gmail.com");
+    expect(signInInbox("first.last+x@example.test")).toBe("first.last@example.test");
+    expect(signInInbox("+only@example.test")).toBe("+only@example.test");
   });
 
   test("M8: a sign-in link signs in only the device that asked for it, once", async () => {

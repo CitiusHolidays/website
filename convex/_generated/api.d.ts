@@ -67,6 +67,7 @@ import type * as crm_expenseReads from "../crm/expenseReads.js";
 import type * as crm_expenseScope from "../crm/expenseScope.js";
 import type * as crm_externalTourManagerProfiles from "../crm/externalTourManagerProfiles.js";
 import type * as crm_fieldPassportActions from "../crm/fieldPassportActions.js";
+import type * as crm_customerAppSignInRetention from "../crm/customerAppSignInRetention.js";
 import type * as crm_fieldPassportAuditRetention from "../crm/fieldPassportAuditRetention.js";
 import type * as crm_fieldPassportOpenPolicy from "../crm/fieldPassportOpenPolicy.js";
 import type * as crm_fieldPassports from "../crm/fieldPassports.js";
@@ -305,6 +306,7 @@ import type * as lib_bookingInvoiceValidators from "../lib/bookingInvoiceValidat
 import type * as lib_bootstrapAuthority from "../lib/bootstrapAuthority.js";
 import type * as lib_customerAppCovers from "../lib/customerAppCovers.js";
 import type * as lib_customerAppSignIn from "../lib/customerAppSignIn.js";
+import type * as lib_customerAppSignInVerification from "../lib/customerAppSignInVerification.js";
 import type * as lib_customerIdentityAccess from "../lib/customerIdentityAccess.js";
 import type * as lib_customerTripInvites from "../lib/customerTripInvites.js";
 import type * as lib_emailConfig from "../lib/emailConfig.js";
@@ -418,6 +420,7 @@ declare const fullApi: ApiFromModules<{
   "crm/expenseScope": typeof crm_expenseScope;
   "crm/externalTourManagerProfiles": typeof crm_externalTourManagerProfiles;
   "crm/fieldPassportActions": typeof crm_fieldPassportActions;
+  "crm/customerAppSignInRetention": typeof crm_customerAppSignInRetention;
   "crm/fieldPassportAuditRetention": typeof crm_fieldPassportAuditRetention;
   "crm/fieldPassportOpenPolicy": typeof crm_fieldPassportOpenPolicy;
   "crm/fieldPassports": typeof crm_fieldPassports;
@@ -656,6 +659,7 @@ declare const fullApi: ApiFromModules<{
   "lib/bootstrapAuthority": typeof lib_bootstrapAuthority;
   "lib/customerAppCovers": typeof lib_customerAppCovers;
   "lib/customerAppSignIn": typeof lib_customerAppSignIn;
+  "lib/customerAppSignInVerification": typeof lib_customerAppSignInVerification;
   "lib/customerIdentityAccess": typeof lib_customerIdentityAccess;
   "lib/customerTripInvites": typeof lib_customerTripInvites;
   "lib/emailConfig": typeof lib_emailConfig;

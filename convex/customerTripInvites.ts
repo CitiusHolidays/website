@@ -280,8 +280,11 @@ export const revokeInvite = mutation({
     if (!invite) {
       throw new ConvexError("Invite not found");
     }
-    const { inScope, job } = await loadInviteJob(ctx, access, invite.jobCardId);
-    const invited = await ctx.db.get("travellers", invite.travellerId);
+    // Both are reads; the access check below still runs before the early return.
+    const [{ inScope, job }, invited] = await Promise.all([
+      loadInviteJob(ctx, access, invite.jobCardId),
+      ctx.db.get("travellers", invite.travellerId),
+    ]);
     if (!(invited && inScope(invited))) {
       throw new ConvexError("Invite not found");
     }

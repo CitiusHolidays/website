@@ -373,19 +373,25 @@ async function wholeTripRoster(ctx: Ctx, jobCardId: Id<"jobCards">) {
   if (rows.length > MAX_ROSTER) {
     return null;
   }
-  return rows.filter((row) => !row.cancellation).map((row) => row._id);
+  return rows
+    .filter((row) => !row.cancellation)
+    .map((row) => ({ createdAt: row.createdAt, id: row._id }));
 }
 
-/** An announcement every live traveller on the trip received, not one for a group or a few. */
+/**
+ * An announcement every live traveller on the trip at the time received, not one for a group or a
+ * few. Travellers added after it was sent do not count against it.
+ */
 function sentToWholeTrip(
   row: Doc<"fieldAnnouncements">,
-  roster: Id<"travellers">[] | null
+  roster: { createdAt: number; id: Id<"travellers"> }[] | null
 ): boolean {
-  if (!roster || roster.length === 0 || row.travelBatchId) {
+  if (!roster || row.travelBatchId) {
     return false;
   }
+  const onTripThen = roster.filter((traveller) => traveller.createdAt <= row.sharedAt);
   const recipients = new Set(row.recipientTravellerIds);
-  return roster.every((id) => recipients.has(id));
+  return onTripThen.length > 0 && onTripThen.every((traveller) => recipients.has(traveller.id));
 }
 
 /** One trip: the day plan, the tour managers to call, document status words and announcements. */

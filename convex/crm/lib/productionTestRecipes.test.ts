@@ -38,6 +38,7 @@ describe("Production Test Lab recipe orchestration", () => {
       "scheduled_job:issue_pending_booking_invoices",
       "scheduled_job:purge_activity_logs",
       "scheduled_job:purge_commercial_files",
+      "scheduled_job:purge_customer_app_sign_in_links",
       "scheduled_job:purge_field_passport_audit",
       "scheduled_job:purge_inactive_customer_accounts",
       "scheduled_job:purge_office_check_ins",

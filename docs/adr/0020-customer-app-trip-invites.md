@@ -81,9 +81,13 @@ them). Each link is bound to the phone that asked for it: the app keeps a random
 SHA-256 digest with the request (`metadata.deviceDigest`) and the secret itself in the
 `x-citius-sign-in-device` header when it verifies; a link forwarded to another phone signs nobody
 in, so nobody can be signed in to someone else's account and then claim their own invite into it.
-Before accepting, the app shows which account the trip will be added to. An address gets at most
-five links an hour, counted by a digest of the address (`customerAppSignInLinks`, rows kept a day),
-whatever IP the requests come from. The `/app/invite` and `/app/sign-in` pages run no page
+Before accepting, the app shows which account the trip will be added to. Links are limited
+whatever IP the requests come from, counted on rows of digests (`customerAppSignInLinks`): five an
+hour per inbox, after folding aliases that reach one inbox (case, `+tags`, Gmail dots and
+googlemail.com), answered like a sent link; ten an hour per phone; and 300 an hour across the app,
+which fails closed with "try again later". The daily job `jobs.purge_customer_app_sign_in_links`
+deletes requests older than a day with each link's Better Auth verification row, which holds the
+address; account deletion deletes the account's requests and those rows at once, expired or not. The `/app/invite` and `/app/sign-in` pages run no page
 analytics. Delivery shares the verification email's
 ledger purpose and Live Feature Control. SMS sign-in is a seam in the app until sent.dm and DLT
 registration exist; it will use Better Auth's `phoneNumber` plugin.

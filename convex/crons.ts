@@ -98,6 +98,14 @@ crons.cron(
   {}
 );
 
+// 20:15 UTC is 01:45 IST: customer app sign-in requests older than a day.
+crons.cron(
+  "purge customer app sign-in requests",
+  "15 20 * * *",
+  scheduledJob("operationalScheduledJobs:purgeCustomerAppSignInLinks"),
+  {}
+);
+
 // 19:00 UTC is 00:30 IST, just after a field passport window closes at 24:00 IST.
 crons.cron(
   "purge field passport audit after trips",

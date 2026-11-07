@@ -6,6 +6,7 @@ import { normalizeEmail } from "../crm/lib/staffAccess";
 import { ACCOUNT_DELETION_ERRORS } from "./accountDeletionContract";
 import { withoutIdentityDocuments } from "./bookingTravellerDocuments";
 import { signInRecipientDigest } from "./customerAppSignIn";
+import { deleteSignInVerifications } from "./customerAppSignInVerification";
 import { isRuntimeObject, isRuntimeString } from "./runtimeValues";
 
 /** Better Auth's stored value for an unused email sign-in link. */
@@ -429,6 +430,7 @@ async function eraseSignInLinkRows(ctx: MutationCtx, target: AccountErasureTarge
     ).flat()
   );
   await Promise.all(rows.map((row) => ctx.db.delete("customerAppSignInLinks", row._id)));
+  return rows.map((row) => row.tokenDigest);
 }
 
 /** Entitlements are revoked and detached (the row is the grant's audit trail), or deleted. */
@@ -513,7 +515,7 @@ export async function eraseCustomerAccount(
   target: AccountErasureTarget
 ): Promise<AccountErasureCounts> {
   // Each step owns its own tables, so they run together inside the one transaction.
-  const [profiles, sacredBharatRows, entitlementsRevoked, bookings, identityLinks] =
+  const [profiles, sacredBharatRows, entitlementsRevoked, bookings, identityLinks, signInTokens] =
     await Promise.all([
       eraseProfiles(ctx, target),
       eraseSacredBharat(ctx, target),
@@ -523,7 +525,9 @@ export async function eraseCustomerAccount(
       eraseSignInLinkRows(ctx, target),
     ]);
   // The Better Auth login goes last, only once every app-owned row is bounded and resolved, so a
-  // too-large refusal never starts the component's writes.
+  // too-large refusal never starts the component's writes. Sign-in links the app sent hold the
+  // address even after they expire, so their verification rows go by identifier.
+  const signInLinkVerifications = await deleteSignInVerifications(ctx, signInTokens);
   const login = await eraseBetterAuthLogins(
     ctx,
     target.betterAuthUserIds,
@@ -532,6 +536,7 @@ export async function eraseCustomerAccount(
   );
   return {
     ...login,
+    authVerifications: login.authVerifications + signInLinkVerifications,
     ...bookings,
     entitlementsRevoked,
     feedbackPhotos: 0,

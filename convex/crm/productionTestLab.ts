@@ -47,6 +47,7 @@ const recipeIdValidator = v.union(
   v.literal("scheduled_job:issue_pending_booking_invoices"),
   v.literal("scheduled_job:purge_activity_logs"),
   v.literal("scheduled_job:purge_commercial_files"),
+  v.literal("scheduled_job:purge_customer_app_sign_in_links"),
   v.literal("scheduled_job:purge_field_passport_audit"),
   v.literal("scheduled_job:purge_inactive_customer_accounts"),
   v.literal("scheduled_job:purge_office_check_ins"),
