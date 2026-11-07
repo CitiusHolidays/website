@@ -1,8 +1,10 @@
 /// <reference types="vite/client" />
 import { convexTest } from "convex-test";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { api, components } from "./_generated/api";
+import { api, components, internal } from "./_generated/api";
 import betterAuthSchema from "./betterAuth/schema";
+import { sha256Hex, signInRecipientDigest } from "./lib/customerAppSignIn";
+import { magicLinkIdentifier } from "./lib/customerAppSignInVerification";
 import schema from "./schema";
 import { modules } from "./test.setup";
 
@@ -714,5 +716,84 @@ describe("self-service account deletion", () => {
     const receipt = await t.run(async (ctx) => ctx.db.query("accountDeletionReceipts").unique());
     expect(receipt?.confirmationEmail).toBe("skipped");
     expect((await betterAuthRows(t, login.authUserId)).user).toBeNull();
+  });
+});
+
+async function sentSignInLink(t: Harness, email: string, token: string, expiresAt: number) {
+  const tokenDigest = await sha256Hex(token);
+  await t.mutation(internal.customerAppAuth.recordSignInLink, {
+    deviceDigest: `device-${token}`,
+    knownAccount: true,
+    recipientDigest: await signInRecipientDigest(email),
+    tokenDigest,
+  });
+  await t.mutation(components.betterAuth.adapter.create, {
+    input: {
+      data: {
+        createdAt: Date.now(),
+        expiresAt,
+        identifier: magicLinkIdentifier(tokenDigest),
+        updatedAt: Date.now(),
+        value: JSON.stringify({ email, type: "magic-link" }),
+      },
+      model: "verification",
+    },
+  });
+}
+
+interface VerificationRow {
+  identifier: string;
+  value: string;
+}
+
+async function verificationRows(t: Harness): Promise<VerificationRow[]> {
+  const page = await t.query(components.betterAuth.adapter.findMany, {
+    model: "verification",
+    paginationOpts: { cursor: null, numItems: 100 },
+  });
+  return page.page.map((row: { identifier?: unknown; value?: unknown }) => ({
+    identifier: String(row.identifier),
+    value: String(row.value),
+  }));
+}
+
+describe("customer app sign-in links", () => {
+  test("the identifier matches Better Auth's hashed magic-link token", async () => {
+    // Better Auth stores base64url(SHA-256(token)) without padding (storeToken: "hashed").
+    expect(magicLinkIdentifier(await sha256Hex("abc"))).toBe(
+      "magic-link:ungWv48Bz-pBQUDeXa4iI7ADYaOWF3qctBD_YfIAFa0"
+    );
+  });
+
+  test("L4: deleting the account deletes its sign-in links, expired ones too", async () => {
+    vi.useFakeTimers({ now: Date.now() });
+    const t = createHarness();
+    const login = await createLogin(t, { email: "links@account-deletion.test", name: "L" });
+    const other = await createLogin(t, { email: "other@account-deletion.test", name: "O" });
+    await sentSignInLink(t, login.email, "expired-token", Date.now() - 60 * MINUTE);
+    await sentSignInLink(t, other.email, "other-token", Date.now() - 60 * MINUTE);
+    await asLogin(t, login).mutation(api.accountDeletion.deleteMyAccount, {
+      confirmation: "DELETE",
+    });
+    const values = (await verificationRows(t)).map((row) => row.value);
+    expect(values.some((value) => value.includes(login.email))).toBe(false);
+    expect(values.some((value) => value.includes(other.email))).toBe(true);
+    const requests = await t.run((ctx) => ctx.db.query("customerAppSignInLinks").collect());
+    expect(requests).toHaveLength(1);
+  });
+
+  test("N2: the daily purge deletes requests older than a day, with their sign-in links", async () => {
+    vi.useFakeTimers({ now: Date.now() });
+    const t = createHarness();
+    await sentSignInLink(t, "once@account-deletion.test", "old-token", Date.now() + 10 * MINUTE);
+    vi.setSystemTime(Date.now() + 25 * 60 * MINUTE);
+    await sentSignInLink(t, "today@account-deletion.test", "new-token", Date.now() + 10 * MINUTE);
+    const result = await t.mutation(internal.crm.customerAppSignInRetention.purgeExpired, {});
+    expect(result.counts).toEqual({ deleted: 1 });
+    const requests = await t.run((ctx) => ctx.db.query("customerAppSignInLinks").collect());
+    expect(requests).toHaveLength(1);
+    const values = (await verificationRows(t)).map((row) => row.value);
+    expect(values.some((value) => value.includes("once@"))).toBe(false);
+    expect(values.some((value) => value.includes("today@"))).toBe(true);
   });
 });

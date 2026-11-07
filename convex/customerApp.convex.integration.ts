@@ -1,8 +1,9 @@
 import { convexTest } from "convex-test";
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { eraseCustomerAccount } from "./lib/accountErasure";
+import { passportStatusWord } from "./customerApp";
+import { eraseCustomerAccount, isMagicLinkFor } from "./lib/accountErasure";
 import { hashTripInviteToken, TRIP_INVITE_ERRORS } from "./lib/customerTripInvites";
 import schema from "./schema";
 import { modules } from "./test.setup";
@@ -98,7 +99,8 @@ async function seed(t: ReturnType<typeof harness>) {
     const groupB = await batch("B02");
     const parent = await ctx.db.insert("travellers", {
       ...travellerDefaults,
-      createdAt: NOW,
+      // On the trip before any announcement was sent.
+      createdAt: NOW - 60_000,
       fullName: "Asha Testguest",
       isMinor: false,
       jobCardId,
@@ -108,7 +110,8 @@ async function seed(t: ReturnType<typeof harness>) {
     });
     const child = await ctx.db.insert("travellers", {
       ...travellerDefaults,
-      createdAt: NOW,
+      // On the trip before any announcement was sent.
+      createdAt: NOW - 60_000,
       firstGuardianTravellerId: parent,
       fullName: "Kiran Testguest",
       isMinor: true,
@@ -119,8 +122,10 @@ async function seed(t: ReturnType<typeof harness>) {
     });
     const stranger = await ctx.db.insert("travellers", {
       ...travellerDefaults,
-      createdAt: NOW,
+      // On the trip before any announcement was sent.
+      createdAt: NOW - 60_000,
       fullName: "Ravi Othertraveller",
+      isMinor: false,
       jobCardId,
       passportStatus: "Received",
       travelBatchId: groupB,
@@ -142,8 +147,14 @@ async function seed(t: ReturnType<typeof harness>) {
     await assignment("Trip Lead");
     await assignment("Group A Manager", groupA);
     await assignment("Group B Manager", groupB);
-    const announce = (body: string, recipientTravellerIds: Id<"travellers">[], sharedAt: number) =>
+    const announce = (
+      body: string,
+      recipientTravellerIds: Id<"travellers">[],
+      sharedAt: number,
+      audience?: "trip"
+    ) =>
       ctx.db.insert("fieldAnnouncements", {
+        audience,
         authorName: "Group A Manager",
         authorStaffId: staffIds.tm,
         body,
@@ -155,7 +166,7 @@ async function seed(t: ReturnType<typeof harness>) {
         sharedAt,
         updatedAt: sharedAt,
       });
-    await announce("Coach at 08:00", [parent, child, stranger], NOW - 2000);
+    await announce("Coach at 08:00", [parent, child, stranger], NOW - 2000, "trip");
     await announce("Group B dinner moved", [stranger], NOW - 1000);
     await announce("Kids club at 16:00", [child], NOW);
     await ctx.db.insert("itineraries", {
@@ -284,10 +295,7 @@ describe("customer app trip invites", () => {
     expect(detail?.minors).toEqual([
       expect.objectContaining({ consent: "granted", fullName: "Kiran Testguest" }),
     ]);
-    expect(detail?.documents.map((row) => row.fullName)).toEqual([
-      "Asha Testguest",
-      "Kiran Testguest",
-    ]);
+    expect(detail?.documents.map((row) => row.fullName)).toEqual(["Asha Testguest"]);
     expect(detail?.contacts.map((row) => row.name).sort()).toEqual([
       "Group A Manager",
       "Trip Lead",
@@ -380,7 +388,7 @@ describe("customer app trip invites", () => {
     expect(marked?.isMinor).toBe(true);
   });
 
-  test("deleting the account detaches its invite claim and consent records from the login", async () => {
+  test("deleting the account detaches its invite claim and deletes its consent records", async () => {
     vi.useFakeTimers({ now: NOW });
     const t = harness();
     const ids = await seed(t);
@@ -411,7 +419,7 @@ describe("customer app trip invites", () => {
     expect(invites.map((row) => row.claimedByAuthUserId)).toEqual([tombstone]);
     expect(invites[0]?.status).toBe("claimed");
     const consents = await t.run((ctx) => ctx.db.query("customerParentalConsents").collect());
-    expect(consents.map((row) => [row.action, row.authUserId])).toEqual([["granted", tombstone]]);
+    expect(consents).toEqual([]);
     expect(await asha.query(api.customerApp.listMyTrips, { referenceNow: NOW })).toEqual([]);
   });
 
@@ -433,5 +441,399 @@ describe("customer app trip invites", () => {
     expect(
       await asCustomer(t, "asha").query(api.customerApp.listMyTrips, { referenceNow: NOW })
     ).toEqual([]);
+  });
+});
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+async function seedConfirmedQuery(t: ReturnType<typeof harness>, jobCardId: Id<"jobCards">) {
+  return await t.run(async (ctx) => {
+    const queryId = await ctx.db.insert("queries", {
+      clientName: "Synthetic Dealers Meet",
+      contractingStatus: "Order Confirmed",
+      createdAt: NOW,
+      createdBy: "synthetic",
+      paxCount: 4,
+      queryCode: "Q-CRM-SECRET",
+      queryType: "MICE",
+      salesStatus: "Order Confirmed",
+      source: "Referral",
+      travelType: "International Travel",
+      updatedAt: NOW,
+    });
+    const proposalId = await ctx.db.insert("proposals", {
+      clientName: "Synthetic Dealers Meet",
+      createdAt: NOW,
+      createdBy: "synthetic",
+      itinerarySummary: "Bali",
+      preparedBy: "synthetic",
+      proposalCode: "P-1",
+      queryId,
+      sellingPrice: 99_999,
+      status: "Sent",
+      updatedAt: NOW,
+    });
+    const confirmedOfferId = await ctx.db.insert("confirmedOffers", {
+      airfarePerPax: 1,
+      confirmedPax: 4,
+      createdAt: NOW,
+      createdBy: "synthetic",
+      landCostPerPax: 1,
+      profitPerPax: 1,
+      proposalId,
+      queryId,
+      sellingPricePerPax: 99_999,
+      travelStartDate: "2026-11-15",
+      updatedAt: NOW,
+      visaCostPerPax: 1,
+    });
+    await ctx.db.patch("queries", queryId, { confirmedOfferId });
+    await ctx.db.patch("jobCards", jobCardId, { confirmedOfferId, queryId });
+    return { confirmedOfferId, queryId };
+  });
+}
+
+function operatorGrant(
+  t: ReturnType<typeof harness>,
+  key: string,
+  fields: { role: "organizer" | "traveller" } & Partial<{
+    confirmedOfferId: Id<"confirmedOffers">;
+    jobCardId: Id<"jobCards">;
+    queryId: Id<"queries">;
+  }>
+) {
+  return t.run((ctx) =>
+    ctx.db.insert("customerJourneyEntitlements", {
+      authUserId: `${ISSUER}|${key}`,
+      capabilities: ["view_confirmed_trip"],
+      createdAt: NOW,
+      source: "crm_operator_grant",
+      updatedAt: NOW,
+      ...fields,
+    })
+  );
+}
+
+describe("customer app privacy and safety (review of PR 315)", () => {
+  test("F1: a grant without a Traveller row gets trip-wide contacts and no traveller's messages", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const t = harness();
+    const ids = await seed(t);
+    await startPilot(t, ids.jobCardId);
+    const travellerGrant = await operatorGrant(t, "grantee", {
+      jobCardId: ids.jobCardId,
+      role: "traveller",
+    });
+    const detail = await asCustomer(t, "grantee").query(api.customerApp.getMyTrip, {
+      referenceNow: NOW,
+      tripId: travellerGrant,
+    });
+    expect(detail?.announcements).toEqual([]);
+    expect(detail?.contacts.map((row) => row.name)).toEqual(["Trip Lead"]);
+    expect(detail?.documents).toEqual([]);
+
+    // An organizer sees only what went to every traveller on the trip, never a group's or a
+    // child's message.
+    const organizerGrant = await operatorGrant(t, "organizer", {
+      jobCardId: ids.jobCardId,
+      role: "organizer",
+    });
+    const organizer = await asCustomer(t, "organizer").query(api.customerApp.getMyTrip, {
+      referenceNow: NOW,
+      tripId: organizerGrant,
+    });
+    expect(organizer?.announcements.map((row) => row.body)).toEqual(["Coach at 08:00"]);
+    expect(organizer?.contacts.map((row) => row.name)).toEqual(["Trip Lead"]);
+
+    // A traveller added after the whole-trip message does not hide it.
+    await t.run((ctx) =>
+      ctx.db.insert("travellers", {
+        ...travellerDefaults,
+        createdAt: NOW + 1000,
+        fullName: "Late Addition",
+        isMinor: false,
+        jobCardId: ids.jobCardId,
+        updatedAt: NOW + 1000,
+      })
+    );
+    const later = await asCustomer(t, "organizer").query(api.customerApp.getMyTrip, {
+      referenceNow: NOW,
+      tripId: organizerGrant,
+    });
+    expect(later?.announcements.map((row) => row.body)).toEqual(["Coach at 08:00"]);
+  });
+
+  test("O2: a message to one traveller never reaches the organizer, whoever joins later", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const t = harness();
+    const ids = await seed(t);
+    await t.run((ctx) =>
+      ctx.db.insert("fieldAnnouncements", {
+        authorName: "Trip Lead",
+        authorStaffId: ids.staffIds.tm,
+        body: "Asha: your visa was refused",
+        clientAnnouncementId: "asha-only",
+        createdAt: NOW,
+        jobCardId: ids.jobCardId,
+        recipientTravellerIds: [ids.parent],
+        seenByTravellerIds: [],
+        sharedAt: NOW,
+        updatedAt: NOW,
+      })
+    );
+    await startPilot(t, ids.jobCardId);
+    const tripId = await operatorGrant(t, "organizer", {
+      jobCardId: ids.jobCardId,
+      role: "organizer",
+    });
+    const detail = await asCustomer(t, "organizer").query(api.customerApp.getMyTrip, {
+      referenceNow: NOW,
+      tripId,
+    });
+    expect(detail?.announcements.map((row) => row.body)).toEqual(["Coach at 08:00"]);
+  });
+
+  test("F2: a guardian sees their minors by name, and only their own documents", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const t = harness();
+    const ids = await seed(t);
+    const raw = await invite(t, ids.jobCardId, ids.parent, 20);
+    const asha = asCustomer(t, "asha");
+    const { tripId } = await asha.mutation(api.customerApp.claimInvite, { token: raw });
+    await startPilot(t, ids.jobCardId);
+    const detail = await asha.query(api.customerApp.getMyTrip, { referenceNow: NOW, tripId });
+    expect(detail?.documents.map((row) => row.travellerId)).toEqual([ids.parent]);
+    expect(detail?.minors.map((row) => row.fullName)).toEqual(["Kiran Testguest"]);
+  });
+
+  test("F3: a traveller whose age is not recorded cannot be invited, previewed or claimed", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const t = harness();
+    const ids = await seed(t);
+    const unknownAge = await t.run((ctx) =>
+      ctx.db.insert("travellers", {
+        ...travellerDefaults,
+        createdAt: NOW,
+        fullName: "Child Unknownage",
+        jobCardId: ids.jobCardId,
+        passportStatus: "Received",
+        updatedAt: NOW,
+      })
+    );
+    await expect(invite(t, ids.jobCardId, unknownAge, 21)).rejects.toThrow(
+      "Record whether Child Unknownage is an adult"
+    );
+    const { rows } = await asStaff(t, "ops-head").query(api.customerTripInvites.listForJobCard, {
+      jobCardId: ids.jobCardId,
+      referenceNow: NOW,
+    });
+    expect(rows.find((row) => row.travellerId === unknownAge)?.inviteBlockedReason).toBe(
+      "age_not_recorded"
+    );
+    // An invite made before the rule (or by hand) still cannot be used.
+    const raw = makeToken(22);
+    await t.run(async (ctx) =>
+      ctx.db.insert("customerTripInvites", {
+        channel: "link",
+        createdAt: NOW,
+        createdByName: "Synthetic Ops Head",
+        createdByStaffId: ids.staffIds["ops-head"],
+        expiresAt: NOW + DAY_MS,
+        jobCardId: ids.jobCardId,
+        status: "pending",
+        tokenHash: await hashTripInviteToken(raw),
+        travellerId: unknownAge,
+        updatedAt: NOW,
+      })
+    );
+    expect(await t.query(api.customerApp.previewInvite, { referenceNow: NOW, token: raw })).toEqual(
+      { status: "invalid" }
+    );
+    await expect(
+      asCustomer(t, "child").mutation(api.customerApp.claimInvite, { token: raw })
+    ).rejects.toThrow(TRIP_INVITE_ERRORS.minor);
+  });
+
+  test("F4: marking a claimed traveller as a minor ends their own app access", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const t = harness();
+    const ids = await seed(t);
+    const raw = await invite(t, ids.jobCardId, ids.stranger, 23);
+    const ravi = asCustomer(t, "ravi");
+    const { tripId } = await ravi.mutation(api.customerApp.claimInvite, { token: raw });
+    await startPilot(t, ids.jobCardId);
+    await t.run((ctx) => ctx.db.patch("travellers", ids.stranger, { isMinor: true }));
+    expect(await ravi.query(api.customerApp.getMyTrip, { referenceNow: NOW, tripId })).toBeNull();
+    expect(await ravi.query(api.customerApp.listMyTrips, { referenceNow: NOW })).toEqual([]);
+  });
+
+  test("F5: a claimed invite stays off the website packet; a traveller packet carries no CRM facts", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const t = harness();
+    const ids = await seed(t);
+    const [offer, raw] = await Promise.all([
+      seedConfirmedQuery(t, ids.jobCardId),
+      invite(t, ids.jobCardId, ids.parent, 24),
+    ]);
+    const asha = asCustomer(t, "asha");
+    await asha.mutation(api.customerApp.claimInvite, { token: raw });
+    const packets = (key: string) =>
+      asCustomer(t, key).query(api.customerConfirmedTrips.getMyConfirmedTripPackets, {
+        paginationOpts: { cursor: null, numItems: 10 },
+      });
+    expect((await packets("asha")).page).toEqual([]);
+
+    await operatorGrant(t, "grantee", { ...offer, role: "traveller" });
+    const [travellerPacket] = (await packets("grantee")).page;
+    expect(travellerPacket).toMatchObject({
+      destination: expect.any(String),
+      jobCode: "JC-CUST-01",
+    });
+    for (const field of [
+      "confirmedPax",
+      "jobStatus",
+      "queryCode",
+      "sellingPricePerPax",
+      "source",
+      "taxRate",
+      "ticketingScope",
+    ] as const) {
+      expect(travellerPacket).not.toHaveProperty(field);
+    }
+
+    await operatorGrant(t, "organizer", { ...offer, role: "organizer" });
+    const [organizerPacket] = (await packets("organizer")).page;
+    expect(organizerPacket).toMatchObject({
+      confirmedPax: 4,
+      queryCode: "Q-CRM-SECRET",
+      source: "Referral",
+    });
+  });
+
+  test("F6: an expired link previews as expired whatever clock the caller sends", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const t = harness();
+    const ids = await seed(t);
+    const raw = await invite(t, ids.jobCardId, ids.parent, 25);
+    vi.setSystemTime(NOW + 40 * DAY_MS);
+    expect(await t.query(api.customerApp.previewInvite, { referenceNow: 0, token: raw })).toEqual({
+      status: "expired",
+    });
+  });
+
+  test("F7: deleting the parent's account deletes the consents they recorded", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const t = harness();
+    const ids = await seed(t);
+    const raw = await invite(t, ids.jobCardId, ids.parent, 26);
+    await asCustomer(t, "asha").mutation(api.customerApp.claimInvite, {
+      consent: { minorTravellerIds: [ids.child], textVersion: CONSENT_VERSION },
+      token: raw,
+    });
+    const [entitlement] = await t.run((ctx) =>
+      ctx.db.query("customerJourneyEntitlements").collect()
+    );
+    await t.run((ctx) =>
+      eraseCustomerAccount(ctx, {
+        betterAuthUserIds: [],
+        entitlements: "revoke",
+        identityIds: [entitlement?.authUserId ?? ""],
+        loginEmails: [],
+        now: NOW,
+        tombstone: "deleted-account:test",
+      })
+    );
+    expect(await t.run((ctx) => ctx.db.query("customerParentalConsents").collect())).toEqual([]);
+  });
+
+  test("F8: a Tour Manager for group A lists and invites only group A on the invite panel", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const t = harness();
+    const ids = await seed(t);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("tourManagerAssignments", {
+        callingStatus: "Pending",
+        createdAt: NOW,
+        createdBy: "synthetic",
+        jobCardId: ids.jobCardId,
+        name: "Synthetic Tour Manager",
+        staffId: ids.staffIds.tm,
+        status: "Assigned",
+        travelBatchId: ids.groupA,
+        updatedAt: NOW,
+      });
+      await ctx.db.patch("jobCards", ids.jobCardId, {
+        assignedTourManagerStaffIds: [ids.staffIds.tm],
+      });
+    });
+    const { rows } = await asStaff(t, "tm").query(api.customerTripInvites.listForJobCard, {
+      jobCardId: ids.jobCardId,
+      referenceNow: NOW,
+    });
+    expect(rows.map((row) => row.fullName)).toEqual(["Asha Testguest", "Kiran Testguest"]);
+  });
+
+  test("L7: ending app access keeps an operator grant the claim only linked", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const t = harness();
+    const ids = await seed(t);
+    const [offer, raw] = await Promise.all([
+      seedConfirmedQuery(t, ids.jobCardId),
+      invite(t, ids.jobCardId, ids.parent, 27),
+    ]);
+    const grant = await operatorGrant(t, "asha", { ...offer, role: "organizer" });
+    const { tripId } = await asCustomer(t, "asha").mutation(api.customerApp.claimInvite, {
+      token: raw,
+    });
+    expect(tripId).toBe(grant);
+    await asStaff(t, "ops-head").mutation(api.customerTripInvites.revokeTravellerAccess, {
+      travellerId: ids.parent,
+    });
+    const row = await t.run((ctx) => ctx.db.get("customerJourneyEntitlements", grant));
+    expect(row?.revokedAt).toBeUndefined();
+    expect(row?.travellerId).toBeUndefined();
+    expect(row?.role).toBe("organizer");
+  });
+
+  test("L6: passport status reaches the app as one of two words", () => {
+    expect(passportStatusWord(" received ")).toBe("Received");
+    expect(passportStatusWord("Sent to embassy, call Priya 98xxxx")).toBe("Pending");
+    expect(passportStatusWord("")).toBeNull();
+    expect(passportStatusWord(undefined)).toBeNull();
+  });
+});
+
+describe("customer app email sign-in guards", () => {
+  test("L3: a bootstrap Admin mailbox is staff, so it gets no customer sign-in link", async () => {
+    const t = harness();
+    const previous = process.env.PORTAL_BOOTSTRAP_ADMINS;
+    process.env.PORTAL_BOOTSTRAP_ADMINS = "Owner@Example.test";
+    try {
+      expect(
+        await t.query(internal.customerAppAuth.isStaffEmail, { email: "owner@example.test" })
+      ).toBe(true);
+      expect(
+        await t.query(internal.customerAppAuth.isStaffEmail, { email: "guest@example.test" })
+      ).toBe(false);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.PORTAL_BOOTSTRAP_ADMINS;
+      } else {
+        process.env.PORTAL_BOOTSTRAP_ADMINS = previous;
+      }
+    }
+  });
+
+  test("L4: account deletion recognises an unused sign-in link by its address", () => {
+    const emails = new Set(["asha@example.test"]);
+    expect(isMagicLinkFor('{"type":"magic-link","email":"Asha@Example.test"}', emails)).toBe(true);
+    expect(isMagicLinkFor('{"type":"magic-link","email":"other@example.test"}', emails)).toBe(
+      false
+    );
+    expect(
+      isMagicLinkFor('{"type":"email-verification","email":"asha@example.test"}', emails)
+    ).toBe(false);
+    expect(isMagicLinkFor("user-id-123", emails)).toBe(false);
+    expect(isMagicLinkFor("{not json", emails)).toBe(false);
   });
 });

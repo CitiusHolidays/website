@@ -209,6 +209,7 @@ const productionTestRecipeIdValidator = v.union(
   v.literal("scheduled_job:issue_pending_booking_invoices"),
   v.literal("scheduled_job:purge_activity_logs"),
   v.literal("scheduled_job:purge_commercial_files"),
+  v.literal("scheduled_job:purge_customer_app_sign_in_links"),
   v.literal("scheduled_job:purge_field_passport_audit"),
   v.literal("scheduled_job:purge_inactive_customer_accounts"),
   v.literal("scheduled_job:purge_office_check_ins"),
@@ -546,6 +547,24 @@ export default defineSchema({
   // A guardian's own consent for a minor on the trip (ADR 0018, ADR 0020), append-only: a
   // withdrawal is a new row. Separate from travellers.parentalConsent, which is the Operations
   // mark.
+  // Customer app email sign-in requests (ADR 0020): digests only. Each row binds one link to the
+  // device that asked for it and counts toward its address's hourly limit; rows live a day.
+  customerAppSignInLinks: defineTable({
+    /** Set when the requesting phone opened the link; the row still counts toward the limits. */
+    consumedAt: v.optional(v.number()),
+    deviceDigest: v.string(),
+    /** Set for a domain that is not a large shared provider (one organisation's mail). */
+    domainDigest: v.optional(v.string()),
+    recipientDigest: v.string(),
+    requestedAt: v.number(),
+    tokenDigest: v.string(),
+  })
+    .index("by_recipientDigest_and_requestedAt", ["recipientDigest", "requestedAt"])
+    .index("by_domainDigest_and_requestedAt", ["domainDigest", "requestedAt"])
+    .index("by_deviceDigest_and_requestedAt", ["deviceDigest", "requestedAt"])
+    .index("by_requestedAt", ["requestedAt"])
+    .index("by_tokenDigest", ["tokenDigest"]),
+
   customerParentalConsents: defineTable({
     action: v.union(v.literal("granted"), v.literal("withdrawn")),
     authUserId: v.string(),
@@ -1277,6 +1296,11 @@ export default defineSchema({
     ]),
 
   fieldAnnouncements: defineTable({
+    /**
+     * "trip" only when the tour manager sent it to the whole trip (every travelling traveller,
+     * no group); the customer app shows organizers only these (ADR 0020).
+     */
+    audience: v.optional(v.literal("trip")),
     authorName: v.string(),
     authorStaffId: v.id("staffUsers"),
     body: v.string(),

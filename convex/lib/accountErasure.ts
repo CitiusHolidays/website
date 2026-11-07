@@ -5,6 +5,16 @@ import type { MutationCtx } from "../_generated/server";
 import { normalizeEmail } from "../crm/lib/staffAccess";
 import { ACCOUNT_DELETION_ERRORS } from "./accountDeletionContract";
 import { withoutIdentityDocuments } from "./bookingTravellerDocuments";
+import { signInRecipientDigest } from "./customerAppSignIn";
+import { deleteSignInVerifications } from "./customerAppSignInVerification";
+import { isRuntimeObject, isRuntimeString } from "./runtimeValues";
+
+/** Better Auth's stored value for an unused email sign-in link. */
+interface StoredMagicLink {
+  email?: unknown;
+  type?: unknown;
+}
+
 import { readBoundedGroupMemberCount } from "./sacredBharatGroups";
 
 /** Per-store bound for one deletion transaction. A customer account is far below it. */
@@ -65,9 +75,13 @@ async function deleteAllPages(deletePage: (cursor: string | null) => Promise<Del
 /**
  * Verification tokens have no index on their user id, so walk only the live ones through the
  * `expiresAt` index; a full-table scan would grow with every abandoned reset link. An expired
- * token can no longer be used and names only the deleted user id.
+ * token can no longer be used. `owns` picks the rows that belong to the account.
  */
-async function deleteLiveVerifications(ctx: MutationCtx, betterAuthUserId: string, now: number) {
+async function deleteLiveVerifications(
+  ctx: MutationCtx,
+  owns: (value: string | undefined) => boolean,
+  now: number
+) {
   const ownedIds: string[] = [];
   let cursor: string | null = null;
   for (;;) {
@@ -82,9 +96,7 @@ async function deleteLiveVerifications(ctx: MutationCtx, betterAuthUserId: strin
         paginationOpts: { cursor, numItems: BETTER_AUTH_PAGE_SIZE },
         where: [{ field: "expiresAt", operator: "gt", value: now }],
       });
-    ownedIds.push(
-      ...page.page.filter((row) => row.value === betterAuthUserId).map((row) => row._id)
-    );
+    ownedIds.push(...page.page.filter((row) => owns(row.value)).map((row) => row._id));
     if (page.isDone) {
       break;
     }
@@ -120,7 +132,11 @@ async function eraseOneBetterAuthLogin(ctx: MutationCtx, betterAuthUserId: strin
       paginationOpts: paginationOpts(cursor),
     })
   );
-  const authVerifications = await deleteLiveVerifications(ctx, betterAuthUserId, now);
+  const authVerifications = await deleteLiveVerifications(
+    ctx,
+    (value) => value === betterAuthUserId,
+    now
+  );
   const removedUser = await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
     input: { model: "user", where: [{ field: "_id", operator: "eq", value: betterAuthUserId }] },
   });
@@ -131,7 +147,31 @@ async function eraseOneBetterAuthLogin(ctx: MutationCtx, betterAuthUserId: strin
  * Better Auth owns the login: the user, every session (so all devices sign out), every linked
  * provider account (password and Google) and live verification tokens.
  */
-async function eraseBetterAuthLogins(ctx: MutationCtx, betterAuthUserIds: string[], now: number) {
+/** A pending email sign-in link (`{"type":"magic-link","email":…}`) to one of these addresses. */
+export function isMagicLinkFor(value: string | undefined, emails: Set<string>) {
+  if (!value?.startsWith("{")) {
+    return false;
+  }
+  try {
+    const parsed: StoredMagicLink | null = JSON.parse(value);
+    if (!isRuntimeObject(parsed)) {
+      return false;
+    }
+    const { email } = parsed;
+    return (
+      parsed.type === "magic-link" && isRuntimeString(email) && emails.has(normalizeEmail(email))
+    );
+  } catch {
+    return false;
+  }
+}
+
+async function eraseBetterAuthLogins(
+  ctx: MutationCtx,
+  betterAuthUserIds: string[],
+  loginEmails: string[],
+  now: number
+) {
   const totals = { authAccounts: 0, authSessions: 0, authUser: 0, authVerifications: 0 };
   for (const betterAuthUserId of new Set(betterAuthUserIds)) {
     // biome-ignore lint/performance/noAwaitInLoops: each login's component writes run in turn.
@@ -140,6 +180,15 @@ async function eraseBetterAuthLogins(ctx: MutationCtx, betterAuthUserIds: string
     totals.authSessions += erased.authSessions;
     totals.authUser += erased.authUser;
     totals.authVerifications += erased.authVerifications;
+  }
+  // Unused sign-in links carry the address, not the user id: they go too.
+  const emails = new Set(loginEmails.map(normalizeEmail).filter(Boolean));
+  if (emails.size > 0) {
+    totals.authVerifications += await deleteLiveVerifications(
+      ctx,
+      (value) => isMagicLinkFor(value, emails),
+      now
+    );
   }
   return totals;
 }
@@ -308,9 +357,10 @@ async function eraseSacredBharat(ctx: MutationCtx, target: AccountErasureTarget)
 }
 
 /**
- * Customer app trips (ADR 0020): the invite an Account Holder claimed and the parental consents
- * they recorded stay as Operations' and consent evidence, detached from the login like the
- * entitlement they hang off. The Traveller rows are the operation's and are not touched.
+ * Customer app trips (ADR 0020): the invite an Account Holder claimed stays as Operations' record,
+ * detached from the login like the entitlement it hangs off. The parental consents they recorded
+ * are deleted with the account (owner decision, 7 Nov 2026). The Traveller rows are the
+ * operation's and are not touched.
  */
 async function detachTripRecords(
   ctx: MutationCtx,
@@ -356,10 +406,31 @@ async function detachTripRecords(
         updatedAt: target.now,
       })
     ),
-    ...consents.map((row) =>
-      ctx.db.patch("customerParentalConsents", row._id, { authUserId: target.tombstone })
-    ),
+    ...consents.map((row) => ctx.db.delete("customerParentalConsents", row._id)),
   ]);
+}
+
+/** The customer app's sign-in link requests for the account's addresses (digests only). */
+async function eraseSignInLinkRows(ctx: MutationCtx, target: AccountErasureTarget) {
+  const digests = await Promise.all(
+    [...new Set(target.loginEmails.map(normalizeEmail).filter(Boolean))].map(signInRecipientDigest)
+  );
+  const rows = bounded(
+    (
+      await Promise.all(
+        digests.map((recipientDigest) =>
+          ctx.db
+            .query("customerAppSignInLinks")
+            .withIndex("by_recipientDigest_and_requestedAt", (q) =>
+              q.eq("recipientDigest", recipientDigest)
+            )
+            .take(MAX_ROWS_PER_STORE + 1)
+        )
+      )
+    ).flat()
+  );
+  await Promise.all(rows.map((row) => ctx.db.delete("customerAppSignInLinks", row._id)));
+  return rows.map((row) => row.tokenDigest);
 }
 
 /** Entitlements are revoked and detached (the row is the grant's audit trail), or deleted. */
@@ -444,19 +515,28 @@ export async function eraseCustomerAccount(
   target: AccountErasureTarget
 ): Promise<AccountErasureCounts> {
   // Each step owns its own tables, so they run together inside the one transaction.
-  const [profiles, sacredBharatRows, entitlementsRevoked, bookings, identityLinks] =
+  const [profiles, sacredBharatRows, entitlementsRevoked, bookings, identityLinks, signInTokens] =
     await Promise.all([
       eraseProfiles(ctx, target),
       eraseSacredBharat(ctx, target),
       endEntitlements(ctx, target),
       detachBookings(ctx, target),
       eraseIdentityLinks(ctx, target),
+      eraseSignInLinkRows(ctx, target),
     ]);
   // The Better Auth login goes last, only once every app-owned row is bounded and resolved, so a
-  // too-large refusal never starts the component's writes.
-  const login = await eraseBetterAuthLogins(ctx, target.betterAuthUserIds, target.now);
+  // too-large refusal never starts the component's writes. Sign-in links the app sent hold the
+  // address even after they expire, so their verification rows go by identifier.
+  const signInLinkVerifications = await deleteSignInVerifications(ctx, signInTokens);
+  const login = await eraseBetterAuthLogins(
+    ctx,
+    target.betterAuthUserIds,
+    target.loginEmails,
+    target.now
+  );
   return {
     ...login,
+    authVerifications: login.authVerifications + signInLinkVerifications,
     ...bookings,
     entitlementsRevoked,
     feedbackPhotos: 0,

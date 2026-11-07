@@ -15,6 +15,7 @@ anonymised until an Admin has reviewed that job's dry-run report and switched it
 | Passport scans | 90 days after the trip | `purge_passport_scans`, `jobs.purge_passport_scans` | Deletes the scan file and the encrypted passport details |
 | Traveller feedback | 3 years | `purge_old_feedback`, `jobs.purge_old_feedback` | Deletes the response and its photos in storage |
 | Field passport views (`fieldPassportAccessAudit`) | 1 year after the trip | `purge_field_passport_audit`, `jobs.purge_field_passport_audit` | Deletes the audit row (this job already existed and stays on) |
+| Customer app sign-in requests (`customerAppSignInLinks`) | 1 day | `purge_customer_app_sign_in_links`, `jobs.purge_customer_app_sign_in_links` | Deletes the request (address, device and link digests) and the link's Better Auth verification row, which holds the address; on by default |
 
 Only the Operations Head and Admin read the field passport view log
 (`crm/fieldPassports:listFieldPassportAccess`), shown on the Job Card as the **Passport views**
@@ -51,7 +52,9 @@ panel.
   `foodPreference` and `roomType` are required fields that feed the Job Card's meal and room
   counts, so they stay. Tickets keep their number as a financial reference. A minor on a later
   Travel Batch keeps its link to an anonymised guardian until the minor's own trip is past the
-  period.
+  period. Customer app records go with the trip records they cover (ADR 0020): the parental
+  consents recorded for a minor and the app invites issued to a traveller are deleted when that
+  traveller is anonymised. A parent who deletes their account takes their consent records with it.
 - **Passport scans.** The whole `passportDetails` row goes: the encrypted payload, number hash,
   last four digits, expiry date and file name. The last four digits only help staff recognise the
   right passport while it is in use; once the scan is gone there is nothing to recognise. The
@@ -116,6 +119,7 @@ pages (default 50, at most 200). If `isDone` is false, run it again with the ret
 | `purge_passport_scans` | `crm/retention/passportScans:dryRun` | 50 | `deleted`, `kept_trip_recent`, `kept_undated`, `kept_no_job_card`, `kept_no_traveller` |
 | `purge_old_feedback` | `crm/retention/feedback:dryRun` | 50 | `deleted_traveller_feedback` |
 | `purge_field_passport_audit` | `crm/fieldPassportAuditRetention:dryRun` | 100 | `deleted`, `kept_trip_recent`, `kept_undated` |
+| `purge_customer_app_sign_in_links` | `crm/customerAppSignInRetention:dryRun` | 200 | `deleted` |
 
 Name the exact deployment before running anything against it. A dry run on Development or a
 Preview is not evidence for Production; Production needs its own explicit approval and its own

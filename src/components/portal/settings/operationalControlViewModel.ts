@@ -21,6 +21,7 @@ export const OPERATIONAL_CONTROL_KEYS = [
   "jobs.issue_pending_booking_invoices",
   "jobs.purge_activity_logs",
   "jobs.purge_commercial_files",
+  "jobs.purge_customer_app_sign_in_links",
   "jobs.purge_field_passport_audit",
   "jobs.purge_inactive_customer_accounts",
   "jobs.purge_office_check_ins",
@@ -90,6 +91,7 @@ export type ProductionTestRecipeId =
   | "scheduled_job:issue_pending_booking_invoices"
   | "scheduled_job:purge_activity_logs"
   | "scheduled_job:purge_commercial_files"
+  | "scheduled_job:purge_customer_app_sign_in_links"
   | "scheduled_job:purge_field_passport_audit"
   | "scheduled_job:purge_inactive_customer_accounts"
   | "scheduled_job:purge_office_check_ins"

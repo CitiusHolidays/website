@@ -25,6 +25,7 @@ export const operationalControlKeyValidator = v.union(
   v.literal("jobs.issue_pending_booking_invoices"),
   v.literal("jobs.purge_activity_logs"),
   v.literal("jobs.purge_commercial_files"),
+  v.literal("jobs.purge_customer_app_sign_in_links"),
   v.literal("jobs.purge_field_passport_audit"),
   v.literal("jobs.purge_inactive_customer_accounts"),
   v.literal("jobs.purge_office_check_ins"),
@@ -66,6 +67,7 @@ export type OperationalControlKey =
   | "jobs.issue_pending_booking_invoices"
   | "jobs.purge_activity_logs"
   | "jobs.purge_commercial_files"
+  | "jobs.purge_customer_app_sign_in_links"
   | "jobs.purge_field_passport_audit"
   | "jobs.purge_inactive_customer_accounts"
   | "jobs.purge_office_check_ins"
@@ -102,6 +104,7 @@ export const LEGACY_OPERATIONAL_CONTROL_REPLACEMENTS = {
     "jobs.cleanup_sacred_bharat_rate_limits",
     "jobs.issue_pending_booking_invoices",
     "jobs.purge_commercial_files",
+    "jobs.purge_customer_app_sign_in_links",
     "jobs.purge_field_passport_audit",
     "jobs.purge_office_check_ins",
     "jobs.reconcile_crm_metrics",
@@ -374,6 +377,17 @@ export const OPERATIONAL_CONTROL_CATALOG = [
     enforcement: "Scheduled-job action gateway",
     key: "jobs.purge_commercial_files",
     label: "Commercial file purge",
+    standardEnabled: true,
+  },
+  {
+    availability: "available",
+    category: "Infrastructure",
+    dependencies: [],
+    description:
+      "Delete customer app sign-in link requests (address, device and link digests) after one day.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.purge_customer_app_sign_in_links",
+    label: "Customer app sign-in request retention",
     standardEnabled: true,
   },
   {

@@ -69,7 +69,7 @@ All functions require an active staff session. Ids are Convex ids as strings.
 | `crm/jobCards:listMyAssignedPage` | query | `{ paginationOpts, status? }` | `PaginationResult<JobCardListRow>`, same row shape as `listPage` | `view:jobCards`; walks the caller's own `Assigned` assignments, one row per Job Card, then `canSeeJobCardRecord` |
 | `crm/travellers:listPage` | query | unchanged | unchanged | rows narrowed to the caller's group for a Tour Manager-only grant |
 | `crm/fieldSync:pushHeadcountStop` | mutation | `{ clientStopId, clientUpdatedAt?, day: "YYYY-MM-DD", jobCardId, label, presentTravellerIds: string[], startedAt: ms, travelBatchId? }` | `{ applied, id, ignoredTravellerIds }` | `view:travellers`, Job Card visible, batch inside the caller's group |
-| `crm/fieldSync:recordAnnouncement` | mutation | `{ body, clientAnnouncementId, clientUpdatedAt?, jobCardId, recipientTravellerIds, seenByTravellerIds, sharedAt: ms, travelBatchId? }` | `{ applied, id, ignoredTravellerIds }` | as above |
+| `crm/fieldSync:recordAnnouncement` | mutation | `{ audience?: "trip", body, clientAnnouncementId, clientUpdatedAt?, jobCardId, recipientTravellerIds, seenByTravellerIds, sharedAt: ms, travelBatchId? }` | `{ applied, id, ignoredTravellerIds }` | as above |
 | `crm/fieldPassports:listFieldPassports` | query | `{ jobCardId, referenceNow: ms }` | `{ timeZone, travellers: [{ travellerId, hasPassportScan, mimeType, opensAt, closesAt, available }] }`; `mimeType` is the scan's file type (`application/pdf`, `image/jpeg`, `image/png`, `image/webp`) from the same metadata the file read uses, or `null` without a scan | Tour Manager role, own staff assignment on the Job Card, own group only |
 | `crm/fieldPassportActions:getFieldPassportFile` | action | `{ travellerId, variant?: "preview" \| "full", openId?: string }` | without `variant`: `{ bytes, fileName, mimeType }` as before; `"full"`: `{ bytes, fileName, mimeType, variant: "full", width?, height? }`; `"preview"`: `{ bytes, fileName, mimeType: "image/jpeg", variant: "preview", fullMimeType, width, height }` or `{ variant: "none" }` (see [Fast preview](#fast-preview)) | Tour Manager role, portal file rate limit (per open), own staff assignment (no name match), own group, trip window, app pilot; one audit row per open |
 | `crm/finance:createExpense` | mutation | existing args plus optional `clientRef` | `{ id }` | unchanged, plus idempotent replay |
@@ -105,6 +105,9 @@ the announcement list with seen-by counts.
   is limited to the recorded recipients.
 - **Limits.** 2000 travellers per Job Card for field sync; labels are trimmed to 120 characters,
   announcement text is 1 to 4000 characters.
+- `audience: "trip"` marks an announcement the tour manager sent to the whole trip. The server keeps
+  it only when the sender has the whole Job Card, names no Travel Batch, and every travelling
+  traveller is a recipient. The customer app shows organizers only these (website ADR 0020).
 - **Expenses.** `clientRef` is optional and needs a signed-in staff account (no shared fallback
   author). The same author and `clientRef` return the first expense;
   the same `clientRef` on another Job Card is rejected. Callers without `clientRef` keep today's

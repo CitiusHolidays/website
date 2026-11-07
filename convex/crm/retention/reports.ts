@@ -17,6 +17,7 @@ const MAX_PAGES_LIMIT = 200;
 const DRY_RUN_MODULE_BY_JOB = {
   anonymise_past_travellers: "crm/retention/travellers",
   purge_activity_logs: "crm/retention/activityLogs",
+  purge_customer_app_sign_in_links: "crm/customerAppSignInRetention",
   purge_field_passport_audit: "crm/fieldPassportAuditRetention",
   purge_inactive_customer_accounts: "crm/retention/customerAccounts",
   purge_old_feedback: "crm/retention/feedback",
@@ -28,6 +29,7 @@ const DRY_RUN_MODULE_BY_JOB = {
 const retentionJobValidator = v.union(
   v.literal("anonymise_past_travellers"),
   v.literal("purge_activity_logs"),
+  v.literal("purge_customer_app_sign_in_links"),
   v.literal("purge_field_passport_audit"),
   v.literal("purge_inactive_customer_accounts"),
   v.literal("purge_old_feedback"),

@@ -14,9 +14,12 @@ const SpeedInsights = dynamic(
   { ssr: false }
 );
 
+// Pages that carry a one-time token in the URL fragment: no third-party page measurement there.
+const UNMEASURED_PATHS = new Set(["/tour-feedback", "/app/invite", "/app/sign-in"]);
+
 function RouteRuntimeInsights() {
   const pathname = usePathname();
-  if (pathname === "/tour-feedback") {
+  if (UNMEASURED_PATHS.has(pathname)) {
     return null;
   }
   return (

@@ -56,6 +56,7 @@ const rows = [
     appAccess: "joined",
     fullName: "Asha Testguest",
     invite: null,
+    inviteBlockedReason: null,
     isMinor: false,
     travellerId: "t-asha",
   },
@@ -63,13 +64,23 @@ const rows = [
     appAccess: "none",
     fullName: "Kiran Testguest",
     invite: null,
+    inviteBlockedReason: "minor",
     isMinor: true,
     travellerId: "t-kiran",
   },
   {
     appAccess: "none",
+    fullName: "Mira Unrecorded",
+    invite: null,
+    inviteBlockedReason: "age_not_recorded",
+    isMinor: false,
+    travellerId: "t-mira",
+  },
+  {
+    appAccess: "none",
     fullName: "Ravi Testguest",
     invite: null,
+    inviteBlockedReason: null,
     isMinor: false,
     travellerId: "t-ravi",
   },
@@ -98,12 +109,14 @@ async function click(element) {
   });
 }
 
-test("lists who uses the app and never offers a minor a link", async () => {
+test("lists who uses the app and never offers a minor or an unrecorded age a link", async () => {
   data = { canInvite: true, rows };
   const node = await mount();
   expect(node.textContent).toContain("1 of 2 adults use the Citius Holidays app");
   expect(node.textContent).toContain("Minor, seen by their guardian");
+  expect(node.textContent).toContain("Age not recorded: mark them adult to invite");
   expect(node.querySelector('[aria-label="Select Kiran Testguest"]')).toBeNull();
+  expect(node.querySelector('[aria-label="Select Mira Unrecorded"]')).toBeNull();
   expect(node.querySelector('[aria-label="Select Ravi Testguest"]')).not.toBeNull();
 });
 

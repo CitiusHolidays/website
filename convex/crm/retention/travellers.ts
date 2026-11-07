@@ -26,7 +26,9 @@ import { buildTravellerListSearchText, markListSearchDirty } from "../listSearch
  * visa outcomes and invoices still add up. The name becomes a placeholder; contact details,
  * gender, special requests, companions, hotel allocation, the traveller's own guardian links,
  * minor flag, import names and notes are removed; passport details and scans still left are
- * deleted; meal preference rows are deleted; rooming, seat and visa notes are cleared.
+ * deleted; meal preference rows are deleted; rooming, seat and visa notes are cleared. Customer
+ * app records go with the trip records they cover (owner decision, 7 Nov 2026, ADR 0020): the
+ * parental consents recorded for a minor and the app invites issued to a traveller are deleted.
  *
  * `foodPreference` and `roomType` are required fields that feed the Job Card's meal and room
  * counts, so they stay; without a name or contact they no longer identify anyone. A minor whose
@@ -45,7 +47,7 @@ const continuePurgeRef = makeFunctionReference<"mutation", { asOf: number; curso
 
 /** Strips dependent rows; false when a table had more rows than one pass handles. */
 async function stripDependents(ctx: MutationCtx, traveller: Doc<"travellers">) {
-  const [passports, meals, rooming, seats, visas] = await Promise.all([
+  const [passports, meals, rooming, seats, visas, consents, invites] = await Promise.all([
     ctx.db
       .query("passportDetails")
       .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
@@ -66,6 +68,16 @@ async function stripDependents(ctx: MutationCtx, traveller: Doc<"travellers">) {
       .query("visaRecords")
       .withIndex("by_travellerId", (q) => q.eq("travellerId", traveller._id))
       .take(DEPENDENT_LIMIT),
+    ctx.db
+      .query("customerParentalConsents")
+      .withIndex("by_minorTravellerId_and_recordedAt", (q) =>
+        q.eq("minorTravellerId", traveller._id)
+      )
+      .take(DEPENDENT_LIMIT),
+    ctx.db
+      .query("customerTripInvites")
+      .withIndex("by_travellerId_and_createdAt", (q) => q.eq("travellerId", traveller._id))
+      .take(DEPENDENT_LIMIT),
   ]);
   await Promise.all([
     ...passports.map(async (passport) => {
@@ -79,8 +91,12 @@ async function stripDependents(ctx: MutationCtx, traveller: Doc<"travellers">) {
     ),
     ...seats.map((seat) => ctx.db.patch("seatAllocations", seat._id, { notes: undefined })),
     ...visas.map((visa) => ctx.db.patch("visaRecords", visa._id, { notes: undefined })),
+    ...consents.map((consent) => ctx.db.delete("customerParentalConsents", consent._id)),
+    ...invites.map((invite) => ctx.db.delete("customerTripInvites", invite._id)),
   ]);
-  return [passports, meals, rooming, seats, visas].every((rows) => rows.length < DEPENDENT_LIMIT);
+  return [passports, meals, rooming, seats, visas, consents, invites].every(
+    (rows) => rows.length < DEPENDENT_LIMIT
+  );
 }
 
 async function anonymiseTraveller(ctx: MutationCtx, traveller: Doc<"travellers">) {
