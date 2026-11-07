@@ -90,15 +90,20 @@ Before accepting, the app shows which account the trip will be added to. A Conve
 sees no client IP it can trust, so links are limited on rows of digests
 (`customerAppSignInLinks`), bounding what an inbox can receive rather than who asks:
 five an hour per inbox, after folding aliases that reach one inbox (case, `+tags`, Gmail dots and
-googlemail.com, Yahoo `-` disposable addresses); thirty an hour per domain that is not a large
-shared provider, which bounds catch-all domains and subdomain addressing that no folding can see
-(a company group signing in all at once may meet it and retry within the hour). Both answer like a
-sent link. The ten-an-hour phone limit counts a digest the caller chooses, so it only slows a
-looping app ("try again later"); it is not a security control. Past 300 links an hour across the
-app, addresses that already have a login are still served, a new address is refused silently and
-an alarm is logged (`customer_app.sign_in_overall_ceiling`): a flood can delay first sign-ins, never
-lock out existing customers, and the silent answer reveals nothing about which addresses exist.
-Every refused request also deletes the link Better Auth stored before the limit was checked, which
+googlemail.com, Yahoo `-` disposable addresses). An address that already has a login, or a request
+carrying the SHA-256 of a pending trip invite (the app sends the hash of the invite it opened; the
+server matches `customerTripInvites.tokenHash`), is "trusted": no domain or volume limit applies
+to it, so a corporate group can all sign in at once after a bulk invite and junk requests cannot
+lock them out. Other addresses also meet a limit of thirty an hour per domain (any domain that is
+not a large shared provider), which bounds catch-all domains and subdomain addressing that no
+folding can see, and logs `customer_app.sign_in_domain_limit`. Both answer like a sent link. The
+ten-an-hour phone limit counts a digest the caller chooses, so it only slows a looping app ("try
+again later"); it is not a security control. Past 300 links an hour across the app, trusted
+requests are still served, others are refused silently and an alarm is logged
+(`customer_app.sign_in_overall_ceiling`): a flood can delay a stranger's first sign-in, never lock
+out a customer or an invited traveller. Every sign-in request answers no sooner than 2.5 seconds,
+so the timing does not show whether an email went out or whether the address has a login. Every
+refused request also deletes the link Better Auth stored before the limit was checked, which
 holds the address. The daily job `jobs.purge_customer_app_sign_in_links`
 deletes requests older than a day with each link's Better Auth verification row, which holds the
 address; account deletion deletes the account's requests and those rows at once, expired or not. The `/app/invite` and `/app/sign-in` pages run no page

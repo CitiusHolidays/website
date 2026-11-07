@@ -8,13 +8,18 @@
  *   has no client IP it can trust):
  *   - per inbox: a few links an hour, after folding aliases that reach one inbox (case, `+tags`,
  *     Gmail dots and googlemail.com, Yahoo `-` disposable addresses);
- *   - per domain, for domains that are not a large shared provider: a bound on what one
- *     organisation's domain receives, which also covers catch-all domains and subdomain
- *     addressing (anything@user.fastmail.com) that no folding can see;
+ *   - per domain, for addresses with no login and no pending invite only: a bound on links to
+ *     unknown addresses at one organisation's domain, which covers catch-all domains and
+ *     subdomain addressing (anything@user.fastmail.com) that no folding can see. A traveller
+ *     Operations invited, or anyone who already has a login, never meets it, so a corporate
+ *     group can all sign in at once after a bulk invite and junk requests cannot lock them out;
  *   - per phone: best effort only. The device digest is whatever the caller sends, so it stops a
  *     looping app, not an attacker;
- *   - overall: a soft hourly ceiling. Past it, addresses that already have a login are still
- *     served and new ones are not, and the app logs an alarm. It never locks every customer out.
+ *   - overall: a soft hourly ceiling. Past it, addresses with a login or a pending invite are
+ *     still served, other new addresses are not, and the app logs an alarm. It never locks out a
+ *     customer or an invited traveller.
+ * The response takes at least `SIGN_IN_RESPONSE_FLOOR_MS` whatever happened, so its timing does
+ * not tell whether an email was sent.
  * Every refusal answers like a sent link, except the phone limit ("try again later"), which says
  * nothing about the address.
  */
@@ -22,6 +27,8 @@ export const SIGN_IN_DEVICE_HEADER = "x-citius-sign-in-device";
 export const SIGN_IN_LINKS_PER_HOUR = 5;
 export const SIGN_IN_LINKS_PER_DEVICE_PER_HOUR = 10;
 export const SIGN_IN_LINKS_PER_DOMAIN_PER_HOUR = 30;
+/** Every sign-in request answers no sooner than this, sent or not. */
+export const SIGN_IN_RESPONSE_FLOOR_MS = 2500;
 /** Every sign-in link the app may send in an hour, across all addresses and phones. */
 export const SIGN_IN_LINKS_OVERALL_PER_HOUR = 300;
 export const SIGN_IN_LINK_WINDOW_MS = 60 * 60 * 1000;
@@ -33,6 +40,8 @@ import { isRuntimeString } from "./runtimeValues";
 /** What the app sends with a sign-in link request (Better Auth's `metadata`). */
 export interface SignInLinkMetadata {
   deviceDigest?: unknown;
+  /** The SHA-256 of the trip invite the app holds, when it was opened from an invite link. */
+  inviteTokenHash?: unknown;
 }
 
 const DIGEST_PATTERN = /^[0-9a-f]{64}$/;
@@ -58,20 +67,35 @@ const SHARED_PROVIDER_DOMAINS = new Set([
   ...GMAIL_DOMAINS,
   ...YAHOO_DOMAINS,
   "aol.com",
+  "163.com",
   "fastmail.com",
   "gmx.com",
+  "gmx.de",
+  "gmx.net",
+  "hotmail.co.uk",
   "hotmail.com",
+  "hotmail.fr",
   "icloud.com",
+  "live.co.uk",
   "live.com",
+  "live.in",
   "mac.com",
   "mail.com",
+  "mail.ru",
   "me.com",
   "msn.com",
+  "naver.com",
+  "outlook.co.uk",
   "outlook.com",
+  "outlook.in",
   "proton.me",
   "protonmail.com",
+  "qq.com",
   "rediffmail.com",
+  "web.de",
+  "yahoo.co.jp",
   "yandex.com",
+  "yandex.ru",
   "zoho.com",
 ]);
 
@@ -123,6 +147,20 @@ export function signInRecipientDigest(email: string) {
 export async function signInDomainDigest(email: string) {
   const domain = signInDomain(email);
   return domain === null ? undefined : await sha256Hex(`app-sign-in-domain:${domain}`);
+}
+
+/** The invite hash the app sent with its request, or undefined when it is missing or malformed. */
+export function inviteTokenHashFrom(metadata: SignInLinkMetadata | undefined) {
+  const value = metadata?.inviteTokenHash;
+  return isRuntimeString(value) && DIGEST_PATTERN.test(value) ? value : undefined;
+}
+
+/** Waits until at least `floorMs` have passed since `startedAt`. */
+export async function waitUntilElapsed(startedAt: number, floorMs: number) {
+  const remaining = startedAt + floorMs - Date.now();
+  if (remaining > 0) {
+    await new Promise((resolve) => setTimeout(resolve, remaining));
+  }
 }
 
 /** The device digest the app sent with its request, or null when it is missing or malformed. */

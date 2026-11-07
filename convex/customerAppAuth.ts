@@ -57,14 +57,27 @@ export const recordSignInLink = internalMutation({
   args: {
     deviceDigest: v.string(),
     domainDigest: v.optional(v.string()),
-    /** The address already has a login: served even past the overall ceiling. */
+    /** The SHA-256 of the trip invite the app holds, if any; only a pending invite counts. */
+    inviteTokenHash: v.optional(v.string()),
+    /** The address already has a login. */
     knownAccount: v.boolean(),
     recipientDigest: v.string(),
     tokenDigest: v.string(),
   },
   handler: async (ctx, args) => {
-    const since = Date.now() - SIGN_IN_LINK_WINDOW_MS;
-    const { domainDigest } = args;
+    const now = Date.now();
+    const since = now - SIGN_IN_LINK_WINDOW_MS;
+    const { inviteTokenHash } = args;
+    const invite =
+      inviteTokenHash === undefined
+        ? null
+        : await ctx.db
+            .query("customerTripInvites")
+            .withIndex("by_tokenHash", (q) => q.eq("tokenHash", inviteTokenHash))
+            .first();
+    // A customer, or a traveller Operations invited: never held back by domain or volume.
+    const trusted = args.knownAccount || (invite?.status === "pending" && invite.expiresAt > now);
+    const domainDigest = trusted ? undefined : args.domainDigest;
     const [inbox, domain, device, overall] = await Promise.all([
       ctx.db
         .query("customerAppSignInLinks")
@@ -98,8 +111,11 @@ export const recordSignInLink = internalMutation({
       refusal = "domain_limited";
     } else if (device.length >= SIGN_IN_LINKS_PER_DEVICE_PER_HOUR) {
       refusal = "device_limited";
-    } else if (overall.length >= SIGN_IN_LINKS_OVERALL_PER_HOUR && !args.knownAccount) {
+    } else if (overall.length >= SIGN_IN_LINKS_OVERALL_PER_HOUR && !trusted) {
       refusal = "busy";
+    }
+    if (refusal === "domain_limited") {
+      console.warn(JSON.stringify({ event: "customer_app.sign_in_domain_limit" }));
     }
     if (overall.length >= SIGN_IN_LINKS_OVERALL_PER_HOUR) {
       // An alarm, not a lockout: someone is asking for far more links than customers do.
@@ -115,7 +131,7 @@ export const recordSignInLink = internalMutation({
       deviceDigest: args.deviceDigest,
       domainDigest,
       recipientDigest: args.recipientDigest,
-      requestedAt: Date.now(),
+      requestedAt: now,
       tokenDigest: args.tokenDigest,
     });
     return "recorded" as const;

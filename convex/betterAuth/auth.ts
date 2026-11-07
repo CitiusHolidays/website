@@ -27,10 +27,14 @@ import {
 import { resolveAuthOrigin } from "../lib/authOriginPolicy";
 import {
   deviceDigestFrom,
+  inviteTokenHashFrom,
   SIGN_IN_DEVICE_HEADER,
+  SIGN_IN_RESPONSE_FLOOR_MS,
+  type SignInLinkMetadata,
   sha256Hex,
   signInDomainDigest,
   signInRecipientDigest,
+  waitUntilElapsed,
 } from "../lib/customerAppSignIn";
 import { NATIVE_APP_TRUSTED_ORIGINS } from "../lib/nativeAppOrigins";
 import { isRuntimeString } from "../lib/runtimeValues";
@@ -96,6 +100,72 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       clientSecret: googleClientSecret,
       scope: ["email", "profile"],
     };
+  }
+
+  /** The customer app's email sign-in link: limits, device binding, then delivery (ADR 0020). */
+  async function sendAppSignInLink({
+    email,
+    knownAccount,
+    metadata,
+    token,
+  }: {
+    email: string;
+    knownAccount: boolean;
+    metadata: SignInLinkMetadata | undefined;
+    token: string;
+  }) {
+    const actionCtx = requireActionCtx(ctx);
+    const tokenDigest = await sha256Hex(token);
+    // Refusals answer like a sent link, so the form reveals nothing about an address; only the
+    // phone's own limit says "try again later". Each refusal also forgets the link Better Auth
+    // already stored, which holds the address.
+    const deviceDigest = deviceDigestFrom(metadata);
+    // Only the app asks for these links, and it always binds them to its device.
+    if (
+      !deviceDigest ||
+      (await actionCtx.runQuery(internal.customerAppAuth.isStaffEmail, { email }))
+    ) {
+      await actionCtx.runMutation(internal.customerAppAuth.discardSignInLink, { tokenDigest });
+      return;
+    }
+    const recorded = await actionCtx.runMutation(internal.customerAppAuth.recordSignInLink, {
+      deviceDigest,
+      domainDigest: await signInDomainDigest(email),
+      inviteTokenHash: inviteTokenHashFrom(metadata),
+      knownAccount,
+      recipientDigest: await signInRecipientDigest(email),
+      tokenDigest,
+    });
+    if (recorded === "device_limited") {
+      throw new APIError("TOO_MANY_REQUESTS", {
+        code: "SIGN_IN_LINKS_LIMITED",
+        message: "Too many sign-in links were asked for from this phone. Try again in an hour.",
+      });
+    }
+    if (recorded !== "recorded") {
+      return;
+    }
+    try {
+      const link = appSignInLinkUrl(baseURL, token);
+      const message = await prepareAppSignInEmailMessage({ ctaHref: link });
+      // A sign-in link proves the mailbox, like email verification, so it shares that
+      // delivery ledger purpose and its Live Feature Control.
+      const outcome = await deliverTransactionalAuthEmail(actionCtx, {
+        controlKey: "email.auth.verification",
+        correlationSecret: token,
+        expiresAt: Date.now() + APP_SIGN_IN_LINK_TTL_SECONDS * 1000,
+        html: message.html,
+        purpose: "verification",
+        recipient: email,
+        subject: message.subject,
+        text: message.text,
+      });
+      if (outcome.status !== "sent") {
+        reportAuthEmailFailure(outcome);
+      }
+    } catch {
+      reportAuthEmailFailure({ purpose: "verification" });
+    }
   }
 
   return {
@@ -296,62 +366,16 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       magicLink({
         expiresIn: APP_SIGN_IN_LINK_TTL_SECONDS,
         sendMagicLink: async ({ email, metadata, token }, endpoint) => {
-          const actionCtx = requireActionCtx(ctx);
-          const tokenDigest = await sha256Hex(token);
-          // Refusals answer like a sent link, so the form reveals nothing about an address; only
-          // the phone's own limit says "try again later". Each refusal also forgets the link
-          // Better Auth already stored, which holds the address.
-          const deviceDigest = deviceDigestFrom(metadata);
-          // Only the app asks for these links, and it always binds them to its device.
-          if (
-            !deviceDigest ||
-            (await actionCtx.runQuery(internal.customerAppAuth.isStaffEmail, { email }))
-          ) {
-            await actionCtx.runMutation(internal.customerAppAuth.discardSignInLink, {
-              tokenDigest,
-            });
-            return;
-          }
-          const knownAccount = Boolean(
-            await endpoint?.context.internalAdapter.findUserByEmail(email)
-          );
-          const recorded = await actionCtx.runMutation(internal.customerAppAuth.recordSignInLink, {
-            deviceDigest,
-            domainDigest: await signInDomainDigest(email),
-            knownAccount,
-            recipientDigest: await signInRecipientDigest(email),
-            tokenDigest,
-          });
-          if (recorded === "device_limited") {
-            throw new APIError("TOO_MANY_REQUESTS", {
-              code: "SIGN_IN_LINKS_LIMITED",
-              message:
-                "Too many sign-in links were asked for from this phone. Try again in an hour.",
-            });
-          }
-          if (recorded !== "recorded") {
-            return;
-          }
+          // Whatever happens below, answer no sooner than the floor, so the response time does
+          // not tell whether an email went out (or whether the address has a login).
+          const startedAt = Date.now();
           try {
-            const link = appSignInLinkUrl(baseURL, token);
-            const message = await prepareAppSignInEmailMessage({ ctaHref: link });
-            // A sign-in link proves the mailbox, like email verification, so it shares that
-            // delivery ledger purpose and its Live Feature Control.
-            const outcome = await deliverTransactionalAuthEmail(actionCtx, {
-              controlKey: "email.auth.verification",
-              correlationSecret: token,
-              expiresAt: Date.now() + APP_SIGN_IN_LINK_TTL_SECONDS * 1000,
-              html: message.html,
-              purpose: "verification",
-              recipient: email,
-              subject: message.subject,
-              text: message.text,
-            });
-            if (outcome.status !== "sent") {
-              reportAuthEmailFailure(outcome);
-            }
-          } catch {
-            reportAuthEmailFailure({ purpose: "verification" });
+            const knownAccount = Boolean(
+              await endpoint?.context.internalAdapter.findUserByEmail(email)
+            );
+            await sendAppSignInLink({ email, knownAccount, metadata, token });
+          } finally {
+            await waitUntilElapsed(startedAt, SIGN_IN_RESPONSE_FLOOR_MS);
           }
         },
         storeToken: "hashed",

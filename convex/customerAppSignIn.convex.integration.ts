@@ -8,11 +8,13 @@ import {
   SIGN_IN_LINKS_PER_DEVICE_PER_HOUR,
   SIGN_IN_LINKS_PER_DOMAIN_PER_HOUR,
   SIGN_IN_LINKS_PER_HOUR,
+  SIGN_IN_RESPONSE_FLOOR_MS,
   sha256Hex,
   signInDomain,
   signInDomainDigest,
   signInInbox,
   signInRecipientDigest,
+  waitUntilElapsed,
 } from "./lib/customerAppSignIn";
 import { magicLinkIdentifier } from "./lib/customerAppSignInVerification";
 import schema from "./schema";
@@ -45,7 +47,7 @@ function nextId(kind: string) {
 async function request(
   t: Harness,
   email: string,
-  options: { device?: string; knownAccount?: boolean } = {}
+  options: { device?: string; inviteTokenHash?: string; knownAccount?: boolean } = {}
 ) {
   const tokenDigest = await sha256Hex(nextId("token"));
   await t.mutation(components.betterAuth.adapter.create, {
@@ -64,10 +66,67 @@ async function request(
     // A fresh phone per request unless one is named, as an attacker would send.
     deviceDigest: options.device ?? nextId("device"),
     domainDigest: await signInDomainDigest(email),
+    inviteTokenHash: options.inviteTokenHash,
     knownAccount: options.knownAccount ?? false,
     recipientDigest: await signInRecipientDigest(email),
     tokenDigest,
   });
+}
+
+/** A pending trip invite, as Operations create one; returns its token hash. */
+async function pendingInvite(t: Harness, n: number) {
+  const tokenHash = await sha256Hex(`invite-${n}`);
+  await t.run(async (ctx) => {
+    const staffId = await ctx.db.insert("staffUsers", {
+      active: true,
+      authUserId: `ops-${n}`,
+      createdAt: NOW,
+      email: `ops-${n}@citius.test`,
+      emailNormalized: `ops-${n}@citius.test`,
+      name: "Synthetic Ops",
+      roles: ["Operations"],
+      updatedAt: NOW,
+    });
+    const jobCardId = await ctx.db.insert("jobCards", {
+      clientName: "Synthetic Dealers Meet",
+      confirmedPax: 40,
+      createdAt: NOW,
+      createdBy: "synthetic",
+      jobCode: `JC-${n}`,
+      queryType: "MICE",
+      status: "Ready for Departure",
+      updatedAt: NOW,
+    });
+    const travellerId = await ctx.db.insert("travellers", {
+      callingStatus: "Pending",
+      createdAt: NOW,
+      createdBy: "synthetic",
+      foodPreference: "Veg",
+      fullName: `Employee ${n}`,
+      guestType: "Employee",
+      isMinor: false,
+      jobCardId,
+      paymentType: "Company Paid",
+      roomType: "Twin",
+      ticketStatus: "Pending Issue",
+      updatedAt: NOW,
+      visaRequired: false,
+      visaStatus: "Not Required",
+    });
+    await ctx.db.insert("customerTripInvites", {
+      channel: "link",
+      createdAt: NOW,
+      createdByName: "Synthetic Ops",
+      createdByStaffId: staffId,
+      expiresAt: NOW + 24 * 60 * 60_000,
+      jobCardId,
+      status: "pending",
+      tokenHash,
+      travellerId,
+      updatedAt: NOW,
+    });
+  });
+  return tokenHash;
 }
 
 async function storedLinksTo(t: Harness, email: string) {
@@ -131,6 +190,33 @@ describe("customer app sign-in limits", () => {
     expect(await request(t, "someone@gmail.com")).toBe("recorded");
   });
 
+  test("R6: invited travellers and customers at a flooded domain are always served", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const t = harness();
+    const junk = await many(
+      t,
+      Array.from(
+        { length: SIGN_IN_LINKS_PER_DOMAIN_PER_HOUR + 1 },
+        (_, n) => `junk${n}@client.example`
+      )
+    );
+    expect(junk[SIGN_IN_LINKS_PER_DOMAIN_PER_HOUR]).toBe("domain_limited");
+    // A whole corporate group, invited by Operations, signs in within the same hour.
+    for (let n = 0; n < SIGN_IN_LINKS_PER_DOMAIN_PER_HOUR + 10; n += 1) {
+      const inviteTokenHash = await pendingInvite(t, n);
+      expect(await request(t, `employee${n}@client.example`, { inviteTokenHash })).toBe("recorded");
+    }
+    expect(await request(t, "returning@client.example", { knownAccount: true })).toBe("recorded");
+    // Still bounded for addresses nobody invited and nobody signed up with.
+    expect(await request(t, "unknown@client.example")).toBe("domain_limited");
+    // A guessed or made-up invite hash is no invite.
+    expect(await request(t, "guess@client.example", { inviteTokenHash: "f".repeat(64) })).toBe(
+      "domain_limited"
+    );
+    vi.setSystemTime(NOW + 2 * 61 * 60_000);
+    expect(await request(t, "returning@client.example", { knownAccount: true })).toBe("recorded");
+  });
+
   test("N1: one phone that loops is slowed; its limit is best effort", async () => {
     vi.useFakeTimers({ now: NOW });
     const t = harness();
@@ -157,6 +243,11 @@ describe("customer app sign-in limits", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     expect(await request(t, "real.customer@example.test", { knownAccount: true })).toBe("recorded");
     expect(await request(t, "first.time@example.test")).toBe("busy");
+    expect(
+      await request(t, "invited.traveller@example.test", {
+        inviteTokenHash: await pendingInvite(t, 900),
+      })
+    ).toBe("recorded");
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining("customer_app.sign_in_overall_ceiling")
     );
@@ -207,6 +298,19 @@ describe("customer app sign-in limits", () => {
     expect(await consume(secret)).toBe(false);
   });
 
+  test("every sign-in request answers no sooner than the floor", async () => {
+    vi.useFakeTimers({ now: NOW });
+    let done = false;
+    const wait = waitUntilElapsed(NOW, SIGN_IN_RESPONSE_FLOOR_MS).then(() => {
+      done = true;
+    });
+    await vi.advanceTimersByTimeAsync(SIGN_IN_RESPONSE_FLOOR_MS - 1);
+    expect(done).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    await wait;
+    expect(done).toBe(true);
+  });
+
   test("N1: the inbox and the domain an address is counted under", () => {
     expect(signInInbox(" Vi.Ctim+Tag@GoogleMail.com ")).toBe("victim@gmail.com");
     expect(signInInbox("base-keyword@yahoo.com")).toBe("base@yahoo.com");
@@ -214,5 +318,7 @@ describe("customer app sign-in limits", () => {
     expect(signInInbox("first-last@example.test")).toBe("first-last@example.test");
     expect(signInDomain("anyone@me.fastmail.com")).toBe("me.fastmail.com");
     expect(signInDomain("someone@Gmail.com")).toBeNull();
+    expect(signInDomain("someone@hotmail.co.uk")).toBeNull();
+    expect(signInDomain("someone@web.de")).toBeNull();
   });
 });
