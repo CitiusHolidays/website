@@ -3,18 +3,18 @@ import { convexTest } from "convex-test";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { components, internal } from "./_generated/api";
 import betterAuthSchema from "./betterAuth/schema";
+import { type SignInProcessorReference, scheduleAppSignInLink } from "./customerAppSignInDelivery";
 import {
+  SIGN_IN_ADDRESSES_PER_INVITE,
   SIGN_IN_LINKS_OVERALL_PER_HOUR,
   SIGN_IN_LINKS_PER_DEVICE_PER_HOUR,
   SIGN_IN_LINKS_PER_DOMAIN_PER_HOUR,
   SIGN_IN_LINKS_PER_HOUR,
-  SIGN_IN_RESPONSE_FLOOR_MS,
   sha256Hex,
   signInDomain,
   signInDomainDigest,
   signInInbox,
   signInRecipientDigest,
-  waitUntilElapsed,
 } from "./lib/customerAppSignIn";
 import { magicLinkIdentifier } from "./lib/customerAppSignInVerification";
 import schema from "./schema";
@@ -74,7 +74,7 @@ async function request(
 }
 
 /** A pending trip invite, as Operations create one; returns its token hash. */
-async function pendingInvite(t: Harness, n: number) {
+async function pendingInvite(t: Harness, n: number, email?: string) {
   const tokenHash = await sha256Hex(`invite-${n}`);
   await t.run(async (ctx) => {
     const staffId = await ctx.db.insert("staffUsers", {
@@ -101,6 +101,7 @@ async function pendingInvite(t: Harness, n: number) {
       callingStatus: "Pending",
       createdAt: NOW,
       createdBy: "synthetic",
+      email,
       foodPreference: "Veg",
       fullName: `Employee ${n}`,
       guestType: "Employee",
@@ -203,7 +204,7 @@ describe("customer app sign-in limits", () => {
     expect(junk[SIGN_IN_LINKS_PER_DOMAIN_PER_HOUR]).toBe("domain_limited");
     // A whole corporate group, invited by Operations, signs in within the same hour.
     for (let n = 0; n < SIGN_IN_LINKS_PER_DOMAIN_PER_HOUR + 10; n += 1) {
-      const inviteTokenHash = await pendingInvite(t, n);
+      const inviteTokenHash = await pendingInvite(t, n, `employee${n}@client.example`);
       expect(await request(t, `employee${n}@client.example`, { inviteTokenHash })).toBe("recorded");
     }
     expect(await request(t, "returning@client.example", { knownAccount: true })).toBe("recorded");
@@ -215,6 +216,38 @@ describe("customer app sign-in limits", () => {
     );
     vi.setSystemTime(NOW + 2 * 61 * 60_000);
     expect(await request(t, "returning@client.example", { knownAccount: true })).toBe("recorded");
+  });
+
+  test("X1: one leaked invite vouches for its traveller and a couple of addresses, a few times an hour", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const t = harness();
+    await many(
+      t,
+      Array.from({ length: SIGN_IN_LINKS_PER_DOMAIN_PER_HOUR }, (_, n) => `junk${n}@client.example`)
+    );
+    const inviteTokenHash = await pendingInvite(t, 1, "asha@client.example");
+    const results: string[] = [];
+    for (let n = 0; n < 40; n += 1) {
+      results.push(await request(t, `stranger${n}@client.example`, { inviteTokenHash }));
+    }
+    // Two addresses besides the traveller's own; every other address meets the domain limit.
+    expect(results.filter((result) => result === "recorded")).toHaveLength(
+      SIGN_IN_ADDRESSES_PER_INVITE
+    );
+    // And the invite vouches at most a few times an hour, even for the traveller's own address.
+    expect(await request(t, "asha@client.example", { inviteTokenHash })).toBe("recorded");
+    expect(await request(t, "asha@client.example", { inviteTokenHash })).toBe("domain_limited");
+  });
+
+  test("an invite vouches for its traveller's own address first", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const t = harness();
+    await many(
+      t,
+      Array.from({ length: SIGN_IN_LINKS_PER_DOMAIN_PER_HOUR }, (_, n) => `junk${n}@client.example`)
+    );
+    const inviteTokenHash = await pendingInvite(t, 2, "Ravi.Kumar@Client.example");
+    expect(await request(t, "ravi.kumar@client.example", { inviteTokenHash })).toBe("recorded");
   });
 
   test("N1: one phone that loops is slowed; its limit is best effort", async () => {
@@ -280,6 +313,75 @@ describe("customer app sign-in limits", () => {
     expect(await storedLinksTo(t, "staff@example.test")).toBe(0);
   });
 
+  test("X2: sendMagicLink answers at once and seals what it schedules; the background step checks and records", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const previous = process.env.BETTER_AUTH_SECRET;
+    process.env.BETTER_AUTH_SECRET = "synthetic-secret-for-sealing-tests";
+    try {
+      const t = harness();
+      const scheduled: { sealed: string }[] = [];
+      const fakeCtx = {
+        scheduler: {
+          runAfter: (
+            _delay: number,
+            _reference: SignInProcessorReference,
+            args: { sealed: string }
+          ) => {
+            scheduled.push(args);
+            return Promise.resolve(null);
+          },
+        },
+      };
+      const token = "a-real-magic-link-token";
+      await scheduleAppSignInLink(fakeCtx, process.env.BETTER_AUTH_SECRET, {
+        email: "traveller@example.test",
+        metadata: { deviceDigest: "c".repeat(64) },
+        token,
+      });
+      expect(scheduled).toHaveLength(1);
+      const sealed = scheduled[0]?.sealed ?? "";
+      expect(sealed).not.toContain("traveller@example.test");
+      expect(sealed).not.toContain(token);
+
+      expect(await t.action(internal.customerAppSignInDelivery.processSignInLink, { sealed })).toBe(
+        "sent"
+      );
+      const rows = await t.run((ctx) => ctx.db.query("customerAppSignInLinks").collect());
+      expect(rows.map((row) => row.tokenDigest)).toEqual([await sha256Hex(token)]);
+
+      // Without the device binding the background step refuses and keeps nothing.
+      const unbound: { sealed: string }[] = [];
+      const unboundCtx = {
+        scheduler: {
+          runAfter: (
+            _delay: number,
+            _reference: SignInProcessorReference,
+            args: { sealed: string }
+          ) => {
+            unbound.push(args);
+            return Promise.resolve(null);
+          },
+        },
+      };
+      await scheduleAppSignInLink(unboundCtx, process.env.BETTER_AUTH_SECRET, {
+        email: "other@example.test",
+        metadata: undefined,
+        token: "another-token",
+      });
+      expect(
+        await t.action(internal.customerAppSignInDelivery.processSignInLink, {
+          sealed: unbound[0]?.sealed ?? "",
+        })
+      ).toBe("refused");
+    } finally {
+      if (previous === undefined) {
+        delete process.env.BETTER_AUTH_SECRET;
+      } else {
+        process.env.BETTER_AUTH_SECRET = previous;
+      }
+    }
+  });
+
   test("M8: a sign-in link signs in only the device that asked for it, once", async () => {
     vi.useFakeTimers({ now: NOW });
     const t = harness();
@@ -296,19 +398,6 @@ describe("customer app sign-in limits", () => {
     expect(await consume("X".repeat(43))).toBe(false);
     expect(await consume(secret)).toBe(true);
     expect(await consume(secret)).toBe(false);
-  });
-
-  test("every sign-in request answers no sooner than the floor", async () => {
-    vi.useFakeTimers({ now: NOW });
-    let done = false;
-    const wait = waitUntilElapsed(NOW, SIGN_IN_RESPONSE_FLOOR_MS).then(() => {
-      done = true;
-    });
-    await vi.advanceTimersByTimeAsync(SIGN_IN_RESPONSE_FLOOR_MS - 1);
-    expect(done).toBe(false);
-    await vi.advanceTimersByTimeAsync(1);
-    await wait;
-    expect(done).toBe(true);
   });
 
   test("N1: the inbox and the domain an address is counted under", () => {

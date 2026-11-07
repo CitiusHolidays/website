@@ -92,17 +92,23 @@ sees no client IP it can trust, so links are limited on rows of digests
 five an hour per inbox, after folding aliases that reach one inbox (case, `+tags`, Gmail dots and
 googlemail.com, Yahoo `-` disposable addresses). An address that already has a login, or a request
 carrying the SHA-256 of a pending trip invite (the app sends the hash of the invite it opened; the
-server matches `customerTripInvites.tokenHash`), is "trusted": no domain or volume limit applies
-to it, so a corporate group can all sign in at once after a bulk invite and junk requests cannot
-lock them out. Other addresses also meet a limit of thirty an hour per domain (any domain that is
+server matches `customerTripInvites.tokenHash`), is "trusted". An invite vouches only for the
+invited traveller's email on file or for at most two other addresses a day, and only three times
+an hour, so a leaked invite link cannot waive the limits for anyone else. No domain or volume
+limit applies to a trusted request, so a corporate group can all sign in at once after a bulk
+invite and junk requests cannot lock them out. Other addresses also meet a limit of thirty an hour per domain (any domain that is
 not a large shared provider), which bounds catch-all domains and subdomain addressing that no
 folding can see, and logs `customer_app.sign_in_domain_limit`. Both answer like a sent link. The
-ten-an-hour phone limit counts a digest the caller chooses, so it only slows a looping app ("try
-again later"); it is not a security control. Past 300 links an hour across the app, trusted
+ten-an-hour phone limit counts a digest the caller chooses, so it only slows a looping app; it is
+not a security control. Past 300 links an hour across the app, trusted
 requests are still served, others are refused silently and an alarm is logged
 (`customer_app.sign_in_overall_ceiling`): a flood can delay a stranger's first sign-in, never lock
-out a customer or an invited traveller. Every sign-in request answers no sooner than 2.5 seconds,
-so the timing does not show whether an email went out or whether the address has a login. Every
+out a customer or an invited traveller. `sendMagicLink` answers at once and the same way
+for every request: it seals the request (address, link token and digests, AES-GCM under a key
+derived from the auth secret, so the scheduler's records never hold them readable) and schedules
+`customerAppSignInDelivery:processSignInLink`, which does every check and sends the email. Nothing
+is held open while it works, and neither the answer nor its timing shows whether an email went out
+or whether the address has a login. Every
 refused request also deletes the link Better Auth stored before the limit was checked, which
 holds the address. The daily job `jobs.purge_customer_app_sign_in_links`
 deletes requests older than a day with each link's Better Auth verification row, which holds the

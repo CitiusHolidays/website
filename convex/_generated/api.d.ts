@@ -280,6 +280,7 @@ import type * as crm_workflowNudges from "../crm/workflowNudges.js";
 import type * as crons from "../crons.js";
 import type * as customerApp from "../customerApp.js";
 import type * as customerAppAuth from "../customerAppAuth.js";
+import type * as customerAppSignInDelivery from "../customerAppSignInDelivery.js";
 import type * as customerConfirmedTrips from "../customerConfirmedTrips.js";
 import type * as customerJourneyModel from "../customerJourneyModel.js";
 import type * as customerTripInvites from "../customerTripInvites.js";
@@ -306,6 +307,7 @@ import type * as lib_bookingInvoiceValidators from "../lib/bookingInvoiceValidat
 import type * as lib_bootstrapAuthority from "../lib/bootstrapAuthority.js";
 import type * as lib_customerAppCovers from "../lib/customerAppCovers.js";
 import type * as lib_customerAppSignIn from "../lib/customerAppSignIn.js";
+import type * as lib_customerAppSignInSeal from "../lib/customerAppSignInSeal.js";
 import type * as lib_customerAppSignInVerification from "../lib/customerAppSignInVerification.js";
 import type * as lib_customerIdentityAccess from "../lib/customerIdentityAccess.js";
 import type * as lib_customerTripInvites from "../lib/customerTripInvites.js";
@@ -633,6 +635,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   customerApp: typeof customerApp;
   customerAppAuth: typeof customerAppAuth;
+  customerAppSignInDelivery: typeof customerAppSignInDelivery;
   customerConfirmedTrips: typeof customerConfirmedTrips;
   customerJourneyModel: typeof customerJourneyModel;
   customerTripInvites: typeof customerTripInvites;
@@ -659,6 +662,7 @@ declare const fullApi: ApiFromModules<{
   "lib/bootstrapAuthority": typeof lib_bootstrapAuthority;
   "lib/customerAppCovers": typeof lib_customerAppCovers;
   "lib/customerAppSignIn": typeof lib_customerAppSignIn;
+  "lib/customerAppSignInSeal": typeof lib_customerAppSignInSeal;
   "lib/customerAppSignInVerification": typeof lib_customerAppSignInVerification;
   "lib/customerIdentityAccess": typeof lib_customerIdentityAccess;
   "lib/customerTripInvites": typeof lib_customerTripInvites;

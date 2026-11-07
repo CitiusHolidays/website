@@ -18,8 +18,11 @@
  *   - overall: a soft hourly ceiling. Past it, addresses with a login or a pending invite are
  *     still served, other new addresses are not, and the app logs an alarm. It never locks out a
  *     customer or an invited traveller.
- * The response takes at least `SIGN_IN_RESPONSE_FLOOR_MS` whatever happened, so its timing does
- * not tell whether an email was sent.
+ * An invite vouches only for the invited traveller's email on file or, when that is missing or
+ * different, for at most `SIGN_IN_ADDRESSES_PER_INVITE` addresses a day, and for at most
+ * `SIGN_IN_TRUSTED_SENDS_PER_INVITE_PER_HOUR` sends an hour: a leaked invite link cannot waive the
+ * limits for anyone else. The request answers at once and the checks and the send run in the
+ * background, so neither the answer nor its timing tells what happened.
  * Every refusal answers like a sent link, except the phone limit ("try again later"), which says
  * nothing about the address.
  */
@@ -27,8 +30,10 @@ export const SIGN_IN_DEVICE_HEADER = "x-citius-sign-in-device";
 export const SIGN_IN_LINKS_PER_HOUR = 5;
 export const SIGN_IN_LINKS_PER_DEVICE_PER_HOUR = 10;
 export const SIGN_IN_LINKS_PER_DOMAIN_PER_HOUR = 30;
-/** Every sign-in request answers no sooner than this, sent or not. */
-export const SIGN_IN_RESPONSE_FLOOR_MS = 2500;
+/** Trusted sends one pending invite may make in an hour. */
+export const SIGN_IN_TRUSTED_SENDS_PER_INVITE_PER_HOUR = 3;
+/** Addresses one pending invite may vouch for in a day, besides the traveller's own on file. */
+export const SIGN_IN_ADDRESSES_PER_INVITE = 2;
 /** Every sign-in link the app may send in an hour, across all addresses and phones. */
 export const SIGN_IN_LINKS_OVERALL_PER_HOUR = 300;
 export const SIGN_IN_LINK_WINDOW_MS = 60 * 60 * 1000;
@@ -153,14 +158,6 @@ export async function signInDomainDigest(email: string) {
 export function inviteTokenHashFrom(metadata: SignInLinkMetadata | undefined) {
   const value = metadata?.inviteTokenHash;
   return isRuntimeString(value) && DIGEST_PATTERN.test(value) ? value : undefined;
-}
-
-/** Waits until at least `floorMs` have passed since `startedAt`. */
-export async function waitUntilElapsed(startedAt: number, floorMs: number) {
-  const remaining = startedAt + floorMs - Date.now();
-  if (remaining > 0) {
-    await new Promise((resolve) => setTimeout(resolve, remaining));
-  }
 }
 
 /** The device digest the app sent with its request, or null when it is missing or malformed. */

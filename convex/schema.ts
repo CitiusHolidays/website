@@ -555,12 +555,15 @@ export default defineSchema({
     deviceDigest: v.string(),
     /** Set for a domain that is not a large shared provider (one organisation's mail). */
     domainDigest: v.optional(v.string()),
+    /** Set when a pending invite made this request trusted; counted per invite. */
+    inviteTokenHash: v.optional(v.string()),
     recipientDigest: v.string(),
     requestedAt: v.number(),
     tokenDigest: v.string(),
   })
     .index("by_recipientDigest_and_requestedAt", ["recipientDigest", "requestedAt"])
     .index("by_domainDigest_and_requestedAt", ["domainDigest", "requestedAt"])
+    .index("by_inviteTokenHash_and_requestedAt", ["inviteTokenHash", "requestedAt"])
     .index("by_deviceDigest_and_requestedAt", ["deviceDigest", "requestedAt"])
     .index("by_requestedAt", ["requestedAt"])
     .index("by_tokenDigest", ["tokenDigest"]),
