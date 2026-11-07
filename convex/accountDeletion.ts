@@ -175,8 +175,8 @@ export const deleteMyAccount = mutation({
     const identityIds = await authorizedCustomerIdentityIds(ctx, identity);
     const subjectHash = await accountDeletionSubjectHash(canonical);
     const erased = await eraseCustomerAccount(ctx, {
-      betterAuthUserId: identity.subject,
-      canonicalAuthUserId: canonical,
+      betterAuthUserIds: [identity.subject],
+      entitlements: "revoke",
       identityIds,
       loginEmails: emails,
       now,

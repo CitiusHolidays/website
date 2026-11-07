@@ -51,8 +51,12 @@ transaction, so it either completes or changes nothing.
 **Kept, detached and anonymised:**
 
 - Bookings and their payment events, for 8 years under tax rules. `userId` becomes
-  `deleted-account:<digest>` and the purchaser's free-text `notes` is removed. Amounts, payment ids,
-  status, dates, trip, traveller count and `travelerDetails` (the operation's traveller data) stay.
+  `deleted-account:<digest>` and the purchaser's free-text `notes` is removed. Identity documents
+  are stripped from the checkout `travelerDetails` (owner decision, 7 Nov 2026): any key, at any
+  depth, for a passport, a document expiry, a national ID (including Aadhaar) or a date of birth.
+  The details are free-form JSON, so keys are matched by name (`convex/lib/bookingTravellerDocuments.ts`).
+  Names, contacts, nationality, amounts, payment ids, status, dates, trip and traveller count
+  stay for the invoice and accounting.
 - Journey Entitlements are revoked (`revokedAt`), their owner becomes the same tombstone and the
   profile link is removed. The row stays as the grant's audit trail.
 - Invoices, Job Cards and Job Card Travellers are untouched; they belong to the operation and were
@@ -84,6 +88,18 @@ release must set `email.auth.account_deleted` to Default or Enabled. The recipie
 an argument of the scheduled email job, so Convex keeps it in the scheduled-function record until
 that record is cleaned up (days); nothing else keeps it. The web success message therefore does
 not promise an email.
+
+**One erase for every account deletion.** `eraseCustomerAccount` (`convex/lib/accountErasure.ts`)
+is the only implementation. Self-service deletion calls it for the token's identity; the inactive
+account retention job (`jobs.purge_inactive_customer_accounts`, `docs/DATA_RETENTION.md`) calls it
+for an idle profile. The callers differ only in what they pass: the tombstone written into kept
+records (`deleted-account:<digest>` vs `retention:deleted-account`) and whether journey
+entitlements are revoked (self-service, keeping the audit trail) or deleted (retention).
+
+**Owner answers (7 Nov 2026).** Feedback photos stay as built: a matching email is not ownership.
+The recipient address in the scheduled email job is acceptable. Owned Sacred Bharat groups are
+archived. "Sign in again" returns the customer to `/account?tab=settings#delete-account` through
+the guest sign-in's `returnTo`, which accepts only a same-origin path inside `/account`.
 
 ## Customer app contract
 

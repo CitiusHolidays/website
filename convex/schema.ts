@@ -298,6 +298,7 @@ export default defineSchema({
       authSessions: v.number(),
       authUser: v.number(),
       authVerifications: v.number(),
+      bookingDocumentFields: v.number(),
       bookingsDetached: v.number(),
       entitlementsRevoked: v.number(),
       feedbackPhotos: v.number(),

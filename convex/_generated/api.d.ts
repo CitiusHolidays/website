@@ -295,6 +295,7 @@ import type * as lib_authSync from "../lib/authSync.js";
 import type * as lib_betterAuthEmail from "../lib/betterAuthEmail.js";
 import type * as lib_betterAuthLookup from "../lib/betterAuthLookup.js";
 import type * as lib_bookingEmailContent from "../lib/bookingEmailContent.js";
+import type * as lib_bookingTravellerDocuments from "../lib/bookingTravellerDocuments.js";
 import type * as lib_bookingInvoicePolicy from "../lib/bookingInvoicePolicy.js";
 import type * as lib_bookingInvoiceValidators from "../lib/bookingInvoiceValidators.js";
 import type * as lib_bootstrapAuthority from "../lib/bootstrapAuthority.js";
@@ -638,6 +639,7 @@ declare const fullApi: ApiFromModules<{
   "lib/betterAuthEmail": typeof lib_betterAuthEmail;
   "lib/betterAuthLookup": typeof lib_betterAuthLookup;
   "lib/bookingEmailContent": typeof lib_bookingEmailContent;
+  "lib/bookingTravellerDocuments": typeof lib_bookingTravellerDocuments;
   "lib/bookingInvoicePolicy": typeof lib_bookingInvoicePolicy;
   "lib/bookingInvoiceValidators": typeof lib_bookingInvoiceValidators;
   "lib/bootstrapAuthority": typeof lib_bootstrapAuthority;

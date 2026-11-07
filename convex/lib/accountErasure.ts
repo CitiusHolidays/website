@@ -4,18 +4,26 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { normalizeEmail } from "../crm/lib/staffAccess";
 import { ACCOUNT_DELETION_ERRORS } from "./accountDeletionContract";
+import { withoutIdentityDocuments } from "./bookingTravellerDocuments";
 import { readBoundedGroupMemberCount } from "./sacredBharatGroups";
 
 /** Per-store bound for one deletion transaction. A customer account is far below it. */
 const MAX_ROWS_PER_STORE = 1000;
 const BETTER_AUTH_PAGE_SIZE = 100;
 
+/**
+ * One customer account to erase. Shared by self-service deletion (`accountDeletion`) and the
+ * inactive-account retention job (`crm/retention/customerAccounts`) so the two cannot drift.
+ */
 export interface AccountErasureTarget {
-  /** The Better Auth user id, which is also the token `subject`. */
-  betterAuthUserId: string;
-  /** The issuer-qualified canonical identity (`tokenIdentifier`). */
-  canonicalAuthUserId: string;
-  /** Every identity id that owns this Account Holder's rows: canonical plus a linked legacy id. */
+  /** Better Auth user ids (token `subject`s) whose login, sessions and sign-ins go. */
+  betterAuthUserIds: string[];
+  /**
+   * Journey Entitlements: self-service deletion revokes and detaches them, keeping the grant's
+   * audit trail (ADR 0019); the retention job deletes them (docs/DATA_RETENTION.md).
+   */
+  entitlements: "delete" | "revoke";
+  /** Every identity id that owns this Account Holder's rows: canonical, linked legacy, old-site. */
   identityIds: string[];
   /** Emails known for the login; used only to find archived duplicate profiles. */
   loginEmails: string[];
@@ -55,10 +63,6 @@ async function deleteAllPages(deletePage: (cursor: string | null) => Promise<Del
 }
 
 /**
- * Better Auth owns the login: the user, every session (so all devices sign out), every linked
- * provider account (password and Google) and outstanding verification tokens.
- */
-/**
  * Verification tokens have no index on their user id, so walk only the live ones through the
  * `expiresAt` index; a full-table scan would grow with every abandoned reset link. An expired
  * token can no longer be used and names only the deleted user id.
@@ -96,7 +100,7 @@ async function deleteLiveVerifications(ctx: MutationCtx, betterAuthUserId: strin
   return ownedIds.length;
 }
 
-async function eraseBetterAuthLogin(ctx: MutationCtx, betterAuthUserId: string, now: number) {
+async function eraseOneBetterAuthLogin(ctx: MutationCtx, betterAuthUserId: string, now: number) {
   const paginationOpts = (cursor: string | null) => ({ cursor, numItems: BETTER_AUTH_PAGE_SIZE });
   const authSessions = await deleteAllPages((cursor) =>
     ctx.runMutation(components.betterAuth.adapter.deleteMany, {
@@ -121,6 +125,23 @@ async function eraseBetterAuthLogin(ctx: MutationCtx, betterAuthUserId: string, 
     input: { model: "user", where: [{ field: "_id", operator: "eq", value: betterAuthUserId }] },
   });
   return { authAccounts, authSessions, authUser: removedUser ? 1 : 0, authVerifications };
+}
+
+/**
+ * Better Auth owns the login: the user, every session (so all devices sign out), every linked
+ * provider account (password and Google) and live verification tokens.
+ */
+async function eraseBetterAuthLogins(ctx: MutationCtx, betterAuthUserIds: string[], now: number) {
+  const totals = { authAccounts: 0, authSessions: 0, authUser: 0, authVerifications: 0 };
+  for (const betterAuthUserId of new Set(betterAuthUserIds)) {
+    // biome-ignore lint/performance/noAwaitInLoops: each login's component writes run in turn.
+    const erased = await eraseOneBetterAuthLogin(ctx, betterAuthUserId, now);
+    totals.authAccounts += erased.authAccounts;
+    totals.authSessions += erased.authSessions;
+    totals.authUser += erased.authUser;
+    totals.authVerifications += erased.authVerifications;
+  }
+  return totals;
 }
 
 async function eraseProfiles(ctx: MutationCtx, target: AccountErasureTarget) {
@@ -163,23 +184,19 @@ async function eraseProfiles(ctx: MutationCtx, target: AccountErasureTarget) {
 }
 
 async function eraseIdentityLinks(ctx: MutationCtx, target: AccountErasureTarget) {
-  const [byCanonical, ...byLegacy] = await Promise.all([
-    ctx.db
-      .query("authIdentityLinks")
-      .withIndex("by_canonicalAuthUserId", (q) =>
-        q.eq("canonicalAuthUserId", target.canonicalAuthUserId)
-      )
-      .take(MAX_ROWS_PER_STORE + 1),
-    ...target.identityIds.map((legacyAuthUserId) =>
+  const pages = await Promise.all(
+    target.identityIds.flatMap((authUserId) => [
       ctx.db
         .query("authIdentityLinks")
-        .withIndex("by_legacyAuthUserId", (q) => q.eq("legacyAuthUserId", legacyAuthUserId))
-        .take(MAX_ROWS_PER_STORE + 1)
-    ),
-  ]);
-  const links = bounded([
-    ...new Map([...byCanonical, ...byLegacy.flat()].map((row) => [String(row._id), row])).values(),
-  ]);
+        .withIndex("by_canonicalAuthUserId", (q) => q.eq("canonicalAuthUserId", authUserId))
+        .take(MAX_ROWS_PER_STORE + 1),
+      ctx.db
+        .query("authIdentityLinks")
+        .withIndex("by_legacyAuthUserId", (q) => q.eq("legacyAuthUserId", authUserId))
+        .take(MAX_ROWS_PER_STORE + 1),
+    ])
+  );
+  const links = bounded([...new Map(pages.flat().map((row) => [String(row._id), row])).values()]);
   await Promise.all(links.map((row) => ctx.db.delete("authIdentityLinks", row._id)));
   return links.length;
 }
@@ -289,8 +306,8 @@ async function eraseSacredBharat(ctx: MutationCtx, target: AccountErasureTarget)
   return erased;
 }
 
-/** Entitlements are revoked and detached; the row stays as the grant's audit trail. */
-async function revokeEntitlements(ctx: MutationCtx, target: AccountErasureTarget) {
+/** Entitlements are revoked and detached (the row is the grant's audit trail), or deleted. */
+async function endEntitlements(ctx: MutationCtx, target: AccountErasureTarget) {
   const rows = bounded(
     (
       await Promise.all(
@@ -305,12 +322,14 @@ async function revokeEntitlements(ctx: MutationCtx, target: AccountErasureTarget
   );
   await Promise.all(
     rows.map((row) =>
-      ctx.db.patch("customerJourneyEntitlements", row._id, {
-        accountHolderProfileId: undefined,
-        authUserId: target.tombstone,
-        revokedAt: row.revokedAt ?? target.now,
-        updatedAt: target.now,
-      })
+      target.entitlements === "delete"
+        ? ctx.db.delete("customerJourneyEntitlements", row._id)
+        : ctx.db.patch("customerJourneyEntitlements", row._id, {
+            accountHolderProfileId: undefined,
+            authUserId: target.tombstone,
+            revokedAt: row.revokedAt ?? target.now,
+            updatedAt: target.now,
+          })
     )
   );
   return rows.length;
@@ -318,8 +337,9 @@ async function revokeEntitlements(ctx: MutationCtx, target: AccountErasureTarget
 
 /**
  * Bookings and their payment events are kept for the tax retention period. The booking is
- * detached from the login and loses the purchaser's free-text note; amounts, payment ids, status,
- * dates, trip and the traveller details the operation needs are unchanged.
+ * detached from the login, loses the purchaser's free-text note and loses identity documents from
+ * its checkout traveller details (owner decision, 7 Nov 2026); amounts, payment ids, status,
+ * dates, trip, traveller names and contacts are unchanged.
  */
 async function detachBookings(ctx: MutationCtx, target: AccountErasureTarget) {
   const rows = bounded(
@@ -334,16 +354,24 @@ async function detachBookings(ctx: MutationCtx, target: AccountErasureTarget) {
       )
     ).flat()
   );
+  let documentFields = 0;
   await Promise.all(
-    rows.map((row) =>
-      ctx.db.patch("bookings", row._id, {
+    rows.map((row) => {
+      const details =
+        row.travelerDetails === undefined ? null : withoutIdentityDocuments(row.travelerDetails);
+      documentFields += details?.removed ?? 0;
+      const patch: Partial<Doc<"bookings">> = {
         notes: undefined,
         updatedAt: target.now,
         userId: target.tombstone,
-      })
-    )
+      };
+      if (details) {
+        patch.travelerDetails = details.value;
+      }
+      return ctx.db.patch("bookings", row._id, patch);
+    })
   );
-  return rows.length;
+  return { bookingDocumentFields: documentFields, bookingsDetached: rows.length };
 }
 
 /**
@@ -360,13 +388,13 @@ export async function eraseCustomerAccount(
 ): Promise<AccountErasureCounts> {
   const profiles = await eraseProfiles(ctx, target);
   const sacredBharatRows = await eraseSacredBharat(ctx, target);
-  const entitlementsRevoked = await revokeEntitlements(ctx, target);
-  const bookingsDetached = await detachBookings(ctx, target);
+  const entitlementsRevoked = await endEntitlements(ctx, target);
+  const bookings = await detachBookings(ctx, target);
   const identityLinks = await eraseIdentityLinks(ctx, target);
-  const login = await eraseBetterAuthLogin(ctx, target.betterAuthUserId, target.now);
+  const login = await eraseBetterAuthLogins(ctx, target.betterAuthUserIds, target.now);
   return {
     ...login,
-    bookingsDetached,
+    ...bookings,
     entitlementsRevoked,
     feedbackPhotos: 0,
     identityLinks,

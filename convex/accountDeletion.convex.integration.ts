@@ -166,7 +166,15 @@ async function seedCustomerData(t: Harness, login: SeededLogin) {
       razorpayPaymentId: "pay_synthetic_deletion",
       status: "confirmed",
       totalAmount: 100_000,
-      travelerDetails: [{ name: "Synthetic Traveller" }],
+      travelerDetails: [
+        {
+          dateOfBirth: "1990-01-01",
+          name: "Synthetic Traveller",
+          passportExpiry: "2031-01-01",
+          passportNumber: "P0000001",
+        },
+        { name: "Synthetic Companion", nationalId: "SYN-0002" },
+      ],
       travelers: 2,
       tripId,
       updatedAt: now,
@@ -464,6 +472,15 @@ describe("self-service account deletion", () => {
       userId: tombstone,
     });
     expect(state.booking?.notes).toBeUndefined();
+    // Names stay for the invoice; identity documents go (owner decision, 7 Nov 2026).
+    expect(state.booking?.travelerDetails).toEqual([
+      { name: "Synthetic Traveller" },
+      { name: "Synthetic Companion" },
+    ]);
+    expect(state.otherBooking?.travelerDetails).toEqual([
+      expect.objectContaining({ passportNumber: "P0000001" }),
+      expect.objectContaining({ nationalId: "SYN-0002" }),
+    ]);
     expect(state.paymentEvent).not.toBeNull();
     expect(state.bookingEntitlement).toMatchObject({ authUserId: tombstone });
     expect(state.bookingEntitlement?.revokedAt).toEqual(expect.any(Number));
@@ -488,6 +505,7 @@ describe("self-service account deletion", () => {
       authSessions: 1,
       authUser: 1,
       authVerifications: 1,
+      bookingDocumentFields: 4,
       bookingsDetached: 1,
       entitlementsRevoked: 2,
       feedbackPhotos: 0,
