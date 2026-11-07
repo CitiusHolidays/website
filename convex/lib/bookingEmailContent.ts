@@ -41,17 +41,19 @@ const dateFormat = new Intl.DateTimeFormat("en-IN", {
   year: "numeric",
 });
 
+const INR_FORMAT = new Intl.NumberFormat("en-IN", { currency: "INR", style: "currency" });
+const TWO_DECIMAL_FORMAT = new Intl.NumberFormat("en-IN", {
+  maximumFractionDigits: 2,
+  minimumFractionDigits: 2,
+});
+
 /** Format an amount held in the currency's minor unit (paise for INR). */
 export function formatBookingAmount(amountMinor: number, currency: string) {
   const major = amountMinor / 100;
   if (currency === "INR") {
-    return new Intl.NumberFormat("en-IN", { currency: "INR", style: "currency" }).format(major);
+    return INR_FORMAT.format(major);
   }
-  const value = new Intl.NumberFormat("en-IN", {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
-  }).format(major);
-  return `${currency} ${value}`;
+  return `${currency} ${TWO_DECIMAL_FORMAT.format(major)}`;
 }
 
 function formatDate(value: string) {
