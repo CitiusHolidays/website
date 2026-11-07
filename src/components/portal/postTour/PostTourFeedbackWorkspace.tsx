@@ -2,6 +2,7 @@
 
 import { api } from "@convex/_generated/api";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/application-button";
 import { inputVariants } from "@/components/ui/application-field-variants";
@@ -61,31 +62,33 @@ function canLoadMore(status: string) {
   return status === "CanLoadMore" || status === "LoadingMore";
 }
 
-export default function PostTourFeedbackWorkspace({
-  initialJobCardId = "",
-  initialReportId = "",
-  initialView = "report",
-}: {
-  initialJobCardId?: string;
-  initialReportId?: string;
-  initialView?: string;
-}) {
-  const selectId = useId();
-  const [selectedJob, setSelectedJob] = useState(initialJobCardId);
-  const [reportFromLink, setReportFromLink] = useState(initialReportId);
-  const [view, setView] = useState<FeedbackView>(() => feedbackView(initialView));
-  const jobs = usePaginatedQuery(api.crm.postTourFeedback.listJobs, {}, { initialNumItems: 30 });
-  const structured = useQuery(
-    api.crm.postTourReports.workspace,
-    reportQueryArgs(selectedJob, reportFromLink)
-  );
-  const jobCardId = selectedJob || structured?.jobCardId || undefined;
-  const job = useQuery(api.crm.postTourFeedback.getJobContext, jobCardId ? { jobCardId } : "skip");
-  const feedback = usePaginatedQuery(
-    api.crm.postTourFeedback.list,
-    jobCardId ? { jobCardId } : {},
-    { initialNumItems: 20 }
-  );
+type JobsPage = ReturnType<typeof useJobsPage>;
+type FeedbackPage = ReturnType<typeof useFeedbackPage>;
+type JobContext = FunctionReturnType<typeof api.crm.postTourFeedback.getJobContext>;
+type ReportWorkspace = FunctionReturnType<typeof api.crm.postTourReports.workspace>;
+
+function useJobsPage() {
+  return usePaginatedQuery(api.crm.postTourFeedback.listJobs, {}, { initialNumItems: 30 });
+}
+function useFeedbackPage(jobCardId: string | undefined) {
+  return usePaginatedQuery(api.crm.postTourFeedback.list, jobCardId ? { jobCardId } : {}, {
+    initialNumItems: 20,
+  });
+}
+
+async function uploadFeedbackPhoto(entry: FeedbackEntry, file: File) {
+  const params = new URLSearchParams({ feedbackId: entry.id, fileName: file.name });
+  const result = await fetch(`/api/portal/post-tour/photos?${params}`, {
+    body: file,
+    headers: { "Content-Type": file.type },
+    method: "POST",
+  });
+  if (!result.ok) {
+    throw new Error("Photo upload failed");
+  }
+}
+
+function useFeedbackActions(job: JobContext | undefined) {
   const create = useMutation(api.crm.postTourFeedback.create);
   const update = useMutation(api.crm.postTourFeedback.update);
   const remove = useMutation(api.crm.postTourFeedback.remove);
@@ -105,23 +108,143 @@ export default function PostTourFeedbackWorkspace({
   const deletePhoto = async (photoId: FeedbackEntry["photos"][number]["id"]) => {
     await removePhoto({ photoId });
   };
-  const upload = async (entry: FeedbackEntry, file: File) => {
-    const params = new URLSearchParams({ feedbackId: entry.id, fileName: file.name });
-    const result = await fetch(`/api/portal/post-tour/photos?${params}`, {
-      body: file,
-      headers: { "Content-Type": file.type },
-      method: "POST",
-    });
-    if (!result.ok) {
-      throw new Error("Photo upload failed");
-    }
+  return {
+    onDelete: deleteEntry,
+    onRemovePhoto: deletePhoto,
+    onSave: save,
+    onUpdate: updateEntry,
+    onUpload: uploadFeedbackPhoto,
   };
+}
+
+function JobCardPicker({
+  job,
+  jobCardId,
+  jobs,
+  onChoose,
+  view,
+}: {
+  job: JobContext | undefined;
+  jobCardId: string | undefined;
+  jobs: JobsPage;
+  onChoose: (event: React.ChangeEvent<HTMLSelectElement>) => void;
+  view: FeedbackView;
+}) {
+  const selectId = useId();
+  const moreJobs = () => jobs.loadMore(30);
+  return (
+    <div className="flex flex-wrap items-end gap-3 border-brand-border border-b pb-4">
+      <label className="block min-w-0 flex-1 space-y-1" htmlFor={selectId}>
+        <span className="font-sans font-semibold text-brand-dark text-sm">
+          Job Card / JC number
+        </span>
+        <select
+          className={`${inputVariants({ surface: "staff" })} bg-white`}
+          id={selectId}
+          onChange={onChoose}
+          value={jobCardId ?? ""}
+        >
+          <option value="">{view === "report" ? "Choose a Job Card..." : "All Job Cards"}</option>
+          {job && !jobs.results.some((item) => item.jobCardId === job.jobCardId) ? (
+            <option value={job.jobCardId}>
+              {job.jobCode} · {job.clientName}
+            </option>
+          ) : null}
+          {jobs.results.map((item) => (
+            <option key={item.jobCardId} value={item.jobCardId}>
+              {item.jobCode} · {item.clientName}
+              {item.canCompose ? " · Assigned to you" : ""}
+            </option>
+          ))}
+        </select>
+      </label>
+      {canLoadMore(jobs.status) ? (
+        <Button
+          disabled={jobs.status === "LoadingMore"}
+          onClick={moreJobs}
+          surface="staff"
+          type="button"
+          variant="outline"
+        >
+          Load more Job Cards
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function TeamNotes({ feedback, job }: { feedback: FeedbackPage; job: JobContext | undefined }) {
+  const actions = useFeedbackActions(job);
+  const moreFeedback = () => feedback.loadMore(20);
+  return (
+    <>
+      <PostTourFeedbackView
+        entries={feedback.results}
+        job={job ?? null}
+        loading={feedback.status === "LoadingFirstPage"}
+        {...actions}
+      />
+      {canLoadMore(feedback.status) ? (
+        <Button
+          disabled={feedback.status === "LoadingMore"}
+          onClick={moreFeedback}
+          surface="staff"
+          type="button"
+          variant="outline"
+        >
+          Load more feedback
+        </Button>
+      ) : null}
+    </>
+  );
+}
+
+function FeedbackViewPanel({
+  feedback,
+  job,
+  jobCardId,
+  structured,
+  view,
+}: {
+  feedback: FeedbackPage;
+  job: JobContext | undefined;
+  jobCardId: string | undefined;
+  structured: ReportWorkspace | undefined;
+  view: FeedbackView;
+}) {
+  if (view === "report") {
+    return <StructuredPostTourReport workspace={jobCardId ? structured : null} />;
+  }
+  if (view === "travellers") {
+    return <TravelerFeedbackPanel job={job ?? null} jobCardId={job?.jobCardId} />;
+  }
+  return <TeamNotes feedback={feedback} job={job} />;
+}
+
+export default function PostTourFeedbackWorkspace({
+  initialJobCardId = "",
+  initialReportId = "",
+  initialView = "report",
+}: {
+  initialJobCardId?: string;
+  initialReportId?: string;
+  initialView?: string;
+}) {
+  const [selectedJob, setSelectedJob] = useState(initialJobCardId);
+  const [reportFromLink, setReportFromLink] = useState(initialReportId);
+  const [view, setView] = useState<FeedbackView>(() => feedbackView(initialView));
+  const jobs = useJobsPage();
+  const structured = useQuery(
+    api.crm.postTourReports.workspace,
+    reportQueryArgs(selectedJob, reportFromLink)
+  );
+  const jobCardId = selectedJob || structured?.jobCardId || undefined;
+  const job = useQuery(api.crm.postTourFeedback.getJobContext, jobCardId ? { jobCardId } : "skip");
+  const feedback = useFeedbackPage(jobCardId);
   const chooseJob = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setReportFromLink("");
     setSelectedJob(event.target.value);
   };
-  const moreJobs = () => jobs.loadMore(30);
-  const moreFeedback = () => feedback.loadMore(20);
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <header className="border-brand-border border-b pb-5">
@@ -133,78 +256,20 @@ export default function PostTourFeedbackWorkspace({
           manage the separate traveller feedback requests.
         </p>
       </header>
-      <div className="flex flex-wrap items-end gap-3 border-brand-border border-b pb-4">
-        <label className="block min-w-0 flex-1 space-y-1" htmlFor={selectId}>
-          <span className="font-sans font-semibold text-brand-dark text-sm">
-            Job Card / JC number
-          </span>
-          <select
-            className={`${inputVariants({ surface: "staff" })} bg-white`}
-            id={selectId}
-            onChange={chooseJob}
-            value={jobCardId ?? ""}
-          >
-            <option value="">{view === "report" ? "Choose a Job Card..." : "All Job Cards"}</option>
-            {job && !jobs.results.some((item) => item.jobCardId === job.jobCardId) ? (
-              <option value={job.jobCardId}>
-                {job.jobCode} · {job.clientName}
-              </option>
-            ) : null}
-            {jobs.results.map((item) => (
-              <option key={item.jobCardId} value={item.jobCardId}>
-                {item.jobCode} · {item.clientName}
-                {item.canCompose ? " · Assigned to you" : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-        {canLoadMore(jobs.status) ? (
-          <Button
-            disabled={jobs.status === "LoadingMore"}
-            onClick={moreJobs}
-            surface="staff"
-            type="button"
-            variant="outline"
-          >
-            Load more Job Cards
-          </Button>
-        ) : null}
-      </div>
+      <JobCardPicker job={job} jobCardId={jobCardId} jobs={jobs} onChoose={chooseJob} view={view} />
       {jobCardId && job === null ? (
         <p className="text-brand-muted text-sm" role="status">
           This Job Card is no longer available. Choose another Job Card.
         </p>
       ) : null}
       <FeedbackTabs onChange={setView} view={view} />
-      {view === "report" ? (
-        <StructuredPostTourReport workspace={jobCardId ? structured : null} />
-      ) : null}
-      {view === "travellers" ? (
-        <TravelerFeedbackPanel job={job ?? null} jobCardId={job?.jobCardId} />
-      ) : null}
-      {view === "managers" ? (
-        <PostTourFeedbackView
-          entries={feedback.results}
-          job={job ?? null}
-          loading={feedback.status === "LoadingFirstPage"}
-          onDelete={deleteEntry}
-          onRemovePhoto={deletePhoto}
-          onSave={save}
-          onUpdate={updateEntry}
-          onUpload={upload}
-        />
-      ) : null}
-      {view === "managers" && canLoadMore(feedback.status) ? (
-        <Button
-          disabled={feedback.status === "LoadingMore"}
-          onClick={moreFeedback}
-          surface="staff"
-          type="button"
-          variant="outline"
-        >
-          Load more feedback
-        </Button>
-      ) : null}
+      <FeedbackViewPanel
+        feedback={feedback}
+        job={job}
+        jobCardId={jobCardId}
+        structured={structured}
+        view={view}
+      />
     </div>
   );
 }
