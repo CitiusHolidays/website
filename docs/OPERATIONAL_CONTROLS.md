@@ -14,7 +14,7 @@ Preview result, and a Production result are separate evidence.
 
 ## Live Feature Controls
 
-The catalog contains 37 independently recoverable controls:
+The catalog contains 38 independently recoverable controls:
 
 - public Sacred Bharat / 001 availability;
 - inbound CRM intake, Sales bell, Sales email, and `info@citius.in` mailbox email;
