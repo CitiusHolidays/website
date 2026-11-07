@@ -43,7 +43,7 @@ export const recordSignInLink = internalMutation({
   args: { deviceDigest: v.string(), recipientDigest: v.string(), tokenDigest: v.string() },
   handler: async (ctx, args) => {
     const now = Date.now();
-    const recent = await ctx.db
+    const recentQuery = ctx.db
       .query("customerAppSignInLinks")
       .withIndex("by_recipientDigest_and_requestedAt", (q) =>
         q
@@ -51,7 +51,7 @@ export const recordSignInLink = internalMutation({
           .gt("requestedAt", now - SIGN_IN_LINK_WINDOW_MS)
       )
       .take(SIGN_IN_LINKS_PER_HOUR);
-    const stale = await ctx.db
+    const staleQuery = ctx.db
       .query("customerAppSignInLinks")
       .withIndex("by_recipientDigest_and_requestedAt", (q) =>
         q
@@ -59,6 +59,7 @@ export const recordSignInLink = internalMutation({
           .lt("requestedAt", now - SIGN_IN_LINK_ROW_TTL_MS)
       )
       .take(50);
+    const [recent, stale] = await Promise.all([recentQuery, staleQuery]);
     await Promise.all(stale.map((row) => ctx.db.delete("customerAppSignInLinks", row._id)));
     if (recent.length >= SIGN_IN_LINKS_PER_HOUR) {
       return false;

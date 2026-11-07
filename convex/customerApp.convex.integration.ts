@@ -616,8 +616,10 @@ describe("customer app privacy and safety (review of PR 315)", () => {
     vi.useFakeTimers({ now: NOW });
     const t = harness();
     const ids = await seed(t);
-    const offer = await seedConfirmedQuery(t, ids.jobCardId);
-    const raw = await invite(t, ids.jobCardId, ids.parent, 24);
+    const [offer, raw] = await Promise.all([
+      seedConfirmedQuery(t, ids.jobCardId),
+      invite(t, ids.jobCardId, ids.parent, 24),
+    ]);
     const asha = asCustomer(t, "asha");
     await asha.mutation(api.customerApp.claimInvite, { token: raw });
     const packets = (key: string) =>
@@ -720,9 +722,11 @@ describe("customer app privacy and safety (review of PR 315)", () => {
     vi.useFakeTimers({ now: NOW });
     const t = harness();
     const ids = await seed(t);
-    const offer = await seedConfirmedQuery(t, ids.jobCardId);
+    const [offer, raw] = await Promise.all([
+      seedConfirmedQuery(t, ids.jobCardId),
+      invite(t, ids.jobCardId, ids.parent, 27),
+    ]);
     const grant = await operatorGrant(t, "asha", { ...offer, role: "organizer" });
-    const raw = await invite(t, ids.jobCardId, ids.parent, 27);
     const { tripId } = await asCustomer(t, "asha").mutation(api.customerApp.claimInvite, {
       token: raw,
     });

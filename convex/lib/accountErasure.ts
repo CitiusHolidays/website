@@ -513,8 +513,10 @@ export async function eraseCustomerAccount(
 ): Promise<AccountErasureCounts> {
   const profiles = await eraseProfiles(ctx, target);
   const sacredBharatRows = await eraseSacredBharat(ctx, target);
-  const entitlementsRevoked = await endEntitlements(ctx, target);
-  await eraseSignInLinkRows(ctx, target);
+  const [entitlementsRevoked] = await Promise.all([
+    endEntitlements(ctx, target),
+    eraseSignInLinkRows(ctx, target),
+  ]);
   const bookings = await detachBookings(ctx, target);
   const identityLinks = await eraseIdentityLinks(ctx, target);
   const login = await eraseBetterAuthLogins(
