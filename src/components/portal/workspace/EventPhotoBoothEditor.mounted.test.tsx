@@ -545,7 +545,11 @@ describe("Event Photo Booth staff editor", () => {
       expect(destinationFields(view.container)[0]).toBe("Paris");
       await act(async () => view.button("Discard edits and reload").click());
       expect(destinationFields(view.container)[0]).toBe("Remote edited Paris");
-      expect(view.container.querySelector("img")?.getAttribute("src")).toContain("paris-192.webp");
+      // The 160px card offers the 192px and 384px variants, so 2x screens stay sharp.
+      expect(view.container.querySelector("picture source")?.getAttribute("srcset")).toBe(
+        "/images/event-photo-booth/paris-192.webp 192w, /images/event-photo-booth/paris-384.webp 384w"
+      );
+      expect(view.container.querySelector("img")?.getAttribute("src")).toContain("paris-384.webp");
     } finally {
       prepare.mockRestore();
       await view.unmount();
@@ -577,7 +581,7 @@ describe("Event Photo Booth staff editor", () => {
       expect(destinationFields(view.container)[0]).toBe("Paris");
       expect(
         view.container.querySelector('img[alt="Current background for Paris"]')?.getAttribute("src")
-      ).toContain("paris-192.webp");
+      ).toContain("paris-384.webp");
       expect(view.button("Save draft").disabled).toBe(true);
       expect(input.value).toBe("");
       expect(uploads).toBe(0);

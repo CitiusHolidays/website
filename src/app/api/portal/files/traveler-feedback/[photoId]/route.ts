@@ -10,14 +10,17 @@ export async function GET(request: Request, { params }: { params: Promise<{ phot
     "/api/portal/files/traveler-feedback/[photoId]",
     async () => {
       const { photoId } = await params;
-      if (new URL(request.url).searchParams.get("inline") === "1") {
+      const search = new URL(request.url).searchParams;
+      if (search.get("inline") === "1") {
         try {
           const token = await getToken();
           if (!token) {
             throw new Error("UNAUTHORIZED");
           }
           const file = await fetchAuthAction(
-            anyApi.crm.travelerFeedbackActions.getPhotoThumbnail,
+            search.get("size") === "display"
+              ? anyApi.crm.travelerFeedbackActions.getPhotoDisplay
+              : anyApi.crm.travelerFeedbackActions.getPhotoThumbnail,
             { photoId },
             { token }
           );

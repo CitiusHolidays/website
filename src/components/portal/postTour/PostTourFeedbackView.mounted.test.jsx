@@ -121,6 +121,56 @@ test("a failed private photo has a keyboard-operable retry", async () => {
   expect(container.querySelector("img").src).toContain("retry=1");
 });
 
+async function photoTile() {
+  return await mount({
+    entries: [
+      {
+        ...entry,
+        photos: [{ fileName: "hotel.jpg", fileSize: 100, id: "photo-1", mimeType: "image/jpeg" }],
+      },
+    ],
+  });
+}
+
+async function loadThumbnail(container, renderedWidth) {
+  const thumbnail = container.querySelector("img");
+  Object.defineProperty(thumbnail, "clientWidth", { configurable: true, value: renderedWidth });
+  await act(() => thumbnail.dispatchEvent(new dom.window.Event("load")));
+  return thumbnail;
+}
+
+test("a wide photo tile loads a sharper copy over the thumbnail, then fades it in", async () => {
+  const container = await photoTile();
+  const thumbnail = container.querySelector("img");
+  expect(thumbnail.getAttribute("loading")).toBe("lazy");
+  expect(thumbnail.className).toContain("opacity-0");
+  await loadThumbnail(container, 700);
+  expect(thumbnail.className).toContain("opacity-100");
+  const images = container.querySelectorAll("img");
+  expect(images).toHaveLength(2);
+  const [, sharper] = images;
+  expect(sharper.src).toContain("size=display");
+  expect(sharper.getAttribute("aria-hidden")).toBe("true");
+  expect(sharper.className).toContain("opacity-0");
+  await act(() => sharper.dispatchEvent(new dom.window.Event("load")));
+  expect(sharper.className).toContain("opacity-100");
+});
+
+test("a narrow tile keeps the thumbnail, and a failed sharper copy falls back to it", async () => {
+  const narrow = await photoTile();
+  await loadThumbnail(narrow, 300);
+  expect(narrow.querySelectorAll("img")).toHaveLength(1);
+  await act(() => root.unmount());
+  narrow.remove();
+
+  const wide = await photoTile();
+  await loadThumbnail(wide, 900);
+  const [, sharper] = wide.querySelectorAll("img");
+  await act(() => sharper.dispatchEvent(new dom.window.Event("error")));
+  expect(wide.querySelectorAll("img")).toHaveLength(1);
+  expect(wide.textContent).not.toContain("Photo could not be loaded");
+});
+
 test("failed save preserves the comment and retry saves it with an N/A rating", async () => {
   const saved = [];
   let fail = true;

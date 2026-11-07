@@ -61,6 +61,22 @@ test("traveler thumbnails retain authenticated private delivery", async () => {
   expect(calls.at(-1)).toBe("crm/travelerFeedbackActions:getPhotoThumbnail");
 });
 
+test.each([
+  ["post-tour", "crm/postTourFeedbackActions:getPhotoDisplay"],
+  ["traveler-feedback", "crm/travelerFeedbackActions:getPhotoDisplay"],
+])("%s sharper on-screen copies stay private previews, not downloads", async (folder, action) => {
+  signedIn = true;
+  const handler = folder === "post-tour" ? GET : travelerGET;
+  const response = await handler(
+    new Request(`https://citius.test/api/portal/files/${folder}/p1?inline=1&size=display`),
+    { params: Promise.resolve({ photoId: "p1" }) }
+  );
+  expect(response.status).toBe(200);
+  expect(response.headers.get("Content-Disposition")).toStartWith("inline;");
+  expect(response.headers.get("Cache-Control")).toContain("no-store");
+  expect(calls.at(-1)).toBe(action);
+});
+
 test("inline photo errors preserve the private authentication boundary", async () => {
   signedIn = false;
   const response = await GET(
