@@ -205,6 +205,7 @@ const productionTestRecipeIdValidator = v.union(
   v.literal("scheduled_job:cleanup_passenger_exports"),
   v.literal("scheduled_job:cleanup_portal_rate_limits"),
   v.literal("scheduled_job:cleanup_sacred_bharat_rate_limits"),
+  v.literal("scheduled_job:issue_pending_booking_invoices"),
   v.literal("scheduled_job:purge_activity_logs"),
   v.literal("scheduled_job:purge_commercial_files"),
   v.literal("scheduled_job:purge_field_passport_audit"),

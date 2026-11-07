@@ -21,6 +21,7 @@ export const operationalControlKeyValidator = v.union(
   v.literal("jobs.cleanup_passenger_exports"),
   v.literal("jobs.cleanup_portal_rate_limits"),
   v.literal("jobs.cleanup_sacred_bharat_rate_limits"),
+  v.literal("jobs.issue_pending_booking_invoices"),
   v.literal("jobs.purge_activity_logs"),
   v.literal("jobs.purge_commercial_files"),
   v.literal("jobs.purge_field_passport_audit"),
@@ -60,6 +61,7 @@ export type OperationalControlKey =
   | "jobs.cleanup_passenger_exports"
   | "jobs.cleanup_portal_rate_limits"
   | "jobs.cleanup_sacred_bharat_rate_limits"
+  | "jobs.issue_pending_booking_invoices"
   | "jobs.purge_activity_logs"
   | "jobs.purge_commercial_files"
   | "jobs.purge_field_passport_audit"
@@ -96,6 +98,7 @@ export const LEGACY_OPERATIONAL_CONTROL_REPLACEMENTS = {
     "jobs.cleanup_passenger_exports",
     "jobs.cleanup_portal_rate_limits",
     "jobs.cleanup_sacred_bharat_rate_limits",
+    "jobs.issue_pending_booking_invoices",
     "jobs.purge_commercial_files",
     "jobs.purge_field_passport_audit",
     "jobs.purge_office_check_ins",
@@ -343,6 +346,17 @@ export const OPERATIONAL_CONTROL_CATALOG = [
     availability: "available",
     category: "Infrastructure",
     dependencies: [],
+    description:
+      "Every hour, issue booking GST invoices that were waiting for the company's invoice details and queue each one's \"invoice ready\" email. Does nothing until all CITIUS_INVOICE_* values are configured. Stays on when its stored state is missing.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.issue_pending_booking_invoices",
+    label: "Pending booking invoices",
+    standardEnabled: true,
+  },
+  {
+    availability: "available",
+    category: "Infrastructure",
+    dependencies: [],
     description: "Purge commercial files whose retention window has ended.",
     enforcement: "Scheduled-job action gateway",
     key: "jobs.purge_commercial_files",
@@ -524,7 +538,13 @@ const CATALOG_BY_KEY = new Map(
   OPERATIONAL_CONTROL_CATALOG.map((entry) => [entry.key, entry] as const)
 );
 
-const SAFE_ENABLED_KEYS = new Set<OperationalControlKey>(["inbound.crm_intake"]);
+// Missing, expired, or corrupt state resolves to these keys' standard behavior.
+// The pending-invoice job only issues invoices the Billing policy already
+// promises, and only once the company's invoice details exist.
+const SAFE_ENABLED_KEYS = new Set<OperationalControlKey>([
+  "inbound.crm_intake",
+  "jobs.issue_pending_booking_invoices",
+]);
 type ControlDbCtx = Pick<QueryCtx | MutationCtx, "db">;
 type StoredState = Doc<"operationalControlStates">["state"];
 type OperationalEffectReceipt = Doc<"operationalEffectReceipts">;
