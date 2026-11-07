@@ -340,4 +340,87 @@ describe("Mounted spreadsheet modal loading boundary", () => {
       container.remove();
     }
   });
+
+  test("Shows durable import progress and per-row preview actions", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const parsedRows = [
+      { fullName: "Asha Rao", id: "row-1", sourceRowNumber: 2, sourceSheet: "Guests" },
+      { fullName: "Ravi Kumar", id: "row-2", sourceRowNumber: 3, sourceSheet: "Guests" },
+      { fullName: "Mira Shah", id: "row-3", sourceRowNumber: 4, sourceSheet: "Guests" },
+    ];
+    try {
+      await act(async () =>
+        root.render(
+          <PortalToastProvider>
+            <PassengerImportModal
+              close={doNothing}
+              commitPassengerImport={returnImportResult}
+              jobCards={[{ id: "jobCards_1", jobCode: "JC-0001" }]}
+              open
+              operations={[
+                {
+                  batchTotal: 3,
+                  completedBatches: 1,
+                  failed: 1,
+                  importKinds: ["passenger"],
+                  jobCardId: "jobCards_1",
+                  processed: 10,
+                  stalled: true,
+                  status: "running",
+                  total: 30,
+                },
+              ]}
+              parseWorkbookFile={async () => ({ rows: parsedRows })}
+              previewPassengerImport={async () => ({
+                rows: [
+                  { action: "create", id: "row-1" },
+                  { action: "update", id: "row-2" },
+                ],
+              })}
+            />
+          </PortalToastProvider>
+        )
+      );
+      await flushDialog();
+      expect(document.body.textContent).toContain("JC-0001: running");
+      expect(document.body.textContent).toContain(
+        "1 of 3 batches complete · 10 rows processed · 1 row failed"
+      );
+      expect(document.body.textContent).toContain(
+        "Progress paused. Re-select the same file to resume safely."
+      );
+
+      const input = document.querySelector('input[type="file"]');
+      Object.defineProperty(input, "files", {
+        configurable: true,
+        value: [new dom.window.File(["workbook"], "guests.xlsx")],
+      });
+      await act(async () => input.dispatchEvent(new dom.window.Event("change", { bubbles: true })));
+      const actionCells = () =>
+        Array.from(document.querySelectorAll("tbody tr")).map(
+          (row) => row.querySelector("td")?.textContent
+        );
+      expect(actionCells()).toEqual(["upsert", "upsert", "upsert"]);
+
+      const select = document.querySelector('[role="combobox"]');
+      await act(async () => {
+        select.focus();
+        select.dispatchEvent(
+          new dom.window.KeyboardEvent("keydown", { bubbles: true, key: "ArrowDown" })
+        );
+        await Promise.resolve();
+      });
+      const option = Array.from(document.body.querySelectorAll('[role="option"]')).find(
+        (candidate) => candidate.textContent.includes("JC-0001")
+      );
+      await act(async () => option.click());
+      await act(async () => new Promise((resolve) => setTimeout(resolve, 0)));
+      expect(actionCells()).toEqual(["create", "update", "upsert"]);
+    } finally {
+      await act(async () => root.unmount());
+      container.remove();
+    }
+  });
 });
