@@ -2,6 +2,7 @@ import { paginationOptsValidator, paginationResultValidator } from "convex/serve
 import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import { type MutationCtx, mutation, type QueryCtx, query } from "../_generated/server";
+import { requireAppPilotOn } from "./appPilot";
 import {
   jobCardRecordGrant,
   PERMISSIONS,
@@ -108,6 +109,8 @@ async function loadWritableJobCard(
   if (!scope) {
     throw new ConvexError("FORBIDDEN");
   }
+  // Pushes come only from the tour manager app, so the trip's app pilot must be on.
+  requireAppPilotOn(job);
   return { jobCardId, scope };
 }
 

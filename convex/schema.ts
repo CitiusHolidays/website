@@ -1438,6 +1438,17 @@ export default defineSchema({
 
   jobCards: defineTable({
     airfarePerPax: v.optional(v.number()),
+    // Per-trip app pilot (owner decision, 7 Nov 2026), set by crm/jobCards:setAppPilot. The tour
+    // manager app (and later the customer app) shows nothing about this Job Card unless
+    // enabled is true; missing means off. The Staff Workspace ignores it.
+    appPilot: v.optional(
+      v.object({
+        changedAt: v.number(),
+        changedBy: v.string(),
+        changedByName: v.string(),
+        enabled: v.boolean(),
+      })
+    ),
     approxMargin: v.optional(v.number()),
     // Derived from tourManagerAssignments (status "Assigned" with a staffId and no external
     // profile) by syncJobCardTourManagerVisibility. Grants Job Card scope to every assigned

@@ -11,6 +11,15 @@ import { modules } from "../test.setup";
 // they are assigned to; no HR flows; access ends only when someone switches it off.
 
 const NOW = Date.parse("2026-11-07T06:00:00Z");
+// These trips are in the tour manager app pilot; appPilot.convex.integration.ts covers the off state.
+const APP_PILOT_ON = {
+  appPilot: {
+    changedAt: NOW,
+    changedBy: "synthetic-ops",
+    changedByName: "Synthetic Ops",
+    enabled: true,
+  },
+};
 const ISSUER = "https://external-tm.test";
 const EXTERNAL_SUBJECT = "external-meera";
 
@@ -113,6 +122,7 @@ async function seed(t: ReturnType<typeof harness>) {
       updatedAt: NOW,
     });
     const jobCardId = await ctx.db.insert("jobCards", {
+      ...APP_PILOT_ON,
       clientName: "Synthetic incentive group",
       confirmedPax: 3,
       createdAt: NOW,
@@ -128,6 +138,7 @@ async function seed(t: ReturnType<typeof harness>) {
       updatedAt: NOW,
     });
     const otherJobCardId = await ctx.db.insert("jobCards", {
+      ...APP_PILOT_ON,
       clientName: "Synthetic other group",
       confirmedPax: 1,
       createdAt: NOW + 1,
@@ -356,6 +367,87 @@ describe("what an external tour manager with access can reach", () => {
     await expect(
       f.external.query(api.crm.ops.listTourManagers, { paginationOpts: PAGE })
     ).rejects.toThrow("FORBIDDEN");
+  });
+
+  test("with the trip's app pilot off: the CRM view is unchanged and the app paths refuse", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(Date.parse("2026-11-10T06:00:00Z"));
+    const t = harness();
+    const f = await seed(t);
+    await f.assignExternal(f.ids.batchA);
+    await f.grant();
+    await f.signInExternal();
+    await f.opsHead.mutation(api.crm.jobCards.setAppPilot, {
+      enabled: false,
+      jobCardId: f.ids.jobCardId,
+    });
+    const { jobCardId } = f.ids;
+
+    // Staff Workspace reads, called without the app surface, are exactly as before.
+    expect(await f.travellerNames()).toEqual(["Synthetic A One"]);
+    expect(
+      (await f.external.query(api.crm.jobCards.getCommandCenter, { jobCardId })).jobCard.jobCode
+    ).toBe("JC-EXT-01");
+    expect(
+      (await f.external.query(api.crm.ops.listTourManagers, { jobCardId, paginationOpts: PAGE }))
+        .page
+    ).toHaveLength(1);
+
+    // App paths.
+    expect(await f.assignedJobCodes()).toEqual([]);
+    const travellerId = await t.run(async (ctx) => {
+      const [row] = await ctx.db
+        .query("travellers")
+        .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+        .take(1);
+      return row._id;
+    });
+    const refusals = [
+      () => f.external.query(api.crm.jobCards.getCommandCenter, { jobCardId, surface: "connect" }),
+      () =>
+        f.external.query(api.crm.travellers.listPage, {
+          jobCardId,
+          paginationOpts: PAGE,
+          surface: "connect",
+        }),
+      () =>
+        f.external.query(api.crm.ops.listTourManagers, {
+          jobCardId,
+          paginationOpts: PAGE,
+          surface: "connect",
+        }),
+      () =>
+        f.external.query(api.crm.fieldPassports.listFieldPassports, {
+          jobCardId,
+          referenceNow: Date.parse("2026-11-10T06:00:00Z"),
+        }),
+      () =>
+        f.external.mutation(internal.crm.fieldPassports.authorizeFieldPassportRead, {
+          travellerId,
+        }),
+      () =>
+        f.external.mutation(api.crm.fieldSync.pushHeadcountStop, {
+          clientStopId: "ext-stop-1",
+          day: "2026-11-10",
+          jobCardId,
+          label: "Lobby",
+          presentTravellerIds: [],
+          startedAt: NOW,
+        }),
+      () =>
+        f.external.mutation(api.crm.finance.createExpense, {
+          amount: 400,
+          category: "Meals",
+          clientRef: "ext-pilot-off-1",
+          currency: "INR",
+          expenseDate: "2026-11-10",
+          jobCardId,
+          paidBy: "Tour manager",
+        }),
+    ];
+    for (const call of refusals) {
+      await expect(call()).rejects.toThrow("APP_PILOT_OFF");
+    }
   });
 
   test("a profile assigned after the grant carries the login on the assignment", async () => {
@@ -1081,6 +1173,7 @@ describe("post-tour feedback and the internal tour report", () => {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.useRealTimers();
 });
 
 /** Every ticket number on the shortcut list the caller sees. */
@@ -1190,6 +1283,7 @@ describe("security review of #307: employees keep their legacy name route (M2)",
     // A plain Job Card (no series, no linked query) run on a name-only staff assignment.
     const { jobCardId, travellerId } = await t.run(async (ctx) => {
       const id = await ctx.db.insert("jobCards", {
+        ...APP_PILOT_ON,
         clientName: "Synthetic legacy group",
         confirmedPax: 1,
         createdAt: NOW,
