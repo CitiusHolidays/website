@@ -3,7 +3,17 @@ import { ConvexError, v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx, query } from "../_generated/server";
 import { requireAppPilotOn } from "./appPilot";
+import {
+  FIELD_PASSPORT_OPEN_LOOKUP_LIMIT,
+  FIELD_PASSPORT_OPEN_WINDOW_MS,
+  type FieldPassportVariant,
+  fieldPassportVariantValidator,
+  isPreviewableFieldPassportMimeType,
+  mergeFieldPassportVariants,
+  normalizeFieldPassportOpenId,
+} from "./fieldPassportOpenPolicy";
 import { hasRole, jobCardRecordGrant, PERMISSIONS, type PortalAccess, requireStaff } from "./lib";
+import { portalFileRateLimitedError } from "./lib/portalFileDownloadLimit";
 import {
   FIELD_PASSPORT_AUDIT_RETENTION_DAYS,
   RETENTION_DAY_MS,
@@ -11,6 +21,7 @@ import {
 } from "./lib/retentionSchedule";
 import { boundedPaginationOptions, loadRowsByIdInBatches } from "./paginationPolicy";
 import { canReadFieldPassportAccessLog } from "./passportPolicy";
+import { consumePortalFileDownloadWindow } from "./rateLimitMaintenance";
 import { assertReferenceNow } from "./referenceTimePolicy";
 import { loadTourManagerGroupScope, travellerInGroupScope } from "./tourManagerGroupScope";
 
@@ -103,15 +114,54 @@ async function loadFieldJobCard(
   return { job, scope };
 }
 
+/** The same actor's open of this traveller with this `openId`, still inside the open window. */
+async function findRecentOpen(
+  ctx: MutationCtx,
+  open: {
+    actorAuthUserId: string;
+    now: number;
+    openId: string;
+    travellerId: Doc<"travellers">["_id"];
+  }
+) {
+  const rows = await ctx.db
+    .query("fieldPassportAccessAudit")
+    .withIndex("by_openId_and_accessedAt", (q) =>
+      q.eq("openId", open.openId).gt("accessedAt", open.now - FIELD_PASSPORT_OPEN_WINDOW_MS)
+    )
+    .take(FIELD_PASSPORT_OPEN_LOOKUP_LIMIT);
+  return (
+    rows.find(
+      (row) => row.actorAuthUserId === open.actorAuthUserId && row.travellerId === open.travellerId
+    ) ?? null
+  );
+}
+
 /**
  * Authorizes one field passport read and writes its audit row in the same transaction.
  * Called by `crm/fieldPassportActions:getFieldPassportFile` with the caller's identity.
+ *
+ * Every call runs every check. A new open then counts once against the portal file rate limit
+ * and inserts its audit row; a later call of the same open (same actor, traveller and `openId`
+ * within `FIELD_PASSPORT_OPEN_WINDOW_MS`) only records the variant on that row. A preview of a
+ * scan the server cannot downscale reads nothing, so it is neither counted nor audited.
  */
 export const authorizeFieldPassportRead = internalMutation({
-  args: { travellerId: v.string() },
+  args: {
+    openId: v.optional(v.string()),
+    travellerId: v.string(),
+    variant: v.optional(fieldPassportVariantValidator),
+  },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_TRAVELLERS);
     const actorStaffId = requireFieldTourManager(access);
+    // The portal file rate limit and the audit row are keyed by the auth user.
+    const actorAuthUserId = String(access.authUserId ?? "").trim();
+    if (!actorAuthUserId) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    const openId = normalizeFieldPassportOpenId(args.openId);
+    const variant: FieldPassportVariant = args.variant ?? "full";
     const travellerId = ctx.db.normalizeId("travellers", args.travellerId);
     const traveller = travellerId ? await ctx.db.get("travellers", travellerId) : null;
     if (!traveller) {
@@ -142,26 +192,48 @@ export const authorizeFieldPassportRead = internalMutation({
     if (!passport?.storageId) {
       throw new ConvexError("Passport document not found for this traveller");
     }
-    await ctx.db.insert("fieldPassportAccessAudit", {
-      accessedAt: now,
-      actorAuthUserId: access.authUserId ?? access.email,
-      actorName: access.name,
-      actorStaffId,
-      jobCardId: job._id,
-      retainUntil: window.closesAt + FIELD_PASSPORT_AUDIT_RETENTION_DAYS * RETENTION_DAY_MS,
-      travelBatchId: traveller.travelBatchId,
-      travellerId: traveller._id,
-      tripClosesAt: window.closesAt,
-    });
-    return {
+    const grant = {
       fileName: passport.fileName || "passport.pdf",
       mimeType: passportMimeType(passport),
       storageId: passport.storageId,
     };
+    if (variant === "preview" && !isPreviewableFieldPassportMimeType(grant.mimeType)) {
+      return { ...grant, serve: "none" as const };
+    }
+    const existing = openId
+      ? await findRecentOpen(ctx, { actorAuthUserId, now, openId, travellerId: traveller._id })
+      : null;
+    if (existing) {
+      const variants = mergeFieldPassportVariants(existing.variants, variant);
+      if (variants.length !== (existing.variants?.length ?? 0)) {
+        await ctx.db.patch("fieldPassportAccessAudit", existing._id, { variants });
+      }
+      return { ...grant, serve: variant };
+    }
+    const limit = await consumePortalFileDownloadWindow(ctx, actorAuthUserId);
+    if (!limit.allowed) {
+      throw portalFileRateLimitedError(limit.retryAfterSeconds);
+    }
+    await ctx.db.insert("fieldPassportAccessAudit", {
+      accessedAt: now,
+      actorAuthUserId,
+      actorName: access.name,
+      actorStaffId,
+      jobCardId: job._id,
+      openId,
+      retainUntil: window.closesAt + FIELD_PASSPORT_AUDIT_RETENTION_DAYS * RETENTION_DAY_MS,
+      travelBatchId: traveller.travelBatchId,
+      travellerId: traveller._id,
+      tripClosesAt: window.closesAt,
+      variants: [variant],
+    });
+    return { ...grant, serve: variant };
   },
   returns: v.object({
     fileName: v.string(),
     mimeType: v.string(),
+    // What the action returns: the requested variant, or "none" for a preview it cannot make.
+    serve: v.union(v.literal("full"), v.literal("preview"), v.literal("none")),
     storageId: v.id("_storage"),
   }),
 });

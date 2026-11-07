@@ -6,6 +6,13 @@ interface PortalFileAccess {
   authUserId?: string;
 }
 
+export function portalFileRateLimitedError(retryAfterSeconds: number | null) {
+  return new ConvexError({
+    code: "PORTAL_FILE_RATE_LIMITED",
+    retryAfterSeconds: retryAfterSeconds ?? 1,
+  });
+}
+
 export async function enforcePortalFileDownloadLimit(
   ctx: ActionCtx,
   access: PortalFileAccess | null | undefined
@@ -20,9 +27,6 @@ export async function enforcePortalFileDownloadLimit(
     { authUserId }
   );
   if (!result.allowed) {
-    throw new ConvexError({
-      code: "PORTAL_FILE_RATE_LIMITED",
-      retryAfterSeconds: result.retryAfterSeconds ?? 1,
-    });
+    throw portalFileRateLimitedError(result.retryAfterSeconds);
   }
 }

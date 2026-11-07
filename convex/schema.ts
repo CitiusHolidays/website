@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { fieldPassportVariantValidator } from "./crm/fieldPassportOpenPolicy";
 import { officeCheckInTables } from "./crm/officeCheckInValidators";
 import { bookingInvoiceFields } from "./lib/bookingInvoiceValidators";
 import { boothAvailability, boothCounts, boothScene } from "./lib/eventPhotoBoothValidators";
@@ -1217,21 +1218,27 @@ export default defineSchema({
   // One row per passport file a tour manager opened from the field. Kept when the Job Card or
   // traveller is deleted, and only until the trip is over (owner decision, 7 Nov 2026):
   // `retainUntil` is the trip window's close, and `crm/fieldPassportAuditRetention` deletes the
-  // row after it. Holds identifiers and time only, never document content.
+  // row after it. Holds identifiers and time only, never document content. One app "open"
+  // (preview then full scan, same client `openId`) shares one row (crm/fieldPassportOpenPolicy).
   fieldPassportAccessAudit: defineTable({
     accessedAt: v.number(),
     actorAuthUserId: v.string(),
     actorName: v.string(),
     actorStaffId: v.id("staffUsers"),
     jobCardId: v.id("jobCards"),
+    // The app's id for one open; absent on rows written without one.
+    openId: v.optional(v.string()),
     // Deletion time: one year after `tripClosesAt` (crm/fieldPassportAuditRetention).
     retainUntil: v.optional(v.number()),
     travelBatchId: v.optional(v.id("travelBatches")),
     travellerId: v.id("travellers"),
     // The trip's field passport window close when the row was last checked.
     tripClosesAt: v.optional(v.number()),
+    // Which renditions this open served; absent on rows written before previews.
+    variants: v.optional(v.array(fieldPassportVariantValidator)),
   })
     .index("by_jobCardId_and_accessedAt", ["jobCardId", "accessedAt"])
+    .index("by_openId_and_accessedAt", ["openId", "accessedAt"])
     .index("by_retainUntil", ["retainUntil"])
     .index("by_travellerId_and_accessedAt", ["travellerId", "accessedAt"]),
 

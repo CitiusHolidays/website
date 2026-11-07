@@ -261,6 +261,7 @@ describe("getFieldPassportFile action", () => {
           return Promise.resolve({
             fileName: "a1.pdf",
             mimeType: "application/pdf",
+            serve: "full",
             storageId: "storage_a1",
           });
         }
@@ -288,10 +289,11 @@ describe("getFieldPassportFile action", () => {
       travellerId: "travellers_a1",
     });
     expect(Buffer.from(result.bytes).toString()).toBe("synthetic passport bytes");
+    expect(Object.keys(result).sort()).toEqual(["bytes", "fileName", "mimeType"]);
     expect(result).toMatchObject({ fileName: "a1.pdf", mimeType: "application/pdf" });
+    // The authorization mutation counts the open against the rate limit in its own transaction.
     expect(calls).toEqual([
       "crm/staff:getMyPortalAccess",
-      "crm/rateLimitMaintenance:consumePortalFileDownload",
       "crm/fieldPassports:authorizeFieldPassportRead",
     ]);
   });
