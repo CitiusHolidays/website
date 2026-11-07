@@ -9,6 +9,7 @@ import { resolveRoomCategory } from "../lib/roomTypes";
 import { roomTypeValidator } from "../lib/roomTypeValidators";
 import type { RuntimeObject } from "../lib/runtimeValues";
 import { isRuntimeString, propertiesWhen } from "../lib/runtimeValues";
+import { appSurfaceValidator, requireConnectTrip } from "./appPilot";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import { completeJobCardDeletionWorker, failJobCardDeletionOperation } from "./jobCardDeletion";
 import {
@@ -511,6 +512,7 @@ export const listPage = query({
     passportStatus: v.optional(v.string()),
     roomType: v.optional(roomTypeValidator),
     search: v.optional(v.string()),
+    surface: appSurfaceValidator,
     ticketStatus: v.optional(v.string()),
     visaStatus: v.optional(v.string()),
   },
@@ -518,6 +520,9 @@ export const listPage = query({
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_TRAVELLERS);
     if (args.passportExpiryUrgency && !holdsPassportExpiryAuthority(access.roles)) {
       throw new ConvexError("FORBIDDEN");
+    }
+    if (args.surface) {
+      await requireConnectTrip(ctx, access, args.jobCardId);
     }
     const normalizedJobCardId = args.jobCardId
       ? ctx.db.normalizeId("jobCards", args.jobCardId)

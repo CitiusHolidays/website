@@ -8,6 +8,7 @@ import { formatDisplayDate } from "@/lib/formatDate";
 import { buildJobCardCommandCenter } from "@/lib/portal/jobCardCommandCenter";
 import { displayPortalTerm } from "@/lib/portal/productTerminology";
 import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
+import { JobCardAppPilot } from "./JobCardAppPilot";
 import { JobCardFeedbackMenu } from "./JobCardFeedbackMenu";
 import { JobCardFieldUpdates } from "./JobCardFieldUpdates";
 import JobCardReadinessMap from "./JobCardReadinessMap";
@@ -194,6 +195,7 @@ export default function JobCardCommandCenter({ jobCardId }) {
           <JobCardFeedbackMenu jobCardId={String(jobCardId)} jobCode={job.jobCode} />
         </div>
       </section>
+      <JobCardAppPilot jobCardId={String(jobCardId)} />
       <JobCardFieldUpdates jobCardId={String(jobCardId)} />
       <JobCardReadinessMap sections={model.readinessSections} />
       <div className="grid items-start gap-4 lg:grid-cols-[1.4fr_0.8fr]">
