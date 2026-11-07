@@ -153,13 +153,14 @@ function CheckList({
   selected: string[];
   onChange: (value: string[]) => void;
 }) {
+  const selectedOptions = new Set(selected);
   return (
     <fieldset className="min-w-0 space-y-2">
       <legend className="mb-2 font-semibold text-brand-dark text-sm">{label}</legend>
       {options.map((option) => (
         <label className="flex min-h-11 items-center gap-2 text-sm" key={option}>
           <input
-            checked={selected.includes(option)}
+            checked={selectedOptions.has(option)}
             className="size-4 accent-citius-blue"
             onChange={(event) =>
               onChange(
@@ -200,9 +201,8 @@ export function PostTourReportForm({
   const [draft, setDraft] = useState(
     () => draftCache.get(cacheKey)?.content ?? report?.content ?? workspace.initial
   );
-  const [revision, setRevision] = useState(
-    () => draftCache.get(cacheKey)?.revision ?? report?.revision ?? 0
-  );
+  // Read only when saving, so a newer revision never needs a redraw.
+  const revision = useRef(draftCache.get(cacheKey)?.revision ?? report?.revision ?? 0);
   const [reportId, setReportId] = useState<Id<"postTourReports"> | null>(report?.id ?? null);
   const [pending, setPending] = useState(false);
   const busy = useRef(false);
@@ -218,7 +218,7 @@ export function PostTourReportForm({
   }, [error]);
   const change = (next: PostTourReportContent) => {
     setDraft(next);
-    draftCache.set(cacheKey, { content: next, revision });
+    draftCache.set(cacheKey, { content: next, revision: revision.current });
     setMessage("");
   };
   const text = (key: "highlights" | "issue" | "resolution" | "nextTime", value: string) =>
@@ -245,12 +245,12 @@ export function PostTourReportForm({
     try {
       const saved = await onSaveDraft({
         content: draft,
-        expectedRevision: revision,
+        expectedRevision: revision.current,
         jobCardId: workspace.jobCardId,
         reportId: reportId ?? undefined,
       });
       setReportId(saved.id);
-      setRevision(saved.revision);
+      revision.current = saved.revision;
       draftCache.set(cacheKey, { content: draft, revision: saved.revision });
       if (submitting) {
         await onSubmitReport({ expectedRevision: saved.revision, reportId: saved.id });

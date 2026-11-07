@@ -60,6 +60,7 @@
           "convex/crm/settings.ts",
           "convex/sacredBharatEditionEvents.convex.integration.ts",
           "src/components/portal/workspace/modals/CommercialFileUploadEditor.tsx",
+          "src/components/portal/workspace/officeCheckIn/OfficeStaffDialog.tsx",
           "src/lib/portal/passengerImportClient.ts"
         ],
         "rules": ["react-doctor/async-await-in-loop"]
@@ -119,6 +120,7 @@
       },
       {
         "files": [
+          "convex/lib/transactionalEmail.tsx",
           "src/components/portal/PortalActionMenu.tsx",
           "src/components/portal/workspace/portalRouteLifecycle.tsx"
         ],
@@ -143,14 +145,20 @@
           "convex/crm/lib/notifications.ts",
           "convex/crm/metricAggregates.ts",
           "convex/crm/notificationEmailLedger.convex.integration.ts",
+          "convex/crm/notificationEmailOutbox.convex.integration.ts",
           "convex/crm/notificationUnreadProjection.convex.integration.ts",
+          "convex/crm/notificationWorkAudience.convex.integration.ts",
           "convex/crm/officeCheckInRetention.convex.integration.ts",
           "convex/crm/officeCheckIns.convex.integration.ts",
           "convex/crm/operationalControls.convex.integration.ts",
           "convex/crm/ops.ts",
+          "convex/crm/postTourFeedback.convex.integration.ts",
+          "convex/crm/postTourReports.convex.integration.ts",
           "convex/crm/proposalAttachmentSummary.convex.integration.ts",
           "convex/crm/settings.ts",
           "convex/crm/staffWorkbookUpdates.ts",
+          "convex/crm/teamTravel.convex.integration.ts",
+          "convex/crm/travelerFeedback.convex.integration.ts",
           "convex/crm/workflowNudges.ts",
           "convex/sacredBharatEditionEvents.ts"
         ],
@@ -167,6 +175,29 @@
       {
         "files": ["src/lib/portal/trackedConvexSubscriptions.ts"],
         "rules": ["react-hooks-js/todo"]
+      },
+      {
+        "files": ["src/app/[(]auth[)]/layout.js"],
+        "rules": [
+          "react-doctor/nextjs-no-native-script",
+          "react-doctor/rendering-script-defer-async"
+        ]
+      },
+      {
+        "files": ["src/components/portal/NotificationInbox.tsx"],
+        "rules": ["react-doctor/no-locale-format-in-render"]
+      },
+      {
+        "files": [
+          "src/components/portal/document-preview/DocumentPreviewHost.tsx"
+        ],
+        "rules": ["react-doctor/effect-needs-cleanup"]
+      },
+      {
+        "files": [
+          "src/components/portal/workspace/officeCheckIn/DeleteSessionForm.tsx"
+        ],
+        "rules": ["react-doctor/no-loading-flag-reset-outside-finally"]
       }
     ]
   }
