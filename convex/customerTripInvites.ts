@@ -10,6 +10,7 @@ import {
   requireStaff,
 } from "./crm/lib";
 import { createActivity } from "./crm/lib/activity";
+import { resolveTravellerAccess, travellerInGroupScope } from "./crm/tourManagerGroupScope";
 import {
   TRIP_INVITE_BATCH_LIMIT,
   TRIP_INVITE_HASH_PATTERN,
@@ -50,10 +51,24 @@ const inviteRowValidator = v.object({
       ),
     })
   ),
+  /** Why staff cannot invite this Traveller, or null when they can. */
+  inviteBlockedReason: v.union(v.null(), v.literal("minor"), v.literal("age_not_recorded")),
   isMinor: v.boolean(),
   travellerId: v.id("travellers"),
 });
 
+function inviteBlockedReason(traveller: Doc<"travellers">) {
+  if (traveller.isMinor === true) {
+    return "minor" as const;
+  }
+  // ADR 0018: an unset minor flag means the age was not recorded, never that the person is adult.
+  return traveller.isMinor === false ? null : ("age_not_recorded" as const);
+}
+
+/**
+ * The Job Card and the travellers the caller may see on it: a Tour Manager-only grant narrows to
+ * their own groups, as on the CRM traveller list.
+ */
 async function loadInviteJob(ctx: QueryCtx | MutationCtx, access: PortalAccess, rawId: string) {
   if (isExternalTourManagerAccess(access)) {
     throw new ConvexError("FORBIDDEN");
@@ -64,7 +79,15 @@ async function loadInviteJob(ctx: QueryCtx | MutationCtx, access: PortalAccess, 
   if (!(job && canSeeJobCardRecord(access, job, linkedQuery))) {
     throw new ConvexError("Job Card not found");
   }
-  return job;
+  const travellerAccess = await resolveTravellerAccess(ctx, access, job, linkedQuery);
+  if (!travellerAccess) {
+    throw new ConvexError("Job Card not found");
+  }
+  return {
+    inScope: (traveller: Pick<Doc<"travellers">, "travelBatchId">) =>
+      travellerInGroupScope(travellerAccess.scope, traveller),
+    job,
+  };
 }
 
 async function latestInvite(ctx: QueryCtx | MutationCtx, travellerId: Id<"travellers">) {
@@ -101,14 +124,14 @@ export const listForJobCard = query({
   args: { jobCardId: v.string(), referenceNow: v.number() },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_TRAVELLERS);
-    const job = await loadInviteJob(ctx, access, args.jobCardId);
+    const { inScope, job } = await loadInviteJob(ctx, access, args.jobCardId);
     const travellers = await ctx.db
       .query("travellers")
       .withIndex("by_jobCardId", (q) => q.eq("jobCardId", job._id))
       .take(2000);
     const rows = await Promise.all(
       travellers
-        .filter((row) => !row.cancellation)
+        .filter((row) => !row.cancellation && inScope(row))
         .map(async (traveller) => {
           const [invite, entitlement] = await Promise.all([
             latestInvite(ctx, traveller._id),
@@ -134,6 +157,7 @@ export const listForJobCard = query({
                   status: inviteStatus(invite, args.referenceNow),
                 }
               : null,
+            inviteBlockedReason: inviteBlockedReason(traveller),
             isMinor: traveller.isMinor === true,
             travellerId: traveller._id,
           };
@@ -163,7 +187,7 @@ export const createInvites = mutation({
     if (!access.staffId) {
       throw new ConvexError("FORBIDDEN");
     }
-    const job = await loadInviteJob(ctx, access, args.jobCardId);
+    const { inScope, job } = await loadInviteJob(ctx, access, args.jobCardId);
     if (args.invites.length === 0 || args.invites.length > TRIP_INVITE_BATCH_LIMIT) {
       throw new ConvexError(`Send between 1 and ${TRIP_INVITE_BATCH_LIMIT} invites at a time`);
     }
@@ -181,11 +205,22 @@ export const createInvites = mutation({
       seen.add(item.travellerId);
       // biome-ignore lint/performance/noAwaitInLoops: each invite revokes the previous one in order
       const traveller = await ctx.db.get("travellers", item.travellerId);
-      if (!traveller || traveller.jobCardId !== job._id || traveller.cancellation) {
+      if (
+        !traveller ||
+        traveller.jobCardId !== job._id ||
+        traveller.cancellation ||
+        !inScope(traveller)
+      ) {
         throw new ConvexError("Traveller not found on this Job Card");
       }
-      if (traveller.isMinor === true) {
+      const blocked = inviteBlockedReason(traveller);
+      if (blocked === "minor") {
         throw new ConvexError(`${traveller.fullName} is a minor; invite their guardian instead`);
+      }
+      if (blocked === "age_not_recorded") {
+        throw new ConvexError(
+          `Record whether ${traveller.fullName} is an adult before inviting them to the app`
+        );
       }
       const reused = await ctx.db
         .query("customerTripInvites")
@@ -244,7 +279,11 @@ export const revokeInvite = mutation({
     if (!invite) {
       throw new ConvexError("Invite not found");
     }
-    const job = await loadInviteJob(ctx, access, invite.jobCardId);
+    const { inScope, job } = await loadInviteJob(ctx, access, invite.jobCardId);
+    const invited = await ctx.db.get("travellers", invite.travellerId);
+    if (!(invited && inScope(invited))) {
+      throw new ConvexError("Invite not found");
+    }
     if (invite.status !== "pending") {
       return null;
     }
@@ -268,7 +307,8 @@ export const revokeInvite = mutation({
 
 /**
  * Ends a Traveller's app access to this trip: revokes the entitlement their claimed invite made.
- * The account itself stays; past trips on other entitlements are untouched.
+ * An operator grant the claim only linked to the Traveller keeps its own access (its website
+ * view) and loses just the Traveller link. The account itself stays; other trips are untouched.
  */
 export const revokeTravellerAccess = mutation({
   args: { travellerId: v.id("travellers") },
@@ -278,16 +318,22 @@ export const revokeTravellerAccess = mutation({
     if (!traveller) {
       throw new ConvexError("Traveller not found");
     }
-    const job = await loadInviteJob(ctx, access, traveller.jobCardId);
+    const { inScope, job } = await loadInviteJob(ctx, access, traveller.jobCardId);
+    if (!inScope(traveller)) {
+      throw new ConvexError("Traveller not found");
+    }
     const entitlement = await activeTravellerEntitlement(ctx, traveller._id);
     if (!entitlement) {
       return null;
     }
     const now = Date.now();
-    await ctx.db.patch("customerJourneyEntitlements", entitlement._id, {
-      revokedAt: now,
-      updatedAt: now,
-    });
+    await ctx.db.patch(
+      "customerJourneyEntitlements",
+      entitlement._id,
+      entitlement.source === "trip_invite"
+        ? { revokedAt: now, updatedAt: now }
+        : { travellerId: undefined, updatedAt: now }
+    );
     await createActivity(ctx, access, {
       action: "customer_app_access_revoked",
       entityId: job._id,

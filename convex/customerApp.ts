@@ -24,9 +24,11 @@ import {
  * appears in the app exactly when Operations press Start pilot. A trip is addressed by its
  * entitlement id, never by a Job Card id, so a guessed id reaches nothing.
  *
- * Travellers see their own Traveller row and the minors who name that row as a guardian
- * (ADR 0018), with status words for documents but never document files, numbers or dates. An
- * operator-granted organizer sees the trip without anyone's documents. No prices are returned.
+ * Travellers see their own Traveller row, with status words for their documents but never
+ * document files, numbers or dates, and the names of the minors who name that row as a guardian
+ * (ADR 0018). Nobody sees another traveller's documents or messages: an entitlement without a
+ * Traveller row (an operator grant) sees trip-wide contacts and, for an organizer, only the
+ * announcements sent to the whole trip. No prices are returned.
  */
 
 type Ctx = QueryCtx | MutationCtx;
@@ -34,6 +36,8 @@ type Entitlement = Doc<"customerJourneyEntitlements">;
 
 const MAX_ENTITLEMENTS = 100;
 const MAX_ANNOUNCEMENTS = 50;
+/** Larger rosters never count an announcement as "to the whole trip" for an organizer. */
+const MAX_ROSTER = 1000;
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
 
 const phaseValidator = v.union(v.literal("upcoming"), v.literal("ongoing"), v.literal("past"));
@@ -226,6 +230,10 @@ async function resolveTrip(ctx: Ctx, entitlement: Entitlement): Promise<Resolved
     // The invited Traveller row was cancelled or moved: show nothing rather than the whole trip.
     return null;
   }
+  if (traveller && traveller.isMinor !== false) {
+    // Later marked a minor, or the age record was cleared: minors never hold a login (ADR 0018).
+    return null;
+  }
   const [minors, dates] = await Promise.all([
     traveller ? guardedMinors(ctx, traveller) : Promise.resolve([]),
     travelDates(ctx, job, traveller),
@@ -318,11 +326,20 @@ async function myConsent(
   return rows.find((row) => row.entitlementId === entitlementId)?.action ?? "none";
 }
 
+/** Imports write free text here; the app gets one of two words, or nothing. */
+export function passportStatusWord(value: string | undefined) {
+  const word = value?.trim().toLowerCase();
+  if (!word) {
+    return null;
+  }
+  return word === "received" ? "Received" : "Pending";
+}
+
 function documentRow(row: Doc<"travellers">) {
   return {
     fullName: row.fullName,
     isMinor: row.isMinor === true,
-    passportStatus: row.passportStatus ?? null,
+    passportStatus: passportStatusWord(row.passportStatus),
     ticketStatus: row.ticketStatus ?? null,
     travellerId: row._id,
     visaRequired: row.visaRequired,
@@ -347,6 +364,30 @@ async function loadOwnTrip(ctx: Ctx, rawTripId: string) {
   return await resolveTrip(ctx, entitlement);
 }
 
+/** The trip's live (not cancelled) Traveller ids, or null when the roster is too large to check. */
+async function wholeTripRoster(ctx: Ctx, jobCardId: Id<"jobCards">) {
+  const rows = await ctx.db
+    .query("travellers")
+    .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
+    .take(MAX_ROSTER + 1);
+  if (rows.length > MAX_ROSTER) {
+    return null;
+  }
+  return rows.filter((row) => !row.cancellation).map((row) => row._id);
+}
+
+/** An announcement every live traveller on the trip received, not one for a group or a few. */
+function sentToWholeTrip(
+  row: Doc<"fieldAnnouncements">,
+  roster: Id<"travellers">[] | null
+): boolean {
+  if (!roster || roster.length === 0 || row.travelBatchId) {
+    return false;
+  }
+  const recipients = new Set(row.recipientTravellerIds);
+  return roster.every((id) => recipients.has(id));
+}
+
 /** One trip: the day plan, the tour managers to call, document status words and announcements. */
 export const getMyTrip = query({
   args: { referenceNow: v.number(), tripId: v.string() },
@@ -356,7 +397,7 @@ export const getMyTrip = query({
       return null;
     }
     const { entitlement, job, minors, traveller } = trip;
-    const [itinerary, assignments, announcementRows, consents] = await Promise.all([
+    const [itinerary, assignments, announcementRows, consents, roster] = await Promise.all([
       latestFrozenItinerary(ctx, job._id),
       ctx.db
         .query("tourManagerAssignments")
@@ -368,11 +409,15 @@ export const getMyTrip = query({
         .order("desc")
         .take(200),
       Promise.all(minors.map((minor) => myConsent(ctx, entitlement._id, minor._id))),
+      !traveller && entitlement.role === "organizer"
+        ? wholeTripRoster(ctx, job._id)
+        : Promise.resolve(null),
     ]);
     const myGroup = traveller?.travelBatchId;
     const contacts = assignments
       .filter((row) => row.status === "Assigned")
-      .filter((row) => !(traveller && row.travelBatchId) || row.travelBatchId === myGroup)
+      // Trip-wide managers for everyone; a group's manager only for that group's travellers.
+      .filter((row) => !row.travelBatchId || (traveller !== null && row.travelBatchId === myGroup))
       .map((row) => ({
         id: row._id,
         name: row.name,
@@ -384,7 +429,11 @@ export const getMyTrip = query({
       traveller ? [traveller._id, ...minors.map((minor) => minor._id)] : []
     );
     const announcements = announcementRows
-      .filter((row) => !traveller || row.recipientTravellerIds.some((id) => audience.has(id)))
+      .filter((row) =>
+        traveller
+          ? row.recipientTravellerIds.some((id) => audience.has(id))
+          : sentToWholeTrip(row, roster)
+      )
       .slice(0, MAX_ANNOUNCEMENTS)
       .map((row) => ({
         authorName: row.authorName,
@@ -396,7 +445,8 @@ export const getMyTrip = query({
     return {
       announcements,
       contacts,
-      documents: traveller ? [traveller, ...minors].map(documentRow) : [],
+      // Minors are shown by name only; their documents are for Operations and the trip.
+      documents: traveller ? [documentRow(traveller)] : [],
       me: traveller
         ? {
             fullName: traveller.fullName,
@@ -458,14 +508,20 @@ export const previewInvite = query({
         ? { status: "claimed_by_you" as const, tripId: invite.entitlementId }
         : { status: "used" as const };
     }
-    if (invite.status === "revoked" || invite.expiresAt <= args.referenceNow) {
+    // The caller's clock only shows a link as expired sooner, never keeps it alive.
+    if (
+      invite.status === "revoked" ||
+      invite.expiresAt <= args.referenceNow ||
+      invite.expiresAt <= Date.now()
+    ) {
       return { status: "expired" as const };
     }
     const [job, traveller] = await Promise.all([
       ctx.db.get("jobCards", invite.jobCardId),
       ctx.db.get("travellers", invite.travellerId),
     ]);
-    if (!(job && traveller) || traveller.cancellation || traveller.isMinor === true) {
+    // Only a Traveller recorded as an adult can hold a login; unset age is not adult (ADR 0018).
+    if (!(job && traveller) || traveller.cancellation || traveller.isMinor !== false) {
       return { status: "invalid" as const };
     }
     const [minors, dates] = await Promise.all([
@@ -571,7 +627,8 @@ async function loadClaim(ctx: MutationCtx, token: string, authUserId: string): P
   if (!(job && traveller) || traveller.cancellation || traveller.jobCardId !== job._id) {
     throw new ConvexError(TRIP_INVITE_ERRORS.invalid);
   }
-  if (traveller.isMinor === true) {
+  if (traveller.isMinor !== false) {
+    // A minor, or a Traveller whose age is not recorded: never an adult login (ADR 0018).
     throw new ConvexError(TRIP_INVITE_ERRORS.minor);
   }
   const others = await ctx.db

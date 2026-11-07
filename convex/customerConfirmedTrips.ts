@@ -16,9 +16,11 @@ const accountHolderOptionValidator = v.object({
   name: v.string(),
 });
 
+// CRM facts (query code, lead source, preparation status, ticketing scope, group size) are the
+// Organizer's; a Traveller's packet carries only their trip, dates and frozen itinerary.
 const confirmedTripPacketValidator = v.object({
   confirmedOfferId: v.id("confirmedOffers"),
-  confirmedPax: v.number(),
+  confirmedPax: v.optional(v.number()),
   destination: v.string(),
   entitlement: v.object({
     role: v.union(v.literal("organizer"), v.literal("traveller")),
@@ -33,15 +35,15 @@ const confirmedTripPacketValidator = v.object({
     v.null()
   ),
   jobCode: v.union(v.string(), v.null()),
-  jobStatus: v.union(v.string(), v.null()),
-  queryCode: v.string(),
+  jobStatus: v.optional(v.union(v.string(), v.null())),
+  queryCode: v.optional(v.string()),
   readOnly: v.literal(true as const),
   // Commercial facts belong to the Organizer's view only. A Traveller entitlement must not
   // expose the organizer's commercial facts (docs/customer-account/CONTEXT.md, "Traveller").
   sellingPricePerPax: v.optional(v.number()),
-  source: v.union(v.string(), v.null()),
+  source: v.optional(v.union(v.string(), v.null())),
   taxRate: v.optional(v.number()),
-  ticketingScope: v.union(v.string(), v.null()),
+  ticketingScope: v.optional(v.union(v.string(), v.null())),
   travelEndDate: v.string(),
   travelStartDate: v.string(),
 });
@@ -82,25 +84,28 @@ async function packetForQuery(
     return null;
   }
   const itinerary = jobCard ? await latestFrozenItinerary(ctx, jobCard._id) : null;
-  const commercialFacts =
+  const organizerFacts =
     entitlement.role === "organizer"
-      ? { sellingPricePerPax: offer.sellingPricePerPax, taxRate: offer.taxRate ?? 0 }
+      ? {
+          confirmedPax: offer.confirmedPax,
+          jobStatus: jobCard?.status ?? null,
+          queryCode: queryRow.queryCode,
+          sellingPricePerPax: offer.sellingPricePerPax,
+          source: offer.source ?? queryRow.source ?? null,
+          taxRate: offer.taxRate ?? 0,
+          ticketingScope: queryRow.ticketingScope ?? null,
+        }
       : {};
   return {
     confirmedOfferId: offer._id,
-    confirmedPax: offer.confirmedPax,
     destination: offer.destination ?? queryRow.destination ?? "Destination details to follow",
     entitlement: { role: entitlement.role, source: entitlement.source },
     itinerary: itinerary
       ? { content: itinerary.content ?? "", title: itinerary.title, version: itinerary.version }
       : null,
     jobCode: jobCard?.jobCode ?? null,
-    jobStatus: jobCard?.status ?? null,
-    queryCode: queryRow.queryCode,
     readOnly: true as const,
-    ...commercialFacts,
-    source: offer.source ?? queryRow.source ?? null,
-    ticketingScope: queryRow.ticketingScope ?? null,
+    ...organizerFacts,
     travelEndDate: offer.travelEndDate ?? "",
     travelStartDate: offer.travelStartDate,
   };
@@ -126,7 +131,9 @@ function isConfirmedTripEntitlement(
     row.confirmedOfferId !== undefined &&
     row.capabilities.includes("view_confirmed_trip") &&
     row.role !== "purchaser" &&
-    row.source !== "public_booking_owner"
+    row.source !== "public_booking_owner" &&
+    // A claimed app invite is shown in the app, behind the trip's pilot switch (ADR 0020).
+    row.source !== "trip_invite"
   );
 }
 

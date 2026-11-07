@@ -217,7 +217,9 @@ function ConfirmedTripPackets({ hasMore, isLoadingMore, loadError, onLoadMore, p
           <article className="account-card rounded-2xl p-6" key={packet.confirmedOfferId}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <p className="text-[var(--account-muted)] text-xs">{packet.queryCode}</p>
+                {packet.queryCode ? (
+                  <p className="text-[var(--account-muted)] text-xs">{packet.queryCode}</p>
+                ) : null}
                 <h3 className="account-display mt-1 text-2xl text-[var(--account-ink)]">
                   {packet.destination}
                 </h3>
@@ -238,10 +240,12 @@ function ConfirmedTripPackets({ hasMore, isLoadingMore, loadError, onLoadMore, p
                   {formatAccountDateRange(packet.travelStartDate, packet.travelEndDate)}
                 </dd>
               </div>
-              <div>
-                <dt className="text-[var(--account-muted)] text-xs">Travellers</dt>
-                <dd className="mt-1 text-[var(--account-ink)]">{packet.confirmedPax}</dd>
-              </div>
+              {packet.confirmedPax === undefined ? null : (
+                <div>
+                  <dt className="text-[var(--account-muted)] text-xs">Travellers</dt>
+                  <dd className="mt-1 text-[var(--account-ink)]">{packet.confirmedPax}</dd>
+                </div>
+              )}
               <div>
                 <dt className="text-[var(--account-muted)] text-xs">Job card</dt>
                 <dd className="mt-1 text-[var(--account-ink)]">

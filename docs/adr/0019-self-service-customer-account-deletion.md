@@ -38,7 +38,8 @@ transaction, so it either completes or changes nothing.
   and Google) and every live verification token (for example an unused password-reset link) whose
   value is the user id. The verification table has no index on that value, so the deletion walks
   only unexpired tokens through the `expiresAt` index; an expired token cannot be used and names
-  only the deleted user id.
+  only the deleted user id. Unused customer app sign-in links, which hold the address rather than
+  the user id, go too, with the account's sign-in link request rows (ADR 0020).
 - Customer profiles keyed by the identity, plus archived duplicates provably tied to it (archived
   owner id, or merged into a deleted profile). This includes saved passport details and the
   leaderboard preference.
@@ -47,6 +48,7 @@ transaction, so it either completes or changes nothing.
   trails), the invite throttle row and group memberships. A group the person owned is archived,
   renamed "Archived group" and detached; other members keep their own memberships. Joined groups
   get a recounted member total.
+- Customer app parental consents the account recorded (owner decision, 7 Nov 2026; ADR 0020).
 
 **Kept, detached and anonymised:**
 
@@ -58,7 +60,8 @@ transaction, so it either completes or changes nothing.
   Names, contacts, nationality, amounts, payment ids, status, dates, trip and traveller count
   stay for the invoice and accounting.
 - Journey Entitlements are revoked (`revokedAt`), their owner becomes the same tombstone and the
-  profile link is removed. The row stays as the grant's audit trail.
+  profile link is removed. The row stays as the grant's audit trail. A customer app invite the
+  account claimed keeps the tombstone in `claimedByAuthUserId` (ADR 0020).
 - Invoices, Job Cards and Job Card Travellers are untouched; they belong to the operation and were
   never keyed to the login. Enquiries, content-free email receipts and staff records are untouched.
 

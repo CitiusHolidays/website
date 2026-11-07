@@ -304,6 +304,7 @@ import type * as lib_bookingInvoicePolicy from "../lib/bookingInvoicePolicy.js";
 import type * as lib_bookingInvoiceValidators from "../lib/bookingInvoiceValidators.js";
 import type * as lib_bootstrapAuthority from "../lib/bootstrapAuthority.js";
 import type * as lib_customerAppCovers from "../lib/customerAppCovers.js";
+import type * as lib_customerAppSignIn from "../lib/customerAppSignIn.js";
 import type * as lib_customerIdentityAccess from "../lib/customerIdentityAccess.js";
 import type * as lib_customerTripInvites from "../lib/customerTripInvites.js";
 import type * as lib_emailConfig from "../lib/emailConfig.js";
@@ -654,6 +655,7 @@ declare const fullApi: ApiFromModules<{
   "lib/bookingInvoiceValidators": typeof lib_bookingInvoiceValidators;
   "lib/bootstrapAuthority": typeof lib_bootstrapAuthority;
   "lib/customerAppCovers": typeof lib_customerAppCovers;
+  "lib/customerAppSignIn": typeof lib_customerAppSignIn;
   "lib/customerIdentityAccess": typeof lib_customerIdentityAccess;
   "lib/customerTripInvites": typeof lib_customerTripInvites;
   "lib/emailConfig": typeof lib_emailConfig;

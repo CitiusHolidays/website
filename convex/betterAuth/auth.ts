@@ -7,6 +7,7 @@ import {
   requireRunMutationCtx,
 } from "@convex-dev/better-auth/utils";
 import { type BetterAuthOptions, betterAuth } from "better-auth";
+import { APIError, createAuthMiddleware } from "better-auth/api";
 import { magicLink } from "better-auth/plugins/magic-link";
 import { components, internal } from "../_generated/api";
 import type { DataModel } from "../_generated/dataModel";
@@ -24,7 +25,14 @@ import {
   prepareAuthEmailMessage,
 } from "../lib/authEmailHtml";
 import { resolveAuthOrigin } from "../lib/authOriginPolicy";
+import {
+  deviceDigestFrom,
+  SIGN_IN_DEVICE_HEADER,
+  sha256Hex,
+  signInRecipientDigest,
+} from "../lib/customerAppSignIn";
 import { NATIVE_APP_TRUSTED_ORIGINS } from "../lib/nativeAppOrigins";
+import { isRuntimeString } from "../lib/runtimeValues";
 import schema from "./schema";
 
 const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
@@ -258,6 +266,27 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
         }
       },
     },
+    hooks: {
+      // A sign-in link opens a session only on the device that asked for it (ADR 0020).
+      before: createAuthMiddleware(async (hookCtx) => {
+        if (hookCtx.path !== "/magic-link/verify") {
+          return;
+        }
+        const rawToken = hookCtx.query?.token;
+        const token = isRuntimeString(rawToken) ? rawToken : "";
+        const deviceSecret = hookCtx.headers?.get(SIGN_IN_DEVICE_HEADER) ?? "";
+        const matches =
+          token.length > 0 &&
+          deviceSecret.length > 0 &&
+          (await requireActionCtx(ctx).runMutation(internal.customerAppAuth.consumeSignInDevice, {
+            deviceSecret,
+            tokenDigest: await sha256Hex(token),
+          }));
+        if (!matches) {
+          throw new APIError("UNAUTHORIZED", { code: "INVALID_TOKEN", message: "INVALID_TOKEN" });
+        }
+      }),
+    },
     // expo() lets the installed apps exchange sessions through their URL schemes; the issuer and
     // Convex token path stay the same as the web, so identities match (ADR 0009).
     plugins: [
@@ -265,10 +294,23 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       convex({ authConfig }),
       magicLink({
         expiresIn: APP_SIGN_IN_LINK_TTL_SECONDS,
-        sendMagicLink: async ({ email, token }) => {
+        sendMagicLink: async ({ email, metadata, token }) => {
           const actionCtx = requireActionCtx(ctx);
+          // Every refusal below answers like a sent link, so the form reveals nothing.
+          const deviceDigest = deviceDigestFrom(metadata);
+          if (!deviceDigest) {
+            // Only the app asks for these links, and it always binds them to its device.
+            return;
+          }
           if (await actionCtx.runQuery(internal.customerAppAuth.isStaffEmail, { email })) {
-            // Same response as a sent link, so the form does not reveal staff addresses.
+            return;
+          }
+          const allowed = await actionCtx.runMutation(internal.customerAppAuth.recordSignInLink, {
+            deviceDigest,
+            recipientDigest: await signInRecipientDigest(email),
+            tokenDigest: await sha256Hex(token),
+          });
+          if (!allowed) {
             return;
           }
           try {

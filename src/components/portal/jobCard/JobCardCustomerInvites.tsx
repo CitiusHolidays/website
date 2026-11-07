@@ -17,6 +17,11 @@ interface CreatedLink {
   url: string;
 }
 
+const blockedLabel = {
+  age_not_recorded: "Age not recorded: mark them adult to invite",
+  minor: "Minor, seen by their guardian",
+} as const;
+
 const accessLabel = {
   invited: "Invited",
   joined: "Using the app",
@@ -44,7 +49,11 @@ export function JobCardCustomerInvites({ jobCardId }: { jobCardId: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
-  const adults = useMemo(() => data?.rows.filter((row) => !row.isMinor) ?? [], [data]);
+  // Only travellers recorded as adults can be invited; unknown age is never treated as adult.
+  const adults = useMemo(
+    () => data?.rows.filter((row) => row.inviteBlockedReason === null) ?? [],
+    [data]
+  );
   if (!data || data.rows.length === 0) {
     return null;
   }
@@ -139,7 +148,7 @@ export function JobCardCustomerInvites({ jobCardId }: { jobCardId: string }) {
       <ul className="mt-3 divide-y divide-brand-border">
         {data.rows.map((row) => (
           <li className="flex items-center gap-3 py-2 text-sm" key={row.travellerId}>
-            {data.canInvite && !row.isMinor ? (
+            {data.canInvite && row.inviteBlockedReason === null ? (
               <input
                 aria-label={`Select ${row.fullName}`}
                 checked={selected.has(row.travellerId)}
@@ -151,7 +160,9 @@ export function JobCardCustomerInvites({ jobCardId }: { jobCardId: string }) {
             )}
             <span className="min-w-0 flex-1 truncate text-brand-dark">{row.fullName}</span>
             <span className="text-brand-muted">
-              {row.isMinor ? "Minor, seen by their guardian" : accessLabel[row.appAccess]}
+              {row.inviteBlockedReason
+                ? blockedLabel[row.inviteBlockedReason]
+                : accessLabel[row.appAccess]}
               {row.invite && row.appAccess === "invited"
                 ? ` until ${formatDisplayDate(row.invite.expiresAt)}`
                 : ""}

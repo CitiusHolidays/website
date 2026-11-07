@@ -546,6 +546,17 @@ export default defineSchema({
   // A guardian's own consent for a minor on the trip (ADR 0018, ADR 0020), append-only: a
   // withdrawal is a new row. Separate from travellers.parentalConsent, which is the Operations
   // mark.
+  // Customer app email sign-in requests (ADR 0020): digests only. Each row binds one link to the
+  // device that asked for it and counts toward its address's hourly limit; rows live a day.
+  customerAppSignInLinks: defineTable({
+    deviceDigest: v.string(),
+    recipientDigest: v.string(),
+    requestedAt: v.number(),
+    tokenDigest: v.string(),
+  })
+    .index("by_recipientDigest_and_requestedAt", ["recipientDigest", "requestedAt"])
+    .index("by_tokenDigest", ["tokenDigest"]),
+
   customerParentalConsents: defineTable({
     action: v.union(v.literal("granted"), v.literal("withdrawn")),
     authUserId: v.string(),
