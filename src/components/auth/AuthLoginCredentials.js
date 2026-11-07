@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useReducer, useRef } from "react";
 import { signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/lib/auth-client";
 import { formatAuthApiError } from "@/lib/auth-errors";
+import { resolveAuthReturnPath } from "@/lib/auth-return-path";
 import { AuthLoginForm, AuthVerificationNotice } from "./AuthLoginForm";
 import AuthShell from "./AuthShell";
 
@@ -40,8 +41,10 @@ export function AuthLoginCredentials({
   brandLogoAlt,
   initialMode = "signin",
   error,
+  returnTo = null,
 }) {
   const router = useRouter();
+  const destination = resolveAuthReturnPath(returnTo, variant) ?? variant.href;
   const formStatusRef = useRef(null);
   const [state, dispatch] = useReducer(
     authReducer,
@@ -98,7 +101,7 @@ export function AuthLoginCredentials({
             type: "patch",
           });
         } else {
-          router.push(variant.href);
+          router.push(destination);
           router.refresh();
         }
       } else {
@@ -131,7 +134,7 @@ export function AuthLoginCredentials({
   const handleGoogleSignIn = async () => {
     dispatch({ patch: { isLoading: true }, type: "patch" });
     try {
-      await signInWithGoogle(variant.href);
+      await signInWithGoogle(destination);
     } catch {
       dispatch({
         patch: {

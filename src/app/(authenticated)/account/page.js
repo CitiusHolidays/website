@@ -12,7 +12,9 @@ export const metadata = {
   title: "My Account | Citius Holidays",
 };
 
-export default async function AccountPage() {
+const ACCOUNT_TABS = new Set(["journeys", "profile", "settings"]);
+
+export default async function AccountPage({ searchParams } = {}) {
   // Account data is identity-scoped. Explicitly wait for a real request so a
   // Cache Components shell can never be reused across customer sessions.
   await connection();
@@ -40,5 +42,15 @@ export default async function AccountPage() {
     ),
   ]);
 
-  return <AccountClient confirmedTripPage={confirmedTripPage} journeys={journeys} user={user} />;
+  const requestedTab = (await searchParams)?.tab;
+  const initialTab = ACCOUNT_TABS.has(requestedTab) ? requestedTab : "journeys";
+
+  return (
+    <AccountClient
+      confirmedTripPage={confirmedTripPage}
+      initialTab={initialTab}
+      journeys={journeys}
+      user={user}
+    />
+  );
 }

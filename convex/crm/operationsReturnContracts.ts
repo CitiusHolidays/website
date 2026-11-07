@@ -54,6 +54,11 @@ export const travellerOutputValidator = v.object({
   marketingConsentNote: v.string(),
   marketingConsentRecordedAt: v.union(v.number(), v.null()),
   marketingConsentRecordedBy: v.string(),
+  // Operations' "Parental consent received" mark; null unless recorded on a minor (ADR 0018).
+  parentalConsent: v.union(
+    v.object({ note: v.string(), receivedAt: v.number(), recordedByName: v.string() }),
+    v.null()
+  ),
   passportExpiryDate: v.string(),
   passportStatus: v.string(),
   paymentType: paymentTypeValidator,

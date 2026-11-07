@@ -1,3 +1,4 @@
+import { PARENTAL_CONSENT_NOTE_MAX_LENGTH } from "@convex/crm/travellerGuardianPolicy";
 import { PORTAL_PERMISSIONS as P, TICKETING_SCOPE_OPTIONS } from "@/lib/portal/constants";
 import { assertDateRangeOrder, getDateRangeError } from "@/lib/portal/dateValidation";
 import { canHeadAssignQueryTeams, isSalesQueryAssigner } from "@/lib/portal/permissions";
@@ -170,6 +171,16 @@ function validateTraveller(form) {
     failField(
       "marketingConsentNote",
       "Record consent evidence before marking promotional permission granted."
+    );
+  }
+  if (
+    form.ageGroup === "minor" &&
+    form.parentalConsent === "received" &&
+    String(form.parentalConsentNote || "").trim().length > PARENTAL_CONSENT_NOTE_MAX_LENGTH
+  ) {
+    failField(
+      "parentalConsentNote",
+      `Keep the consent note to ${PARENTAL_CONSENT_NOTE_MAX_LENGTH} characters or fewer.`
     );
   }
   if (!String(form.fullName ?? "").trim()) {

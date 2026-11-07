@@ -14,7 +14,7 @@ Preview result, and a Production result are separate evidence.
 
 ## Live Feature Controls
 
-The catalog contains 29 independently recoverable controls:
+The catalog contains 38 independently recoverable controls:
 
 - public Sacred Bharat / 001 availability;
 - inbound CRM intake, Sales bell, Sales email, and `info@citius.in` mailbox email;
@@ -26,12 +26,15 @@ The catalog contains 29 independently recoverable controls:
   affects payment completion or invoice issue — see
   [Booking emails and invoices](BOOKING_EMAILS_AND_INVOICES.md);
 - document-preview preparation; and
-- twenty-one individual scheduled jobs. The seven data retention jobs are off by default; see
+- twenty-two individual scheduled jobs. The seven data retention jobs are off by default; see
   [the data retention schedule](DATA_RETENTION.md).
 
 A control added to the catalog after the control plane was activated has no stored state on that
 target, so it resolves Paused until an Admin sets it or `migrateOperationalControlCatalog`
-initialises it to Normal Behavior.
+initialises it to Normal Behavior. Two controls are exempt and resolve Available whenever their
+state is missing, expired or corrupt: CRM intake, and the Pending booking invoices job, which only
+issues invoices the Billing policy already promises and does nothing until the company's invoice
+details are configured.
 
 The catalog shows **Configured State** separately from **Blocked Capability**. A control can be
 configured as Available while a paused dependency prevents the capability from running. The
@@ -89,7 +92,7 @@ already has automated test coverage. The initial recipes are:
 - Razorpay new-order creation;
 - document-preview preparation;
 - Sacred Bharat publication; and
-- all thirteen scheduled-job registrations.
+- all twenty-two scheduled-job registrations.
 
 Effect v4 owns recipe sequencing, typed probe failures, controlled service layers, independent
 continuation, timeout/interruption, and cleanup. Each recipe checks the corresponding live gates,
