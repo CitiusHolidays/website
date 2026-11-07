@@ -60,10 +60,19 @@ limitations. Every override names the exact file and rule whose behavior was ins
 | Notification inbox times | `no-locale-format-in-render` | Inbox rows come only from client Convex subscriptions (`useQuery`; no server preloading), so no time is rendered during server rendering and no hydration mismatch can occur. |
 | Document preview host polling | `effect-needs-cleanup` | The poll timer lives in `pollTimerRef`; the effect cleanup and `close()` both clear it. The analyzer does not follow the ref. |
 | Delete session form | `no-loading-flag-reset-outside-finally` | The request is settled with `.then(onFulfilled, onRejected)` before the busy flags reset, so no path skips the reset. A `finally` block would make React Compiler skip the component (`Handle TryStatement with a finalizer`). |
+| Customer account erasure (`convex/lib/accountErasure.ts`) | `async-await-in-loop`, `async-parallel`, `server-sequential-independent-await` | The app-table steps run together, then the Better Auth login is erased last, so a too-large refusal never starts the component's writes. Within a login, sessions, accounts, live verifications and the user row are erased in that order through Better Auth component mutations, and logins are erased one at a time. This pass kept that existing order rather than change deletion behaviour; `accountDeletion.convex.integration.ts` and `dataRetention.convex.integration.ts` pin the outcome. |
+| Retention page apply (`convex/crm/lib/retentionRun.ts`) | `async-await-in-loop` | Decisions on one page may touch the same rows (guardian links, Job Cards), so they apply in plan order. |
+| Portal home redirect (`PortalWorkspace.tsx`) | `nextjs-no-client-side-redirect` | The server boundary already redirects a login without Staff Workspace access. The remaining `/portal` to first-allowed-page redirect follows the live `getMyPortalAccess` subscription, so it also fires when permissions change while the page is open; a server `redirect()` cannot see that. |
+| Auth sign-in redirect (`src/lib/auth-login-pages.js`) | `clickjacking-redirect-risk` | The target is `resolveAuthReturnPath`, which accepts only a same-origin path inside the variant's own area (`auth-return-path.test.js` covers off-site, protocol-relative, backslash and control-character values), or the variant's fixed home. Every route sends `X-Frame-Options: DENY` (`next.config.mjs`). |
 
 On 2026-11-06, with React Doctor `0.9.22`, the integration tests for notification email outbox,
 notification audience, post-tour feedback and reports, team travel and traveler feedback were added
 to the ordered-await test exception for the same reason as the existing integration tests.
+Later the same day, also with `0.9.22`, the integration tests for account deletion, booking customer
+emails, the app pilot, connect field access, data retention, external tour manager access, tour
+manager job visibility, the tour manager legacy names migration, traveller guardian consent and
+traveller guardians were added to the same exception: each builds fixtures in a fixed order so ids,
+creation times and assertions stay deterministic.
 
 Each exception is a claim to re-check when the scoped code changes. New suppressions require the
 same source inspection and a focused behavior test; React Doctor output alone is a hypothesis, not
