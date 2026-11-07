@@ -426,46 +426,47 @@ function useStaffWorkbookImportController() {
   };
 }
 
-function WorkbookImportStatus({
-  acceptedCount,
-  applyResult,
-  error,
-  isParsing,
-  isPreviewing,
-  parsed,
-  parsedRows,
-  parserSkipped,
-  previewRows,
-  previewSummary,
-}) {
-  const previewSkippedRows = previewRows
+const ISSUE_PREVIEW_LIMIT = 12;
+
+function rowsSuffix(count) {
+  return count === 1 ? "" : "s";
+}
+
+function selectionSummary(acceptedCount) {
+  if (acceptedCount > 0) {
+    return ` ${acceptedCount} row${rowsSuffix(acceptedCount)} selected to apply.`;
+  }
+  return " No rows selected to apply.";
+}
+
+function previewSkippedIssues(previewRows) {
+  return previewRows
     .filter((row) => row.action === "skipped")
-    .slice(0, 12)
+    .slice(0, ISSUE_PREVIEW_LIMIT)
     .map((row) => ({
       message: row.message || "Skipped",
       sourceRowNumber: row.sourceRowNumber,
       sourceSheet: row.sourceSheet,
     }));
-  let selectionSummary = " No rows selected to apply.";
-  if (acceptedCount > 0) {
-    selectionSummary = ` ${acceptedCount} row${acceptedCount === 1 ? "" : "s"} selected to apply.`;
-  }
+}
+
+function workbookTotals({ parsed, parsedRows, parserSkipped, previewSummary }) {
+  return [
+    ["Rows read", parsed ? parsedRows.length : "-"],
+    ["Couldn't read", parsed ? parserSkipped.length : "-"],
+    ["New staff", previewSummary?.created ?? "-"],
+    ["Changes", previewSummary?.updated ?? "-"],
+    ["No change", previewSummary?.unchanged ?? "-"],
+  ];
+}
+
+function WorkbookImportNotices({ acceptedCount, applyResult, error, previewSummary }) {
   return (
     <>
-      <SummaryTiles
-        isBusy={isParsing || isPreviewing}
-        totals={[
-          ["Rows read", parsed ? parsedRows.length : "-"],
-          ["Couldn't read", parsed ? parserSkipped.length : "-"],
-          ["New staff", previewSummary?.created ?? "-"],
-          ["Changes", previewSummary?.updated ?? "-"],
-          ["No change", previewSummary?.unchanged ?? "-"],
-        ]}
-      />
       {previewSummary ? (
         <div className="text-brand-muted text-sm">
-          Preview skipped {previewSummary.skipped} row{previewSummary.skipped === 1 ? "" : "s"}.
-          {selectionSummary}
+          Preview skipped {previewSummary.skipped} row{rowsSuffix(previewSummary.skipped)}.
+          {selectionSummary(acceptedCount)}
         </div>
       ) : null}
       {error ? (
@@ -479,9 +480,38 @@ function WorkbookImportStatus({
           {applyResult.summary.unchanged} unchanged, {applyResult.summary.skipped} skipped.
         </div>
       ) : null}
+    </>
+  );
+}
+
+function WorkbookImportStatus({
+  acceptedCount,
+  applyResult,
+  error,
+  isParsing,
+  isPreviewing,
+  parsed,
+  parsedRows,
+  parserSkipped,
+  previewRows,
+  previewSummary,
+}) {
+  const previewSkippedRows = previewSkippedIssues(previewRows);
+  return (
+    <>
+      <SummaryTiles
+        isBusy={isParsing || isPreviewing}
+        totals={workbookTotals({ parsed, parsedRows, parserSkipped, previewSummary })}
+      />
+      <WorkbookImportNotices
+        acceptedCount={acceptedCount}
+        applyResult={applyResult}
+        error={error}
+        previewSummary={previewSummary}
+      />
       {parserSkipped.length > 0 ? (
         <IssueList
-          rows={parserSkipped.slice(0, 12)}
+          rows={parserSkipped.slice(0, ISSUE_PREVIEW_LIMIT)}
           title="Rows the workbook reader couldn't read"
         />
       ) : null}

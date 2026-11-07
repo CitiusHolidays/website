@@ -235,3 +235,57 @@ test("photo failures retain saved comments and destructive feedback deletion has
   await act(async () => button(container, "Delete permanently").click());
   expect(deleted).toBe(1);
 });
+
+test("an unsupported photo is refused before upload and a removed photo is announced", async () => {
+  const uploads = [];
+  const removed = [];
+  const container = await mount({
+    entries: [
+      {
+        ...entry,
+        photos: [{ fileName: "hotel.jpg", fileSize: 100, id: "photo-1", mimeType: "image/jpeg" }],
+      },
+    ],
+    onRemovePhoto: (photoId) => {
+      removed.push(photoId);
+      return Promise.resolve();
+    },
+    onUpload: (_entry, file) => {
+      uploads.push(file.name);
+      return Promise.resolve();
+    },
+  });
+  const input = container.querySelector('input[type="file"]');
+  const choose = async (file) => {
+    Object.defineProperty(input, "files", { configurable: true, value: [file] });
+    await act(async () => input.dispatchEvent(new dom.window.Event("change", { bubbles: true })));
+  };
+  await choose(new dom.window.File(["synthetic"], "hotel.gif", { type: "image/gif" }));
+  expect(container.querySelector('[role="alert"]').textContent).toBe(
+    "Choose a JPEG, PNG or WebP photo no larger than 4 MB."
+  );
+  expect(uploads).toEqual([]);
+  await choose(new dom.window.File(["synthetic"], "hotel.webp", { type: "image/webp" }));
+  expect(uploads).toEqual(["hotel.webp"]);
+  expect(container.querySelector('[role="alert"]')).toBeNull();
+  expect(container.querySelector('[role="status"]:not(:empty)')?.textContent).toBe(
+    "Photo uploaded."
+  );
+  await act(async () => button(container, "Remove photo").click());
+  expect(removed).toEqual(["photo-1"]);
+  expect(container.textContent).toContain("Photo removed.");
+});
+
+test("vendor details show only when recorded, and edits are marked", async () => {
+  const container = await mount({
+    entries: [
+      { ...entry, id: "a", vendorName: "", vendorRating: null },
+      { ...entry, id: "b", updatedAt: 2, vendorName: "", vendorRating: 8 },
+    ],
+  });
+  const [first, second] = container.querySelectorAll("article");
+  expect(first.textContent).not.toContain("Not rated");
+  expect(first.textContent).not.toContain("Edited");
+  expect(second.textContent).toContain("Vendor · 8 / 10");
+  expect(second.textContent).toContain("By Synthetic manager · Edited");
+});

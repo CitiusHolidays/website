@@ -682,4 +682,83 @@ describe("Mounted live feature control sections", () => {
     expect(view.container.textContent).toContain("one-shot");
     await view.unmount();
   });
+  test("searches only completed Test Lab runs and labels the run button by state", async () => {
+    const run = (id, overrides) => ({
+      _id: id,
+      actorName: "Admin User",
+      completedAt: 1_777_000_100_000,
+      recipeIds: ["inbound_leads"],
+      results: [{ label: "Inbound leads", recipeId: "inbound_leads", status: "passed" }],
+      startedAt: 1_777_000_000_000,
+      status: "passed",
+      targetDeployment: "preview-control-check",
+      targetEnvironment: "preview",
+      targetRevision: "abc1234",
+      ...overrides,
+    });
+    const lab = (props) => (
+      <ProductionTestLab
+        activeRuns={[]}
+        canLoadMore={false}
+        history={[
+          run("run_note", { note: "Kochi release check" }),
+          run("run_job", { actorName: "Ops Lead", recipeIds: ["scheduled_job:digest"] }),
+          run("run_active", { completedAt: undefined, note: "Kochi", status: "running" }),
+        ]}
+        latestResults={null}
+        note=""
+        onLoadMore={noop}
+        onNoteChange={noop}
+        onResume={noop}
+        onRun={noop}
+        onToggle={noop}
+        pending={false}
+        recipes={[]}
+        selected={new Set(["inbound_leads", "scheduled_job:digest"])}
+        {...props}
+      />
+    );
+    const view = await mount(lab());
+    const runs = () =>
+      [...view.container.querySelectorAll("details summary span:first-child")].map(
+        (summary) => summary.textContent
+      );
+    const search = view.container.querySelector('input[placeholder="Search test history"]');
+    const type = async (value) => {
+      await act(() => {
+        Object.getOwnPropertyDescriptor(dom.window.HTMLInputElement.prototype, "value").set.call(
+          search,
+          value
+        );
+        search.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+      });
+    };
+    expect(runs()).toEqual(["1 checks by Admin User", "1 checks by Ops Lead"]);
+    await type("  KOCHI ");
+    expect(runs()).toEqual(["1 checks by Admin User"]);
+    await type("scheduled_job:digest");
+    expect(runs()).toEqual(["1 checks by Ops Lead"]);
+    await type("nothing matches");
+    expect(view.container.textContent).toContain("No Test Lab runs yet.");
+    expect(
+      [...view.container.querySelectorAll("button")].some(
+        (button) => button.textContent === "Run 2 selected checks"
+      )
+    ).toBe(true);
+    await view.unmount();
+    const pending = await mount(lab({ pending: true, recipes: undefined }));
+    expect(
+      [...pending.container.querySelectorAll("button")].some(
+        (button) => button.textContent === "Loading checks…"
+      )
+    ).toBe(true);
+    await pending.unmount();
+    const running = await mount(lab({ pending: true, selected: new Set(["inbound_leads"]) }));
+    expect(
+      [...running.container.querySelectorAll("button")].some(
+        (button) => button.textContent === "Running checks…"
+      )
+    ).toBe(true);
+    await running.unmount();
+  });
 });
