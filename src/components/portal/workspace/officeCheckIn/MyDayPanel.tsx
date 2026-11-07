@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { useRef, useState } from "react";
 import type { OfficeCheckInAction } from "@/lib/officeCheckIn/contracts";
 import { readLocation } from "@/lib/officeCheckIn/location";
+import { useReloadWhenPageBlocksLocation } from "@/lib/officeCheckIn/pagePolicy";
 import {
   chronological,
   dayStatusFor,
@@ -16,17 +17,23 @@ import {
   formatSessionSpan,
   formatSessionsLine,
   formatWorkDate,
+  type LocationHelpPlatform,
+  locationHelpPlatform,
+  needsLocationHelp,
 } from "@/lib/officeCheckIn/presentation";
 import { submitOfficeCheckIn } from "@/lib/officeCheckIn/submit";
 import { Panel } from "../portalWorkspaceListUi";
 import { AwayReasonPicker } from "./AwayReasonPicker";
 import { DeleteSessionForm } from "./DeleteSessionForm";
+import { LocationHelp } from "./LocationHelp";
 import { DayStatusBadge, OfficeDialog, OutcomeBadge, SignalList } from "./OfficeCheckInParts";
 import type { CheckInRecord, MyCheckInStatus } from "./officeCheckInTypes";
 
 type ClockPhase = "idle" | "locating" | "sending";
 
 interface ClockFeedback {
+  /** Set when the browser didn't share a location that could have been turned on. */
+  locationHelp?: { platform: LocationHelpPlatform | null };
   message: string;
   tone: "error" | "info";
 }
@@ -71,12 +78,19 @@ function useClockAction(needsLocation: boolean) {
       setFeedback({ message: describeCheckInError(result.code), tone: "error" });
       return;
     }
-    const locationNote =
-      location.kind === "error" ? ` ${describeLocationProblem(location.code)}` : "";
-    setFeedback({
-      message: `${successMessage(action, result.replayed)}${locationNote}`,
+    const message = successMessage(action, result.replayed);
+    if (location.kind !== "error") {
+      setFeedback({ message, tone: "info" });
+      return;
+    }
+    const next: ClockFeedback = {
+      message: `${message} ${describeLocationProblem(location.code)}`,
       tone: "info",
-    });
+    };
+    if (needsLocationHelp(location.code)) {
+      next.locationHelp = { platform: locationHelpPlatform(navigator) };
+    }
+    setFeedback(next);
   };
 
   return { feedback, phase, run };
@@ -330,6 +344,7 @@ function officeLabel(office: { city: string | null; name: string }) {
 }
 
 export function MyDayPanel({ status }: { status: MyCheckInStatus }) {
+  useReloadWhenPageBlocksLocation(status.rule.needsLocation);
   const clock = useClockAction(status.rule.needsLocation);
   const [deleting, setDeleting] = useState<CheckInRecord | null>(null);
   // Only Admin may delete their own sessions; Directors never delete their own.
@@ -371,6 +386,9 @@ export function MyDayPanel({ status }: { status: MyCheckInStatus }) {
           ) : null}
           {status.today && needsAwayReason(status.today) && !status.today.review ? (
             <AwayReasonPicker session={status.today} />
+          ) : null}
+          {clock.feedback?.locationHelp ? (
+            <LocationHelp platform={clock.feedback.locationHelp.platform} />
           ) : null}
           {status.openFromEarlierDay && !status.today ? (
             <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900 text-xs">

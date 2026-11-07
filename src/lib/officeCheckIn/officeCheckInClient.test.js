@@ -1,10 +1,14 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import { LOCATION_REQUEST_OPTIONS, readLocation } from "./location";
+import { pageBlocksLocation, shouldReloadForLocation } from "./pagePolicy";
 import {
   dayStatusFor,
   describeLocationProblem,
   describeRule,
   formatOfficeTime,
+  locationHelpOrder,
+  locationHelpPlatform,
+  needsLocationHelp,
   officeTimeToTimestamp,
   reasonProblem,
   teamStatusFor,
@@ -157,8 +161,8 @@ describe("Office check-in presentation", () => {
     expect(describeRule("network_and_geofence")).toBe(
       "This office checks your location and that you're on the office internet."
     );
-    expect(describeLocationProblem("permission_denied")).toContain(
-      "Your times were still recorded without a location."
+    expect(describeLocationProblem("permission_denied")).toBe(
+      "Recorded without your location, so this check is marked uncertain. Your browser or device blocked location. The steps below turn it on."
     );
     for (const text of [describeRule("network"), describeLocationProblem("timeout")]) {
       expect(text.toLowerCase()).not.toContain("prove");
@@ -225,5 +229,62 @@ describe("Office check-in presentation", () => {
     expect(reasonProblem("  ok ")).not.toBeNull();
     expect(reasonProblem("Confirmed with branch")).toBeNull();
     expect(reasonProblem("x".repeat(501))).not.toBeNull();
+  });
+});
+
+describe("Location help", () => {
+  const device = (userAgent, maxTouchPoints = 0) => ({ maxTouchPoints, userAgent });
+
+  test("Picks the steps for the device in use", () => {
+    expect(
+      locationHelpPlatform(
+        device("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/141")
+      )
+    ).toBe("mac");
+    expect(
+      locationHelpPlatform(device("Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/141"))
+    ).toBe("windows");
+    expect(
+      locationHelpPlatform(device("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)"))
+    ).toBe("iphone");
+    expect(locationHelpPlatform(device("Mozilla/5.0 (Linux; Android 15; Pixel 9)"))).toBe(
+      "android"
+    );
+    // iPadOS reports a Mac user agent but has a touch screen.
+    expect(locationHelpPlatform(device("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", 5))).toBe(
+      "iphone"
+    );
+    expect(locationHelpPlatform(device("Mozilla/5.0 (X11; Linux x86_64)"))).toBeNull();
+  });
+
+  test("Lists the device in use first, then every other one", () => {
+    expect(locationHelpOrder("windows")).toEqual(["windows", "mac", "iphone", "android"]);
+    expect(locationHelpOrder(null)).toEqual(["mac", "windows", "iphone", "android"]);
+  });
+
+  test("Offers help only when location could be turned on", () => {
+    expect(needsLocationHelp("permission_denied")).toBe(true);
+    expect(needsLocationHelp("position_unavailable")).toBe(true);
+    expect(needsLocationHelp("timeout")).toBe(true);
+    expect(needsLocationHelp("not_supported")).toBe(false);
+  });
+});
+
+describe("Page location policy", () => {
+  const gate = (allowed) => ({ allowsFeature: (feature) => feature === "geolocation" && allowed });
+
+  test("Reads the page's own policy through either browser API", () => {
+    expect(pageBlocksLocation({ permissionsPolicy: gate(false) })).toBe(true);
+    expect(pageBlocksLocation({ featurePolicy: gate(false) })).toBe(true);
+    expect(pageBlocksLocation({ permissionsPolicy: gate(true) })).toBe(false);
+    // Browsers without the API never trigger a reload.
+    expect(pageBlocksLocation({})).toBe(false);
+  });
+
+  test("Reloads at most once a minute, so a page that still blocks can't loop", () => {
+    expect(shouldReloadForLocation(null, 1000)).toBe(true);
+    expect(shouldReloadForLocation(1000, 30_000)).toBe(false);
+    expect(shouldReloadForLocation(1000, 62_000)).toBe(true);
+    expect(shouldReloadForLocation(Number.POSITIVE_INFINITY, 62_000)).toBe(false);
   });
 });

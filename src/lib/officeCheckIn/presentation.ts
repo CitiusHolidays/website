@@ -143,11 +143,13 @@ export const NETWORK_REASON_SHORT = {
   vpn_or_proxy_exit: "VPN or proxy exit",
 } satisfies Record<NetworkReason, string>;
 
+// The browser reports one "denied" code whether the site setting or the computer's own location
+// setting blocked it, so the copy names both instead of guessing which.
 const GEOLOCATION_ERROR_COPY = {
   not_supported: "This browser can't share location.",
-  permission_denied: "Location access is turned off for this site in your browser.",
-  position_unavailable: "Your device couldn't find its location.",
-  timeout: "Your device took too long to find its location.",
+  permission_denied: "Location wasn't shared. The browser or the device's settings blocked it.",
+  position_unavailable: "The device couldn't work out its location.",
+  timeout: "The device took too long to find its location.",
 } satisfies Record<GeolocationErrorCode, string>;
 
 export function describeGeofenceReason(reason: GeofenceReason, accuracyMeters?: number | null) {
@@ -180,15 +182,92 @@ export function describeGeofenceReason(reason: GeofenceReason, accuracyMeters?: 
  * The check-in is still sent; the server records the location as uncertain.
  */
 export function describeLocationProblem(code: GeolocationErrorCode) {
-  const recovery = {
-    not_supported: "Your times were still recorded without a location.",
-    permission_denied:
-      "Your times were still recorded without a location. To include it next time, allow location for this site in your browser settings.",
+  const cause = {
+    not_supported:
+      "This browser can't share location. Next time, try another browser or your phone.",
+    permission_denied: "Your browser or device blocked location. The steps below turn it on.",
     position_unavailable:
-      "Your times were still recorded without a location. Check that location services are on for this device.",
-    timeout: "Your times were still recorded without a location. Moving near a window can help.",
+      "Your device couldn't work out where it is. The steps below check that location is on.",
+    timeout: "Your device took too long to find its location. Try again, or check the steps below.",
   } satisfies Record<GeolocationErrorCode, string>;
-  return `${GEOLOCATION_ERROR_COPY[code]} ${recovery[code]}`;
+  return `Recorded without your location, so this check is marked uncertain. ${cause[code]}`;
+}
+
+export type LocationHelpPlatform = "android" | "iphone" | "mac" | "windows";
+
+/** Steps to turn location on, per platform, in the order someone would check them. */
+export const LOCATION_HELP = {
+  android: {
+    label: "On Android",
+    steps: [
+      "Open Settings, then Location, and turn it on.",
+      "In your browser, allow Location for this site. In Chrome: ⋮, Settings, Site settings, Location.",
+      "Come back and press the button again.",
+    ],
+  },
+  iphone: {
+    label: "On an iPhone or iPad",
+    steps: [
+      "Open Settings, then Privacy & Security, then Location Services, and turn it on.",
+      "In the same list, open your browser (Safari Websites for Safari) and choose While Using the App.",
+      "Come back and press the button again.",
+    ],
+  },
+  mac: {
+    label: "On a Mac",
+    steps: [
+      "In the browser, click the icon left of the address and set Location to Allow for this site.",
+      "Open System Settings, then Privacy & Security, then Location Services. Turn it on, and turn it on for your browser.",
+      "Reload this page and press the button again.",
+    ],
+  },
+  windows: {
+    label: "On Windows",
+    steps: [
+      "In the browser, click the icon left of the address and set Location to Allow for this site.",
+      "Open Settings, then Privacy & security, then Location. Turn on Location services and “Let desktop apps access your location”.",
+      "Reload this page and press the button again.",
+    ],
+  },
+} satisfies Record<LocationHelpPlatform, { label: string; steps: string[] }>;
+
+const HELP_PLATFORM_ORDER = ["mac", "windows", "iphone", "android"] as const;
+const IOS_AGENT = /iPhone|iPad|iPod/;
+const ANDROID_AGENT = /Android/;
+const MAC_AGENT = /Macintosh|Mac OS X/;
+const WINDOWS_AGENT = /Windows/;
+
+/** Help applies when location could be turned on; an unsupported browser has nothing to turn on. */
+export function needsLocationHelp(code: GeolocationErrorCode) {
+  return code !== "not_supported";
+}
+
+/**
+ * The platform to show steps for first, from the browser's user agent. iPadOS reports a Mac user
+ * agent, so a Mac with a touch screen is treated as an iPad. Unknown platforms get every set.
+ */
+export function locationHelpPlatform(device: {
+  maxTouchPoints: number;
+  userAgent: string;
+}): LocationHelpPlatform | null {
+  const agent = device.userAgent;
+  if (IOS_AGENT.test(agent)) {
+    return "iphone";
+  }
+  if (ANDROID_AGENT.test(agent)) {
+    return "android";
+  }
+  if (MAC_AGENT.test(agent)) {
+    return device.maxTouchPoints > 1 ? "iphone" : "mac";
+  }
+  return WINDOWS_AGENT.test(agent) ? "windows" : null;
+}
+
+/** The current platform first, then the others. */
+export function locationHelpOrder(platform: LocationHelpPlatform | null) {
+  return platform
+    ? [platform, ...HELP_PLATFORM_ORDER.filter((entry) => entry !== platform)]
+    : [...HELP_PLATFORM_ORDER];
 }
 
 const CHECK_IN_ERROR_COPY = {
