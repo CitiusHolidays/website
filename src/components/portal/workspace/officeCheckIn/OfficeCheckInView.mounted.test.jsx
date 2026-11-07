@@ -345,8 +345,19 @@ describe("Office check-in: my day", () => {
       location: { code: "permission_denied", kind: "error" },
     });
     const status = view.container.querySelector('[role="status"][aria-live="polite"]').textContent;
-    expect(status).toContain("Location access is turned off for this site in your browser.");
-    expect(status).toContain("Your times were still recorded without a location.");
+    expect(status).toBe(
+      "Clock-in recorded. Recorded without your location, so this check is marked uncertain. Your browser or device blocked location. The steps below turn it on."
+    );
+    // The test browser's user agent names no platform, so every set of steps is shown.
+    const help = view.container.querySelector(
+      'section[aria-labelledby="office-check-in-location-help"]'
+    );
+    expect(help.textContent).toContain("How to turn location on");
+    for (const label of ["On a Mac", "On Windows", "On an iPhone or iPad", "On Android"]) {
+      expect(help.textContent).toContain(label);
+    }
+    expect(help.textContent).toContain("Privacy & Security, then Location Services");
+    expect(help.querySelector("details")).toBeNull();
     await view.unmount();
   });
 
