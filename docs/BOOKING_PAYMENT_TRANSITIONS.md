@@ -16,4 +16,6 @@ This policy reflects asynchronous provider delivery: a failure notification may 
 - Confirmation fails without mutating the booking when inventory is no longer available.
 - Customer-facing responses use opaque operational messages and never include callback secrets or signature details.
 
-The executable contract lives in `convex/bookings.ts`; the callback ordering and inventory cases live in `convex/bookingsPaymentTransitions.test.ts`.
+- The first accepted confirmation also schedules a follow-up mutation that issues the booking's GST tax invoice (or records it as not configured) and queues the customer confirmation email; a failure there never affects the payment transition. The accepted `confirmed -> refunded` transition stores the Razorpay refund reference and amount and schedules one refund email. Duplicate and later events add neither; see [Booking emails and invoices](BOOKING_EMAILS_AND_INVOICES.md).
+
+The executable contract lives in `convex/bookings.ts`; the callback ordering and inventory cases live in `convex/bookingsPaymentTransitions.test.ts`, and the email and invoice side effects in `convex/bookingCustomerEmails.convex.integration.ts`.

@@ -6,6 +6,7 @@ export const OPERATIONAL_CONTROL_KEYS = [
   "email.auth.staff_setup",
   "email.auth.verification",
   "email.crm_workflow",
+  "email.customer_booking",
   "files.document_preview_preparation",
   "inbound.crm_intake",
   "inbound.info_mailbox_email",

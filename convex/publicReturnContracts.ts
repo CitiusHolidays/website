@@ -1,5 +1,6 @@
 import { paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
+import { customerBookingInvoiceSummaryValidator } from "./lib/bookingInvoiceValidators";
 
 export const publicUserProfileValidator = v.object({
   createdAt: v.union(v.string(), v.null()),
@@ -205,6 +206,7 @@ export const customerJourneyDetailResultValidator = v.union(
     category: customerJourneyCategoryValidator,
     detailAvailable: v.boolean(),
     entitlement: customerJourneyEntitlementValidator,
+    invoice: v.optional(customerBookingInvoiceSummaryValidator),
     trip: v.object({
       coverImage: v.string(),
       description: v.string(),

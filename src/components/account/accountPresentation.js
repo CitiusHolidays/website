@@ -45,6 +45,22 @@ export function formatAccountDate(value) {
   return `${date.getDate()} ${ACCOUNT_MONTHS[date.getMonth()]} ${date.getFullYear()}`;
 }
 
+/** Format a booking amount held in the currency's minor unit (paise for INR). */
+export function formatAccountAmount(amountMinor, currency) {
+  if (!Number.isFinite(amountMinor)) {
+    return "Amount to follow";
+  }
+  const major = amountMinor / 100;
+  if (currency === "INR") {
+    return new Intl.NumberFormat("en-IN", { currency: "INR", style: "currency" }).format(major);
+  }
+  const value = new Intl.NumberFormat("en-IN", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2,
+  }).format(major);
+  return `${currency} ${value}`;
+}
+
 export function formatAccountDateRange(start, end) {
   const startLabel = formatAccountDate(start);
   const endLabel = formatAccountDate(end);

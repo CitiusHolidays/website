@@ -14,6 +14,11 @@ const ROUTE_DEFINITIONS = {
     methods: ["GET"],
     responseMode: "json",
   },
+  "/api/account/journeys/[bookingId]/invoice": {
+    family: "account",
+    methods: ["GET"],
+    responseMode: "binary",
+  },
   "/api/auth/[...all]": {
     family: "auth",
     methods: ["GET", "POST"],

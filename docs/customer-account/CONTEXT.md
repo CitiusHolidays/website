@@ -28,6 +28,12 @@ receives a purchaser Journey Entitlement; payment identifiers and internal notes
 journey fields.
 _Avoid_: Confirmed Offer, Query, email-owned reservation
 
+**Booking Tax Invoice**:
+The immutable GST tax invoice issued for a confirmed Booking's payment, numbered in its own
+website-booking series. Only the Booking's purchaser may download it from the Account; it is not a
+CRM Job Card invoice and grants no other access.
+_Avoid_: Job Card invoice, receipt-only email, invoice regenerated from live trip or company data
+
 **Customer Journey**:
 A read-only Account projection backed by either a public Booking or an immutable CRM Confirmed
 Offer. It exposes only the facts allowed by its Journey Entitlement.
