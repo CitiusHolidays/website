@@ -5,6 +5,7 @@ import type { MutationCtx, QueryCtx } from "../../_generated/server";
 export const operationalControlKeyValidator = v.union(
   v.literal("ai.concierge"),
   v.literal("ai.journey_planner"),
+  v.literal("email.auth.account_deleted"),
   v.literal("email.auth.password_reset"),
   v.literal("email.auth.staff_setup"),
   v.literal("email.auth.verification"),
@@ -36,6 +37,7 @@ export const operationalControlKeyValidator = v.union(
 export type OperationalControlKey =
   | "ai.concierge"
   | "ai.journey_planner"
+  | "email.auth.account_deleted"
   | "email.auth.password_reset"
   | "email.auth.staff_setup"
   | "email.auth.verification"
@@ -229,6 +231,17 @@ export const OPERATIONAL_CONTROL_CATALOG = [
     enforcement: "Admin staff account setup",
     key: "email.auth.staff_setup",
     label: "Staff setup email",
+    standardEnabled: true,
+  },
+  {
+    availability: "available",
+    category: "Authentication",
+    dependencies: [],
+    description:
+      "Send the confirmation that a customer deleted their own account. The deletion itself never waits for it.",
+    enforcement: "Transactional authentication email delivery",
+    key: "email.auth.account_deleted",
+    label: "Account deleted email",
     standardEnabled: true,
   },
   {

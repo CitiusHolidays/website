@@ -4,6 +4,11 @@ const ROUTE_DEFINITIONS = {
     methods: ["GET"],
     responseMode: "json",
   },
+  "/api/account/deletion": {
+    family: "account",
+    methods: ["GET", "POST"],
+    responseMode: "json",
+  },
   "/api/account/journeys/[bookingId]": {
     family: "account",
     methods: ["GET"],

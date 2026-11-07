@@ -39,6 +39,12 @@ Booking or confirmed CRM journey. It records the holder's role (`purchaser`, `or
 `traveller`), narrow read capabilities, source, grant provenance, and revocation state.
 _Avoid_: normalized-email match, Client-wide access, Job Card membership, browser ID
 
+**Account Deletion**:
+The Account Holder's own, immediate removal of their login and account-owned data (ADR 0019).
+Bookings, payment records and Job Card Travellers are kept, detached from the login; a
+content-free receipt records that it happened.
+_Avoid_: deactivation, closing a Client, deleting Travellers, staff offboarding
+
 ## Allow and deny outcomes
 
 | Scenario | Outcome |
@@ -51,6 +57,8 @@ _Avoid_: normalized-email match, Client-wide access, Job Card membership, browse
 | One sibling Traveller has an entitlement | Do not expose sibling Traveller journeys or documents. |
 | Same subject appears under a different issuer | Deny legacy ownership unless one authoritative identity link maps that exact issuer-qualified identity. |
 | Canonical and legacy ownership conflict | Deny and create a privacy-safe quarantine item for operator resolution. |
+| Account Holder deletes their account after a fresh sign-in and typing DELETE | Allow; delete the login and account-owned data, detach and keep bookings, and record a content-free receipt. |
+| A staff login asks to delete itself through Account settings | Deny; staff records belong to HR. |
 
 ## Invariants
 

@@ -1,12 +1,11 @@
 "use client";
 
 import { m } from "motion/react";
-import Link from "next/link";
 import { Status } from "@/components/ui/application-status";
-import { ACCOUNT_DELETION_CONTACT_HREF } from "@/lib/public/contactIntent";
+import { AccountDeletionSection } from "./AccountDeletionSection";
 import { ACCOUNT_CONTAINER_VARIANTS, SettingRow } from "./AccountUi";
 
-export function AccountSettingsPanel() {
+export function AccountSettingsPanel({ onSignOut }) {
   return (
     <m.div
       animate="visible"
@@ -39,19 +38,7 @@ export function AccountSettingsPanel() {
           description="Add an extra layer of security to your account. Two-step verification is planned for a future account update."
           title="Two-step verification"
         />
-        <SettingRow
-          action={
-            <Link
-              aria-label="Contact the Citius team about deleting your account"
-              className="account-focus inline-flex min-h-11 items-center rounded-full border border-[var(--account-night)] px-4 font-semibold text-[var(--account-night)] text-sm transition-colors hover:bg-[var(--account-night)] hover:text-white"
-              href={ACCOUNT_DELETION_CONTACT_HREF}
-            >
-              Contact team
-            </Link>
-          }
-          description="Account deletion is handled by the Citius travel team so we can confirm any active bookings first."
-          title="Delete account"
-        />
+        <AccountDeletionSection signOut={onSignOut} />
       </div>
     </m.div>
   );

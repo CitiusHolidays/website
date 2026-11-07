@@ -2,7 +2,7 @@ import { ConvexError, v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { propertiesWhen } from "./lib/runtimeValues";
 
-export const AUTH_EMAIL_PURPOSES = ["password_reset", "verification"] as const;
+export const AUTH_EMAIL_PURPOSES = ["password_reset", "verification", "account_deleted"] as const;
 export const AUTH_EMAIL_DELIVERY_STATUSES = [
   "queued",
   "sending",
@@ -15,7 +15,11 @@ export const AUTH_EMAIL_DELIVERY_STATUSES = [
 type AuthEmailPurpose = (typeof AUTH_EMAIL_PURPOSES)[number];
 type AuthEmailDeliveryStatus = (typeof AUTH_EMAIL_DELIVERY_STATUSES)[number];
 
-const purposeValidator = v.union(v.literal("password_reset"), v.literal("verification"));
+const purposeValidator = v.union(
+  v.literal("password_reset"),
+  v.literal("verification"),
+  v.literal("account_deleted")
+);
 const statusValidator = v.union(
   v.literal("queued"),
   v.literal("sending"),

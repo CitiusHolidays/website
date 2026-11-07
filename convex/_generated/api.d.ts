@@ -10,6 +10,8 @@
 
 import type * as _exportSurface from "../_exportSurface.js";
 import type * as _runtimeModules from "../_runtimeModules.js";
+import type * as accountDeletion from "../accountDeletion.js";
+import type * as accountDeletionEmail from "../accountDeletionEmail.js";
 import type * as aiRuntime from "../aiRuntime.js";
 import type * as auth from "../auth.js";
 import type * as authAccountLinking from "../authAccountLinking.js";
@@ -264,6 +266,9 @@ import type * as e2eDeploymentIdentity from "../e2eDeploymentIdentity.js";
 import type * as eventPhotoBooth from "../eventPhotoBooth.js";
 import type * as eventPhotoBoothArtwork from "../eventPhotoBoothArtwork.js";
 import type * as http from "../http.js";
+import type * as lib_accountDeletionContract from "../lib/accountDeletionContract.js";
+import type * as lib_accountDeletionReceipts from "../lib/accountDeletionReceipts.js";
+import type * as lib_accountErasure from "../lib/accountErasure.js";
 import type * as lib_aiRateLimit from "../lib/aiRateLimit.js";
 import type * as lib_authEmailDelivery from "../lib/authEmailDelivery.js";
 import type * as lib_authEmailHtml from "../lib/authEmailHtml.js";
@@ -329,6 +334,8 @@ import type {
 declare const fullApi: ApiFromModules<{
   _exportSurface: typeof _exportSurface;
   _runtimeModules: typeof _runtimeModules;
+  accountDeletion: typeof accountDeletion;
+  accountDeletionEmail: typeof accountDeletionEmail;
   aiRuntime: typeof aiRuntime;
   auth: typeof auth;
   authAccountLinking: typeof authAccountLinking;
@@ -583,6 +590,9 @@ declare const fullApi: ApiFromModules<{
   eventPhotoBooth: typeof eventPhotoBooth;
   eventPhotoBoothArtwork: typeof eventPhotoBoothArtwork;
   http: typeof http;
+  "lib/accountDeletionContract": typeof lib_accountDeletionContract;
+  "lib/accountDeletionReceipts": typeof lib_accountDeletionReceipts;
+  "lib/accountErasure": typeof lib_accountErasure;
   "lib/aiRateLimit": typeof lib_aiRateLimit;
   "lib/authEmailDelivery": typeof lib_authEmailDelivery;
   "lib/authEmailHtml": typeof lib_authEmailHtml;
