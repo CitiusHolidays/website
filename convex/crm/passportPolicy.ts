@@ -34,6 +34,22 @@ export function canReadPassportInStaffWorkspace(
 }
 
 /**
+ * The field passport audit log (who opened which passport in the app) is read only by the
+ * Operations Head and Admin (director decision, 7 Nov 2026), with office access to the Job Card.
+ * A Director, an Operations executive or any other passport reader is refused.
+ */
+export function canReadFieldPassportAccessLog(
+  access: Pick<PortalAccess, "externalTourManager" | "roles">,
+  grant: JobCardRecordGrant | null
+) {
+  return (
+    access.externalTourManager !== true &&
+    grant === "office" &&
+    (access.roles.includes("Admin") || access.roles.includes("Operations Head"))
+  );
+}
+
+/**
  * Passport expiry dates are wider than scans: Ticketing needs them to book and check fares
  * (owner decision, 7 Nov 2026), so visa or ticketing read authority from an office role is
  * enough. Scans and numbers still need `canReadPassportInStaffWorkspace`.

@@ -6,59 +6,84 @@ import { internalAction } from "./_generated/server";
 import type { OperationalControlKey } from "./crm/lib/operationalControls";
 
 export const scheduledJobValidator = v.union(
+  v.literal("anonymise_past_travellers"),
   v.literal("check_cl_sl_leave_lapse"),
   v.literal("cleanup_ai_runtime"),
   v.literal("cleanup_passenger_exports"),
   v.literal("cleanup_portal_rate_limits"),
   v.literal("cleanup_sacred_bharat_rate_limits"),
+  v.literal("purge_activity_logs"),
   v.literal("purge_commercial_files"),
   v.literal("purge_field_passport_audit"),
+  v.literal("purge_inactive_customer_accounts"),
   v.literal("purge_office_check_ins"),
+  v.literal("purge_old_feedback"),
+  v.literal("purge_passport_scans"),
+  v.literal("purge_unconverted_enquiries"),
   v.literal("reconcile_crm_metrics"),
   v.literal("reconcile_list_search"),
   v.literal("reconcile_proposal_links"),
   v.literal("reconcile_proposal_relations"),
   v.literal("reconcile_query_commercial"),
+  v.literal("retire_financial_records"),
   v.literal("run_workflow_nudges")
 );
 
 export const SCHEDULED_JOBS = [
+  "anonymise_past_travellers",
   "check_cl_sl_leave_lapse",
   "cleanup_ai_runtime",
   "cleanup_passenger_exports",
   "cleanup_portal_rate_limits",
   "cleanup_sacred_bharat_rate_limits",
+  "purge_activity_logs",
   "purge_commercial_files",
   "purge_field_passport_audit",
+  "purge_inactive_customer_accounts",
   "purge_office_check_ins",
+  "purge_old_feedback",
+  "purge_passport_scans",
+  "purge_unconverted_enquiries",
   "reconcile_crm_metrics",
   "reconcile_list_search",
   "reconcile_proposal_links",
   "reconcile_proposal_relations",
   "reconcile_query_commercial",
+  "retire_financial_records",
   "run_workflow_nudges",
 ] as const;
 
 export type ScheduledJob = (typeof SCHEDULED_JOBS)[number];
 
 const CONTROL_KEY_BY_JOB = {
+  anonymise_past_travellers: "jobs.anonymise_past_travellers",
   check_cl_sl_leave_lapse: "jobs.check_cl_sl_leave_lapse",
   cleanup_ai_runtime: "jobs.cleanup_ai_runtime",
   cleanup_passenger_exports: "jobs.cleanup_passenger_exports",
   cleanup_portal_rate_limits: "jobs.cleanup_portal_rate_limits",
   cleanup_sacred_bharat_rate_limits: "jobs.cleanup_sacred_bharat_rate_limits",
+  purge_activity_logs: "jobs.purge_activity_logs",
   purge_commercial_files: "jobs.purge_commercial_files",
   purge_field_passport_audit: "jobs.purge_field_passport_audit",
+  purge_inactive_customer_accounts: "jobs.purge_inactive_customer_accounts",
   purge_office_check_ins: "jobs.purge_office_check_ins",
+  purge_old_feedback: "jobs.purge_old_feedback",
+  purge_passport_scans: "jobs.purge_passport_scans",
+  purge_unconverted_enquiries: "jobs.purge_unconverted_enquiries",
   reconcile_crm_metrics: "jobs.reconcile_crm_metrics",
   reconcile_list_search: "jobs.reconcile_list_search",
   reconcile_proposal_links: "jobs.reconcile_proposal_links",
   reconcile_proposal_relations: "jobs.reconcile_proposal_relations",
   reconcile_query_commercial: "jobs.reconcile_query_commercial",
+  retire_financial_records: "jobs.retire_financial_records",
   run_workflow_nudges: "jobs.run_workflow_nudges",
 } as const satisfies Record<ScheduledJob, OperationalControlKey>;
 
 const MUTATION_BY_JOB = {
+  anonymise_past_travellers: {
+    mutation: internal.crm.retention.travellers.purgeExpired,
+    mutationName: "crm/retention/travellers:purgeExpired",
+  },
   check_cl_sl_leave_lapse: {
     mutation: internal.crm.leaveLapse.checkAndRunClSlLapse,
     mutationName: "crm/leaveLapse:checkAndRunClSlLapse",
@@ -79,6 +104,10 @@ const MUTATION_BY_JOB = {
     mutation: internal.sacredBharatEditionEvents.cleanupExpiredRateLimitKeys,
     mutationName: "sacredBharatEditionEvents:cleanupExpiredRateLimitKeys",
   },
+  purge_activity_logs: {
+    mutation: internal.crm.retention.activityLogs.purgeExpired,
+    mutationName: "crm/retention/activityLogs:purgeExpired",
+  },
   purge_commercial_files: {
     mutation: internal.crm.commercialFiles.purgeExpired,
     mutationName: "crm/commercialFiles:purgeExpired",
@@ -87,9 +116,25 @@ const MUTATION_BY_JOB = {
     mutation: internal.crm.fieldPassportAuditRetention.purgeExpired,
     mutationName: "crm/fieldPassportAuditRetention:purgeExpired",
   },
+  purge_inactive_customer_accounts: {
+    mutation: internal.crm.retention.customerAccounts.purgeExpired,
+    mutationName: "crm/retention/customerAccounts:purgeExpired",
+  },
   purge_office_check_ins: {
     mutation: internal.crm.officeCheckInRetention.purgeExpired,
     mutationName: "crm/officeCheckInRetention:purgeExpired",
+  },
+  purge_old_feedback: {
+    mutation: internal.crm.retention.feedback.purgeExpired,
+    mutationName: "crm/retention/feedback:purgeExpired",
+  },
+  purge_passport_scans: {
+    mutation: internal.crm.retention.passportScans.purgeExpired,
+    mutationName: "crm/retention/passportScans:purgeExpired",
+  },
+  purge_unconverted_enquiries: {
+    mutation: internal.crm.retention.enquiries.purgeExpired,
+    mutationName: "crm/retention/enquiries:purgeExpired",
   },
   reconcile_crm_metrics: {
     mutation: internal.crm.metricAggregates.reconcileAll,
@@ -110,6 +155,10 @@ const MUTATION_BY_JOB = {
   reconcile_query_commercial: {
     mutation: internal.crm.queryCommercialProjection.reconcileAll,
     mutationName: "crm/queryCommercialProjection:reconcileAll",
+  },
+  retire_financial_records: {
+    mutation: internal.crm.retention.financialRecords.purgeExpired,
+    mutationName: "crm/retention/financialRecords:purgeExpired",
   },
   run_workflow_nudges: {
     mutation: internal.crm.workflowNudges.runScheduledNudges,
@@ -257,6 +306,48 @@ export const reconcileQueryCommercial = internalAction({
 export const runWorkflowNudges = internalAction({
   args: {},
   handler: controlledScheduledHandler("run_workflow_nudges"),
+  returns: scheduledJobResult,
+});
+
+export const anonymisePastTravellers = internalAction({
+  args: {},
+  handler: controlledScheduledHandler("anonymise_past_travellers"),
+  returns: scheduledJobResult,
+});
+
+export const purgeActivityLogs = internalAction({
+  args: {},
+  handler: controlledScheduledHandler("purge_activity_logs"),
+  returns: scheduledJobResult,
+});
+
+export const purgeInactiveCustomerAccounts = internalAction({
+  args: {},
+  handler: controlledScheduledHandler("purge_inactive_customer_accounts"),
+  returns: scheduledJobResult,
+});
+
+export const purgeOldFeedback = internalAction({
+  args: {},
+  handler: controlledScheduledHandler("purge_old_feedback"),
+  returns: scheduledJobResult,
+});
+
+export const purgePassportScans = internalAction({
+  args: {},
+  handler: controlledScheduledHandler("purge_passport_scans"),
+  returns: scheduledJobResult,
+});
+
+export const purgeUnconvertedEnquiries = internalAction({
+  args: {},
+  handler: controlledScheduledHandler("purge_unconverted_enquiries"),
+  returns: scheduledJobResult,
+});
+
+export const retireFinancialRecords = internalAction({
+  args: {},
+  handler: controlledScheduledHandler("retire_financial_records"),
   returns: scheduledJobResult,
 });
 
