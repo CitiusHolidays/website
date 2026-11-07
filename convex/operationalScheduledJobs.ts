@@ -11,6 +11,7 @@ export const scheduledJobValidator = v.union(
   v.literal("cleanup_passenger_exports"),
   v.literal("cleanup_portal_rate_limits"),
   v.literal("cleanup_sacred_bharat_rate_limits"),
+  v.literal("issue_pending_booking_invoices"),
   v.literal("purge_commercial_files"),
   v.literal("purge_field_passport_audit"),
   v.literal("purge_office_check_ins"),
@@ -28,6 +29,7 @@ export const SCHEDULED_JOBS = [
   "cleanup_passenger_exports",
   "cleanup_portal_rate_limits",
   "cleanup_sacred_bharat_rate_limits",
+  "issue_pending_booking_invoices",
   "purge_commercial_files",
   "purge_field_passport_audit",
   "purge_office_check_ins",
@@ -47,6 +49,7 @@ const CONTROL_KEY_BY_JOB = {
   cleanup_passenger_exports: "jobs.cleanup_passenger_exports",
   cleanup_portal_rate_limits: "jobs.cleanup_portal_rate_limits",
   cleanup_sacred_bharat_rate_limits: "jobs.cleanup_sacred_bharat_rate_limits",
+  issue_pending_booking_invoices: "jobs.issue_pending_booking_invoices",
   purge_commercial_files: "jobs.purge_commercial_files",
   purge_field_passport_audit: "jobs.purge_field_passport_audit",
   purge_office_check_ins: "jobs.purge_office_check_ins",
@@ -78,6 +81,10 @@ const MUTATION_BY_JOB = {
   cleanup_sacred_bharat_rate_limits: {
     mutation: internal.sacredBharatEditionEvents.cleanupExpiredRateLimitKeys,
     mutationName: "sacredBharatEditionEvents:cleanupExpiredRateLimitKeys",
+  },
+  issue_pending_booking_invoices: {
+    mutation: internal.bookingInvoices.issuePendingBookingInvoicesWhenConfigured,
+    mutationName: "bookingInvoices:issuePendingBookingInvoicesWhenConfigured",
   },
   purge_commercial_files: {
     mutation: internal.crm.commercialFiles.purgeExpired,
@@ -203,6 +210,12 @@ export const cleanupPortalRateLimits = internalAction({
 export const cleanupSacredBharatRateLimits = internalAction({
   args: {},
   handler: controlledScheduledHandler("cleanup_sacred_bharat_rate_limits"),
+  returns: scheduledJobResult,
+});
+
+export const issuePendingBookingInvoices = internalAction({
+  args: {},
+  handler: controlledScheduledHandler("issue_pending_booking_invoices"),
   returns: scheduledJobResult,
 });
 

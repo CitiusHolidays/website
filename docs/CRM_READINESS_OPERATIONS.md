@@ -88,7 +88,7 @@ explicit integrity repair with the internal `crm/listSearch:reconcileAll` entryp
 `{ "force": true }`; this keeps the last complete publication readable while all four source tables
 are traversed in bounded pages. Ordinary cron calls omit `force`.
 
-Before release, run `bun run test -- convex/crons.test.ts` for the exact local thirteen-job registry and
+Before release, run `bun run test -- convex/crons.test.ts` for the exact local fifteen-job registry and
 IST boundary contract. Local serialization does not prove installation. After an authorized
 deployment, confirm the names, internal targets, arguments, and schedules in that deployment's
 Convex dashboard. Operators may then invoke the internal reconciliation entrypoints through the

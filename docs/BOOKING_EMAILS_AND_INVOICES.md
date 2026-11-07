@@ -123,6 +123,25 @@ outbox freezes a small HTML/text message and has no attachment storage; and a li
 issued after confirmation reach the customer without re-sending mail. The PDF is generated from
 the same immutable snapshot every time.
 
+### Hourly pending-invoice job
+
+`operationalScheduledJobs:issuePendingBookingInvoices` runs every hour through the scheduled-job
+gateway under the **Pending booking invoices** Live Feature Control
+(`jobs.issue_pending_booking_invoices`).
+
+- **Quiet until configured.** While any `CITIUS_INVOICE_*` value is missing or invalid it returns
+  at once: it reads no pending rows, writes nothing and logs nothing. It does not repeat the
+  "not configured" error every hour.
+- **Bounded.** Once configured it issues up to 50 waiting invoices per run, oldest first, so the
+  48-hour promise holds without an operator.
+- **No duplicates.** Each run is one serializable mutation, an issued invoice is never reissued,
+  and the "invoice ready" email has one event identity per booking. Overlapping cron and operator
+  runs cannot create a second invoice, number or email.
+- **On by default.** It only issues invoices the Billing policy already promises, so the control
+  resolves Available even when its stored state is missing, expired or corrupt, as the CRM intake
+  control does. Pausing it in Live Feature Controls stops the job; the operator command in the
+  deploy notes still works.
+
 ## Configuration
 
 Set these in the **Convex deployment environment** (Preview and Production separately). The
@@ -147,14 +166,16 @@ director is supplying the values; none is committed.
    activated the control plane, it follows its catalog default (Available).
 3. Set the six `CITIUS_INVOICE_*` values in that Convex deployment. Until then, every confirmed
    booking records a `pending_configuration` invoice.
-4. Issue invoices that were waiting for configuration, repeating until `scanned` is 0:
+4. Invoices that were waiting for configuration are issued by the hourly **Pending booking
+   invoices** job (`jobs.issue_pending_booking_invoices`) within an hour of the values being set,
+   50 per run, each queuing one "Tax invoice ready" email. To issue them at once instead, an
+   operator with fresh authority for the exact target may run, repeating until `scanned` is 0:
 
    ```bash
    bunx convex run --prod bookingInvoices:issuePendingBookingInvoices '{"limit": 50}'
    ```
 
-   (Omit `--prod` for Preview.) Each issued invoice queues one "Tax invoice ready" email. Only an
-   operator with fresh authority for the exact target runs this.
+   (Omit `--prod` for Preview.)
 5. On Preview, confirm one test booking end to end: invoice number, PDF download from the
    purchaser's Account, 404 for another Account, and one delivered email with the control
    Available.
@@ -168,8 +189,6 @@ director is supplying the values; none is committed.
 - Recipient billing address, state and GSTIN are not collected, so B2B input-tax-credit invoices
   and recipient-state place of supply are not yet possible.
 - The PDF uses the standard Helvetica font: names in non-Latin scripts print as `?`.
-- Pending invoices are issued only when an operator runs `issuePendingBookingInvoices`; there is no
-  scheduled job yet.
 - Bookings confirmed before this release have no invoice record and are not backfilled; the
   Account shows their payment without an invoice line.
 - The invoice carries no signature block; "This is a computer-generated invoice" is printed

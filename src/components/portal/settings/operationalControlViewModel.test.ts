@@ -33,7 +33,7 @@ describe("Live feature control view model", () => {
   });
 
   test("exposes all independently recoverable control keys", () => {
-    expect(OPERATIONAL_CONTROL_KEYS).toHaveLength(29);
+    expect(OPERATIONAL_CONTROL_KEYS).toHaveLength(30);
     expect(OPERATIONAL_CONTROL_KEYS).toContain("email.auth.staff_setup");
     expect(OPERATIONAL_CONTROL_KEYS).toContain("jobs.run_workflow_nudges");
   });
