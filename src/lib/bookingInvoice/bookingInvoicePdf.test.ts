@@ -12,6 +12,7 @@ const SAMPLE_INVOICE: BookingInvoiceDocument = {
   },
   booking: {
     endDate: "2027-01-18",
+    paidDate: "2026-11-06",
     paymentReference: "pay_Fixture123",
     reference: "k57booking0001",
     startDate: "2027-01-10",
@@ -86,6 +87,7 @@ describe("booking tax invoice PDF", () => {
       "Invoice total (INR) 1,25,000.00",
       "Booking ID k57booking0001",
       "Payment reference pay_Fixture123",
+      "Amount received in full through the Citius Holidays website on 06 Nov 2026",
     ]) {
       expect(text).toContain(fact);
     }

@@ -29,6 +29,7 @@ export function JourneyPaymentCard({ booking, invoice }) {
     return null;
   }
   const issued = invoice?.status === "issued";
+  const preparing = invoice?.status === "preparing";
   return (
     <section
       aria-labelledby="journey-payment-heading"
@@ -38,7 +39,7 @@ export function JourneyPaymentCard({ booking, invoice }) {
         className="account-display text-[var(--account-ink)] text-xl"
         id="journey-payment-heading"
       >
-        Payment and invoice
+        {invoice ? "Payment and invoice" : "Payment"}
       </h3>
       <dl className="mt-4 grid gap-4 border-[var(--account-border)] border-t pt-4 text-sm sm:grid-cols-3">
         <div>
@@ -53,12 +54,14 @@ export function JourneyPaymentCard({ booking, invoice }) {
             {booking.status === "refunded" ? "Refunded" : "Received"}
           </dd>
         </div>
-        <div>
-          <dt className="text-[var(--account-muted)] text-xs">Tax invoice</dt>
-          <dd className="mt-1 text-[var(--account-ink)] tabular-nums">
-            {issued ? invoice.invoiceNumber : "Being prepared"}
-          </dd>
-        </div>
+        {invoice ? (
+          <div>
+            <dt className="text-[var(--account-muted)] text-xs">Tax invoice</dt>
+            <dd className="mt-1 text-[var(--account-ink)] tabular-nums">
+              {issued ? invoice.invoiceNumber : "Being prepared"}
+            </dd>
+          </div>
+        ) : null}
       </dl>
       {issued ? (
         <a
@@ -68,11 +71,12 @@ export function JourneyPaymentCard({ booking, invoice }) {
         >
           Download tax invoice (PDF)
         </a>
-      ) : (
+      ) : null}
+      {preparing ? (
         <p className="mt-5 text-[var(--account-muted)] text-sm leading-6">
           We will email you when your GST tax invoice is ready to download here.
         </p>
-      )}
+      ) : null}
     </section>
   );
 }

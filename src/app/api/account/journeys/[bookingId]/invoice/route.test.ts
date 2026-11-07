@@ -16,6 +16,7 @@ const INVOICE = {
   },
   booking: {
     endDate: "2027-01-18",
+    paidDate: "2026-11-07",
     paymentReference: "pay_1",
     reference: "bookings_1",
     startDate: "2027-01-10",

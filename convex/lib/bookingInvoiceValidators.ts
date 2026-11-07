@@ -15,6 +15,8 @@ export const bookingInvoiceSnapshotValidator = v.object({
   }),
   booking: v.object({
     endDate: v.string(),
+    /** The Indian calendar date the payment was confirmed (YYYY-MM-DD). */
+    paidDate: v.string(),
     paymentReference: v.string(),
     reference: v.string(),
     startDate: v.string(),

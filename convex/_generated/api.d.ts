@@ -19,6 +19,7 @@ import type * as authIdentityMigration from "../authIdentityMigration.js";
 import type * as authSync from "../authSync.js";
 import type * as bookingEmails from "../bookingEmails.js";
 import type * as bookingInvoices from "../bookingInvoices.js";
+import type * as bookingPaymentFollowUps from "../bookingPaymentFollowUps.js";
 import type * as bookings from "../bookings.js";
 import type * as crm_activity from "../crm/activity.js";
 import type * as crm_appPilot from "../crm/appPilot.js";
@@ -344,6 +345,7 @@ declare const fullApi: ApiFromModules<{
   authSync: typeof authSync;
   bookingEmails: typeof bookingEmails;
   bookingInvoices: typeof bookingInvoices;
+  bookingPaymentFollowUps: typeof bookingPaymentFollowUps;
   bookings: typeof bookings;
   "crm/activity": typeof crm_activity;
   "crm/appPilot": typeof crm_appPilot;

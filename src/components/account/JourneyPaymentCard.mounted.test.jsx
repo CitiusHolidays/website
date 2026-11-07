@@ -83,6 +83,18 @@ describe("Journey payment and invoice card", () => {
     act(() => root.unmount());
   });
 
+  test("shows the payment without promising an invoice when none is on its way", async () => {
+    const { container, root } = await render({ booking: paidBooking, invoice: undefined });
+    expect(container.querySelector("h3")?.textContent).toBe("Payment");
+    expect([...container.querySelectorAll("dt")].map((term) => term.textContent)).toEqual([
+      "Amount paid",
+      "Payment",
+    ]);
+    expect(container.textContent).not.toContain("We will email you");
+    expect(container.querySelector("a")).toBeNull();
+    act(() => root.unmount());
+  });
+
   test("renders nothing for a booking that was never paid", async () => {
     const { container, root } = await render({
       booking: { ...paidBooking, status: "pending" },

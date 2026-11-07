@@ -154,10 +154,13 @@ function drawHeader(page: PageContent, invoice: BookingInvoiceDocument) {
   page.textRight(RIGHT, 794, "Original for recipient", { size: 9 });
   page.rule(778, 1);
 
+  // The left column ends where the invoice facts begin; wrap rather than overlap.
   let supplierY = 758;
-  page.text(MARGIN, supplierY, invoice.supplier.legalName, { font: "F2", size: 11 });
-  supplierY -= 15;
-  for (const line of invoice.supplier.addressLines) {
+  for (const line of wrap(invoice.supplier.legalName, 40)) {
+    page.text(MARGIN, supplierY, line, { font: "F2", size: 11 });
+    supplierY -= 15;
+  }
+  for (const line of invoice.supplier.addressLines.flatMap((address) => wrap(address, 52))) {
     page.text(MARGIN, supplierY, line, { size: 9 });
     supplierY -= 13;
   }
@@ -255,7 +258,7 @@ function drawTotals(page: PageContent, invoice: BookingInvoiceDocument, top: num
 
 function drawNotes(page: PageContent, invoice: BookingInvoiceDocument, top: number) {
   const notes = [
-    `Amount received in full through the Citius Holidays website on ${displayDate(invoice.invoiceDate)}. Tax is included in the amount paid.`,
+    `Amount received in full through the Citius Holidays website on ${displayDate(invoice.booking.paidDate)}. Tax is included in the amount paid.`,
     "All amounts are in Indian Rupees.",
     "This is a computer-generated invoice.",
   ];

@@ -126,8 +126,17 @@ async function seedBooking(
   });
 }
 
-function confirmViaCheckout(t: Harness, orderId = "order_1", paymentId = "pay_1") {
-  return t.mutation(api.bookings.confirmBookingByOrderId, {
+/**
+ * Run the follow-up the payment mutation scheduled (invoice and email), the way
+ * Convex runs it right after the payment transaction commits.
+ */
+async function runScheduledFollowUps(t: Harness) {
+  vi.advanceTimersByTime(0);
+  await t.finishInProgressScheduledFunctions();
+}
+
+async function confirmViaCheckout(t: Harness, orderId = "order_1", paymentId = "pay_1") {
+  const result = await t.mutation(api.bookings.confirmBookingByOrderId, {
     orderId,
     paymentId,
     providerEventId: `checkout:payment.confirmed:${orderId}:${paymentId}`,
@@ -135,20 +144,24 @@ function confirmViaCheckout(t: Harness, orderId = "order_1", paymentId = "pay_1"
     serverSecret: SECRET,
     signature: "fixture-signature",
   });
+  await runScheduledFollowUps(t);
+  return result;
 }
 
-function confirmViaWebhook(t: Harness, orderId = "order_1", paymentId = "pay_1") {
-  return t.mutation(api.bookings.confirmBookingByOrderId, {
+async function confirmViaWebhook(t: Harness, orderId = "order_1", paymentId = "pay_1") {
+  const result = await t.mutation(api.bookings.confirmBookingByOrderId, {
     orderId,
     paymentId,
     providerEventId: `razorpay:payment.captured:${paymentId}`,
     reason: "Razorpay payment.captured webhook",
     serverSecret: SECRET,
   });
+  await runScheduledFollowUps(t);
+  return result;
 }
 
-function refundViaWebhook(t: Harness, refundId: string, paymentId = "pay_1") {
-  return t.mutation(api.bookings.markRefundedByPaymentId, {
+async function refundViaWebhook(t: Harness, refundId: string, paymentId = "pay_1") {
+  const result = await t.mutation(api.bookings.markRefundedByPaymentId, {
     paymentId,
     providerEventId: `razorpay:refund.created:${refundId}`,
     reason: "Razorpay refund.created webhook",
@@ -156,6 +169,8 @@ function refundViaWebhook(t: Harness, refundId: string, paymentId = "pay_1") {
     refundId,
     serverSecret: SECRET,
   });
+  await runScheduledFollowUps(t);
+  return result;
 }
 
 async function customerJobs(t: Harness) {
@@ -292,6 +307,95 @@ describe("booking confirmation email", () => {
   });
 });
 
+describe("payment safety and recipient identity", () => {
+  test("a failing invoice or email follow-up never undoes the payment confirmation", async () => {
+    const t = harness();
+    stubInvoiceConfig();
+    const bookingId = await seedBooking(t);
+    // Corrupt the invoice series so issuing throws inside the follow-up.
+    await t.run(async (ctx) => {
+      for (const lastSequence of [1, 2]) {
+        await ctx.db.insert("bookingInvoiceSeries", {
+          financialYear: "2026-27",
+          lastSequence,
+          prefix: "WEB",
+          updatedAt: Date.now(),
+        });
+      }
+    });
+
+    const result = await t.mutation(api.bookings.confirmBookingByOrderId, {
+      orderId: "order_1",
+      paymentId: "pay_1",
+      providerEventId: "razorpay:payment.captured:pay_1",
+      reason: "Razorpay payment.captured webhook",
+      serverSecret: SECRET,
+    });
+    expect(result).toMatchObject({ alreadyConfirmed: false, success: true });
+    await runScheduledFollowUps(t).catch(() => undefined);
+
+    const booking = await t.run((ctx) => ctx.db.get("bookings", bookingId));
+    expect(booking).toMatchObject({ razorpayPaymentId: "pay_1", status: "confirmed" });
+    const trip = booking ? await t.run((ctx) => ctx.db.get("trips", booking.tripId)) : null;
+    expect(trip?.availableSeats).toBe(8);
+    // The follow-up really failed: it left no invoice and queued no email.
+    expect(await t.run((ctx) => ctx.db.query("bookingInvoices").collect())).toEqual([]);
+    expect(await customerJobs(t)).toEqual([]);
+  });
+
+  test("a purchaser whose address matches a staff member still gets the customer email, not staff routing", async () => {
+    const t = harness();
+    const requests = captureResend();
+    await t.run((ctx) =>
+      ctx.db.insert("staffUsers", {
+        active: true,
+        createdAt: Date.now(),
+        email: OWNER_EMAIL,
+        emailNormalized: OWNER_EMAIL,
+        name: "Staff With Same Address",
+        roles: ["Sales"],
+        updatedAt: Date.now(),
+      })
+    );
+    await seedBooking(t);
+    await confirmViaWebhook(t);
+    const [job] = await customerJobs(t);
+    expect(job?.recipientStaffId).toBeUndefined();
+    await dispatchAll(t);
+    expect(requests.map((request) => request.body.subject)).toEqual([
+      "Booking confirmed: Kailash Mansarovar Yatra",
+    ]);
+  });
+
+  test("ignores archived duplicate profiles when choosing the recipient", async () => {
+    const t = harness();
+    const requests = captureResend();
+    // The archived duplicate is the oldest row for this identity, so a naive
+    // first-row lookup would pick its stale address.
+    await t.run(async (ctx) => {
+      await ctx.db.insert("userProfiles", {
+        archivedAt: Date.now(),
+        authUserId: OWNER,
+        createdAt: 1,
+        email: "stale.address@example.invalid",
+        name: "Stale",
+        updatedAt: 1,
+      });
+      await ctx.db.insert("userProfiles", {
+        authUserId: OWNER,
+        createdAt: 2,
+        email: OWNER_EMAIL,
+        name: "Aria Sen",
+        updatedAt: 2,
+      });
+    });
+    await seedBooking(t);
+    await confirmViaWebhook(t);
+    await dispatchAll(t);
+    expect(requests.map((request) => request.body.to)).toEqual([[OWNER_EMAIL]]);
+  });
+});
+
 describe("refund email", () => {
   test("is sent once for repeated and later refund events", async () => {
     const t = harness();
@@ -359,8 +463,8 @@ describe("GST tax invoice", () => {
     expect(invoices[1]?.snapshot?.amounts).toEqual({
       cgstPaise: 595,
       igstPaise: 0,
-      sgstPaise: 596,
-      taxablePaise: 23_810,
+      sgstPaise: 595,
+      taxablePaise: 23_811,
       totalPaise: 25_001,
     });
   });
@@ -413,6 +517,27 @@ describe("GST tax invoice", () => {
     await confirmViaWebhook(t);
     const [row] = await t.run((ctx) => ctx.db.query("bookingInvoices").collect());
     expect(row).toMatchObject({ pendingReason: "foreign_currency", status: "manual_review" });
+  });
+
+  test("does not promise an emailed invoice for a manual-review booking", async () => {
+    const t = harness();
+    stubInvoiceConfig();
+    const requests = captureResend();
+    const bookingId = await seedBooking(t, { amount: 150_000, currency: "USD" });
+    await confirmViaWebhook(t);
+    await dispatchAll(t);
+    const text = requests[0]?.body.text.replace(/\s+/g, " ") ?? "";
+    expect(text).toContain(
+      "For your tax invoice, contact our accounts team at info@citiusholidays.com"
+    );
+    expect(text).not.toContain("Tax invoice Being prepared");
+    expect(text).toContain("Amount paid USD 1,500.00");
+    const owner = t.withIdentity({ subject: OWNER, tokenIdentifier: OWNER });
+    const detail = await owner.query(api.bookings.getMyJourneyDetail, {
+      bookingId,
+      referenceNow: Date.now(),
+    });
+    expect(detail?.invoice).toBeUndefined();
   });
 });
 

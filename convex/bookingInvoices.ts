@@ -23,8 +23,9 @@ import {
 /**
  * GST tax invoices for confirmed public website Bookings.
  *
- * - One invoice per confirmed booking payment, created in the confirmation
- *   transaction. Replays return the existing invoice.
+ * - One invoice per confirmed booking payment, created by the follow-up the
+ *   confirmation schedules (`bookingPaymentFollowUps`). Replays return the
+ *   existing invoice.
  * - Numbers are consecutive per series prefix and Indian financial year. The
  *   series row is read and written in the same serializable transaction that
  *   issues the invoice, so concurrent confirmations cannot share or skip a number.
@@ -103,6 +104,7 @@ async function buildSnapshot(
     amounts,
     booking: {
       endDate,
+      paidDate: invoiceDateInIndia(booking.confirmedAt ?? issuedAt),
       paymentReference: booking.razorpayPaymentId,
       reference: booking._id,
       startDate,
@@ -293,7 +295,9 @@ export async function customerInvoiceSummary(ctx: QueryCtx, booking: Doc<"bookin
       status: "issued" as const,
     };
   }
-  return row || booking.status === "confirmed" ? { status: "preparing" as const } : undefined;
+  // Promise an invoice only when one is genuinely on its way. Manual-review cases
+  // and bookings confirmed before invoicing existed show no invoice line.
+  return row?.status === "pending_configuration" ? { status: "preparing" as const } : undefined;
 }
 
 /**

@@ -70,9 +70,29 @@ function travelDates(startDate: string, endDate: string) {
 
 const contactLine = `Questions about this booking? Email ${BOOKING_SUPPORT_EMAIL} or call ${BOOKING_SUPPORT_PHONE} and quote your booking ID.`;
 
+function invoiceLine(invoice: BookingEmailContent["invoice"]) {
+  if (invoice?.status === "issued") {
+    return {
+      paragraph: `Your GST tax invoice ${invoice.invoiceNumber} is ready. You can download it from your Citius account.`,
+      value: invoice.invoiceNumber,
+    };
+  }
+  if (invoice?.status === "preparing") {
+    return {
+      paragraph:
+        "We will email you when your GST tax invoice is ready to download from your Citius account.",
+      value: "Being prepared",
+    };
+  }
+  return {
+    paragraph: `For your tax invoice, contact our accounts team at ${BOOKING_SUPPORT_EMAIL}.`,
+    value: "",
+  };
+}
+
 function confirmationEmail(content: BookingEmailContent, accountUrl: string) {
-  const { booking, invoice } = content;
-  const invoiceIssued = invoice?.status === "issued";
+  const { booking } = content;
+  const invoice = invoiceLine(content.invoice);
   return {
     subject: `Booking confirmed: ${booking.tripName}`,
     template: {
@@ -89,10 +109,7 @@ function confirmationEmail(content: BookingEmailContent, accountUrl: string) {
             value: formatBookingAmount(booking.amountMinor, booking.currency),
           },
           { label: "Payment reference", value: booking.paymentReference },
-          {
-            label: "Tax invoice",
-            value: invoiceIssued ? invoice.invoiceNumber : "Being prepared",
-          },
+          { label: "Tax invoice", value: invoice.value },
         ],
         title: "Booking details",
       },
@@ -100,9 +117,7 @@ function confirmationEmail(content: BookingEmailContent, accountUrl: string) {
       greeting: content.recipientName,
       paragraphs: [
         `We have received your payment. Your booking for ${booking.tripName} is confirmed.`,
-        invoiceIssued
-          ? `Your GST tax invoice ${invoice.invoiceNumber} is ready. You can download it from your Citius account.`
-          : "We will email you when your GST tax invoice is ready to download from your Citius account.",
+        invoice.paragraph,
         "What happens next: our team will contact you before departure with your final itinerary and joining details. Your booking stays available in your Citius account.",
       ],
       title: "Your booking is confirmed",

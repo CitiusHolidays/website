@@ -200,13 +200,26 @@ export function gstSplitFromInclusiveTotal(input: {
   if (!(Number.isSafeInteger(rateBasisPoints) && rateBasisPoints > 0)) {
     throw new Error("BOOKING_INVOICE_RATE_INVALID");
   }
-  const taxablePaise = Math.round((totalPaise * 10_000) / (10_000 + rateBasisPoints));
-  const taxPaise = totalPaise - taxablePaise;
+  const inclusiveTaxable = Math.round((totalPaise * 10_000) / (10_000 + rateBasisPoints));
   if (!intraState) {
-    return { cgstPaise: 0, igstPaise: taxPaise, sgstPaise: 0, taxablePaise, totalPaise };
+    return {
+      cgstPaise: 0,
+      igstPaise: totalPaise - inclusiveTaxable,
+      sgstPaise: 0,
+      taxablePaise: inclusiveTaxable,
+      totalPaise,
+    };
   }
-  const cgstPaise = Math.floor(taxPaise / 2);
-  return { cgstPaise, igstPaise: 0, sgstPaise: taxPaise - cgstPaise, taxablePaise, totalPaise };
+  // CGST and SGST are each charged at half the rate on the same taxable value, so
+  // they are always equal; any rounding paisa stays in the taxable value.
+  const halfTaxPaise = Math.round((inclusiveTaxable * rateBasisPoints) / 20_000);
+  return {
+    cgstPaise: halfTaxPaise,
+    igstPaise: 0,
+    sgstPaise: halfTaxPaise,
+    taxablePaise: totalPaise - 2 * halfTaxPaise,
+    totalPaise,
+  };
 }
 
 export type PlaceOfSupplyBasis = "recipient_address" | "supplier_location";

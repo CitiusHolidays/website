@@ -3,8 +3,8 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
-import { queueBookingEmail } from "./bookingEmails";
-import { customerInvoiceSummary, ensureBookingInvoice } from "./bookingInvoices";
+import { customerInvoiceSummary } from "./bookingInvoices";
+import { scheduleBookingPaymentFollowUp } from "./bookingPaymentFollowUps";
 import { assertReferenceNow } from "./crm/referenceTimePolicy";
 import {
   projectCustomerJourneyDetail,
@@ -533,11 +533,8 @@ async function applyRefundedTransition(
   });
   await recordPaymentEvent(ctx, args, booking, booking.status, "refunded", "accepted");
   // Only the accepted confirmed -> refunded transition reaches this line, so the
-  // refund email is queued once however often the provider repeats the event.
-  const refunded = await ctx.db.get("bookings", booking._id);
-  if (refunded) {
-    await queueBookingEmail(ctx, "booking_refund", refunded);
-  }
+  // refund email is scheduled once however often the provider repeats the event.
+  await scheduleBookingPaymentFollowUp(ctx, booking._id, "refunded");
   return { id: booking._id, status: "refunded" as const };
 }
 
@@ -585,14 +582,10 @@ async function applyConfirmedTransition(
   ]);
   await recordPaymentEvent(ctx, args, booking, booking.status, "confirmed", "accepted");
   const updated = await ctx.db.get("bookings", booking._id);
-  if (updated) {
-    // The first accepted confirmation issues the tax invoice and queues the
-    // confirmation email in this transaction. Every later confirmation path
-    // (checkout verification, webhook capture, replays) takes the
-    // already-confirmed branch above and adds neither.
-    await ensureBookingInvoice(ctx, updated);
-    await queueBookingEmail(ctx, "booking_confirmation", updated);
-  }
+  // Only the first accepted confirmation schedules the tax invoice and the
+  // confirmation email. Every later confirmation path (checkout verification,
+  // webhook capture, replays) takes the already-confirmed branch above.
+  await scheduleBookingPaymentFollowUp(ctx, booking._id, "confirmed");
   return {
     alreadyConfirmed: false,
     booking: updated ? toApiBooking(updated) : null,

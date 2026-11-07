@@ -15,15 +15,19 @@ create-order ─► pending Booking ─► Razorpay checkout
      /api/verify-payment (checkout) ─┤─► bookings.confirmBookingByOrderId
   webhook payment.captured (backup) ─┘        │ first accepted confirmation only
                                               ├─► seats debited, payment event recorded
-                                              ├─► GST invoice issued (or recorded as not configured)
-                                              └─► confirmation email queued
+                                              └─► schedules bookingPaymentFollowUps
+                                                    ├─► GST invoice issued (or recorded as not configured)
+                                                    └─► confirmation email queued
   webhook refund.created ─► bookings.markRefundedByPaymentId
                                               │ accepted confirmed → refunded only
-                                              └─► refund email queued
+                                              └─► schedules the follow-up ─► refund email queued
 ```
 
-All of these effects happen inside the payment-transition mutation, so they commit or roll back
-together with the booking status.
+The payment mutation only schedules the follow-up, and the schedule commits with the payment
+transition. The invoice and email then run in their own mutation, so invoice-series contention,
+missing configuration, or an outbox problem can never fail or roll back a real payment. Convex runs a
+scheduled mutation exactly once; if it fails, the payment stays confirmed and the failure shows in
+the Convex logs.
 
 ## Exactly once
 
@@ -79,16 +83,19 @@ One invoice per confirmed booking payment, stored in `bookingInvoices`:
   `bookingInvoiceSeries` counter is read and incremented in the same serializable transaction that
   issues the invoice, so concurrent confirmations cannot share or skip a number. The serial is
   separate from the free-text numbers Accounts types on CRM Job Card invoices.
-- **Amounts:** the amount the customer paid is treated as GST-inclusive. Taxable value
-  = round(total ÷ (1 + rate)) to the paisa; the remainder is tax. An intra-state supply splits tax
-  into CGST and SGST (the odd paisa goes to SGST); an inter-state supply charges IGST.
+- **Amounts:** the amount the customer paid is treated as GST-inclusive. For an inter-state supply,
+  taxable value = round(total ÷ (1 + rate)) to the paisa and the remainder is IGST. For an
+  intra-state supply, CGST and SGST are each round(that taxable value × rate ÷ 2), so they are
+  always equal, and the taxable value absorbs any rounding paisa so the parts sum to the amount
+  paid.
 - **Place of supply:** the booking flow records no billing address, so the supplier's state
   (derived from the GSTIN) is used and the invoice records that basis. The policy function already
   accepts a recipient state for when one is captured.
 - **Immutable document:** the issued row stores a complete snapshot — supplier legal name, GSTIN,
   address and state; recipient name and email; SAC; quantity; rate; taxable value and tax split;
-  place of supply; reverse-charge "No"; booking and payment references. A later configuration
-  change never rewrites an issued invoice.
+  place of supply; reverse-charge "No"; booking and payment references; and the date the payment
+  was received, which can be earlier than the invoice date. A later configuration change never
+  rewrites an issued invoice.
 
 ### Not configured and manual review
 
@@ -97,12 +104,14 @@ invalid, the confirmation still succeeds and the invoice is recorded as `pending
 with the missing key *names*. The customer's confirmation email says the invoice will follow.
 Other cases go to `manual_review` for Accounts: a foreign-currency booking (a GST invoice needs an
 INR basis), a non-integer amount, or a booking that was refunded before its invoice could be
-issued.
+issued. For these the customer is never promised an emailed invoice: the confirmation email asks
+them to contact the accounts team, and the Account shows the payment without an invoice line.
 
 ### Customer access
 
 - The Journeys detail shows a **Payment and invoice** card for paid bookings: amount paid,
-  payment state, and the invoice number with **Download tax invoice (PDF)**, or "Being prepared".
+  payment state, and the invoice number with **Download tax invoice (PDF)**, or "Being prepared"
+  while it waits for configuration.
 - `GET /api/account/journeys/<bookingId>/invoice` renders the PDF on demand from the stored
   snapshot (`src/lib/bookingInvoice/bookingInvoicePdf.ts`). It requires a signed-in Account and
   returns the document only to the booking's purchaser; signed-out callers get 401 and everyone
@@ -161,3 +170,7 @@ director is supplying the values; none is committed.
 - The PDF uses the standard Helvetica font: names in non-Latin scripts print as `?`.
 - Pending invoices are issued only when an operator runs `issuePendingBookingInvoices`; there is no
   scheduled job yet.
+- Bookings confirmed before this release have no invoice record and are not backfilled; the
+  Account shows their payment without an invoice line.
+- The invoice carries no signature block; "This is a computer-generated invoice" is printed
+  instead.

@@ -27,15 +27,26 @@ export function bookingEmailEventId(kind: BookingEmailKind, bookingId: Id<"booki
   return `${kind}/${bookingId}`;
 }
 
-/** The purchaser's profile. Missing or duplicate profiles never block a payment transition. */
+/**
+ * The purchaser's current profile: the oldest live row for their identity, as
+ * auth sync chooses it. Archived or merged duplicates never supply an address.
+ */
 export async function bookingOwnerProfile(
   ctx: QueryCtx | MutationCtx,
   booking: Pick<Doc<"bookings">, "userId">
 ) {
-  return await ctx.db
+  const profiles = await ctx.db
     .query("userProfiles")
     .withIndex("by_authUserId", (q) => q.eq("authUserId", booking.userId))
-    .first();
+    .take(10);
+  return (
+    profiles
+      .filter((profile) => !(profile.archivedAt || profile.mergedIntoProfileId))
+      .sort(
+        (left, right) =>
+          left.createdAt - right.createdAt || String(left._id).localeCompare(String(right._id))
+      )[0] ?? null
+  );
 }
 
 /**
@@ -96,6 +107,10 @@ const contentValidator = v.object({
   ),
 });
 
+/**
+ * What the email may say about the invoice. Only an invoice waiting for company
+ * configuration is promised by email; a manual-review case is not.
+ */
 async function invoiceFact(ctx: QueryCtx, bookingId: Id<"bookings">) {
   const invoice = await ctx.db
     .query("bookingInvoices")
@@ -104,7 +119,7 @@ async function invoiceFact(ctx: QueryCtx, bookingId: Id<"bookings">) {
   if (invoice?.status === "issued" && invoice.invoiceNumber) {
     return { invoiceNumber: invoice.invoiceNumber, status: "issued" as const };
   }
-  return { status: "preparing" as const };
+  return invoice?.status === "pending_configuration" ? { status: "preparing" as const } : null;
 }
 
 /**

@@ -70,6 +70,18 @@ describe("booking confirmation email", () => {
     expect(words(message.text)).toContain("We will email you when your GST tax invoice is ready");
   });
 
+  test("points to the accounts team instead of promising an invoice email when none is coming", async () => {
+    const message = await renderBookingEmail(
+      { ...confirmation, invoice: null },
+      { accountUrl: ACCOUNT_URL }
+    );
+    expect(rowsOf(message.html).rows.map(([label]) => label)).not.toContain("Tax invoice");
+    expect(words(message.text)).toContain(
+      "For your tax invoice, contact our accounts team at info@citiusholidays.com."
+    );
+    expect(words(message.text)).not.toContain("We will email you");
+  });
+
   test("formats foreign-currency payments in their own currency", async () => {
     const message = await renderBookingEmail(
       {

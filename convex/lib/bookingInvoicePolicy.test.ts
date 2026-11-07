@@ -110,14 +110,14 @@ describe("GST split", () => {
     });
   });
 
-  test("rounds to the paisa and keeps the parts summing to the amount paid", () => {
+  test("keeps CGST equal to SGST and the parts summing to the amount paid", () => {
     expect(
       gstSplitFromInclusiveTotal({ intraState: true, rateBasisPoints: 500, totalPaise: 25_001 })
     ).toEqual({
       cgstPaise: 595,
       igstPaise: 0,
-      sgstPaise: 596,
-      taxablePaise: 23_810,
+      sgstPaise: 595,
+      taxablePaise: 23_811,
       totalPaise: 25_001,
     });
   });
