@@ -130,6 +130,7 @@ describe("Account deletion", () => {
     expect(signOut).toHaveBeenCalledTimes(1);
     const status = view.container.querySelector('[role="status"]');
     expect(status?.textContent).toContain("Your account was deleted");
+    expect(document.activeElement).toBe(status);
     expect(view.container.textContent).toContain("ABCDEF0123456789");
     expect(view.container.querySelector('a[href="/"]')?.textContent).toBe("Return to home");
     expect(view.container.querySelector('input[name="confirmation"]')).toBeNull();
@@ -143,7 +144,7 @@ describe("Account deletion", () => {
 
     await open(view.container);
 
-    expect(view.container.textContent).toContain("Contact HR");
+    expect(view.container.querySelector('[role="status"]')?.textContent).toContain("Contact HR");
     expect(view.container.querySelector('input[name="confirmation"]')).toBeNull();
     expect(button(view.container, "Delete my account permanently")).toBeUndefined();
 
@@ -161,7 +162,7 @@ describe("Account deletion", () => {
     const view = await mount(<AccountDeletionSection navigate={navigate} signOut={signOut} />);
 
     await open(view.container);
-    expect(view.container.textContent).toContain("sign in again");
+    expect(view.container.querySelector('[role="status"]')?.textContent).toContain("sign in again");
     expect(view.container.querySelector('input[name="confirmation"]')).toBeNull();
 
     await act(async () => button(view.container, "Sign in again").click());

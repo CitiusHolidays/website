@@ -35,7 +35,10 @@ transaction, so it either completes or changes nothing.
 **Deleted:**
 
 - The Better Auth user, every session (every device signs out), every linked account (password
-  and Google) and every verification token whose value is the user id.
+  and Google) and every live verification token (for example an unused password-reset link) whose
+  value is the user id. The verification table has no index on that value, so the deletion walks
+  only unexpired tokens through the `expiresAt` index; an expired token cannot be used and names
+  only the deleted user id.
 - Customer profiles keyed by the identity, plus archived duplicates provably tied to it (archived
   owner id, or merged into a deleted profile). This includes saved passport details and the
   leaderboard preference.
@@ -67,15 +70,20 @@ customer app adds photos authored by an Account Holder, it must key them to the 
 `eraseCustomerAccount` must delete them.
 
 **A still-valid token cannot bring the account back.** A Convex token outlives its deleted session
-for a few minutes. `establishCanonicalIdentityLink`, which every customer write path goes through,
-refuses with `ACCOUNT_DELETED` once a receipt exists for the identity.
+for a few minutes. `establishCanonicalIdentityLink`, which the customer write paths that act for
+the signed-in identity go through (profile, bookings, Sacred Bharat, groups), refuses with
+`ACCOUNT_DELETED` once a receipt exists for the identity. `authSync.syncFromIdentity` is only
+scheduled when Better Auth creates a user or session, which cannot happen for a deleted user.
 
 **Confirmation email:** after commit, `accountDeletionEmail.sendConfirmation` sends "Your Citius
 Holidays account was deleted" through the transactional auth email path with purpose
 `account_deleted` and operational control `email.auth.account_deleted`. It fails closed: no
 provider key, or the control off, records `skipped`; deletion never waits for the email. Once
 the control plane is active, a new control resolves to disabled until an Admin sets it, so the
-release must set `email.auth.account_deleted` to Default or Enabled.
+release must set `email.auth.account_deleted` to Default or Enabled. The recipient address is
+an argument of the scheduled email job, so Convex keeps it in the scheduled-function record until
+that record is cleaned up (days); nothing else keeps it. The web success message therefore does
+not promise an email.
 
 ## Customer app contract
 
@@ -84,7 +92,7 @@ separate app route.
 
 | Function | Args | Returns |
 | --- | --- | --- |
-| `accountDeletion:getMyAccountDeletionEligibility` (query) | `{}` | `null` (signed out), `{ status: "staff_account" }`, `{ status: "reauthentication_required" }`, or `{ status: "ready", reauthenticateBy: number }` (ms epoch) |
+| `accountDeletion:getMyAccountDeletionEligibility` (query) | `{ referenceNow: number }` (the caller's clock, ms epoch; queries do not read the clock) | `null` (signed out), `{ status: "staff_account" }`, `{ status: "reauthentication_required" }`, or `{ status: "ready", reauthenticateBy: number }` (ms epoch). Advisory only; the mutation enforces. |
 | `accountDeletion:deleteMyAccount` (mutation) | `{ confirmation: "DELETE" }` | `{ status: "deleted", deletedAt: number, reference: string }` |
 
 Errors are `ConvexError` with string data: `UNAUTHORIZED`, `STAFF_ACCOUNT_DELETION_REFUSED`,

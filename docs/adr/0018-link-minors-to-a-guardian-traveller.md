@@ -91,7 +91,10 @@ record. The note is trimmed, at most 500 characters, and absent when empty.
 - The traveller master export adds a Parental consent column: Yes or No for a minor, blank
   otherwise. On import, Yes records the mark (by the importing staff member at import time,
   unless already recorded), No clears it, blank or no column leaves it, and Yes on a row that is
-  not a known minor is ignored with a message on that reconciliation-report row.
+  not a known minor is ignored with a message on that reconciliation-report row. The column is a
+  traveller edit, so it applies only when the importer may edit travellers (`manage:travellers`);
+  a passenger import by Ticketing alone ignores it with a row message. Like every other column,
+  re-importing an old sheet writes its values over newer edits.
 
 **Not built: the guardian's tick at trip-invite acceptance.** When customer invites exist:
 
@@ -101,8 +104,9 @@ record. The note is trimmed, at most 500 characters, and absent when empty.
   consent text version, and server time. Only a guardian whose entitlement names their own
   Traveller row, and only for minors naming that row in either guardian slot, may tick.
 - It must call a server mutation that checks that entitlement; it must not write
-  `travellers.parentalConsent`, which stays the Operations mark (`source: "operations"`), and it
-  must not infer consent from a guardian link, a matching email or a Client contact.
+  `travellers.parentalConsent`, which stays the Operations mark (it has no `source` field; it is
+  the Operations source by definition), and it must not infer consent from a guardian link, a
+  matching email or a Client contact.
 - Withdrawal is a new record, not a deletion. Staff screens may show both sources; neither
   overwrites the other.
 

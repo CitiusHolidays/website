@@ -21,6 +21,7 @@ const staff = [
   { id: "ops2", name: "Synthetic Ops Two", roles: ["Operations Head"] },
   { id: "viewer", name: "Synthetic Viewer", roles: ["Sales"] },
   { id: "outsider", name: "Synthetic Outsider", roles: ["Operations"] },
+  { id: "ticketing", name: "Synthetic Ticketing", roles: ["Ticketing"] },
 ] as const;
 
 async function setup() {
@@ -363,6 +364,39 @@ describe("parental consent column on import", () => {
       expect(await row(f, result.travellerId)).toMatchObject({ parentalConsent: null });
       expect(await consentMessages(f, result.travellerId)).toEqual([]);
     }
+  });
+});
+
+describe("parental consent on a passenger import by staff who cannot edit travellers", () => {
+  test("a Ticketing-only import neither records nor clears consent and says why", async () => {
+    const f = await setup();
+    await f.t.run((ctx) =>
+      ctx.db.patch("jobCards", f.jobCardId, { ticketingOwnerId: f.staffIds.ticketing })
+    );
+    const { travellerId } = await importAs(f, "ops", {
+      fullName: "Isha Rao",
+      minorStatus: "minor",
+      parentalConsentReceived: true,
+    });
+    const recorded = (await row(f, travellerId))?.parentalConsent;
+    expect(recorded).toMatchObject({ recordedByName: "Synthetic Ops Lead" });
+
+    const clearing = await importAs(f, "ticketing", {
+      fullName: "Isha Rao",
+      parentalConsentReceived: false,
+    });
+    expect(clearing.rowResults[0]?.message).toBe(
+      "Parental consent ignored: only staff who can edit travellers can record or clear it."
+    );
+    expect((await row(f, travellerId))?.parentalConsent).toEqual(recorded);
+
+    const fresh = await importAs(f, "ticketing", {
+      fullName: "Dev Rao",
+      minorStatus: "minor",
+      parentalConsentReceived: true,
+    });
+    expect(await row(f, fresh.travellerId)).toMatchObject({ isMinor: true, parentalConsent: null });
+    expect(await consentMessages(f, fresh.travellerId)).toEqual([]);
   });
 });
 

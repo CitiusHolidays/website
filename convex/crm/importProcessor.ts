@@ -6,7 +6,13 @@ import { propertiesWhen } from "../lib/runtimeValues";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import type { InternalPassengerImportRow } from "./importRows";
 import { classifyImportError, publicImportErrorMessage } from "./importWorkerPolicy";
-import { canSeeJobCardRecord, createActivity, jobCardRecordGrant, type PortalAccess } from "./lib";
+import {
+  canSeeJobCardRecord,
+  createActivity,
+  jobCardRecordGrant,
+  PERMISSIONS,
+  type PortalAccess,
+} from "./lib";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { buildTravellerListSearchText, markListSearchDirty } from "./listSearch";
 import { logParentalConsentChange, parentalConsentDecisionFor } from "./travellerGuardianConsent";
@@ -15,6 +21,9 @@ import { minorReferenceDate, resolveMinorStatus } from "./travellerGuardianPolic
 /** Shown on the import row when the sheet says consent was received for a non-minor. */
 const CONSENT_IGNORED_MESSAGE =
   "Parental consent ignored: the traveller is not recorded as a minor.";
+/** Shown when the importer may not edit travellers, so the consent column cannot apply. */
+const CONSENT_NOT_PERMITTED_MESSAGE =
+  "Parental consent ignored: only staff who can edit travellers can record or clear it.";
 
 export interface TravellerDoc {
   _id: Id<"travellers">;
@@ -652,15 +661,21 @@ function importedParentalConsent(
   const nextIsMinor = (travellerPatch.isMinor ?? match?.isMinor) as boolean | undefined;
   // SAFETY: a match is a stored traveller row, so its parentalConsent follows the schema.
   const current = match?.parentalConsent as Doc<"travellers">["parentalConsent"];
-  return parentalConsentDecisionFor(
+  // The column is a traveller edit, so it needs the editor's permission (ADR 0018); a passenger
+  // import alone (for example Ticketing) still clears the mark when minor status ends.
+  const notPermitted =
+    row.parentalConsentReceived !== undefined &&
+    !access.permissions.includes(PERMISSIONS.MANAGE_TRAVELLERS);
+  const decision = parentalConsentDecisionFor(
     access,
     current,
     nextIsMinor,
-    row.parentalConsentReceived === undefined
+    row.parentalConsentReceived === undefined || notPermitted
       ? undefined
       : { received: row.parentalConsentReceived },
     now
   );
+  return { ...decision, notPermitted };
 }
 
 function travellerPatchForImport(
@@ -1078,6 +1093,7 @@ async function saveImportedTraveller(
     committedTraveller,
     isNewTraveller,
     ...propertiesWhen(consent.refused, () => ({ message: CONSENT_IGNORED_MESSAGE })),
+    ...propertiesWhen(consent.notPermitted, () => ({ message: CONSENT_NOT_PERMITTED_MESSAGE })),
     travellerId,
   };
 }

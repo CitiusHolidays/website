@@ -556,7 +556,11 @@ describe("self-service account deletion", () => {
 
     for (const login of [linked, unlinked]) {
       const caller = asLogin(t, login);
-      expect(await caller.query(api.accountDeletion.getMyAccountDeletionEligibility, {})).toEqual({
+      expect(
+        await caller.query(api.accountDeletion.getMyAccountDeletionEligibility, {
+          referenceNow: Date.now(),
+        })
+      ).toEqual({
         status: "staff_account",
       });
       await expect(
@@ -577,28 +581,49 @@ describe("self-service account deletion", () => {
     });
     const caller = asLogin(t, stale);
 
-    expect(await caller.query(api.accountDeletion.getMyAccountDeletionEligibility, {})).toEqual({
+    expect(
+      await caller.query(api.accountDeletion.getMyAccountDeletionEligibility, {
+        referenceNow: Date.now(),
+      })
+    ).toEqual({
       status: "reauthentication_required",
     });
     await expect(
       caller.mutation(api.accountDeletion.deleteMyAccount, { confirmation: "DELETE" })
     ).rejects.toThrow("REAUTHENTICATION_REQUIRED");
 
-    const sessionless = t.withIdentity({
-      email: stale.email,
-      issuer: ISSUER,
-      subject: stale.authUserId,
-      tokenIdentifier: stale.canonical,
-    });
-    await expect(
-      sessionless.mutation(api.accountDeletion.deleteMyAccount, { confirmation: "DELETE" })
-    ).rejects.toThrow("REAUTHENTICATION_REQUIRED");
     expect((await betterAuthRows(t, stale.authUserId)).user).not.toBeNull();
+  });
 
-    const fresh = await createLogin(t, { email: "fresh@account-deletion.test", name: "Fresh" });
+  test("the recent sign-in must be this token's own session", async () => {
+    const t = createHarness();
+    const fresh = await createLogin(t, { email: "own-session@account-deletion.test", name: "O" });
+    const other = await createLogin(t, { email: "other-session@account-deletion.test", name: "X" });
+    const identity = {
+      email: fresh.email,
+      issuer: ISSUER,
+      subject: fresh.authUserId,
+      tokenIdentifier: fresh.canonical,
+    };
+
+    const withoutSession = t.withIdentity(identity);
+    const withOthersSession = t.withIdentity({ ...identity, sessionId: other.sessionId });
+    for (const caller of [withoutSession, withOthersSession]) {
+      expect(
+        await caller.query(api.accountDeletion.getMyAccountDeletionEligibility, {
+          referenceNow: Date.now(),
+        })
+      ).toEqual({ status: "reauthentication_required" });
+      await expect(
+        caller.mutation(api.accountDeletion.deleteMyAccount, { confirmation: "DELETE" })
+      ).rejects.toThrow("REAUTHENTICATION_REQUIRED");
+    }
+    expect((await betterAuthRows(t, fresh.authUserId)).user).not.toBeNull();
+    expect((await betterAuthRows(t, other.authUserId)).sessions).toBe(1);
+
     const eligibility = await asLogin(t, fresh).query(
       api.accountDeletion.getMyAccountDeletionEligibility,
-      {}
+      { referenceNow: Date.now() }
     );
     expect(eligibility?.status).toBe("ready");
   });
@@ -615,7 +640,11 @@ describe("self-service account deletion", () => {
     await expect(
       t.mutation(api.accountDeletion.deleteMyAccount, { confirmation: "DELETE" })
     ).rejects.toThrow("UNAUTHORIZED");
-    expect(await t.query(api.accountDeletion.getMyAccountDeletionEligibility, {})).toBeNull();
+    expect(
+      await t.query(api.accountDeletion.getMyAccountDeletionEligibility, {
+        referenceNow: Date.now(),
+      })
+    ).toBeNull();
     expect((await betterAuthRows(t, login.authUserId)).user).not.toBeNull();
   });
 

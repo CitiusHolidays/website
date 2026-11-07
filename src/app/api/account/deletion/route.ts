@@ -85,7 +85,7 @@ async function handleEligibility() {
   try {
     const eligibility = await fetchAuthQuery(
       anyApi.accountDeletion.getMyAccountDeletionEligibility,
-      {},
+      { referenceNow: Date.now() },
       { token }
     );
     return eligibility

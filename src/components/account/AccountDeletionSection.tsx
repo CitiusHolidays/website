@@ -5,7 +5,7 @@ import {
   isAccountDeletionConfirmed,
 } from "@convex/lib/accountDeletionContract";
 import Link from "next/link";
-import { type FormEvent, useId, useRef, useState } from "react";
+import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/application-button";
 import { Field, Input } from "@/components/ui/application-field";
 import { isJsonObject, type JsonValue } from "@/lib/jsonValue";
@@ -75,6 +75,19 @@ async function readResponse(response: Response): Promise<DeletionResponse> {
 }
 
 const READY: Phase = { error: null, kind: "ready", submitting: false };
+
+/** What the panel's live region says in each state; other states say nothing. */
+const PHASE_STATUS = {
+  loading: "Checking your account…",
+  reauth:
+    "For your security, sign in again, then come back to Settings and delete your account within 10 minutes.",
+  staff:
+    "This login belongs to a Citius staff account, so it can't be deleted here. Contact HR to close your staff account.",
+} satisfies Partial<Record<Phase["kind"], string>>;
+
+function phaseStatus(kind: Phase["kind"]) {
+  return kind === "loading" || kind === "reauth" || kind === "staff" ? PHASE_STATUS[kind] : "";
+}
 
 function phaseForCode(code: string): Phase | null {
   if (code === "staff_account") {
@@ -148,6 +161,10 @@ function Consequences() {
 }
 
 function DeletedNotice({ headingId, reference }: { headingId: string; reference: string }) {
+  const noticeRef = useRef<HTMLDivElement>(null);
+  // The form that had focus is gone; move focus to the outcome so keyboard and screen-reader
+  // users land on it.
+  useEffect(() => noticeRef.current?.focus(), []);
   return (
     <section aria-labelledby={headingId} className="p-6" id="delete-account">
       <h4 className="sr-only" id={headingId}>
@@ -156,13 +173,15 @@ function DeletedNotice({ headingId, reference }: { headingId: string; reference:
       <div
         aria-atomic="true"
         aria-live="polite"
-        className="rounded-sm border border-[#c7ddcf] bg-[#eff7f1] px-4 py-4 text-[#2d6349]"
+        className="account-focus rounded-sm border border-[#c7ddcf] bg-[#eff7f1] px-4 py-4 text-[#2d6349]"
+        ref={noticeRef}
         role="status"
+        tabIndex={-1}
       >
         <p className="font-semibold">Your account was deleted</p>
         <p className="mt-1 text-sm leading-5">
-          You have been signed out everywhere and we have emailed you a confirmation. Your reference
-          is <span className="font-mono tabular-nums">{reference}</span>.
+          You have been signed out everywhere. Your reference is{" "}
+          <span className="font-mono tabular-nums">{reference}</span>; keep it if you contact us.
         </p>
       </div>
       <Link
@@ -184,10 +203,6 @@ function ReauthenticationPrompt({
 }) {
   return (
     <div className="space-y-3">
-      <p className="text-[var(--account-ink)] text-sm leading-6">
-        For your security, sign in again, then come back to Settings and delete your account within
-        10 minutes.
-      </p>
       <div className="flex flex-wrap gap-3">
         <Button className={DANGER_FILLED} onClick={onSignIn} surface="account" type="button">
           Sign in again
@@ -350,17 +365,14 @@ export function AccountDeletionSection({
 
       {isOpen ? (
         <div className="space-y-5 px-6 pb-6" id={panelId}>
-          {phase.kind === "loading" ? (
-            <p aria-live="polite" className="text-[var(--account-muted)] text-sm" role="status">
-              Checking your account…
-            </p>
-          ) : null}
-          {phase.kind === "staff" ? (
-            <p className="text-[var(--account-ink)] text-sm leading-6">
-              This login belongs to a Citius staff account, so it can't be deleted here. Contact HR
-              to close your staff account.
-            </p>
-          ) : null}
+          <p
+            aria-atomic="true"
+            aria-live="polite"
+            className="text-[var(--account-ink)] text-sm leading-6 empty:hidden"
+            role="status"
+          >
+            {phaseStatus(phase.kind)}
+          </p>
           {phase.kind === "unavailable" ? (
             <ProfileAlert message={GENERIC_FAILURE} type="error" />
           ) : null}

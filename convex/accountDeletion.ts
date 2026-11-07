@@ -107,9 +107,13 @@ const deletionResultValidator = v.object({
   status: v.literal("deleted"),
 });
 
+/**
+ * Advisory status for the deletion screen. `referenceNow` is the caller's clock (queries must not
+ * read it); only `deleteMyAccount` enforces the recent sign-in.
+ */
 export const getMyAccountDeletionEligibility = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { referenceNow: v.number() },
+  handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     const canonical = identity ? canonicalAuthUserId(identity) : null;
     if (!(identity && canonical)) {
@@ -119,7 +123,7 @@ export const getMyAccountDeletionEligibility = query({
     if (await isStaffLogin(ctx, identity, loginEmails(identity, login))) {
       return { status: "staff_account" as const };
     }
-    const fresh = await freshSession(ctx, identity, Date.now());
+    const fresh = await freshSession(ctx, identity, args.referenceNow);
     return fresh
       ? { reauthenticateBy: fresh.reauthenticateBy, status: "ready" as const }
       : { status: "reauthentication_required" as const };

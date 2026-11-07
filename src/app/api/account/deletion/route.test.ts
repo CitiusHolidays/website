@@ -74,7 +74,13 @@ describe("Account deletion route", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).toBe("private, no-store");
     expect(await response.json()).toEqual({ reauthenticateBy: 2, status: "ready" });
-    expect(calls).toEqual([{ args: {}, kind: "query", options: { token: "account-token" } }]);
+    expect(calls).toEqual([
+      {
+        args: { referenceNow: expect.any(Number) },
+        kind: "query",
+        options: { token: "account-token" },
+      },
+    ]);
   });
 
   test("forwards only the typed confirmation and returns the receipt reference", async () => {

@@ -58,7 +58,45 @@ async function deleteAllPages(deletePage: (cursor: string | null) => Promise<Del
  * Better Auth owns the login: the user, every session (so all devices sign out), every linked
  * provider account (password and Google) and outstanding verification tokens.
  */
-async function eraseBetterAuthLogin(ctx: MutationCtx, betterAuthUserId: string) {
+/**
+ * Verification tokens have no index on their user id, so walk only the live ones through the
+ * `expiresAt` index; a full-table scan would grow with every abandoned reset link. An expired
+ * token can no longer be used and names only the deleted user id.
+ */
+async function deleteLiveVerifications(ctx: MutationCtx, betterAuthUserId: string, now: number) {
+  const ownedIds: string[] = [];
+  let cursor: string | null = null;
+  for (;;) {
+    const page: {
+      continueCursor: string;
+      isDone: boolean;
+      page: { _id: string; value?: string }[];
+    } =
+      // biome-ignore lint/performance/noAwaitInLoops: each page continues from the previous page's cursor.
+      await ctx.runQuery(components.betterAuth.adapter.findMany, {
+        model: "verification",
+        paginationOpts: { cursor, numItems: BETTER_AUTH_PAGE_SIZE },
+        where: [{ field: "expiresAt", operator: "gt", value: now }],
+      });
+    ownedIds.push(
+      ...page.page.filter((row) => row.value === betterAuthUserId).map((row) => row._id)
+    );
+    if (page.isDone) {
+      break;
+    }
+    cursor = page.continueCursor;
+  }
+  await Promise.all(
+    ownedIds.map((id) =>
+      ctx.runMutation(components.betterAuth.adapter.deleteOne, {
+        input: { model: "verification", where: [{ field: "_id", operator: "eq", value: id }] },
+      })
+    )
+  );
+  return ownedIds.length;
+}
+
+async function eraseBetterAuthLogin(ctx: MutationCtx, betterAuthUserId: string, now: number) {
   const paginationOpts = (cursor: string | null) => ({ cursor, numItems: BETTER_AUTH_PAGE_SIZE });
   const authSessions = await deleteAllPages((cursor) =>
     ctx.runMutation(components.betterAuth.adapter.deleteMany, {
@@ -78,15 +116,7 @@ async function eraseBetterAuthLogin(ctx: MutationCtx, betterAuthUserId: string) 
       paginationOpts: paginationOpts(cursor),
     })
   );
-  const authVerifications = await deleteAllPages((cursor) =>
-    ctx.runMutation(components.betterAuth.adapter.deleteMany, {
-      input: {
-        model: "verification",
-        where: [{ field: "value", operator: "eq", value: betterAuthUserId }],
-      },
-      paginationOpts: paginationOpts(cursor),
-    })
-  );
+  const authVerifications = await deleteLiveVerifications(ctx, betterAuthUserId, now);
   const removedUser = await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
     input: { model: "user", where: [{ field: "_id", operator: "eq", value: betterAuthUserId }] },
   });
@@ -333,7 +363,7 @@ export async function eraseCustomerAccount(
   const entitlementsRevoked = await revokeEntitlements(ctx, target);
   const bookingsDetached = await detachBookings(ctx, target);
   const identityLinks = await eraseIdentityLinks(ctx, target);
-  const login = await eraseBetterAuthLogin(ctx, target.betterAuthUserId);
+  const login = await eraseBetterAuthLogin(ctx, target.betterAuthUserId, target.now);
   return {
     ...login,
     bookingsDetached,
