@@ -42,6 +42,155 @@ export function AuthVerificationNotice({ email, onBackToSignIn }) {
   );
 }
 
+function authSubmitLabel(copy, isLoading, mode) {
+  if (isLoading) {
+    return "Processing…";
+  }
+  return mode === "signin" ? copy.submitSignIn : copy.submitSignUp;
+}
+
+function AuthNameField({ mode, onInputChange, value }) {
+  return (
+    <div className="group">
+      <label className="mb-1.5 ml-1 block font-medium text-[#0f172a] text-sm" htmlFor="auth-name">
+        Full Name
+      </label>
+      <div className="relative">
+        <input
+          autoComplete="name"
+          className={AUTH_INPUT_CLASS}
+          id="auth-name"
+          name="name"
+          onChange={onInputChange}
+          placeholder="Your full name"
+          required={mode === "signup"}
+          type="text"
+          value={value}
+        />
+        <User
+          aria-hidden="true"
+          className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-auth-accent-ink"
+        />
+      </div>
+    </div>
+  );
+}
+
+function AuthEmailField({ onInputChange, value }) {
+  return (
+    <div className="group">
+      <label className="mb-1.5 ml-1 block font-medium text-[#0f172a] text-sm" htmlFor="auth-email">
+        Email Address
+      </label>
+      <div className="relative">
+        <input
+          autoComplete="email"
+          className={AUTH_INPUT_CLASS}
+          id="auth-email"
+          name="email"
+          onChange={onInputChange}
+          placeholder="you@example.com"
+          required
+          type="email"
+          value={value}
+        />
+        <Mail
+          aria-hidden="true"
+          className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-auth-accent-ink"
+        />
+      </div>
+    </div>
+  );
+}
+
+function AuthPasswordField({ mode, onInputChange, onTogglePassword, showPassword, value }) {
+  return (
+    <div className="group">
+      <div className="mb-1.5 ml-1 flex items-center justify-between">
+        <label className="block font-medium text-[#0f172a] text-sm" htmlFor="auth-password">
+          Password
+        </label>
+        {mode === "signin" && (
+          <Link className={`${AUTH_LIGHT_LINK_CLASS} text-sm`} href="/auth/forgot-password">
+            Forgot password?
+          </Link>
+        )}
+      </div>
+      <div className="relative">
+        <input
+          autoComplete={mode === "signup" ? "new-password" : "current-password"}
+          className={`${AUTH_INPUT_CLASS} pr-12`}
+          id="auth-password"
+          name="password"
+          onChange={onInputChange}
+          placeholder="••••••••"
+          required
+          type={showPassword ? "text" : "password"}
+          value={value}
+        />
+        <Lock
+          aria-hidden="true"
+          className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-auth-accent-ink"
+        />
+        <button
+          aria-label={showPassword ? "Hide password" : "Show password"}
+          className="absolute top-1/2 right-1 grid min-h-11 min-w-11 -translate-y-1/2 place-items-center rounded-lg text-[#64748b] transition-[color,scale] hover:text-[#0f172a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-1 active:scale-95 motion-reduce:active:scale-100"
+          onClick={onTogglePassword}
+          type="button"
+        >
+          {showPassword ? (
+            <EyeOff aria-hidden="true" className="size-5" />
+          ) : (
+            <Eye aria-hidden="true" className="size-5" />
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AuthFormError({ formError, formStatusRef }) {
+  return (
+    <div
+      aria-atomic="true"
+      className={formError ? "" : "sr-only"}
+      id="auth-form-error"
+      ref={formStatusRef}
+      role="alert"
+      tabIndex={formError ? -1 : undefined}
+    >
+      {formError ? (
+        <m.div
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 p-3 text-red-600 text-sm"
+          initial={{ opacity: 0, y: -10 }}
+        >
+          <div aria-hidden="true" className="size-1.5 rounded-full bg-red-500" />
+          {formError}
+        </m.div>
+      ) : null}
+    </div>
+  );
+}
+
+function AuthModeSwitch({ mode, onToggleMode }) {
+  return (
+    <div className="mt-6 text-center">
+      <p className="text-[#64748b]">
+        {mode === "signin" ? "Don't have an account?" : "Already have an account?"}
+        <button
+          className={`${AUTH_LIGHT_LINK_CLASS} group relative ml-2`}
+          onClick={onToggleMode}
+          type="button"
+        >
+          {mode === "signin" ? "Sign up" : "Sign in"}
+          <span className="absolute -bottom-0.5 left-0 size-0.5 bg-auth-accent-ink transition-[width] group-hover:w-full" />
+        </button>
+      </p>
+    </div>
+  );
+}
+
 export function AuthLoginForm({
   variant,
   copy,
@@ -56,12 +205,7 @@ export function AuthLoginForm({
   onTogglePassword,
   onToggleMode,
 }) {
-  let submitLabel = copy.submitSignUp;
-  if (isLoading) {
-    submitLabel = "Processing…";
-  } else if (mode === "signin") {
-    submitLabel = copy.submitSignIn;
-  }
+  const submitLabel = authSubmitLabel(copy, isLoading, mode);
 
   return (
     <>
@@ -75,122 +219,22 @@ export function AuthLoginForm({
               style={{ originY: 0 }}
               transition={{ duration: 0.2 }}
             >
-              <div className="group">
-                <label
-                  className="mb-1.5 ml-1 block font-medium text-[#0f172a] text-sm"
-                  htmlFor="auth-name"
-                >
-                  Full Name
-                </label>
-                <div className="relative">
-                  <input
-                    autoComplete="name"
-                    className={AUTH_INPUT_CLASS}
-                    id="auth-name"
-                    name="name"
-                    onChange={onInputChange}
-                    placeholder="Your full name"
-                    required={mode === "signup"}
-                    type="text"
-                    value={formData.name}
-                  />
-                  <User
-                    aria-hidden="true"
-                    className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-auth-accent-ink"
-                  />
-                </div>
-              </div>
+              <AuthNameField mode={mode} onInputChange={onInputChange} value={formData.name} />
             </m.div>
           )}
         </AnimatePresence>
 
-        <div className="group">
-          <label
-            className="mb-1.5 ml-1 block font-medium text-[#0f172a] text-sm"
-            htmlFor="auth-email"
-          >
-            Email Address
-          </label>
-          <div className="relative">
-            <input
-              autoComplete="email"
-              className={AUTH_INPUT_CLASS}
-              id="auth-email"
-              name="email"
-              onChange={onInputChange}
-              placeholder="you@example.com"
-              required
-              type="email"
-              value={formData.email}
-            />
-            <Mail
-              aria-hidden="true"
-              className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-auth-accent-ink"
-            />
-          </div>
-        </div>
+        <AuthEmailField onInputChange={onInputChange} value={formData.email} />
 
-        <div className="group">
-          <div className="mb-1.5 ml-1 flex items-center justify-between">
-            <label className="block font-medium text-[#0f172a] text-sm" htmlFor="auth-password">
-              Password
-            </label>
-            {mode === "signin" && (
-              <Link className={`${AUTH_LIGHT_LINK_CLASS} text-sm`} href="/auth/forgot-password">
-                Forgot password?
-              </Link>
-            )}
-          </div>
-          <div className="relative">
-            <input
-              autoComplete={mode === "signup" ? "new-password" : "current-password"}
-              className={`${AUTH_INPUT_CLASS} pr-12`}
-              id="auth-password"
-              name="password"
-              onChange={onInputChange}
-              placeholder="••••••••"
-              required
-              type={showPassword ? "text" : "password"}
-              value={formData.password}
-            />
-            <Lock
-              aria-hidden="true"
-              className="absolute top-1/2 left-4 size-5 -translate-y-1/2 text-[#94a3b8] transition-colors group-focus-within:text-auth-accent-ink"
-            />
-            <button
-              aria-label={showPassword ? "Hide password" : "Show password"}
-              className="absolute top-1/2 right-1 grid min-h-11 min-w-11 -translate-y-1/2 place-items-center rounded-lg text-[#64748b] transition-[color,scale] hover:text-[#0f172a] focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-1 active:scale-95 motion-reduce:active:scale-100"
-              onClick={onTogglePassword}
-              type="button"
-            >
-              {showPassword ? (
-                <EyeOff aria-hidden="true" className="size-5" />
-              ) : (
-                <Eye aria-hidden="true" className="size-5" />
-              )}
-            </button>
-          </div>
-        </div>
+        <AuthPasswordField
+          mode={mode}
+          onInputChange={onInputChange}
+          onTogglePassword={onTogglePassword}
+          showPassword={showPassword}
+          value={formData.password}
+        />
 
-        <div
-          aria-atomic="true"
-          className={formError ? "" : "sr-only"}
-          id="auth-form-error"
-          ref={formStatusRef}
-          role="alert"
-          tabIndex={formError ? -1 : undefined}
-        >
-          {formError ? (
-            <m.div
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-2 rounded-lg border border-red-100 bg-red-50 p-3 text-red-600 text-sm"
-              initial={{ opacity: 0, y: -10 }}
-            >
-              <div aria-hidden="true" className="size-1.5 rounded-full bg-red-500" />
-              {formError}
-            </m.div>
-          ) : null}
-        </div>
+        <AuthFormError formError={formError} formStatusRef={formStatusRef} />
 
         <button
           aria-busy={isLoading}
@@ -208,21 +252,7 @@ export function AuthLoginForm({
         </button>
       </form>
 
-      {variant.allowSignup ? (
-        <div className="mt-6 text-center">
-          <p className="text-[#64748b]">
-            {mode === "signin" ? "Don't have an account?" : "Already have an account?"}
-            <button
-              className={`${AUTH_LIGHT_LINK_CLASS} group relative ml-2`}
-              onClick={onToggleMode}
-              type="button"
-            >
-              {mode === "signin" ? "Sign up" : "Sign in"}
-              <span className="absolute -bottom-0.5 left-0 size-0.5 bg-auth-accent-ink transition-[width] group-hover:w-full" />
-            </button>
-          </p>
-        </div>
-      ) : null}
+      {variant.allowSignup ? <AuthModeSwitch mode={mode} onToggleMode={onToggleMode} /> : null}
     </>
   );
 }

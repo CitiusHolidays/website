@@ -206,39 +206,102 @@ function OverviewTab({ overview, trail }) {
   );
 }
 
-export function TrailTabContent({ activeTab, trail, relatedBlogPosts, flags, reviewsList }) {
-  const {
-    overview,
-    highlights,
-    itinerary,
-    details,
-    info,
-    layoutVariant = "trek",
-    gallery = [],
-    bookingOptions = [],
-    media,
-  } = trail;
+// Each panel renders only when its tab is active and the trail has that content.
+const TRAIL_TAB_PANELS = new Map([
+  [
+    "overview",
+    {
+      isAvailable: () => true,
+      render: ({ trail }) => <OverviewTab overview={trail.overview} trail={trail} />,
+    },
+  ],
+  [
+    "highlights",
+    {
+      isAvailable: ({ trail }) => trail.highlights,
+      render: ({ trail }) => <HighlightsTab highlights={trail.highlights} />,
+    },
+  ],
+  [
+    "itinerary",
+    {
+      isAvailable: ({ trail }) => trail.itinerary,
+      render: ({ trail }) => (
+        <ItineraryTab
+          itinerary={trail.itinerary}
+          itineraryTimelineImage={trail.itineraryTimelineImage}
+        />
+      ),
+    },
+  ],
+  [
+    "details",
+    {
+      isAvailable: ({ trail }) => trail.details,
+      render: ({ trail }) => <PackageDetailsTab trail={trail} />,
+    },
+  ],
+  [
+    "info",
+    {
+      isAvailable: ({ trail }) => trail.info,
+      render: ({ trail: { info, layoutVariant = "trek" } }) => (
+        <InfoTab info={info} layoutVariant={layoutVariant} />
+      ),
+    },
+  ],
+  [
+    "gallery",
+    {
+      isAvailable: ({ flags }) => flags.hasGallery,
+      render: ({ trail: { gallery = [] } }) => <GalleryTab gallery={gallery} />,
+    },
+  ],
+  [
+    "booking",
+    {
+      isAvailable: ({ flags }) => flags.hasBooking,
+      render: ({ trail: { bookingOptions = [] } }) => <BookingTab options={bookingOptions} />,
+    },
+  ],
+  [
+    "reviews",
+    {
+      isAvailable: ({ flags }) => flags.hasReviews,
+      render: ({ reviewsList }) => <ReviewsTab testimonials={reviewsList} />,
+    },
+  ],
+  [
+    "media",
+    {
+      isAvailable: ({ flags }) => flags.hasMedia,
+      render: ({ trail }) => <MediaTab media={trail.media} />,
+    },
+  ],
+  [
+    "blogs",
+    {
+      isAvailable: ({ flags }) => flags.hasBlogs,
+      render: ({ relatedBlogPosts }) => <BlogsTab posts={relatedBlogPosts} />,
+    },
+  ],
+]);
 
+function renderActiveTrailPanel(activeTab, context) {
+  const panel = TRAIL_TAB_PANELS.get(activeTab);
+  if (!panel?.isAvailable(context)) {
+    return null;
+  }
+  return panel.render(context);
+}
+
+export function TrailTabContent({ activeTab, trail, relatedBlogPosts, flags, reviewsList }) {
   return (
     <div className="relative min-h-[400px] overflow-hidden rounded-2xl border border-brand-light bg-white p-5 shadow-brand-dark/5 shadow-xl md:rounded-3xl md:p-10 lg:p-14">
       <div className="pointer-events-none absolute top-0 right-0 h-48 w-48 translate-x-1/2 -translate-y-1/2 rounded-full bg-citius-orange/5 blur-3xl md:h-64 md:w-64" />
 
       <AnimatePresence mode="wait">
-        {activeTab === "overview" && <OverviewTab overview={overview} trail={trail} />}
-        {activeTab === "highlights" && highlights && <HighlightsTab highlights={highlights} />}
-        {activeTab === "itinerary" && itinerary && (
-          <ItineraryTab
-            itinerary={itinerary}
-            itineraryTimelineImage={trail.itineraryTimelineImage}
-          />
-        )}
-        {activeTab === "details" && details && <PackageDetailsTab trail={trail} />}
-        {activeTab === "info" && info && <InfoTab info={info} layoutVariant={layoutVariant} />}
-        {activeTab === "gallery" && flags.hasGallery && <GalleryTab gallery={gallery} />}
-        {activeTab === "booking" && flags.hasBooking && <BookingTab options={bookingOptions} />}
-        {activeTab === "reviews" && flags.hasReviews && <ReviewsTab testimonials={reviewsList} />}
-        {activeTab === "media" && flags.hasMedia && <MediaTab media={media} />}
-        {activeTab === "blogs" && flags.hasBlogs && <BlogsTab posts={relatedBlogPosts} />}
+        {renderActiveTrailPanel(activeTab, { flags, relatedBlogPosts, reviewsList, trail })}
       </AnimatePresence>
     </div>
   );

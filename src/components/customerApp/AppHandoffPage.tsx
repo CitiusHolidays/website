@@ -1,9 +1,26 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import logo from "@/static/logos/logo.webp";
 import { type AppHandoffKind, appHandoffUrl, tokenFromHash } from "./appHandoff";
+
+/**
+ * The link's hash, read once per page: the effect below clears it from the address bar, so a
+ * later read would see nothing. Keyed by path so another handoff page reads only its own link.
+ */
+let capturedLink: { hash: string; path: string } | null = null;
+
+function linkHash() {
+  const { hash, pathname } = window.location;
+  if (hash) {
+    capturedLink = { hash, path: pathname };
+  }
+  return capturedLink?.path === pathname ? capturedLink.hash : "";
+}
+
+const neverChanges = () => () => undefined;
+const notReadOnServer = () => null;
 
 const copy = {
   invite: {
@@ -22,15 +39,15 @@ const focusOutline =
   "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#204C94]";
 
 export default function AppHandoffPage({ kind }: { kind: AppHandoffKind }) {
-  const [href, setHref] = useState<string | null>(null);
-  const [checked, setChecked] = useState(false);
+  // null on the server and during hydration; the link's hash ("" when absent) once in the browser.
+  const hash = useSyncExternalStore<string | null>(neverChanges, linkHash, notReadOnServer);
+  const checked = hash !== null;
+  const token = hash ? tokenFromHash(hash) : null;
+  const href = token ? appHandoffUrl(kind, token) : null;
   useEffect(() => {
-    const token = tokenFromHash(window.location.hash);
     // Drop the token from the address bar and history once it has been read.
     window.history.replaceState(null, "", window.location.pathname);
-    setHref(token ? appHandoffUrl(kind, token) : null);
-    setChecked(true);
-  }, [kind]);
+  }, []);
   const text = copy[kind];
   return (
     <main className="mx-auto flex min-h-screen max-w-lg flex-col justify-center gap-6 px-6 py-16 text-[#0B1026]">

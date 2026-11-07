@@ -12,6 +12,7 @@ const review = mock(async () => null);
 const correctTimes = mock(async () => null);
 const recordManualEntry = mock(async () => "officeCheckIns_new");
 const deleteCheckIn = mock(async () => ({ mode: "erase" }));
+const chooseAwayReason = mock(async () => null);
 const toastSuccess = mock(() => undefined);
 const fetchMock = mock(async () => Response.json({ ok: true, replayed: false }));
 const getCurrentPosition = mock(() => undefined);
@@ -105,6 +106,14 @@ function team() {
         checkIn("staff_meera", { clockOutAt: Date.UTC(2026, 10, 5, 12, 30), status: "closed" })
       ),
       teamRow("staff_dev", "Dev Patel", null),
+      teamRow(
+        "staff_rhea",
+        "Rhea Kapoor",
+        checkIn("staff_rhea", {
+          awayReason: "on_tour",
+          clockIn: verification("fail", "outside_allowlist"),
+        })
+      ),
     ],
     truncated: false,
     workDate: "2026-11-05",
@@ -112,6 +121,7 @@ function team() {
 }
 
 const MUTATIONS = {
+  "crm/officeCheckIns:chooseAwayReason": chooseAwayReason,
   "crm/officeCheckIns:correctTimes": correctTimes,
   "crm/officeCheckIns:deleteCheckIn": deleteCheckIn,
   "crm/officeCheckIns:recordManualEntry": recordManualEntry,
@@ -161,6 +171,7 @@ beforeEach(() => {
     team: { ...team(), rows: [] },
   };
   for (const fn of [
+    chooseAwayReason,
     review,
     correctTimes,
     recordManualEntry,
@@ -371,6 +382,68 @@ describe("Office check-in: my day", () => {
     expect(view.container.textContent).toContain("Not connected through the office internet.");
     await view.unmount();
   });
+
+  test("Asks where you're working when the check fails, and saves the answer", async () => {
+    state.status = myStatus({
+      today: checkIn("staff_me", { clockIn: verification("fail", "outside_allowlist") }),
+    });
+    const view = await mount();
+    const group = view.container.querySelector("fieldset[aria-labelledby]");
+    expect(group.textContent).toContain("Where are you working today?");
+    expect(group.textContent).toContain("We couldn't confirm you're at the office.");
+    const labels = [...group.querySelectorAll("button")].map((button) => button.textContent);
+    expect(labels).toEqual(["On tour", "On market visit", "Out of office"]);
+
+    await press(findButton(group, "On market visit"));
+    expect(chooseAwayReason).toHaveBeenCalledWith({
+      checkInId: "officeCheckIns_staff_me",
+      reason: "market_visit",
+    });
+    await view.unmount();
+  });
+
+  test("Shows the saved answer as chosen, and asks nothing when the check passed", async () => {
+    state.status = myStatus({
+      today: checkIn("staff_me", {
+        awayReason: "on_tour",
+        clockIn: verification("uncertain", "ip_unavailable"),
+      }),
+    });
+    const chosen = await mount();
+    const group = chosen.container.querySelector("fieldset[aria-labelledby]");
+    expect(group.textContent).toContain("Your manager sees this with your check-in.");
+    expect(findButton(group, "On tour").getAttribute("aria-pressed")).toBe("true");
+    expect(findButton(group, "Out of office").getAttribute("aria-pressed")).toBe("false");
+    // Pressing the chosen answer again sends nothing.
+    await press(findButton(group, "On tour"));
+    expect(chooseAwayReason).not.toHaveBeenCalled();
+    await chosen.unmount();
+
+    state.status = myStatus({ today: checkIn("staff_me") });
+    const passed = await mount();
+    expect(passed.container.textContent).not.toContain("Where are you working today?");
+    await passed.unmount();
+  });
+
+  test("Says plainly when the answer couldn't be saved, and lets you try again", async () => {
+    state.status = myStatus({
+      today: checkIn("staff_me", { clockIn: verification("fail", "outside_allowlist") }),
+    });
+    chooseAwayReason.mockImplementationOnce(() =>
+      Promise.reject(Object.assign(new Error("refused"), { data: "ALREADY_REVIEWED" }))
+    );
+    const view = await mount();
+    const group = view.container.querySelector("fieldset[aria-labelledby]");
+    await press(findButton(group, "On tour"));
+    expect(group.querySelector('[role="alert"]').textContent).toBe(
+      "A manager has already reviewed this check-in, so the answer can't change."
+    );
+    const button = findButton(group, "On tour");
+    expect(button.getAttribute("aria-disabled")).toBeNull();
+    await press(button);
+    expect(chooseAwayReason).toHaveBeenCalledTimes(2);
+    await view.unmount();
+  });
 });
 
 describe("Office check-in: Today and Office setup", () => {
@@ -424,13 +497,14 @@ describe("Office check-in: team today", () => {
     expect(rowFor("Meera Iyer").textContent).toContain("Out · Pass");
     expect(rowFor("Meera Iyer").textContent).toContain("09:15 → 18:00");
     expect(rowFor("Dev Patel").textContent).toContain("Not in");
-    for (const name of ["Asha Rao", "Vikram Shah", "Meera Iyer", "Dev Patel"]) {
+    expect(rowFor("Rhea Kapoor").textContent).toContain("On tour");
+    for (const name of ["Asha Rao", "Vikram Shah", "Meera Iyer", "Dev Patel", "Rhea Kapoor"]) {
       const buttons = rowFor(name).querySelectorAll("button");
       expect(buttons).toHaveLength(1);
       expect(buttons[0].getAttribute("aria-label")).toBe(`Open ${name}`);
       expect(buttons[0].textContent).toBe("Open");
     }
-    expect(view.container.textContent).toContain("1 in · 1 out · 1 awaiting review · 1 not in");
+    expect(view.container.textContent).toContain("2 in · 1 out · 1 awaiting review · 1 not in");
     // One office: no office filter, and no department or office sublines.
     expect(view.container.querySelector("#office-check-in-team-office")).toBeNull();
     expect(table.textContent).not.toContain("Sales");
@@ -655,6 +729,22 @@ describe("Office check-in: several sessions a day", () => {
       reason: "Duplicate from a test",
     });
     expect(toastSuccess).toHaveBeenCalledWith("Session deleted for Asha Rao.");
+    await view.unmount();
+  });
+
+  test("Keeps the delete dialog open and usable when the delete fails", async () => {
+    deleteCheckIn.mockImplementationOnce(() => Promise.reject(new Error("Network down")));
+    toastSuccess.mockClear();
+    state.status = myStatus({ deletion: "erase", sessions: daySessions("staff_me") });
+    const view = await mount();
+    await press(findButton(view.container, "Delete session 09:15 → 13:00"));
+    const dialog = dialogEl();
+    await press(findButton(dialog, "Delete session"));
+    expect(deleteCheckIn).toHaveBeenCalledWith({ checkInId: "officeCheckIns_morning" });
+    expect(toastSuccess).not.toHaveBeenCalled();
+    expect(dialogEl()).toBe(dialog);
+    expect(dialog.textContent).toContain("Network down");
+    expect(findButton(dialog, "Delete session").disabled).toBe(false);
     await view.unmount();
   });
 });

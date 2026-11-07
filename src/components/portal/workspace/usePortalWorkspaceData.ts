@@ -186,6 +186,19 @@ function combinePaginationControls(...controls: ReturnType<typeof usePaginationC
   };
 }
 
+function loadedResults<Row>(page: { results: Row[]; status: CursorPaginationStatus }) {
+  return page.status === "LoadingFirstPage" ? undefined : page.results;
+}
+
+/** Rows of a permission-gated list, with any focused (deep-linked) row pinned first. */
+function gatedFocusedRows<Row extends { id: string }, FocusedRow extends { id: string }>(
+  shouldLoad: boolean,
+  page: { results: Row[]; status: CursorPaginationStatus },
+  focused: FocusedRow | null | undefined
+) {
+  return shouldLoad ? mergeFocusedRow(loadedResults(page), focused) : undefined;
+}
+
 function parseOptionalBoolean(value: string | undefined) {
   if (value === "true") {
     return true;
@@ -402,15 +415,18 @@ function resolveFocusedQueryId(context: WorkspaceQueryContext) {
   return null;
 }
 
-function useQueryWorkspaceData(context: WorkspaceQueryContext) {
-  const shouldLoad = Boolean(
+function shouldLoadQueries(context: WorkspaceQueryContext) {
+  return Boolean(
     context.canFetch &&
       context.needs("queries") &&
       (context.has(P.VIEW_QUERIES) ||
         context.has(P.VIEW_CONTRACTING) ||
         context.has(P.MANAGE_JOB_CARDS))
   );
-  const listArgs = context.isQueryListView
+}
+
+function queryListArguments(context: WorkspaceQueryContext) {
+  return context.isQueryListView
     ? {
         ...context.dateBounds,
         contractingStatus: context.listFilters.contractingStatus || undefined,
@@ -421,6 +437,19 @@ function useQueryWorkspaceData(context: WorkspaceQueryContext) {
         search: context.normalizedSearch || undefined,
       }
     : {};
+}
+
+function queryDeepLinkDetailFor(
+  focusedId: null | string,
+  shouldLoad: boolean,
+  focused: (typeof api.crm.queries.getDetail)["_returnType"] | undefined
+) {
+  return focusedId ? { id: focusedId, row: shouldLoad ? focused : null } : null;
+}
+
+function useQueryWorkspaceData(context: WorkspaceQueryContext) {
+  const shouldLoad = shouldLoadQueries(context);
+  const listArgs = queryListArguments(context);
   const page = usePaginatedQuery(
     api.crm.queries.listPage,
     shouldLoad && !context.querySearchPreparing ? listArgs : "skip",
@@ -432,12 +461,8 @@ function useQueryWorkspaceData(context: WorkspaceQueryContext) {
     api.crm.queries.getDetail,
     shouldLoad && focusedId ? { queryId: focusedId } : "skip"
   );
-  const rows = shouldLoad
-    ? mergeFocusedRow(page.status === "LoadingFirstPage" ? undefined : page.results, focused)
-    : undefined;
-  const queryDeepLinkDetail = focusedId
-    ? { id: focusedId, row: shouldLoad ? focused : null }
-    : null;
+  const rows = gatedFocusedRows(shouldLoad, page, focused);
+  const queryDeepLinkDetail = queryDeepLinkDetailFor(focusedId, shouldLoad, focused);
   return { focused, focusedId, page, pagination, queryDeepLinkDetail, rows, shouldLoad };
 }
 
@@ -492,25 +517,32 @@ function resolveJobCardProposalId(
   return proposalId ? String(proposalId) : null;
 }
 
-function useProposalWorkspaceData(
-  context: WorkspaceQueryContext,
-  queryData: ReturnType<typeof useQueryWorkspaceData>
-) {
-  const shouldLoad = Boolean(
+function shouldLoadProposals(context: WorkspaceQueryContext) {
+  return Boolean(
     context.canFetch &&
       context.needs("proposals") &&
       (context.has(P.VIEW_PROPOSALS) ||
         context.has(P.VIEW_CONTRACTING) ||
         context.has(P.MANAGE_JOB_CARDS))
   );
-  const listArgs =
-    context.view === "proposals"
-      ? {
-          ...context.dateBounds,
-          search: context.normalizedSearch || undefined,
-          status: context.listFilters.status || undefined,
-        }
-      : {};
+}
+
+function proposalListArguments(context: WorkspaceQueryContext) {
+  return context.view === "proposals"
+    ? {
+        ...context.dateBounds,
+        search: context.normalizedSearch || undefined,
+        status: context.listFilters.status || undefined,
+      }
+    : {};
+}
+
+function useProposalWorkspaceData(
+  context: WorkspaceQueryContext,
+  queryData: ReturnType<typeof useQueryWorkspaceData>
+) {
+  const shouldLoad = shouldLoadProposals(context);
+  const listArgs = proposalListArguments(context);
   const page = usePaginatedQuery(
     api.crm.proposals.listPage,
     shouldLoad && !context.proposalSearchPreparing ? listArgs : "skip",
@@ -540,13 +572,7 @@ function useProposalWorkspaceData(
     shouldLoad && jobCardProposalId ? { proposalId: jobCardProposalId } : "skip"
   );
   const rows = shouldLoad
-    ? mergeFocusedRow(
-        mergeFocusedRow(
-          page.status === "LoadingFirstPage" ? undefined : page.results,
-          hydratedFocused
-        ),
-        jobCardProposal
-      )
+    ? mergeFocusedRow(mergeFocusedRow(loadedResults(page), hydratedFocused), jobCardProposal)
     : undefined;
   return {
     focusedId,
@@ -589,28 +615,34 @@ function focusedJobCardArguments(context: WorkspaceQueryContext, focusedId: null
   return args;
 }
 
+function jobCardListArguments(context: WorkspaceQueryContext) {
+  return context.view === "job-cards"
+    ? {
+        ...context.dateBounds,
+        queryType: context.listFilters.queryType || undefined,
+        search: context.normalizedSearch || undefined,
+        status: context.listFilters.status || undefined,
+      }
+    : {};
+}
+
+function hasFocusedJobCardTarget(context: WorkspaceQueryContext, focusedId: null | string) {
+  return Boolean((context.deepLinkOpen === "jobCard" && context.deepLinkQueryId) || focusedId);
+}
+
 function useJobCardWorkspaceData(context: WorkspaceQueryContext) {
   const shouldLoad = Boolean(
     context.canFetch && context.needs("jobCards") && context.has(P.VIEW_JOB_CARDS)
   );
-  const shouldLoadDeletionOperations = Boolean(
-    context.canFetch &&
-      context.needs("jobCardDeletionOperations") &&
-      context.has(P.MANAGE_JOB_CARDS)
+  const deletionArgs = dependencyArguments(
+    context,
+    "jobCardDeletionOperations",
+    P.MANAGE_JOB_CARDS,
+    { referenceNow: context.operationReferenceNow }
   );
-  const deletionOperations = useQuery(
-    api.crm.jobCards.listMyDeletionOperations,
-    shouldLoadDeletionOperations ? { referenceNow: context.operationReferenceNow } : "skip"
-  );
-  const listArgs =
-    context.view === "job-cards"
-      ? {
-          ...context.dateBounds,
-          queryType: context.listFilters.queryType || undefined,
-          search: context.normalizedSearch || undefined,
-          status: context.listFilters.status || undefined,
-        }
-      : {};
+  const shouldLoadDeletionOperations = deletionArgs !== "skip";
+  const deletionOperations = useQuery(api.crm.jobCards.listMyDeletionOperations, deletionArgs);
+  const listArgs = jobCardListArguments(context);
   const page = usePaginatedQuery(
     api.crm.jobCards.listPage,
     shouldLoad && !context.jobCardSearchPreparing ? listArgs : "skip",
@@ -619,16 +651,11 @@ function useJobCardWorkspaceData(context: WorkspaceQueryContext) {
   const pagination = usePaginationControl(page, JSON.stringify(listArgs));
   const focusedId = resolveFocusedJobCardId(context);
   const focusedArgs = focusedJobCardArguments(context, focusedId);
-  const hasFocusedTarget = Boolean(
-    (context.deepLinkOpen === "jobCard" && context.deepLinkQueryId) || focusedId
-  );
   const focused = useQuery(
     api.crm.jobCards.getDetail,
-    shouldLoad && hasFocusedTarget ? focusedArgs : "skip"
+    shouldLoad && hasFocusedJobCardTarget(context, focusedId) ? focusedArgs : "skip"
   );
-  const rows = shouldLoad
-    ? mergeFocusedRow(page.status === "LoadingFirstPage" ? undefined : page.results, focused)
-    : undefined;
+  const rows = gatedFocusedRows(shouldLoad, page, focused);
   return {
     deletionOperations,
     focused,
@@ -672,6 +699,40 @@ function travellerListArguments(context: WorkspaceQueryContext) {
   };
 }
 
+function travellerPaginationSignature(context: WorkspaceQueryContext) {
+  return JSON.stringify({
+    dateBounds: context.dateBounds,
+    jobCardFilter: context.jobCardFilter,
+    listFilters: context.listFilters,
+    search: context.search,
+    view: context.view,
+  });
+}
+
+function focusedTravellerArguments(context: WorkspaceQueryContext, shouldLoad: boolean) {
+  if (!(shouldLoad && context.deepLinkOpen === "traveller" && context.deepLinkId)) {
+    return "skip" as const;
+  }
+  return { travellerId: context.deepLinkId ?? "" };
+}
+
+function roomCountSummaryArguments(
+  context: WorkspaceQueryContext,
+  shouldLoad: boolean,
+  jobCardData: ReturnType<typeof useJobCardWorkspaceData>
+) {
+  if (!(shouldLoad && context.view === "hotels")) {
+    return "skip" as const;
+  }
+  return {
+    dateRange: context.dateRangeArg,
+    jobCardId: context.jobCardFilter || undefined,
+    jobCardPageComplete:
+      jobCardData.pagination.status === "Exhausted" && (jobCardData.rows?.length ?? 0) <= 100,
+    visibleJobCardIds: (jobCardData.rows || []).slice(0, 100).map((jobCard) => jobCard.id),
+  };
+}
+
 function useTravellerWorkspaceData(
   context: WorkspaceQueryContext,
   jobCardData: ReturnType<typeof useJobCardWorkspaceData>
@@ -685,37 +746,15 @@ function useTravellerWorkspaceData(
     shouldLoad && !context.travellerSearchPreparing ? listArgs : "skip",
     { initialNumItems: PAGE_SIZE }
   );
-  const pagination = usePaginationControl(
-    page,
-    JSON.stringify({
-      dateBounds: context.dateBounds,
-      jobCardFilter: context.jobCardFilter,
-      listFilters: context.listFilters,
-      search: context.search,
-      view: context.view,
-    })
-  );
-  const shouldLoadFocused = Boolean(
-    shouldLoad && context.deepLinkOpen === "traveller" && context.deepLinkId
-  );
+  const pagination = usePaginationControl(page, travellerPaginationSignature(context));
   const focused = useQuery(
     api.crm.travellers.getListRow,
-    shouldLoadFocused ? { travellerId: context.deepLinkId ?? "" } : "skip"
+    focusedTravellerArguments(context, shouldLoad)
   );
-  const rows = shouldLoad
-    ? mergeFocusedRow(page.status === "LoadingFirstPage" ? undefined : page.results, focused)
-    : undefined;
+  const rows = gatedFocusedRows(shouldLoad, page, focused);
   const roomCountSummary = useQuery(
     api.crm.travellers.getRoomCountSummary,
-    shouldLoad && context.view === "hotels"
-      ? {
-          dateRange: context.dateRangeArg,
-          jobCardId: context.jobCardFilter || undefined,
-          jobCardPageComplete:
-            jobCardData.pagination.status === "Exhausted" && (jobCardData.rows?.length ?? 0) <= 100,
-          visibleJobCardIds: (jobCardData.rows || []).slice(0, 100).map((jobCard) => jobCard.id),
-        }
-      : "skip"
+    roomCountSummaryArguments(context, shouldLoad, jobCardData)
   );
   return { focused, page, pagination, roomCountSummary, rows, shouldLoad };
 }
@@ -749,15 +788,24 @@ function useVisaWorkspaceData(context: WorkspaceQueryContext) {
   return { page, pagination, rows, shouldLoad };
 }
 
+function dependencyArguments<Arguments>(
+  context: WorkspaceQueryContext,
+  dependency: PortalDataDependency,
+  permission: string,
+  args: Arguments
+) {
+  if (!(context.canFetch && context.needs(dependency) && context.has(permission))) {
+    return "skip" as const;
+  }
+  return args;
+}
+
 function ticketingArguments<Arguments>(
   context: WorkspaceQueryContext,
   dependency: PortalDataDependency,
   args: Arguments
 ) {
-  if (!(context.canFetch && context.needs(dependency) && context.has(P.VIEW_TICKETING))) {
-    return "skip" as const;
-  }
-  return args;
+  return dependencyArguments(context, dependency, P.VIEW_TICKETING, args);
 }
 
 function focusedTicketArguments(context: WorkspaceQueryContext) {
@@ -854,12 +902,10 @@ function useTicketWorkspaceData(context: WorkspaceQueryContext) {
 function useTravelOperationsWorkspaceData(context: WorkspaceQueryContext) {
   const flightItineraryPage = usePaginatedQuery(
     api.crm.imports.listFlightItinerary,
-    context.canFetch && context.needs("flightItinerary") && context.has(P.VIEW_TICKETING)
-      ? {
-          // SAFETY: jobCardFilter can only be selected from IDs returned by the jobCards query.
-          jobCardId: (context.jobCardFilter || undefined) as Id<"jobCards"> | undefined,
-        }
-      : "skip",
+    dependencyArguments(context, "flightItinerary", P.VIEW_TICKETING, {
+      // SAFETY: jobCardFilter can only be selected from IDs returned by the jobCards query.
+      jobCardId: (context.jobCardFilter || undefined) as Id<"jobCards"> | undefined,
+    }),
     { initialNumItems: PAGE_SIZE }
   );
   const flightItineraryPagination = usePaginationControl(
@@ -868,21 +914,19 @@ function useTravelOperationsWorkspaceData(context: WorkspaceQueryContext) {
   );
   const hotelPage = usePaginatedQuery(
     api.crm.ops.listHotels,
-    context.canFetch && context.needs("hotels") && context.has(P.VIEW_OPERATIONS)
-      ? { jobCardId: context.jobCardFilter || undefined }
-      : "skip",
+    dependencyArguments(context, "hotels", P.VIEW_OPERATIONS, {
+      jobCardId: context.jobCardFilter || undefined,
+    }),
     { initialNumItems: PAGE_SIZE }
   );
   const hotelPagination = usePaginationControl(hotelPage, context.jobCardFilter);
   const tourManagerPage = usePaginatedQuery(
     api.crm.ops.listTourManagers,
-    context.canFetch && context.needs("tourManagers") && context.has(P.VIEW_TOUR_MANAGERS)
-      ? {
-          callingStatus: context.listFilters.callingStatus || undefined,
-          jobCardId: context.jobCardFilter || undefined,
-          status: matchingOption(context.listFilters.status, LEAVE_STATUSES),
-        }
-      : "skip",
+    dependencyArguments(context, "tourManagers", P.VIEW_TOUR_MANAGERS, {
+      callingStatus: context.listFilters.callingStatus || undefined,
+      jobCardId: context.jobCardFilter || undefined,
+      status: matchingOption(context.listFilters.status, LEAVE_STATUSES),
+    }),
     { initialNumItems: PAGE_SIZE }
   );
   const tourManagerPagination = usePaginationControl(
@@ -894,17 +938,15 @@ function useTravelOperationsWorkspaceData(context: WorkspaceQueryContext) {
     })
   );
   return {
-    flightItinerary:
-      flightItineraryPage.status === "LoadingFirstPage" ? undefined : flightItineraryPage.results,
+    flightItinerary: loadedResults(flightItineraryPage),
     flightItineraryPage,
     flightItineraryPagination,
     hotelPage,
     hotelPagination,
-    hotels: hotelPage.status === "LoadingFirstPage" ? undefined : hotelPage.results,
+    hotels: loadedResults(hotelPage),
     tourManagerPage,
     tourManagerPagination,
-    tourManagers:
-      tourManagerPage.status === "LoadingFirstPage" ? undefined : tourManagerPage.results,
+    tourManagers: loadedResults(tourManagerPage),
   };
 }
 
@@ -921,15 +963,44 @@ function resolveFocusedExpenseId(
   return null;
 }
 
+function expenseArguments(context: WorkspaceQueryContext) {
+  if (
+    !(
+      context.canFetch &&
+      context.needs("expenses") &&
+      (context.has(P.VIEW_EXPENSES) || context.deepLinkOpen === "approval")
+    )
+  ) {
+    return "skip" as const;
+  }
+  return {
+    approvalStatus: allowedFilterValue(
+      context.listFilters.approvalStatus,
+      EXPENSE_APPROVAL_FILTER_STATUSES
+    ),
+    category: context.listFilters.category || undefined,
+    jobCardId: context.jobCardFilter || undefined,
+    reimbursementStatus: allowedFilterValue(
+      context.listFilters.reimbursementStatus,
+      REIMBURSEMENT_FILTER_STATUSES
+    ),
+  };
+}
+
+function focusedApprovalArguments(context: WorkspaceQueryContext) {
+  if (!(context.canFetch && context.deepLinkOpen === "approval" && context.deepLinkId)) {
+    return "skip" as const;
+  }
+  return { approvalId: context.deepLinkId };
+}
+
 function useInvoiceExpenseWorkspaceData(context: WorkspaceQueryContext) {
   const invoicePage = usePaginatedQuery(
     api.crm.finance.listInvoices,
-    context.canFetch && context.needs("invoices") && context.has(P.VIEW_FINANCE)
-      ? {
-          jobCardId: context.jobCardFilter || undefined,
-          status: context.view === "finance" ? context.listFilters.status || undefined : undefined,
-        }
-      : "skip",
+    dependencyArguments(context, "invoices", P.VIEW_FINANCE, {
+      jobCardId: context.jobCardFilter || undefined,
+      status: context.view === "finance" ? context.listFilters.status || undefined : undefined,
+    }),
     { initialNumItems: PAGE_SIZE }
   );
   const invoicePagination = usePaginationControl(
@@ -940,26 +1011,9 @@ function useInvoiceExpenseWorkspaceData(context: WorkspaceQueryContext) {
       view: context.view,
     })
   );
-  const expensePage = usePaginatedQuery(
-    api.crm.finance.listExpenses,
-    context.canFetch &&
-      context.needs("expenses") &&
-      (context.has(P.VIEW_EXPENSES) || context.deepLinkOpen === "approval")
-      ? {
-          approvalStatus: allowedFilterValue(
-            context.listFilters.approvalStatus,
-            EXPENSE_APPROVAL_FILTER_STATUSES
-          ),
-          category: context.listFilters.category || undefined,
-          jobCardId: context.jobCardFilter || undefined,
-          reimbursementStatus: allowedFilterValue(
-            context.listFilters.reimbursementStatus,
-            REIMBURSEMENT_FILTER_STATUSES
-          ),
-        }
-      : "skip",
-    { initialNumItems: PAGE_SIZE }
-  );
+  const expensePage = usePaginatedQuery(api.crm.finance.listExpenses, expenseArguments(context), {
+    initialNumItems: PAGE_SIZE,
+  });
   const expensePagination = usePaginationControl(
     expensePage,
     JSON.stringify({
@@ -968,12 +1022,7 @@ function useInvoiceExpenseWorkspaceData(context: WorkspaceQueryContext) {
       view: context.view,
     })
   );
-  const focusedApproval = useQuery(
-    api.crm.approvals.getListRow,
-    context.canFetch && context.deepLinkOpen === "approval" && context.deepLinkId
-      ? { approvalId: context.deepLinkId }
-      : "skip"
-  );
+  const focusedApproval = useQuery(api.crm.approvals.getListRow, focusedApprovalArguments(context));
   const focusedExpenseId = resolveFocusedExpenseId(context, focusedApproval);
   const focusedExpense = useQuery(
     api.crm.finance.getExpenseListRow,
@@ -982,14 +1031,11 @@ function useInvoiceExpenseWorkspaceData(context: WorkspaceQueryContext) {
   return {
     expensePage,
     expensePagination,
-    expenses: mergeFocusedRow(
-      expensePage.status === "LoadingFirstPage" ? undefined : expensePage.results,
-      focusedExpense
-    ),
+    expenses: mergeFocusedRow(loadedResults(expensePage), focusedExpense),
     focusedApproval,
     invoicePage,
     invoicePagination,
-    invoices: invoicePage.status === "LoadingFirstPage" ? undefined : invoicePage.results,
+    invoices: loadedResults(invoicePage),
   };
 }
 
@@ -1192,16 +1238,14 @@ function useStaffSupportWorkspaceData(context: WorkspaceQueryContext) {
   );
   const dropdowns = useQuery(
     api.crm.settings.listDropdowns,
-    context.canFetch && context.needs("dropdowns") && context.has(P.MANAGE_STAFF) ? {} : "skip"
+    dependencyArguments(context, "dropdowns", P.MANAGE_STAFF, {})
   );
   const staffPage = usePaginatedQuery(
     api.crm.staff.listStaff,
-    context.canFetch && context.needs("staff") && context.has(P.MANAGE_STAFF)
-      ? {
-          active: parseOptionalBoolean(context.listFilters.active),
-          department: context.listFilters.department || undefined,
-        }
-      : "skip",
+    dependencyArguments(context, "staff", P.MANAGE_STAFF, {
+      active: parseOptionalBoolean(context.listFilters.active),
+      department: context.listFilters.department || undefined,
+    }),
     { initialNumItems: PAGE_SIZE }
   );
   const staffPagination = usePaginationControl(
@@ -1210,28 +1254,22 @@ function useStaffSupportWorkspaceData(context: WorkspaceQueryContext) {
   );
   const accountsJobCardCreators = useQuery(
     api.crm.staff.listAccountsForJobCards,
-    context.canFetch && context.needs("accountsJobCardCreators") && context.has(P.MANAGE_JOB_CARDS)
-      ? {}
-      : "skip"
+    dependencyArguments(context, "accountsJobCardCreators", P.MANAGE_JOB_CARDS, {})
   );
   const leaveHeadApproverCandidates = useQuery(
     api.crm.leaveApprovers.listHeadApproverCandidates,
-    context.canFetch && context.needs("leaveHeadApproverCandidates") && context.has(P.MANAGE_STAFF)
-      ? {}
-      : "skip"
+    dependencyArguments(context, "leaveHeadApproverCandidates", P.MANAGE_STAFF, {})
   );
   const travellersWithoutVisa = useQuery(
     api.crm.visa.listTravellersWithoutVisa,
-    context.canFetch && context.has(P.VIEW_VISA) && context.needs("travellersWithoutVisa")
-      ? {}
-      : "skip"
+    dependencyArguments(context, "travellersWithoutVisa", P.VIEW_VISA, {})
   );
   return {
     accountsJobCardCreators,
     dropdowns,
     leaveHeadApproverCandidates,
     notifications,
-    staff: staffPage.status === "LoadingFirstPage" ? undefined : staffPage.results,
+    staff: loadedResults(staffPage),
     staffPage,
     staffPagination,
     travellersWithoutVisa,

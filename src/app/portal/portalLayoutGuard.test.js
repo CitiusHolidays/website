@@ -33,6 +33,7 @@ let currentLoginUser = null;
 let requireAuthRedirect = null;
 const redirectUrls = [];
 let tokenAcquisitions = 0;
+let syncFailure = null;
 const authOptions = [];
 const callOrder = [];
 
@@ -54,14 +55,11 @@ mock.module("next/server", () => ({
 }));
 
 mock.module("@/lib/auth-server", () => ({
+  // One call syncs the login and returns portal access.
   fetchAuthMutation: (_mutation, _args, options) => {
-    callOrder.push("identity-sync");
+    callOrder.push("sync-and-access");
     authOptions.push(options);
-  },
-  fetchAuthQuery: (_query, _args, options) => {
-    callOrder.push("portal-access");
-    authOptions.push(options);
-    return currentAccess;
+    return syncFailure ? Promise.reject(syncFailure) : Promise.resolve(currentAccess);
   },
   getServerUser: () => {
     callOrder.push("session");
@@ -104,6 +102,10 @@ mock.module("@/components/portal/PortalShell", () => ({
   default: () => null,
 }));
 
+mock.module("@/components/providers/ConvexClientProvider", () => ({
+  ConvexClientProvider: ({ children }) => children,
+}));
+
 mock.module("@/components/providers/ReducedMotionProvider", () => ({
   default: ({ children }) => children,
 }));
@@ -126,13 +128,14 @@ beforeEach(() => {
   requireAuthRedirect = null;
   redirectUrls.length = 0;
   tokenAcquisitions = 0;
+  syncFailure = null;
   authOptions.length = 0;
   callOrder.length = 0;
 });
 
 async function getRenderedShellProps() {
   const boundary = await PortalAuthBoundary({ children: null });
-  return boundary.props.children.props.children.props;
+  return boundary.props.children.props.children.props.children.props;
 }
 
 describe("Portal layout guard", () => {
@@ -169,18 +172,30 @@ describe("Portal layout guard", () => {
     await getRenderedShellProps();
 
     expect(tokenAcquisitions).toBe(1);
-    expect(callOrder).toEqual([
-      "connection",
-      "token",
-      "require-auth",
-      "identity-sync",
-      "portal-access",
-    ]);
-    expect(authOptions).toEqual([
-      { token: "request-token" },
-      { token: "request-token" },
-      { token: "request-token" },
-    ]);
+    // Two server stages: the token, then the session check alongside one call
+    // that syncs the login and returns access.
+    expect(callOrder).toEqual(["connection", "token", "sync-and-access", "require-auth"]);
+    expect(authOptions).toEqual([{ token: "request-token" }, { token: "request-token" }]);
+  });
+
+  test("Seeds the browser's Convex connection with this request's token", async () => {
+    const boundary = await PortalAuthBoundary({ children: null });
+    expect(boundary.props.initialToken).toBe("request-token");
+  });
+
+  test("Still redirects a signed-out request when its identity sync is refused", async () => {
+    syncFailure = new Error("UNAUTHENTICATED");
+    requireAuthRedirect = "/auth/connect?callbackUrl=%2Fportal";
+    await expect(PortalAuthBoundary({ children: null })).rejects.toThrow(
+      "NEXT_REDIRECT:/auth/connect"
+    );
+    expect(redirectUrls).not.toContain("/account?portal=unauthorized");
+  });
+
+  test("Fails a signed-in request whose identity sync fails, without rendering the portal", async () => {
+    syncFailure = new Error("sync failed");
+    await expect(PortalAuthBoundary({ children: null })).rejects.toThrow("sync failed");
+    expect(redirectUrls).toEqual([]);
   });
 
   test("Evaluates Sales and Operations portal access separately per request", async () => {

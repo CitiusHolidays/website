@@ -267,16 +267,20 @@ export const recordAnnouncement = mutation({
     requireIdListSize(args.recipientTravellerIds);
     requireIdListSize(args.seenByTravellerIds);
     const { jobCardId, scope } = await loadWritableJobCard(ctx, access, args.jobCardId);
-    const travelBatchId = await resolveScopedBatch(ctx, args.travelBatchId, jobCardId, scope);
-    const existing = await ctx.db
-      .query("fieldAnnouncements")
-      .withIndex("by_authorStaffId_and_jobCardId_and_clientAnnouncementId", (q) =>
-        q
-          .eq("authorStaffId", authorStaffId)
-          .eq("jobCardId", jobCardId)
-          .eq("clientAnnouncementId", clientAnnouncementId)
-      )
-      .unique();
+    // The Job Card scope is already checked; the batch check and the idempotency read are
+    // independent, and the mutation still fails if the batch is out of scope.
+    const [travelBatchId, existing] = await Promise.all([
+      resolveScopedBatch(ctx, args.travelBatchId, jobCardId, scope),
+      ctx.db
+        .query("fieldAnnouncements")
+        .withIndex("by_authorStaffId_and_jobCardId_and_clientAnnouncementId", (q) =>
+          q
+            .eq("authorStaffId", authorStaffId)
+            .eq("jobCardId", jobCardId)
+            .eq("clientAnnouncementId", clientAnnouncementId)
+        )
+        .unique(),
+    ]);
     const now = Date.now();
     if (existing) {
       if (

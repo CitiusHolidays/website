@@ -194,6 +194,33 @@ describe("Office check-in presentation", () => {
     expect(teamStatusFor(record({ clockIn: { outcome: "uncertain" } })).tone).toBe("amber");
   });
 
+  test("Shows the person's own answer in place of a check that didn't pass", () => {
+    const failed = (overrides) => ({
+      admission: "admitted",
+      clockIn: { outcome: "fail" },
+      source: "self",
+      status: "open",
+      ...overrides,
+    });
+    expect(teamStatusFor(failed({ awayReason: "on_tour" }))).toEqual({
+      label: "On tour",
+      tone: "blue",
+    });
+    expect(teamStatusFor(failed({ awayReason: "market_visit", status: "closed" }))).toEqual({
+      label: "On market visit",
+      tone: "gray",
+    });
+    expect(teamStatusFor(failed({ awayReason: "out_of_office" })).label).toBe("Out of office");
+    // A held check-in still says it needs the manager.
+    expect(
+      teamStatusFor(failed({ admission: "pending_review", awayReason: "on_tour" })).label
+    ).toBe("Awaiting review");
+    // A pass ignores any stale answer.
+    expect(
+      teamStatusFor(failed({ awayReason: "on_tour", clockIn: { outcome: "pass" } })).label
+    ).toBe("In · Pass");
+  });
+
   test("Requires a 3 to 500 character reason", () => {
     expect(reasonProblem("  ok ")).not.toBeNull();
     expect(reasonProblem("Confirmed with branch")).toBeNull();

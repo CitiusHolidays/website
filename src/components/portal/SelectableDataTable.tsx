@@ -25,7 +25,10 @@ import {
   type PortalSortState,
   preparePortalColumns,
 } from "@/lib/portal/portalDataGrid";
-import { usePortalTanStackTableEquivalence } from "@/lib/portal/portalTanStackTableEquivalence";
+import {
+  type PortalTanStackEquivalenceModel,
+  usePortalTanStackTableEquivalence,
+} from "@/lib/portal/portalTanStackTableEquivalence";
 import { isRuntimeFunction } from "../../lib/runtimeValues";
 
 type PortalRowTone = NonNullable<PortalGridAttention["tone"]>;
@@ -440,6 +443,167 @@ function BulkActionBar({
   );
 }
 
+function selectionLabelFor<Row extends PortalDataRow>(
+  row: Row,
+  rowLabel?: (row: Row) => string
+): string {
+  if (isRuntimeFunction(rowLabel)) {
+    return rowLabel(row);
+  }
+  return String(row.fullName || row.queryCode || row.jobCode || row.invoiceNumber || row.id);
+}
+
+function loadedPageBounds(loadedCount: number, currentPage: number, pageRowCount: number) {
+  const pageStart = loadedCount === 0 ? 0 : (currentPage - 1) * 25 + 1;
+  const pageEnd = pageRowCount === 0 ? 0 : pageStart + pageRowCount - 1;
+  return { pageEnd, pageStart };
+}
+
+function RowSelectionCheckbox({
+  className,
+  label,
+  onToggle,
+  rowId,
+  selected,
+}: {
+  className: string;
+  label: string;
+  onToggle: (rowId: string) => void;
+  rowId: string;
+  selected: boolean;
+}) {
+  return (
+    <Checkbox
+      aria-label={`Select ${label}`}
+      checked={selected}
+      className={className}
+      data-row-id={rowId}
+      onCheckedChange={() => onToggle(rowId)}
+    />
+  );
+}
+
+function renderColumnControls<Row>(
+  hideableColumns: readonly PortalGridColumn<Row>[],
+  visibleColumnIds: ReadonlySet<string>,
+  onToggle: (columnId: string) => void
+) {
+  if (hideableColumns.length === 0) {
+    return null;
+  }
+  return (
+    <details className="group relative">
+      <summary className="portal-small-btn cursor-pointer list-none bg-white [&::-webkit-details-marker]:hidden">
+        <Columns3 aria-hidden size={14} />
+        Columns
+      </summary>
+      <div className="absolute top-full right-0 z-30 mt-2 min-w-52 rounded-xl border border-brand-border bg-white p-2 shadow-xl">
+        <p className="px-2 py-1 font-semibold text-brand-muted text-xs uppercase tracking-[0.08em]">
+          Optional columns
+        </p>
+        {hideableColumns.map((column) => (
+          <ColumnVisibilityToggle
+            column={column}
+            hidden={!visibleColumnIds.has(column.id)}
+            key={column.id}
+            onToggle={onToggle}
+          />
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function SelectableTableHead<Row extends PortalDataRow>({
+  columns,
+  selectable,
+  table,
+}: {
+  columns: readonly PortalGridColumn<Row>[];
+  selectable: boolean;
+  table: PortalTanStackEquivalenceModel<Row>;
+}) {
+  return (
+    <thead className="bg-brand-light/80">
+      <tr>
+        {selectable ? (
+          <th className="w-10 border-brand-border border-b px-4 py-3 text-left">
+            <Checkbox
+              aria-label="Select all visible rows"
+              checked={table.allPageRowsSelected}
+              className="flex size-11 cursor-pointer items-center justify-center"
+              indeterminate={table.somePageRowsSelected && !table.allPageRowsSelected}
+              onCheckedChange={table.togglePageSelection}
+            />
+          </th>
+        ) : null}
+        {columns.map((column) => (
+          <GridHeaderCell
+            column={column}
+            key={column.id}
+            onSort={table.toggleSort}
+            sort={table.sort}
+          />
+        ))}
+      </tr>
+    </thead>
+  );
+}
+
+function SelectableTableRow<Row extends PortalDataRow>({
+  columns,
+  compact,
+  onToggleRow,
+  row,
+  rowAttention,
+  rowTone,
+  selectable,
+  selected,
+  selectionLabel,
+}: {
+  columns: readonly PortalGridColumn<Row>[];
+  compact: boolean;
+  onToggleRow: (rowId: string) => void;
+  row: Row;
+  rowAttention?: (row: Row) => PortalGridAttention | undefined;
+  rowTone?: (row: Row) => PortalRowTone | undefined;
+  selectable: boolean;
+  selected: boolean;
+  selectionLabel: string;
+}) {
+  const attention = rowAttention?.(row);
+  const tone = attention?.tone ?? rowTone?.(row);
+  const toneClass = tone ? ROW_TONE_CLASSES[tone] : "";
+  return (
+    <tr
+      aria-label={attention?.label}
+      className={`group transition-colors hover:bg-citius-blue/[0.04] ${toneClass}`}
+      data-attention={tone || undefined}
+    >
+      {selectable ? (
+        <td className="border-brand-border border-b px-4 py-3 last:border-b-0">
+          <RowSelectionCheckbox
+            className="flex size-11 cursor-pointer items-center justify-center"
+            label={selectionLabel}
+            onToggle={onToggleRow}
+            rowId={String(row.id)}
+            selected={selected}
+          />
+        </td>
+      ) : null}
+      {columns.map((column) => (
+        <td
+          className={`border-brand-border border-b px-4 ${compact ? "py-2" : "py-3"} text-brand-dark text-sm last:border-b-0 ${column.align === "right" ? "text-right tabular-nums" : "text-left"} ${desktopPinnedColumnClass(column.kind, "cell", column.sticky)} ${column.cellClassName || ""}`}
+          key={column.id}
+          style={column.width ? { minWidth: column.width } : undefined}
+        >
+          {column.render(row) ?? (column.label ? "-" : null)}
+        </td>
+      ))}
+    </tr>
+  );
+}
+
 export function SelectableDataTable<Row extends PortalDataRow>({
   rows,
   columns,
@@ -469,10 +633,9 @@ export function SelectableDataTable<Row extends PortalDataRow>({
   });
   const visibleColumnIds = new Set(table.visibleColumnIds);
   const visibleGridColumns = gridColumns.filter((column) => visibleColumnIds.has(column.id));
-  const { currentPage, pageRows, sort, totalPages } = table;
+  const { currentPage, pageRows, totalPages } = table;
   const loadedCount = rows?.length ?? 0;
-  const pageStart = loadedCount === 0 ? 0 : (currentPage - 1) * 25 + 1;
-  const pageEnd = pageRows.length === 0 ? 0 : pageStart + pageRows.length - 1;
+  const { pageEnd, pageStart } = loadedPageBounds(loadedCount, currentPage, pageRows.length);
   const selectedIds = new Set(table.selectedIds);
   const visibleResponsiveColumns = [...visibleGridColumns]
     .filter((column) => column.mobile !== "hidden")
@@ -480,13 +643,7 @@ export function SelectableDataTable<Row extends PortalDataRow>({
   const hideableColumns = gridColumns.filter((column) => column.hideable);
   const emptyLabel =
     filtersActive && rows?.length === 0 ? "No matches. Adjust or clear filters." : empty;
-
-  const selectionLabel = (row: Row) => {
-    if (isRuntimeFunction(rowLabel)) {
-      return rowLabel(row);
-    }
-    return String(row.fullName || row.queryCode || row.jobCode || row.invoiceNumber || row.id);
-  };
+  const loadMore = canLoadMore ? onLoadMore : undefined;
 
   const handleBulkDelete = () => {
     if (!onBulkDelete || table.selectedIds.length === 0) {
@@ -494,10 +651,6 @@ export function SelectableDataTable<Row extends PortalDataRow>({
     }
     return table.deleteSelected(onBulkDelete);
   };
-
-  const handleSortColumn = table.toggleSort;
-
-  const handleToggleColumn = table.toggleColumn;
 
   const responsiveRowAttention = (row: Row) => {
     const attention = rowAttention?.(row);
@@ -509,12 +662,12 @@ export function SelectableDataTable<Row extends PortalDataRow>({
   };
 
   const renderSelectionControl = (row: Row) => (
-    <Checkbox
-      aria-label={`Select ${selectionLabel(row)}`}
-      checked={selectedIds.has(String(row.id))}
+    <RowSelectionCheckbox
       className="flex size-11 shrink-0 cursor-pointer items-center justify-center"
-      data-row-id={String(row.id)}
-      onCheckedChange={() => table.toggleRow(String(row.id))}
+      label={selectionLabelFor(row, rowLabel)}
+      onToggle={table.toggleRow}
+      rowId={String(row.id)}
+      selected={selectedIds.has(String(row.id))}
     />
   );
 
@@ -527,35 +680,10 @@ export function SelectableDataTable<Row extends PortalDataRow>({
         isLoadingMore={isLoadingMore}
         label={emptyLabel}
         onClear={filtersActive ? clearAllFilters : undefined}
-        onLoadMore={canLoadMore ? onLoadMore : undefined}
+        onLoadMore={loadMore}
       />
     );
   }
-
-  const selectionControl = selectable ? renderSelectionControl : undefined;
-
-  const columnControls =
-    hideableColumns.length > 0 ? (
-      <details className="group relative">
-        <summary className="portal-small-btn cursor-pointer list-none bg-white [&::-webkit-details-marker]:hidden">
-          <Columns3 aria-hidden size={14} />
-          Columns
-        </summary>
-        <div className="absolute top-full right-0 z-30 mt-2 min-w-52 rounded-xl border border-brand-border bg-white p-2 shadow-xl">
-          <p className="px-2 py-1 font-semibold text-brand-muted text-xs uppercase tracking-[0.08em]">
-            Optional columns
-          </p>
-          {hideableColumns.map((column) => (
-            <ColumnVisibilityToggle
-              column={column}
-              hidden={!visibleColumnIds.has(column.id)}
-              key={column.id}
-              onToggle={handleToggleColumn}
-            />
-          ))}
-        </div>
-      </details>
-    ) : null;
 
   return (
     <div className="space-y-3">
@@ -573,72 +701,30 @@ export function SelectableDataTable<Row extends PortalDataRow>({
         mobileCardRender={mobileCardRender}
         rowAttention={responsiveRowAttention}
         rows={pageRows}
-        selectionControl={selectionControl}
+        selectionControl={selectable ? renderSelectionControl : undefined}
       />
       <TableHorizontalScrollContainer
         contentKey={`${pageRows.length}:${visibleGridColumns.length}`}
-        controls={columnControls}
+        controls={renderColumnControls(hideableColumns, visibleColumnIds, table.toggleColumn)}
         scrollHints={scrollHints}
       >
         <table className={`min-w-full border-collapse ${tableClassName}`}>
-          <thead className="bg-brand-light/80">
-            <tr>
-              {selectable ? (
-                <th className="w-10 border-brand-border border-b px-4 py-3 text-left">
-                  <Checkbox
-                    aria-label="Select all visible rows"
-                    checked={table.allPageRowsSelected}
-                    className="flex size-11 cursor-pointer items-center justify-center"
-                    indeterminate={table.somePageRowsSelected && !table.allPageRowsSelected}
-                    onCheckedChange={table.togglePageSelection}
-                  />
-                </th>
-              ) : null}
-              {visibleGridColumns.map((column) => (
-                <GridHeaderCell
-                  column={column}
-                  key={column.id}
-                  onSort={handleSortColumn}
-                  sort={sort}
-                />
-              ))}
-            </tr>
-          </thead>
+          <SelectableTableHead columns={visibleGridColumns} selectable={selectable} table={table} />
           <tbody>
-            {pageRows.map((row) => {
-              const attention = rowAttention?.(row);
-              const tone = attention?.tone ?? rowTone?.(row);
-              const toneClass = tone ? ROW_TONE_CLASSES[tone] : "";
-              return (
-                <tr
-                  aria-label={attention?.label}
-                  className={`group transition-colors hover:bg-citius-blue/[0.04] ${toneClass}`}
-                  data-attention={tone || undefined}
-                  key={row.id}
-                >
-                  {selectable ? (
-                    <td className="border-brand-border border-b px-4 py-3 last:border-b-0">
-                      <Checkbox
-                        aria-label={`Select ${selectionLabel(row)}`}
-                        checked={selectedIds.has(String(row.id))}
-                        className="flex size-11 cursor-pointer items-center justify-center"
-                        data-row-id={String(row.id)}
-                        onCheckedChange={() => table.toggleRow(String(row.id))}
-                      />
-                    </td>
-                  ) : null}
-                  {visibleGridColumns.map((column) => (
-                    <td
-                      className={`border-brand-border border-b px-4 ${compact ? "py-2" : "py-3"} text-brand-dark text-sm last:border-b-0 ${column.align === "right" ? "text-right tabular-nums" : "text-left"} ${desktopPinnedColumnClass(column.kind, "cell", column.sticky)} ${column.cellClassName || ""}`}
-                      key={column.id}
-                      style={column.width ? { minWidth: column.width } : undefined}
-                    >
-                      {column.render(row) ?? (column.label ? "-" : null)}
-                    </td>
-                  ))}
-                </tr>
-              );
-            })}
+            {pageRows.map((row) => (
+              <SelectableTableRow
+                columns={visibleGridColumns}
+                compact={compact}
+                key={row.id}
+                onToggleRow={table.toggleRow}
+                row={row}
+                rowAttention={rowAttention}
+                rowTone={rowTone}
+                selectable={selectable}
+                selected={selectedIds.has(String(row.id))}
+                selectionLabel={selectable ? selectionLabelFor(row, rowLabel) : ""}
+              />
+            ))}
           </tbody>
         </table>
       </TableHorizontalScrollContainer>
@@ -647,7 +733,7 @@ export function SelectableDataTable<Row extends PortalDataRow>({
         currentPage={currentPage}
         isLoadingMore={isLoadingMore}
         loadedCount={loadedCount}
-        onLoadMore={canLoadMore ? onLoadMore : undefined}
+        onLoadMore={loadMore}
         onPageChange={table.setPage}
         pageEnd={pageEnd}
         pageStart={pageStart}

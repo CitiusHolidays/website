@@ -62,32 +62,20 @@ function renderFieldContent({ fieldBody, fieldColumns, isDetailLoading, isDetail
   );
 }
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: modal lifecycle behavior is intentionally centralized.
-export function EntityModalShell({
-  modal,
-  submit,
-  close,
-  detailState,
-  error,
-  fieldErrors = {},
-  isSaving,
-  saveFlash = false,
-  title,
-  lifecycleQuery,
-  lifecycleProposal,
-  lifecycleJobCard,
-  primaryProps,
-  secondaryProps,
-}) {
-  const shouldReduceMotion = useReducedMotion();
-  const confirmActive = usePortalConfirmActive();
-  const errorTransition = portalMotionTransition(shouldReduceMotion, 0.16);
+const READ_ONLY_MODALS = ["queryAttachments", "proposalAttachments", "proposalFinalizedPdf"];
+
+function entityModalPopupClassName(modal) {
+  const sizeClass =
+    getEntityModalSize(modal) === "compact"
+      ? "max-sm:max-h-[min(85dvh,100%)] max-sm:rounded-2xl"
+      : "max-sm:fixed max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:max-w-none max-sm:rounded-none";
+  return `portal-shell pointer-events-auto relative flex max-h-[90vh] w-full ${getEntityModalMaxWidthClass(modal)} flex-col overflow-hidden overscroll-contain rounded-xl border border-brand-border bg-white shadow-[0_28px_90px_rgba(5,8,20,0.24)] ${sizeClass}`;
+}
+
+/** Moves focus to the modal error, or else to the first invalid field, after each change. */
+function useEntityModalFocusTargets(error, fieldErrorSignature) {
   const formRef = useRef(null);
   const errorRef = useRef(null);
-  const fieldErrorSignature = JSON.stringify(fieldErrors);
-
-  const saveButtonState = resolveSaveButtonState({ error, isSaving, saveFlash });
-  const savePending = isSaving || saveFlash;
 
   useEffect(() => {
     if (!error) {
@@ -116,6 +104,156 @@ export function EntityModalShell({
     return () => cancelAnimationFrame(frame);
   }, [fieldErrorSignature]);
 
+  return { errorRef, formRef };
+}
+
+function EntityModalHeader({ description, savePending, title }) {
+  return (
+    <div className="flex shrink-0 items-start justify-between gap-6 border-brand-border/80 border-b bg-white px-6 py-5 max-sm:px-4">
+      <div className="min-w-0 pt-0.5">
+        <ControlledDialogTitle className="text-balance font-heading font-semibold text-2xl text-citius-blue tracking-tight">
+          {title}
+        </ControlledDialogTitle>
+        {description ? (
+          <p className="mt-1.5 max-w-3xl text-brand-muted text-sm leading-relaxed">{description}</p>
+        ) : null}
+      </div>
+      <ControlledDialogClose
+        render={
+          <Button
+            aria-label="Close dialog"
+            className="grid size-11 shrink-0 place-items-center rounded-full text-brand-muted transition-colors hover:bg-brand-light hover:text-brand-dark"
+            disabled={savePending}
+            type="button"
+          />
+        }
+      >
+        <X aria-hidden="true" size={18} />
+      </ControlledDialogClose>
+    </div>
+  );
+}
+
+function EntityModalErrorAlert({ error, errorRef, shouldReduceMotion }) {
+  const errorTransition = portalMotionTransition(shouldReduceMotion, 0.16);
+  const hiddenTransform = shouldReduceMotion ? "translateY(0)" : "translateY(-4px)";
+  return (
+    <AnimatePresence>
+      {error ? (
+        <m.div
+          animate={{ opacity: 1, transform: "translateY(0)" }}
+          aria-live="assertive"
+          className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 text-sm outline-none focus:ring-2 focus:ring-red-300"
+          exit={{ opacity: 0, transform: hiddenTransform }}
+          id="portal-entity-modal-error"
+          initial={{ opacity: 0, transform: hiddenTransform }}
+          key="entity-modal-error"
+          ref={errorRef}
+          role="alert"
+          tabIndex={-1}
+          transition={errorTransition}
+        >
+          {error}
+        </m.div>
+      ) : null}
+    </AnimatePresence>
+  );
+}
+
+function EntityModalLifecycle({ lifecycleJobCard, lifecycleProposal, lifecycleQuery, modal }) {
+  return (
+    <>
+      {(modal === "query" || modal === "queryStatus") && lifecycleQuery && (
+        <LifecycleDates
+          items={[
+            { label: "Created", value: lifecycleQuery.createdAt },
+            {
+              label: "Submitted to Contracting",
+              value: lifecycleQuery.submittedToContractingAt,
+            },
+            { label: "Confirmed", value: lifecycleQuery.confirmedAt },
+          ]}
+        />
+      )}
+      {modal === "proposal" && lifecycleProposal && (
+        <LifecycleDates
+          items={[
+            { label: "Created", value: lifecycleProposal.createdAt },
+            { label: "Sales handoff", value: lifecycleProposal.sentToSalesAt },
+            { label: "Client delivery", value: lifecycleProposal.sentToClientAt },
+            { label: "Proposal Doc", value: lifecycleProposal.finalizedPdf?.uploadedAt },
+          ]}
+        />
+      )}
+      {modal === "jobCard" && lifecycleJobCard && (
+        <LifecycleDates
+          items={[
+            { label: "Opened", value: lifecycleJobCard.createdAt },
+            { label: "Last updated", value: lifecycleJobCard.updatedAt },
+          ]}
+        />
+      )}
+    </>
+  );
+}
+
+function EntityModalFooter({ detailBlocked, modal, saveButtonState, savePending }) {
+  const isReadOnlyModal = READ_ONLY_MODALS.includes(modal);
+  const isQueryTaskSheet = modal === "query";
+  return (
+    <div className="flex shrink-0 justify-end gap-3 border-brand-border/80 border-t bg-white px-6 py-4 max-sm:grid max-sm:grid-cols-2 max-sm:px-4 max-sm:pb-[max(1rem,var(--safe-area-inset-bottom))]">
+      <ControlledDialogClose
+        render={
+          <Button
+            className="portal-outline-btn max-sm:w-full"
+            data-testid="portal-entity-modal-cancel"
+            disabled={savePending}
+            type="button"
+          />
+        }
+      >
+        {isReadOnlyModal ? "Close" : "Cancel"}
+      </ControlledDialogClose>
+      {!isReadOnlyModal && (
+        <MultiStateButton
+          className="portal-primary-btn disabled:opacity-60 max-sm:w-full"
+          data-testid="portal-entity-modal-save"
+          disabled={savePending || detailBlocked}
+          savedLabel={isQueryTaskSheet ? "Query saved" : "Saved"}
+          savingLabel={isQueryTaskSheet ? "Saving query…" : "Saving…"}
+          state={saveButtonState}
+          type="submit"
+        >
+          {isQueryTaskSheet ? "Save query" : "Save"}
+        </MultiStateButton>
+      )}
+    </div>
+  );
+}
+
+export function EntityModalShell({
+  modal,
+  submit,
+  close,
+  detailState,
+  error,
+  fieldErrors = {},
+  isSaving,
+  saveFlash = false,
+  title,
+  lifecycleQuery,
+  lifecycleProposal,
+  lifecycleJobCard,
+  primaryProps,
+  secondaryProps,
+}) {
+  const shouldReduceMotion = useReducedMotion();
+  const confirmActive = usePortalConfirmActive();
+  const { errorRef, formRef } = useEntityModalFocusTargets(error, JSON.stringify(fieldErrors));
+
+  const saveButtonState = resolveSaveButtonState({ error, isSaving, saveFlash });
+  const savePending = isSaving || saveFlash;
+
   const handleOpenChange = (nextOpen) => {
     if (!(nextOpen || savePending)) {
       close();
@@ -136,11 +274,6 @@ export function EntityModalShell({
       ) || popup
     );
   };
-  const isQueryTaskSheet = modal === "query";
-  const sectionMeta = getEntityModalSectionMeta(modal);
-  const modalMaxWidthClass = getEntityModalMaxWidthClass(modal);
-  const fieldColumns = getEntityModalFieldColumns(modal);
-  const isCompactModal = getEntityModalSize(modal) === "compact";
   const isDetailLoading = detailState === "loading";
   const isDetailMissing = detailState === "missing";
 
@@ -159,11 +292,7 @@ export function EntityModalShell({
       modal={!confirmActive}
       onOpenChange={handleOpenChange}
       open={Boolean(modal)}
-      popupClassName={`portal-shell pointer-events-auto relative flex max-h-[90vh] w-full ${modalMaxWidthClass} flex-col overflow-hidden overscroll-contain rounded-xl border border-brand-border bg-white shadow-[0_28px_90px_rgba(5,8,20,0.24)] ${
-        isCompactModal
-          ? "max-sm:max-h-[min(85dvh,100%)] max-sm:rounded-2xl"
-          : "max-sm:fixed max-sm:inset-0 max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:max-w-none max-sm:rounded-none"
-      }`}
+      popupClassName={entityModalPopupClassName(modal)}
       popupRef={formRef}
       popupRender={
         <form
@@ -179,126 +308,38 @@ export function EntityModalShell({
     >
       {modal ? (
         <>
-          <div className="flex shrink-0 items-start justify-between gap-6 border-brand-border/80 border-b bg-white px-6 py-5 max-sm:px-4">
-            <div className="min-w-0 pt-0.5">
-              <ControlledDialogTitle className="text-balance font-heading font-semibold text-2xl text-citius-blue tracking-tight">
-                {title}
-              </ControlledDialogTitle>
-              {sectionMeta?.description ? (
-                <p className="mt-1.5 max-w-3xl text-brand-muted text-sm leading-relaxed">
-                  {sectionMeta.description}
-                </p>
-              ) : null}
-            </div>
-            <ControlledDialogClose
-              render={
-                <Button
-                  aria-label="Close dialog"
-                  className="grid size-11 shrink-0 place-items-center rounded-full text-brand-muted transition-colors hover:bg-brand-light hover:text-brand-dark"
-                  disabled={savePending}
-                  type="button"
-                />
-              }
-            >
-              <X aria-hidden="true" size={18} />
-            </ControlledDialogClose>
-          </div>
+          <EntityModalHeader
+            description={getEntityModalSectionMeta(modal)?.description}
+            savePending={savePending}
+            title={title}
+          />
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6 [scrollbar-gutter:stable] max-sm:px-4 max-sm:py-5">
-            <AnimatePresence>
-              {error ? (
-                <m.div
-                  animate={{ opacity: 1, transform: "translateY(0)" }}
-                  aria-live="assertive"
-                  className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 text-sm outline-none focus:ring-2 focus:ring-red-300"
-                  exit={{
-                    opacity: 0,
-                    transform: shouldReduceMotion ? "translateY(0)" : "translateY(-4px)",
-                  }}
-                  id="portal-entity-modal-error"
-                  initial={{
-                    opacity: 0,
-                    transform: shouldReduceMotion ? "translateY(0)" : "translateY(-4px)",
-                  }}
-                  key="entity-modal-error"
-                  ref={errorRef}
-                  role="alert"
-                  tabIndex={-1}
-                  transition={errorTransition}
-                >
-                  {error}
-                </m.div>
-              ) : null}
-            </AnimatePresence>
-            {(modal === "query" || modal === "queryStatus") && lifecycleQuery && (
-              <LifecycleDates
-                items={[
-                  { label: "Created", value: lifecycleQuery.createdAt },
-                  {
-                    label: "Submitted to Contracting",
-                    value: lifecycleQuery.submittedToContractingAt,
-                  },
-                  { label: "Confirmed", value: lifecycleQuery.confirmedAt },
-                ]}
-              />
-            )}
-            {modal === "proposal" && lifecycleProposal && (
-              <LifecycleDates
-                items={[
-                  { label: "Created", value: lifecycleProposal.createdAt },
-                  { label: "Sales handoff", value: lifecycleProposal.sentToSalesAt },
-                  { label: "Client delivery", value: lifecycleProposal.sentToClientAt },
-                  { label: "Proposal Doc", value: lifecycleProposal.finalizedPdf?.uploadedAt },
-                ]}
-              />
-            )}
-            {modal === "jobCard" && lifecycleJobCard && (
-              <LifecycleDates
-                items={[
-                  { label: "Opened", value: lifecycleJobCard.createdAt },
-                  { label: "Last updated", value: lifecycleJobCard.updatedAt },
-                ]}
-              />
-            )}
+            <EntityModalErrorAlert
+              error={error}
+              errorRef={errorRef}
+              shouldReduceMotion={shouldReduceMotion}
+            />
+            <EntityModalLifecycle
+              lifecycleJobCard={lifecycleJobCard}
+              lifecycleProposal={lifecycleProposal}
+              lifecycleQuery={lifecycleQuery}
+              modal={modal}
+            />
             <fieldset className="min-w-0" disabled={savePending}>
               {renderFieldContent({
                 fieldBody,
-                fieldColumns,
+                fieldColumns: getEntityModalFieldColumns(modal),
                 isDetailLoading,
                 isDetailMissing,
               })}
             </fieldset>
           </div>
-          <div className="flex shrink-0 justify-end gap-3 border-brand-border/80 border-t bg-white px-6 py-4 max-sm:grid max-sm:grid-cols-2 max-sm:px-4 max-sm:pb-[max(1rem,var(--safe-area-inset-bottom))]">
-            <ControlledDialogClose
-              render={
-                <Button
-                  className="portal-outline-btn max-sm:w-full"
-                  data-testid="portal-entity-modal-cancel"
-                  disabled={savePending}
-                  type="button"
-                />
-              }
-            >
-              {["queryAttachments", "proposalAttachments", "proposalFinalizedPdf"].includes(modal)
-                ? "Close"
-                : "Cancel"}
-            </ControlledDialogClose>
-            {!["queryAttachments", "proposalAttachments", "proposalFinalizedPdf"].includes(
-              modal
-            ) && (
-              <MultiStateButton
-                className="portal-primary-btn disabled:opacity-60 max-sm:w-full"
-                data-testid="portal-entity-modal-save"
-                disabled={savePending || isDetailLoading || isDetailMissing}
-                savedLabel={isQueryTaskSheet ? "Query saved" : "Saved"}
-                savingLabel={isQueryTaskSheet ? "Saving query…" : "Saving…"}
-                state={saveButtonState}
-                type="submit"
-              >
-                {isQueryTaskSheet ? "Save query" : "Save"}
-              </MultiStateButton>
-            )}
-          </div>
+          <EntityModalFooter
+            detailBlocked={isDetailLoading || isDetailMissing}
+            modal={modal}
+            saveButtonState={saveButtonState}
+            savePending={savePending}
+          />
         </>
       ) : null}
     </ControlledDialog>

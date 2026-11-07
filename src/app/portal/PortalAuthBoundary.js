@@ -2,9 +2,10 @@ import { anyApi } from "convex/server";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import PortalShell from "@/components/portal/PortalShell";
+import { ConvexClientProvider } from "@/components/providers/ConvexClientProvider";
 import PortalMotionThemeProvider from "@/components/providers/PortalMotionThemeProvider";
 import ReducedMotionProvider from "@/components/providers/ReducedMotionProvider";
-import { fetchAuthMutation, fetchAuthQuery, getToken, requireAuth } from "@/lib/auth-server";
+import { fetchAuthMutation, getToken, requireAuth } from "@/lib/auth-server";
 
 // All request-derived identity, authorization, and CRM work stays behind this
 // boundary. Its parent may stream only a generic shell with no user or CRM data.
@@ -12,21 +13,38 @@ export default async function PortalAuthBoundary({ children }) {
   await connection();
   const token = await getToken();
   const authOptions = { token };
+  // Two stages instead of three: the session check runs alongside one call
+  // that syncs this login's identity and returns portal access from the same
+  // transaction. A failed call is held until the session check has had the
+  // chance to redirect a signed-out request to sign in.
+  const bootstrap = token
+    ? fetchAuthMutation(anyApi.authSync.syncMyPortalAccess, {}, authOptions).then(
+        (portalAccess) => ({ access: portalAccess, failure: null }),
+        (cause) => ({ access: null, failure: cause })
+      )
+    : Promise.resolve({ access: null, failure: null });
   const { user } = await requireAuth("/portal", authOptions);
-  await fetchAuthMutation(anyApi.authSync.syncMyAuthIdentity, {}, authOptions);
-  const access = await fetchAuthQuery(anyApi.crm.staff.getMyPortalAccess, {}, authOptions);
+  const { access, failure } = await bootstrap;
+  if (failure) {
+    throw failure;
+  }
 
   if (!access?.allowed) {
     redirect("/account?portal=unauthorized");
   }
 
+  // The browser starts on the token this request already holds, so Convex
+  // connects and tables start loading without first fetching a session and a
+  // fresh token. The page is private and never cached (next.config.mjs).
   return (
-    <ReducedMotionProvider>
-      <PortalMotionThemeProvider>
-        <PortalShell access={access} user={user}>
-          {children}
-        </PortalShell>
-      </PortalMotionThemeProvider>
-    </ReducedMotionProvider>
+    <ConvexClientProvider initialToken={token}>
+      <ReducedMotionProvider>
+        <PortalMotionThemeProvider>
+          <PortalShell access={access} user={user}>
+            {children}
+          </PortalShell>
+        </PortalMotionThemeProvider>
+      </ReducedMotionProvider>
+    </ConvexClientProvider>
   );
 }

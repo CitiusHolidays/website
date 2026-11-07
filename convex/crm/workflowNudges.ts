@@ -294,10 +294,10 @@ export const updateRule = mutation({
       args.thresholdHours ?? catalog.thresholdHours
     );
     const timestamp = Date.now();
-    const existing = await getRuleRow(ctx, args.key);
     if (args.recipientRole && args.recipientRole !== catalog.recipientRole) {
       throw new ConvexError("Workflow recipients are the assigned staff and relevant heads.");
     }
+    const existing = await getRuleRow(ctx, args.key);
     const patch = {
       enabled: args.enabled,
       recipientRole: catalog.recipientRole,

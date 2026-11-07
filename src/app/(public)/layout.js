@@ -1,9 +1,12 @@
 import AppChrome from "@/components/layout/AppChrome";
+import { ConvexClientProvider } from "@/components/providers/ConvexClientProvider";
 
 export default function PublicLayout({ children }) {
   return (
-    <div className="public-site">
-      <AppChrome>{children}</AppChrome>
-    </div>
+    <ConvexClientProvider>
+      <div className="public-site">
+        <AppChrome>{children}</AppChrome>
+      </div>
+    </ConvexClientProvider>
   );
 }

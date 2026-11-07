@@ -545,7 +545,11 @@ describe("Event Photo Booth staff editor", () => {
       expect(destinationFields(view.container)[0]).toBe("Paris");
       await act(async () => view.button("Discard edits and reload").click());
       expect(destinationFields(view.container)[0]).toBe("Remote edited Paris");
-      expect(view.container.querySelector("img")?.getAttribute("src")).toContain("paris-192.webp");
+      // The 160px card offers the 192px and 384px variants, so 2x screens stay sharp.
+      expect(view.container.querySelector("picture source")?.getAttribute("srcset")).toBe(
+        "/images/event-photo-booth/paris-192.webp 192w, /images/event-photo-booth/paris-384.webp 384w"
+      );
+      expect(view.container.querySelector("img")?.getAttribute("src")).toContain("paris-384.webp");
     } finally {
       prepare.mockRestore();
       await view.unmount();
@@ -577,7 +581,7 @@ describe("Event Photo Booth staff editor", () => {
       expect(destinationFields(view.container)[0]).toBe("Paris");
       expect(
         view.container.querySelector('img[alt="Current background for Paris"]')?.getAttribute("src")
-      ).toContain("paris-192.webp");
+      ).toContain("paris-384.webp");
       expect(view.button("Save draft").disabled).toBe(true);
       expect(input.value).toBe("");
       expect(uploads).toBe(0);
@@ -610,6 +614,34 @@ describe("Event Photo Booth staff editor", () => {
       expect(publishes).toHaveLength(0);
       await act(async () => view.button("Publish scenes").click());
       expect(publishes).toEqual([1]);
+    } finally {
+      await view.unmount();
+    }
+  });
+  test("describes the publish button only while a publish hint is shown", async () => {
+    const view = await mount();
+    const hint = () => {
+      const id = view.button("Publish scenes").getAttribute("aria-describedby");
+      return id ? document.getElementById(id)?.textContent : null;
+    };
+    try {
+      expect(hint()).toBeNull();
+      await enterEnglishName(view.container, "Paris at sunset");
+      expect(hint()).toBe("Save your draft first; publishing shows it to guests.");
+      await act(async () => view.button("Save draft").click());
+      expect(hint()).toBe("Publishing shows the saved draft to guests.");
+      expect(view.button("Publish scenes").disabled).toBe(false);
+      await act(async () => view.button("Publish scenes").click());
+      const published = management();
+      published.draftScenes[0] = {
+        ...published.draftScenes[0],
+        title: { ...published.draftScenes[0].title, en: "Paris at sunset" },
+      };
+      published.publishedScenes = published.draftScenes;
+      published.revision = 2;
+      await view.rerender({ state: published });
+      expect(hint()).toBeNull();
+      expect(view.container.textContent).not.toContain("Publishing shows");
     } finally {
       await view.unmount();
     }

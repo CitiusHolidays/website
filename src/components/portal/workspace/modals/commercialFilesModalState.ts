@@ -152,6 +152,48 @@ export function commercialFileRowsForPage<Row extends CommercialFileListRow>(
   return mergeRows(state.previousRows, pageRows).filter((row) => !hidden.has(row.id));
 }
 
+/** Splits a `sourceType:id` filter value; unknown source types filter nothing. */
+function parseCommercialFileSourceFilter(sourceFilter: string) {
+  const [rawSourceType, rawSourceId] = sourceFilter.split(":", 2);
+  const sourceType: CommercialFileSourceType | undefined =
+    rawSourceType === "query" || rawSourceType === "proposal" || rawSourceType === "jobCard"
+      ? rawSourceType
+      : undefined;
+  return { sourceId: sourceType ? rawSourceId : undefined, sourceType };
+}
+
+export function commercialFileListArgs({
+  cursor,
+  entityId,
+  entryPoint,
+  filters,
+  open,
+}: {
+  cursor?: string;
+  entityId: string;
+  entryPoint: CommercialFileSourceType;
+  filters: CommercialFileFilters;
+  open: boolean;
+}) {
+  if (!(open && entityId)) {
+    return "skip";
+  }
+  const { sourceId, sourceType } = parseCommercialFileSourceFilter(filters.sourceFilter);
+  return {
+    category: filters.category || undefined,
+    cursor,
+    entityId,
+    entryPoint,
+    includeDeleted: filters.showDeleted,
+    includeHistory: true,
+    limit: 25,
+    search: filters.search.trim() || undefined,
+    sourceId: sourceId || undefined,
+    sourceType,
+    teamArea: filters.teamArea || undefined,
+  };
+}
+
 export function commercialFileSourceKey(source: CommercialFileSourceOption) {
   return `${source.sourceType}:${source.id}`;
 }

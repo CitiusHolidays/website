@@ -97,14 +97,57 @@ function SectionSwitch({
   );
 }
 
+type OfficeCheckInData = ReturnType<typeof useOfficeCheckInData>;
+
+function canAdministerOffices(
+  access: OfficeCheckInViewProps["access"],
+  has: OfficeCheckInViewProps["has"]
+) {
+  return isExactAdmin(access ?? undefined) || has(P.MANAGE_STAFF);
+}
+
+/** Keeps an open dialog on the live row so a reactive update shows the current record. */
+function liveDialogTarget(dialog: TeamRecordDialogTarget | null, team: OfficeCheckInData["team"]) {
+  const liveRow = dialog && team?.rows.find((row) => row.staffId === dialog.row.staffId);
+  return dialog && liveRow ? { ...dialog, row: liveRow } : dialog;
+}
+
+function OfficeTodaySection({
+  data,
+  onOpen,
+  status,
+}: {
+  data: OfficeCheckInData;
+  onOpen: (row: TeamDayRow) => void;
+  status: NonNullable<OfficeCheckInData["status"]>;
+}) {
+  const { workDate } = data;
+  return (
+    <>
+      <MyDayPanel status={status} />
+      {status.canOversee && workDate ? (
+        <TeamDayPanel
+          officeId={data.officeFilter ?? ""}
+          onOfficeChange={data.changeOffice}
+          onOpen={onOpen}
+          onWorkDateChange={data.changeDate}
+          team={data.team}
+          today={status.workDate}
+          workDate={workDate}
+        />
+      ) : null}
+    </>
+  );
+}
+
 export function OfficeCheckInView({ access, allowed, canFetch, has }: OfficeCheckInViewProps) {
   const shouldFetch = allowed && canFetch;
-  const canAdminister = isExactAdmin(access ?? undefined) || has(P.MANAGE_STAFF);
+  const canAdminister = canAdministerOffices(access, has);
   const [chosenSection, setSection] = useState<Section>("today");
   const section = canAdminister ? chosenSection : "today";
   const data = useOfficeCheckInData(shouldFetch, section === "setup");
   const [dialog, setDialog] = useState<TeamRecordDialogTarget | null>(null);
-  const { status, team, workDate } = data;
+  const { status, team } = data;
 
   if (!shouldFetch) {
     return null;
@@ -125,9 +168,6 @@ export function OfficeCheckInView({ access, allowed, canFetch, has }: OfficeChec
     }
   };
   const closeDialog = () => setDialog(null);
-  // Keep an open dialog on the live row so a reactive update shows the current record.
-  const liveRow = dialog && team?.rows.find((row) => row.staffId === dialog.row.staffId);
-  const liveDialog = dialog && liveRow ? { ...dialog, row: liveRow } : dialog;
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)] gap-6">
@@ -138,22 +178,13 @@ export function OfficeCheckInView({ access, allowed, canFetch, has }: OfficeChec
           timeZone={status.timeZone || DEFAULT_OFFICE_TIME_ZONE}
         />
       ) : (
-        <>
-          <MyDayPanel status={status} />
-          {status.canOversee && workDate ? (
-            <TeamDayPanel
-              officeId={data.officeFilter ?? ""}
-              onOfficeChange={data.changeOffice}
-              onOpen={openDialog}
-              onWorkDateChange={data.changeDate}
-              team={team}
-              today={status.workDate}
-              workDate={workDate}
-            />
-          ) : null}
-        </>
+        <OfficeTodaySection data={data} onOpen={openDialog} status={status} />
       )}
-      <TeamRecordDialog deletion={status.deletion} onClose={closeDialog} target={liveDialog} />
+      <TeamRecordDialog
+        deletion={status.deletion}
+        onClose={closeDialog}
+        target={liveDialogTarget(dialog, team)}
+      />
     </div>
   );
 }

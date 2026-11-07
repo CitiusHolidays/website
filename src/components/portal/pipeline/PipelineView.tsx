@@ -339,6 +339,58 @@ function isPipelineDragActivatorEvent(event: { currentTarget: EventTarget; targe
   return !(interactiveTarget && interactiveTarget !== event.currentTarget);
 }
 
+function PipelineCardSummary({ item, label }: { item: PipelineRow; label: string }) {
+  return (
+    <>
+      <div className="font-semibold text-brand-dark text-sm">{label}</div>
+      <div className="mt-1 flex flex-wrap items-center gap-2 text-brand-muted text-xs">
+        {item.queryCode ? (
+          <PortalCopyButton label={item.queryCode} value={item.queryCode} />
+        ) : (
+          <span>No query code</span>
+        )}
+        <span>
+          {item.destination || "TBD"} - {item.paxCount ?? 0} pax
+        </span>
+      </div>
+      <div className="mt-1 text-brand-muted text-xs">{item.salesOwnerName || "Unassigned"}</div>
+    </>
+  );
+}
+
+function PipelineCardMoveSelect({
+  item,
+  label,
+  moveTargets,
+  onMove,
+}: Pick<PipelineCardProps, "item" | "moveTargets" | "onMove"> & { label: string }) {
+  const moveTo = (targetStage: string) => {
+    if (!targetStage) {
+      return;
+    }
+    onMove(item, targetStage).catch(() => undefined);
+  };
+  return (
+    <div className="mt-3 block text-brand-muted text-xs">
+      <label className="sr-only" htmlFor={`pipeline-stage-${item.id}`}>
+        Move {label} to stage
+      </label>
+      <span aria-hidden="true">Move to</span>
+      <Select
+        aria-label={`Move ${label} to stage`}
+        className="mt-1 w-full rounded-lg border border-brand-border bg-white px-2 py-1.5 text-brand-dark text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
+        id={`pipeline-stage-${item.id}`}
+        onValueChange={moveTo}
+        options={[
+          { label: "Select stage…", value: "" },
+          ...moveTargets.map((target) => ({ label: target, value: target })),
+        ]}
+        value=""
+      />
+    </div>
+  );
+}
+
 function PipelineCard({
   canMove,
   item,
@@ -404,41 +456,14 @@ function PipelineCard({
           transform: CSS.Translate.toString(transform),
         }}
       >
-        <div className="font-semibold text-brand-dark text-sm">{label}</div>
-        <div className="mt-1 flex flex-wrap items-center gap-2 text-brand-muted text-xs">
-          {item.queryCode ? (
-            <PortalCopyButton label={item.queryCode} value={item.queryCode} />
-          ) : (
-            <span>No query code</span>
-          )}
-          <span>
-            {item.destination || "TBD"} - {item.paxCount ?? 0} pax
-          </span>
-        </div>
-        <div className="mt-1 text-brand-muted text-xs">{item.salesOwnerName || "Unassigned"}</div>
+        <PipelineCardSummary item={item} label={label} />
         {draggable ? (
-          <div className="mt-3 block text-brand-muted text-xs">
-            <label className="sr-only" htmlFor={`pipeline-stage-${item.id}`}>
-              Move {label} to stage
-            </label>
-            <span aria-hidden="true">Move to</span>
-            <Select
-              aria-label={`Move ${label} to stage`}
-              className="mt-1 w-full rounded-lg border border-brand-border bg-white px-2 py-1.5 text-brand-dark text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2"
-              id={`pipeline-stage-${item.id}`}
-              onValueChange={(targetStage) => {
-                if (!targetStage) {
-                  return;
-                }
-                onMove(item, targetStage).catch(() => undefined);
-              }}
-              options={[
-                { label: "Select stage…", value: "" },
-                ...moveTargets.map((target) => ({ label: target, value: target })),
-              ]}
-              value=""
-            />
-          </div>
+          <PipelineCardMoveSelect
+            item={item}
+            label={label}
+            moveTargets={moveTargets}
+            onMove={onMove}
+          />
         ) : null}
       </article>
     </m.div>

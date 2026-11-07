@@ -14,6 +14,7 @@ import { buildPassengerImportResultMessage } from "@/lib/portal/importResultMess
 import type { PassengerImportBatchProgress } from "@/lib/portal/passengerImportClient";
 import { toPassengerImportInput } from "@/lib/portal/passengerImportRows";
 import { usePatchReducer } from "@/lib/portal/patchReducer";
+import type { PortalGridColumn } from "@/lib/portal/portalDataGrid";
 import { formatRoomSummaryText, summarizeRoomTypes } from "@/lib/portal/roomSummary";
 import type { PortalJobCardOption } from "../portalViewTypes";
 import { formatConvexError, strong } from "../portalWorkspaceListHelpers";
@@ -337,6 +338,166 @@ function usePassengerImportModal({
   };
 }
 
+type PassengerImportPreviewTableRow = SpreadsheetImportPreviewRow & { action: string };
+type PassengerImportOperation = NonNullable<PassengerImportModalProps["operations"]>[number];
+
+const PASSENGER_IMPORT_COLUMNS: PortalGridColumn<PassengerImportPreviewTableRow>[] = [
+  {
+    id: "action",
+    label: "Action",
+    render: (row) => <Badge label={row.action} tone={importActionTone(row.action)} />,
+  },
+  {
+    id: "passenger",
+    label: "Passenger",
+    render: (row) => strong(row.fullName),
+  },
+  {
+    id: "travel-batch",
+    label: "Travel in Series",
+    render: (row) => row.travelBatchReference || "-",
+  },
+  { id: "hub", label: "Hub", render: (row) => row.travelHub || "-" },
+  { id: "room", label: "Room", render: (row) => row.roomType || "-" },
+  {
+    id: "visa",
+    label: "Visa",
+    render: (row) => row.visaStatus || (row.visaRequired ? "Required" : "Not Required"),
+  },
+  {
+    id: "passport",
+    label: "Passport",
+    render: (row) => (row.passport?.number ? `****${row.passport.number.slice(-4)}` : "Pending"),
+  },
+  {
+    id: "source",
+    label: "Source",
+    render: (row) => `${row.sourceSheet} row ${row.sourceRowNumber}`,
+  },
+];
+
+function importSummaryTotals({
+  createCount,
+  errorCount,
+  hasPreview,
+  readyCount,
+  skippedCount,
+  updateCount,
+}: {
+  createCount: number;
+  errorCount: number;
+  hasPreview: boolean;
+  readyCount: number;
+  skippedCount: number;
+  updateCount: number;
+}): [string, number | string][] {
+  return [
+    ["Ready", readyCount],
+    ["Create", hasPreview ? createCount : "-"],
+    ["Update", hasPreview ? updateCount : "-"],
+    ["Skipped", skippedCount],
+    ["Errors", errorCount],
+  ];
+}
+
+function RecentImportOperation({
+  jobCode,
+  operation,
+}: {
+  jobCode?: string;
+  operation?: PassengerImportOperation;
+}) {
+  if (!operation) {
+    return null;
+  }
+  return (
+    <div
+      aria-live="polite"
+      className="rounded-lg border border-brand-border bg-white px-3 py-2 text-brand-muted text-sm tabular-nums"
+    >
+      <div className="font-semibold text-brand-dark">
+        {jobCode || "Recent import"}: {operation.status}
+      </div>
+      <div className="mt-1">
+        {operation.completedBatches} of {formatCount(operation.batchTotal, "batch", "batches")}{" "}
+        complete · {formatCount(operation.processed, "row")} processed ·{" "}
+        {formatCount(operation.failed, "row")} failed
+      </div>
+      {operation.stalled ? (
+        <div className="mt-1 text-amber-800">
+          Progress paused. Re-select the same file to resume safely.
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ImportErrorMessage({ error }: { error: string }) {
+  return error ? (
+    <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm">
+      {error}
+    </div>
+  ) : null;
+}
+
+function ImportBatchProgress({
+  progress,
+}: {
+  progress: ReturnType<typeof usePassengerImportModal>["importProgress"];
+}) {
+  return progress ? (
+    <div
+      className="rounded-lg border border-brand-border bg-white px-3 py-2 text-brand-muted text-sm tabular-nums"
+      data-testid="passenger-import-batch-progress"
+    >
+      {progress.label || `Importing batch ${progress.current} of ${progress.total}…`}
+    </div>
+  ) : null;
+}
+
+function PassengerImportIssues({
+  errors,
+  skipped,
+}: {
+  errors: ReturnType<typeof usePassengerImportModal>["errors"];
+  skipped: ReturnType<typeof usePassengerImportModal>["skipped"];
+}) {
+  return (
+    <>
+      {errors.length > 0 && <ImportIssueList rows={errors} title="Rows needing correction" />}
+      {skipped.length > 0 && <ImportIssueList rows={skipped.slice(0, 8)} title="Skipped rows" />}
+    </>
+  );
+}
+
+function PassengerImportPreviewTable({
+  emptyLabel,
+  isPreviewing,
+  previewById,
+  rows,
+}: {
+  emptyLabel: string;
+  isPreviewing: boolean;
+  previewById: Map<string, SpreadsheetImportPreviewRow & { action?: string }>;
+  rows: SpreadsheetImportPreviewRow[];
+}) {
+  if (rows.length === 0) {
+    return null;
+  }
+  const fallbackAction = isPreviewing ? "checking" : "upsert";
+  return (
+    <SelectableDataTable<PassengerImportPreviewTableRow>
+      columns={PASSENGER_IMPORT_COLUMNS}
+      compact
+      empty={emptyLabel}
+      rows={rows.slice(0, 50).map((row: SpreadsheetImportPreviewRow) => ({
+        ...row,
+        action: previewById.get(String(row.id))?.action || fallbackAction,
+      }))}
+    />
+  );
+}
+
 export function PassengerImportModal(props: PassengerImportModalProps) {
   const {
     closeAndReset,
@@ -371,6 +532,7 @@ export function PassengerImportModal(props: PassengerImportModalProps) {
     title,
     updateCount,
   } = usePassengerImportModal(props);
+  const commitBlocked = !jobCardId || rows.length === 0 || isPreviewing || isSaving;
 
   return (
     <ImportModalShell close={closeAndReset} open={open} title={title}>
@@ -390,100 +552,28 @@ export function PassengerImportModal(props: PassengerImportModalProps) {
         />
         <ImportSummary
           isBusy={isParsing || isPreviewing}
-          totals={[
-            ["Ready", rows.length],
-            ["Create", preview ? createCount : "-"],
-            ["Update", preview ? updateCount : "-"],
-            ["Skipped", skipped.length],
-            ["Errors", errors.length],
-          ]}
+          totals={importSummaryTotals({
+            createCount,
+            errorCount: errors.length,
+            hasPreview: Boolean(preview),
+            readyCount: rows.length,
+            skippedCount: skipped.length,
+            updateCount,
+          })}
         />
-        {recentOperation ? (
-          <div
-            aria-live="polite"
-            className="rounded-lg border border-brand-border bg-white px-3 py-2 text-brand-muted text-sm tabular-nums"
-          >
-            <div className="font-semibold text-brand-dark">
-              {recentOperationJob?.jobCode || "Recent import"}: {recentOperation.status}
-            </div>
-            <div className="mt-1">
-              {recentOperation.completedBatches} of{" "}
-              {formatCount(recentOperation.batchTotal, "batch", "batches")} complete ·{" "}
-              {formatCount(recentOperation.processed, "row")} processed ·{" "}
-              {formatCount(recentOperation.failed, "row")} failed
-            </div>
-            {recentOperation.stalled ? (
-              <div className="mt-1 text-amber-800">
-                Progress paused. Re-select the same file to resume safely.
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-        {error ? (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-red-700 text-sm">
-            {error}
-          </div>
-        ) : null}
-        {errors.length > 0 && <ImportIssueList rows={errors} title="Rows needing correction" />}
-        {skipped.length > 0 && <ImportIssueList rows={skipped.slice(0, 8)} title="Skipped rows" />}
+        <RecentImportOperation jobCode={recentOperationJob?.jobCode} operation={recentOperation} />
+        <ImportErrorMessage error={error} />
+        <PassengerImportIssues errors={errors} skipped={skipped} />
         {showRoomSummary && Object.keys(previewRoomSummary).length > 0 && (
           <RoomSummaryPanel jobCode={selectedJob?.jobCode} summary={previewRoomSummary} />
         )}
-        {importProgress ? (
-          <div
-            className="rounded-lg border border-brand-border bg-white px-3 py-2 text-brand-muted text-sm tabular-nums"
-            data-testid="passenger-import-batch-progress"
-          >
-            {importProgress.label ||
-              `Importing batch ${importProgress.current} of ${importProgress.total}…`}
-          </div>
-        ) : null}
-        {rows.length > 0 && (
-          <SelectableDataTable<SpreadsheetImportPreviewRow & { action: string }>
-            columns={[
-              {
-                id: "action",
-                label: "Action",
-                render: (row) => <Badge label={row.action} tone={importActionTone(row.action)} />,
-              },
-              {
-                id: "passenger",
-                label: "Passenger",
-                render: (row) => strong(row.fullName),
-              },
-              {
-                id: "travel-batch",
-                label: "Travel in Series",
-                render: (row) => row.travelBatchReference || "-",
-              },
-              { id: "hub", label: "Hub", render: (row) => row.travelHub || "-" },
-              { id: "room", label: "Room", render: (row) => row.roomType || "-" },
-              {
-                id: "visa",
-                label: "Visa",
-                render: (row) => row.visaStatus || (row.visaRequired ? "Required" : "Not Required"),
-              },
-              {
-                id: "passport",
-                label: "Passport",
-                render: (row) =>
-                  row.passport?.number ? `****${row.passport.number.slice(-4)}` : "Pending",
-              },
-              {
-                id: "source",
-                label: "Source",
-                render: (row) => `${row.sourceSheet} row ${row.sourceRowNumber}`,
-              },
-            ]}
-            compact
-            empty={emptyLabel}
-            rows={rows.slice(0, 50).map((row: SpreadsheetImportPreviewRow) => ({
-              ...row,
-              action:
-                previewById.get(String(row.id))?.action || (isPreviewing ? "checking" : "upsert"),
-            }))}
-          />
-        )}
+        <ImportBatchProgress progress={importProgress} />
+        <PassengerImportPreviewTable
+          emptyLabel={emptyLabel}
+          isPreviewing={isPreviewing}
+          previewById={previewById}
+          rows={rows}
+        />
         <div className="flex justify-end gap-2">
           <Button
             className="portal-small-btn border-brand-border bg-brand-light text-brand-dark hover:bg-brand-light/70"
@@ -494,7 +584,7 @@ export function PassengerImportModal(props: PassengerImportModalProps) {
           </Button>
           <Button
             className="portal-primary-btn disabled:opacity-60"
-            disabled={!jobCardId || rows.length === 0 || isPreviewing || isSaving}
+            disabled={commitBlocked}
             onClick={handleCommit}
             type="button"
           >

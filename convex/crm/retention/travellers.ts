@@ -84,8 +84,11 @@ async function stripDependents(ctx: MutationCtx, traveller: Doc<"travellers">) {
 }
 
 async function anonymiseTraveller(ctx: MutationCtx, traveller: Doc<"travellers">) {
-  const complete = await stripDependents(ctx, traveller);
-  const job = await ctx.db.get("jobCards", traveller.jobCardId);
+  // The Job Card is only read for its code; stripping dependents never touches it.
+  const [complete, job] = await Promise.all([
+    stripDependents(ctx, traveller),
+    ctx.db.get("jobCards", traveller.jobCardId),
+  ]);
   const now = Date.now();
   const patch = {
     biometricAppointmentDate: undefined,

@@ -21,6 +21,101 @@ function countFilterControls({ showPeriodFilter, listFilterConfig, showJobCardFi
   return (showPeriodFilter ? 2 : 0) + listFilterConfig.length + (showJobCardFilter ? 1 : 0);
 }
 
+function ToolbarTitleRow({ actions, resultCount, resultsPartial, title }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+        <h2 className="portal-page-title text-balance font-heading font-semibold text-brand-dark">
+          {title}
+        </h2>
+        {resultCount === null ? null : (
+          <span className="shrink-0 text-brand-muted text-sm tabular-nums">
+            {resultCount} loaded {resultCount === 1 ? "result" : "results"}
+            {resultsPartial ? "; more available" : ""}
+          </span>
+        )}
+      </div>
+      {actions ? (
+        <div
+          className="flex shrink-0 flex-wrap items-center gap-2"
+          data-testid="portal-list-toolbar-actions"
+        >
+          {actions}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ToolbarFiltersToggle({ filtersActive, filtersOpen, onToggleFilters }) {
+  return (
+    <Button
+      aria-expanded={filtersOpen}
+      className={`portal-toolbar-btn h-11 border border-brand-border bg-white text-brand-dark transition-[scale,color,background-color,border-color] duration-150 ease-[var(--portal-ease-out)] hover:border-citius-blue/30 active:scale-[0.96] ${
+        filtersOpen ? "border-citius-blue text-citius-blue" : ""
+      }`}
+      onClick={onToggleFilters}
+      type="button"
+    >
+      <Filter aria-hidden size={14} />
+      {filtersActive ? "Filters active" : "Filters"}
+      <ChevronDown
+        aria-hidden
+        className={`transition-transform duration-200 ease-[var(--portal-ease-out)] ${filtersOpen ? "rotate-180" : ""}`}
+        size={14}
+      />
+    </Button>
+  );
+}
+
+function ToolbarControlsRow({
+  collapsibleFilters,
+  commandPalette,
+  filtersActive,
+  filtersOpen,
+  hasFilterControls,
+  onClearAllFilters,
+  onSearchChange,
+  onToggleFilters,
+  search,
+  showSearch,
+}) {
+  return (
+    <div className="mt-4 flex min-w-0 flex-wrap items-center gap-2">
+      {showSearch ? (
+        <PortalSearchField
+          className="min-w-[8rem]"
+          id="portal-list-search"
+          label="Search this page"
+          onChange={onSearchChange}
+          placeholder="Search"
+          value={search}
+          wrapperClassName="min-w-0 flex-1 sm:max-w-72"
+        />
+      ) : null}
+      {collapsibleFilters && hasFilterControls ? (
+        <ToolbarFiltersToggle
+          filtersActive={filtersActive}
+          filtersOpen={filtersOpen}
+          onToggleFilters={onToggleFilters}
+        />
+      ) : null}
+
+      {onClearAllFilters && filtersActive ? (
+        <Button
+          className="portal-small-btn h-11 shrink-0 whitespace-nowrap bg-white transition-transform duration-150 ease-[var(--portal-ease-out)] active:scale-[0.96]"
+          onClick={onClearAllFilters}
+          type="button"
+        >
+          Clear filters
+        </Button>
+      ) : null}
+
+      {commandPalette}
+    </div>
+  );
+}
+
 function ToolbarHeader({
   actions,
   collapsibleFilters,
@@ -39,71 +134,24 @@ function ToolbarHeader({
 }) {
   return (
     <>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-          <h2 className="portal-page-title text-balance font-heading font-semibold text-brand-dark">
-            {title}
-          </h2>
-          {resultCount === null ? null : (
-            <span className="shrink-0 text-brand-muted text-sm tabular-nums">
-              {resultCount} loaded {resultCount === 1 ? "result" : "results"}
-              {resultsPartial ? "; more available" : ""}
-            </span>
-          )}
-        </div>
-        {actions ? (
-          <div
-            className="flex shrink-0 flex-wrap items-center gap-2"
-            data-testid="portal-list-toolbar-actions"
-          >
-            {actions}
-          </div>
-        ) : null}
-      </div>
-
-      <div className="mt-4 flex min-w-0 flex-wrap items-center gap-2">
-        {showSearch ? (
-          <PortalSearchField
-            className="min-w-[8rem]"
-            id="portal-list-search"
-            label="Search this page"
-            onChange={onSearchChange}
-            placeholder="Search"
-            value={search}
-            wrapperClassName="min-w-0 flex-1 sm:max-w-72"
-          />
-        ) : null}
-        {collapsibleFilters && hasFilterControls ? (
-          <Button
-            aria-expanded={filtersOpen}
-            className={`portal-toolbar-btn h-11 border border-brand-border bg-white text-brand-dark transition-[scale,color,background-color,border-color] duration-150 ease-[var(--portal-ease-out)] hover:border-citius-blue/30 active:scale-[0.96] ${
-              filtersOpen ? "border-citius-blue text-citius-blue" : ""
-            }`}
-            onClick={onToggleFilters}
-            type="button"
-          >
-            <Filter aria-hidden size={14} />
-            {filtersActive ? "Filters active" : "Filters"}
-            <ChevronDown
-              aria-hidden
-              className={`transition-transform duration-200 ease-[var(--portal-ease-out)] ${filtersOpen ? "rotate-180" : ""}`}
-              size={14}
-            />
-          </Button>
-        ) : null}
-
-        {onClearAllFilters && filtersActive ? (
-          <Button
-            className="portal-small-btn h-11 shrink-0 whitespace-nowrap bg-white transition-transform duration-150 ease-[var(--portal-ease-out)] active:scale-[0.96]"
-            onClick={onClearAllFilters}
-            type="button"
-          >
-            Clear filters
-          </Button>
-        ) : null}
-
-        {commandPalette}
-      </div>
+      <ToolbarTitleRow
+        actions={actions}
+        resultCount={resultCount}
+        resultsPartial={resultsPartial}
+        title={title}
+      />
+      <ToolbarControlsRow
+        collapsibleFilters={collapsibleFilters}
+        commandPalette={commandPalette}
+        filtersActive={filtersActive}
+        filtersOpen={filtersOpen}
+        hasFilterControls={hasFilterControls}
+        onClearAllFilters={onClearAllFilters}
+        onSearchChange={onSearchChange}
+        onToggleFilters={onToggleFilters}
+        search={search}
+        showSearch={showSearch}
+      />
     </>
   );
 }

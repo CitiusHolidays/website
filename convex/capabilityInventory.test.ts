@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "b71e07078829cf4cfeccc2977d1a6133543928ac2c831de5047045db439aa27f";
+const EXPECTED_CAPABILITY_HASH = "1cc5aa4604ef883b227826a98b65cbb2596b7b7fac4d00b188fd719b2bd3b412";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_CAPABILITIES = new Set(["crm/postTourReports.archive"]);
@@ -110,6 +110,13 @@ describe("Convex capability inventory", () => {
     expect(() => registrationsInSource(source, "fixture.ts")).toThrow(
       "Unrecognized Convex registration factory fixture.ts:hiddenRegistration"
     );
+  });
+
+  test("Classifies the one-call portal sign-in bootstrap like the identity sync it extends", () => {
+    const sync = discoverCapabilities().filter(({ module }) => module === "authSync");
+    const classOf = (name: string) => sync.find((entry) => entry.name === name)?.classification;
+    expect(classOf("syncMyPortalAccess")).toBe(classOf("syncMyAuthIdentity"));
+    expect(classOf("syncMyPortalAccess")).toBe("public-product");
   });
 
   test("Every registered backend function is classified by the reviewed snapshot", () => {
@@ -259,7 +266,7 @@ describe("Convex capability inventory", () => {
     const feedback = capabilities.filter(
       ({ module }) => module === "crm/postTourFeedback" || module === "crm/postTourFeedbackActions"
     );
-    expect(feedback).toHaveLength(13);
+    expect(feedback).toHaveLength(14);
     for (const [name, kind] of [
       ["list", "query"],
       ["listJobs", "query"],
@@ -276,7 +283,7 @@ describe("Convex capability inventory", () => {
         name,
       });
     }
-    for (const name of ["getPhotoFile", "getPhotoThumbnail"]) {
+    for (const name of ["getPhotoFile", "getPhotoThumbnail", "getPhotoDisplay"]) {
       expect(feedback).toContainEqual({
         classification: "public-product",
         kind: "action",
@@ -313,7 +320,7 @@ describe("Convex capability inventory", () => {
   test("Classifies scoped traveller feedback functions separately from private storage helpers", () => {
     const capabilities = discoverCapabilities();
     const feedback = capabilities.filter(({ module }) => module.startsWith("crm/travelerFeedback"));
-    expect(feedback).toHaveLength(14);
+    expect(feedback).toHaveLength(15);
     for (const name of ["listRequests", "getRequestAccess", "listResponses"]) {
       expect(feedback).toContainEqual({
         classification: "public-product",
@@ -322,7 +329,7 @@ describe("Convex capability inventory", () => {
         name,
       });
     }
-    for (const name of ["createRequest", "getPhotoFile", "getPhotoThumbnail"]) {
+    for (const name of ["createRequest", "getPhotoFile", "getPhotoThumbnail", "getPhotoDisplay"]) {
       expect(feedback).toContainEqual({
         classification: "public-product",
         kind: "action",
@@ -945,7 +952,7 @@ describe("Convex capability inventory", () => {
   test("Classifies office check-in gateways as server-only and rule administration as admin-only", () => {
     const capabilities = discoverCapabilities();
     const checkIns = capabilities.filter(({ module }) => module.startsWith("crm/officeCheckIn"));
-    expect(checkIns).toHaveLength(15);
+    expect(checkIns).toHaveLength(16);
     for (const name of ["clockInViaGateway", "clockOutViaGateway"]) {
       expect(checkIns).toContainEqual({
         classification: "server-only",
@@ -959,6 +966,8 @@ describe("Convex capability inventory", () => {
       ["teamDay", "query"],
       ["history", "query"],
       ["review", "mutation"],
+      // Own session only, checked in the handler.
+      ["chooseAwayReason", "mutation"],
       ["correctTimes", "mutation"],
       ["recordManualEntry", "mutation"],
       // Role-gated in the handler: Admin erases, Directors delete with a trail.

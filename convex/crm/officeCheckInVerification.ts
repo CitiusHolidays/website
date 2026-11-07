@@ -30,6 +30,29 @@ export type NetworkEntryKind = (typeof NETWORK_ENTRY_KINDS)[number];
 export const SIGNAL_OUTCOMES = ["pass", "fail", "uncertain"] as const;
 export type SignalOutcome = (typeof SIGNAL_OUTCOMES)[number];
 
+/**
+ * Where someone says they are working when their clock-in check doesn't
+ * place them at the office (owner decision 2026-11-06). The person states it;
+ * it is not verified, and it never changes whether the check-in is admitted.
+ */
+export const AWAY_REASONS = ["on_tour", "market_visit", "out_of_office"] as const;
+export type AwayReason = (typeof AWAY_REASONS)[number];
+
+/**
+ * A self clock-in asks for an away reason when the office has a rule and the
+ * check didn't pass. Without a rule nothing was checked, so nothing is asked.
+ */
+export function needsAwayReason(checkIn: {
+  clockIn: { outcome: SignalOutcome; requirement: CheckInRequirement | "not_configured" };
+  source: "manager_entry" | "self";
+}) {
+  return (
+    checkIn.source === "self" &&
+    checkIn.clockIn.requirement !== "not_configured" &&
+    checkIn.clockIn.outcome !== "pass"
+  );
+}
+
 export interface NetworkEntry {
   cidr: string;
   kind: NetworkEntryKind;

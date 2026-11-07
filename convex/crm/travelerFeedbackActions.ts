@@ -11,6 +11,7 @@ import {
   TRAVELER_PHOTO_MAX_BYTES,
   TRAVELER_THUMBNAIL_MAX_BYTES,
 } from "../lib/travelerFeedbackValidators";
+import { feedbackPhotoDisplay } from "./feedbackPhotoDisplay";
 import { downloadFileResultValidator } from "./fileReturnContracts";
 import { enforcePortalFileDownloadLimit } from "./lib/portalFileDownloadLimit";
 
@@ -190,6 +191,33 @@ export const getPhotoThumbnail = action({
       fileName: `${record.fileName}.preview.jpg`,
       mimeType: "image/jpeg",
     };
+  },
+  returns: downloadFileResultValidator,
+});
+
+/**
+ * A sharper on-screen copy, loaded after the thumbnail when the tile is wider
+ * than the thumbnail. Same access check and media rate limit as the thumbnail;
+ * it is a preview, so it doesn't count as a download of the original.
+ */
+export const getPhotoDisplay = action({
+  args: { photoId: v.id("travelerFeedbackPhotos") },
+  handler: async (
+    ctx,
+    args
+  ): Promise<{ bytes: ArrayBuffer; fileName: string; mimeType: string }> => {
+    const record = await ctx.runQuery(internal.crm.travelerFeedback.photoRecord, args);
+    const limit = await ctx.runMutation(
+      internal.crm.rateLimitMaintenance.consumePostTourMediaRead,
+      { authUserId: record.authUserId }
+    );
+    if (!limit.allowed) {
+      throw new ConvexError({
+        code: "PORTAL_FILE_RATE_LIMITED",
+        retryAfterSeconds: limit.retryAfterSeconds ?? 1,
+      });
+    }
+    return await feedbackPhotoDisplay(await ctx.storage.get(record.storageId), record.fileName);
   },
   returns: downloadFileResultValidator,
 });

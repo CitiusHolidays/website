@@ -99,6 +99,7 @@ export async function resolveImportedGuardianLinksHandler(
   const now = Date.now();
   let linked = 0;
   const warnings: ReturnType<typeof warningFor>[] = [];
+  const patches: Promise<void>[] = [];
   for (const traveller of roster) {
     const references = traveller.guardianImportReferences ?? [];
     if (references.length === 0) {
@@ -117,22 +118,25 @@ export async function resolveImportedGuardianLinksHandler(
       warnings.push(warningFor(traveller, message));
     }
     if (guardians.length > 0) {
-      // biome-ignore lint/performance/noAwaitInLoops: one bounded Job Card roster, patched in order.
-      await patchWithE2eOwnership(
-        ctx,
-        "travellers",
-        traveller._id,
-        {
-          ...guardianSlotsPatch(guardians),
-          guardianImportReferences:
-            unresolved.length > 0 ? unresolved.map(({ reference }) => reference) : undefined,
-          updatedAt: now,
-        },
-        { authUserId: args.access.authUserId }
+      // Each patch writes a different traveller; e2e ownership records are queued per transaction.
+      patches.push(
+        patchWithE2eOwnership(
+          ctx,
+          "travellers",
+          traveller._id,
+          {
+            ...guardianSlotsPatch(guardians),
+            guardianImportReferences:
+              unresolved.length > 0 ? unresolved.map(({ reference }) => reference) : undefined,
+            updatedAt: now,
+          },
+          { authUserId: args.access.authUserId }
+        )
       );
       linked += guardians.length;
     }
   }
+  await Promise.all(patches);
   return { linked, warnings };
 }
 

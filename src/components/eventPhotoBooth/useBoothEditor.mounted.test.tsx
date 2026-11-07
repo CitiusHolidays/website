@@ -11,6 +11,8 @@ let createRoot: typeof import("react-dom/client").createRoot;
 let failArtwork = false;
 let heldArtwork: ((image: HTMLImageElement) => void) | null = null;
 let holdArtwork = false;
+let heldSource: (() => void) | null = null;
+let holdSource = false;
 let renderCount = 0;
 let encodeCount = 0;
 let lastDrawnX = 0;
@@ -46,11 +48,15 @@ beforeAll(async () => {
       }
       return Promise.resolve(document.createElement("img"));
     },
-    loadSourcePhoto: async () => ({
-      canvas: document.createElement("canvas"),
-      height: 400,
-      width: 300,
-    }),
+    loadSourcePhoto: async () => {
+      if (holdSource) {
+        // Deliberately ignore AbortSignal: losing access must also reject late completions.
+        await new Promise<void>((resolve) => {
+          heldSource = resolve;
+        });
+      }
+      return { canvas: document.createElement("canvas"), height: 400, width: 300 };
+    },
     releaseBoothPhoto: () => undefined,
     renderBoothPhoto: (options: { canvas: HTMLCanvasElement; transform: { x: number } }) => {
       renderCount += 1;
@@ -180,5 +186,63 @@ test("Live placement defers export; failed or cancelled replacements retain the 
   expect(current().ready).toBeNull();
   expect(current().hasPhoto).toBe(false);
   expect(current().busy).toBe(false);
+  await act(() => root.unmount());
+});
+
+test("Losing access mid-operation clears progress, rejects late completions, and reopens idle", async () => {
+  failArtwork = false;
+  holdArtwork = false;
+  let editor: ReturnType<typeof useBoothEditor> | undefined;
+  function current() {
+    if (!editor) {
+      throw new Error("Editor has not mounted");
+    }
+    return editor;
+  }
+  const options: Parameters<typeof useBoothEditor>[0] = {
+    canParticipate: true,
+    format: "portrait",
+    language: "en",
+    metrics,
+    mode: "frame",
+    scene: scenes[0],
+    transform: DEFAULT_TRANSFORM,
+  };
+  function Harness() {
+    editor = useEditor(options);
+    return <canvas ref={editor.previewCanvas} />;
+  }
+  const root = createRoot(document.createElement("div"));
+  await act(() => root.render(<Harness />));
+
+  holdSource = true;
+  await act(() => {
+    current().selectPhoto(new File(["photo"], "photo.jpg"));
+  });
+  expect(current().phase).toBe("loading");
+  expect(current().busy).toBe(true);
+
+  options.canParticipate = false;
+  await act(() => root.render(<Harness />));
+  expect(current().phase).toBeNull();
+  expect(current().busy).toBe(false);
+  expect(current().rendering).toBe(false);
+
+  holdSource = false;
+  await act(() => {
+    heldSource?.();
+  });
+  await settle();
+  expect(current().hasPhoto).toBe(false);
+  expect(current().ready).toBeNull();
+
+  options.canParticipate = true;
+  await act(() => root.render(<Harness />));
+  expect(current().phase).toBeNull();
+  expect(current().busy).toBe(false);
+  await act(() => current().selectPhoto(new File(["photo"], "photo.jpg")));
+  await settle();
+  expect(current().hasPhoto).toBe(true);
+  expect(current().ready?.destination).toBe("Paris");
   await act(() => root.unmount());
 });

@@ -19,6 +19,7 @@ describe("Server authentication origin", () => {
     });
 
     const token = await fetchConvexTokenFromHeaders(requestHeaders, {
+      convexSite: "https://synthetic-otter-1.convex.site",
       fetchImpl: (url, init) => {
         requests.push({ init, url });
         return Promise.resolve(
@@ -33,10 +34,14 @@ describe("Server authentication origin", () => {
 
     expect(token).toBe("convex-token");
     expect(requests).toHaveLength(1);
-    expect(requests[0].url).toBe("https://travel.citius.in/api/auth/convex/token");
+    // Straight to Convex, no hop through the app's own /api/auth proxy. The
+    // forwarded host comes from the configured origin, never the request.
+    expect(requests[0].url).toBe("https://synthetic-otter-1.convex.site/api/auth/convex/token");
     expect(requests[0].init.headers).toEqual({
       accept: "application/json",
       cookie: "better-auth.session_token=session-secret",
+      "x-better-auth-forwarded-host": "travel.citius.in",
+      "x-better-auth-forwarded-proto": "https",
     });
   });
 
@@ -51,7 +56,7 @@ describe("Server authentication origin", () => {
     ).toThrow("trusted application origin");
   });
 
-  test("Forwards a Vercel protection bypass only to the configured token route", async () => {
+  test("Never sends a Vercel protection bypass to Convex", async () => {
     const requests = [];
     await fetchConvexTokenFromHeaders(
       new Headers({
@@ -59,6 +64,7 @@ describe("Server authentication origin", () => {
         "x-vercel-protection-bypass": "preview-bypass",
       }),
       {
+        convexSite: "https://synthetic-otter-1.convex.site",
         fetchImpl: (url, init) => {
           requests.push({ init, url });
           return Promise.resolve(Response.json({ token: "convex-token" }));
@@ -73,10 +79,11 @@ describe("Server authentication origin", () => {
         headers: {
           accept: "application/json",
           cookie: "better-auth.session_token=session-secret",
-          "x-vercel-protection-bypass": "preview-bypass",
+          "x-better-auth-forwarded-host": "preview.example.test",
+          "x-better-auth-forwarded-proto": "https",
         },
       }),
-      url: "https://preview.example.test/api/auth/convex/token",
+      url: "https://synthetic-otter-1.convex.site/api/auth/convex/token",
     });
   });
 
