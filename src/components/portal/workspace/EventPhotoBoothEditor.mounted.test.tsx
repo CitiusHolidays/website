@@ -618,6 +618,34 @@ describe("Event Photo Booth staff editor", () => {
       await view.unmount();
     }
   });
+  test("describes the publish button only while a publish hint is shown", async () => {
+    const view = await mount();
+    const hint = () => {
+      const id = view.button("Publish scenes").getAttribute("aria-describedby");
+      return id ? document.getElementById(id)?.textContent : null;
+    };
+    try {
+      expect(hint()).toBeNull();
+      await enterEnglishName(view.container, "Paris at sunset");
+      expect(hint()).toBe("Save your draft first; publishing shows it to guests.");
+      await act(async () => view.button("Save draft").click());
+      expect(hint()).toBe("Publishing shows the saved draft to guests.");
+      expect(view.button("Publish scenes").disabled).toBe(false);
+      await act(async () => view.button("Publish scenes").click());
+      const published = management();
+      published.draftScenes[0] = {
+        ...published.draftScenes[0],
+        title: { ...published.draftScenes[0].title, en: "Paris at sunset" },
+      };
+      published.publishedScenes = published.draftScenes;
+      published.revision = 2;
+      await view.rerender({ state: published });
+      expect(hint()).toBeNull();
+      expect(view.container.textContent).not.toContain("Publishing shows");
+    } finally {
+      await view.unmount();
+    }
+  });
   test("changes Paris to Kashi in both languages, category and the saved draft", async () => {
     const saves: BoothSceneDraft[][] = [];
     const view = await mount({
