@@ -175,6 +175,23 @@ describe("Account deletion", () => {
     await view.unmount();
   });
 
+  test("Still sends the person to sign in when signing out fails", async () => {
+    globalThis.fetch = mock(() => json({ status: "reauthentication_required" }));
+    const signOut = mock(() => Promise.reject(new Error("network down")));
+    const navigate = mock(() => undefined);
+    const view = await mount(<AccountDeletionSection navigate={navigate} signOut={signOut} />);
+
+    await open(view.container);
+    await act(async () => button(view.container, "Sign in again").click());
+    await settle();
+    expect(signOut).toHaveBeenCalledTimes(1);
+    expect(navigate).toHaveBeenCalledWith(
+      "/auth/guest?returnTo=%2Faccount%3Ftab%3Dsettings%23delete-account"
+    );
+
+    await view.unmount();
+  });
+
   test("Keeps the form and explains a failure; a stale sign-in switches to the sign-in prompt", async () => {
     let attempt = 0;
     globalThis.fetch = mock((_url, options) => {
