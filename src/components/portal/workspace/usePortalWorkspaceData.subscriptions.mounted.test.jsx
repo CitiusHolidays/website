@@ -216,22 +216,36 @@ function summarizeReturn(data) {
     .join(" ");
 }
 
+const COMMIT = Symbol("commit");
+
+function lastCommittedRenderCalls() {
+  const end = calls.lastIndexOf(COMMIT);
+  return calls.slice(calls.lastIndexOf(COMMIT, end - 1) + 1, end);
+}
+
 async function record(scenario, responderName) {
   const { createRoot } = await import("react-dom/client");
+  const { useEffect } = await import("react");
   const { usePortalWorkspaceData } = await import("./usePortalWorkspaceData");
   responder = responderName;
+  calls.length = 0;
   loadMoreCalls.length = 0;
   let latest;
+  const onCommit = (data) => {
+    calls.push(COMMIT);
+    latest = data;
+  };
   function Probe() {
-    calls.length = 0;
-    latest = usePortalWorkspaceData({ ...BASE, ...scenario });
+    const data = usePortalWorkspaceData({ ...BASE, ...scenario });
+    useEffect(() => onCommit(data));
     return null;
   }
   const container = document.createElement("div");
   document.body.append(container);
   const root = createRoot(container);
   await act(async () => root.render(<Probe />));
-  const subscriptions = calls
+  const rendered = lastCommittedRenderCalls();
+  const subscriptions = rendered
     .map((call, index) =>
       call.args === "skip"
         ? null
@@ -249,7 +263,7 @@ async function record(scenario, responderName) {
     automaticLoads,
     manualLoads: [...loadMoreCalls],
     returned: summarizeReturn(latest),
-    subscriptionCount: calls.length,
+    subscriptionCount: rendered.length,
     subscriptions,
   };
   await act(async () => root.unmount());
