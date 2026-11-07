@@ -1,6 +1,5 @@
 import { Inter, Poppins } from "next/font/google";
 import RuntimeInsights from "@/components/layout/RuntimeInsights";
-import { ConvexClientProvider } from "@/components/providers/ConvexClientProvider";
 
 import "./globals.css";
 
@@ -54,10 +53,9 @@ export default async function RootLayout({ children }) {
   return (
     <html className={poppins.variable} lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} bg-brand-light font-sans text-brand-dark`}>
-        <ConvexClientProvider>
-          {children}
-          <RuntimeInsights />
-        </ConvexClientProvider>
+        {/* Each route group mounts the Convex provider, so the portal can seed it with its token. */}
+        {children}
+        <RuntimeInsights />
       </body>
     </html>
   );
