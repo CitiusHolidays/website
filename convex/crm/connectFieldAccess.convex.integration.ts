@@ -457,9 +457,25 @@ describe("field passport audit retention", () => {
     for (const key of ["ops-head", "admin"] as const) {
       expect((await list(key)).page.map((row) => row.actorName)).toEqual(["Asha Rao"]);
     }
+    // Each row names the traveller's series (Travel Batch) when the read had one.
+    expect(
+      (await list("ops-head")).page.map(({ batchLabel, travellerName }) => ({
+        batchLabel,
+        travellerName,
+      }))
+    ).toEqual([{ batchLabel: "JC-CONNECT-01 / B01", travellerName: "Synthetic A One" }]);
     for (const key of ["director", "ops-exec", "ticketing", "tm-batch"] as const) {
       await expect(list(key)).rejects.toThrow("FORBIDDEN");
     }
+    // The Job Card panel asks first, so a refusal never reaches the page as an error.
+    const canList = (key: StaffKey, jobCardId: string = f.ids.jobCardId) =>
+      f.actor(key).query(api.crm.fieldPassports.canListFieldPassportAccess, { jobCardId });
+    expect(await canList("ops-head")).toBe(true);
+    expect(await canList("admin")).toBe(true);
+    for (const key of ["director", "ops-exec", "ticketing", "tm-batch"] as const) {
+      expect(await canList(key)).toBe(false);
+    }
+    expect(await canList("admin", "not-a-job-card")).toBe(false);
   });
 });
 

@@ -60,6 +60,21 @@ export function canViewPassportExpiryInWorkspace(access) {
   );
 }
 
+/**
+ * The passport view log (who opened which passport in the tour manager app) is for the
+ * Operations Head and Admin only (director decision, 7 Nov 2026). Mirrors
+ * `canReadFieldPassportAccessLog` in convex/crm/passportPolicy.ts; the server also requires office
+ * scope on the Job Card. A Director, an Operations executive, a tour manager and an external login
+ * are refused.
+ */
+export function canViewFieldPassportAccessLog(access) {
+  if (!access?.allowed || isExternalTourManager(access)) {
+    return false;
+  }
+  const roles = access.roles ?? [];
+  return roles.includes("Admin") || roles.includes("Operations Head");
+}
+
 export function hasPermission(access, permission) {
   if (!permission) {
     return true;
