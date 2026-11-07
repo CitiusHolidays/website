@@ -694,6 +694,33 @@ describe("headcount sync", () => {
 });
 
 describe("announcement sync", () => {
+  test("keeps the whole-trip audience only for a message every travelling traveller received", async () => {
+    const t = harness();
+    const f = await seed(t);
+    await f.assign("tm-whole");
+    await f.assign("tm-batch", f.ids.batchA);
+    const everyone = [f.ids.a1, f.ids.a3, f.ids.b1, f.ids.u1];
+    const send = (key: "tm-batch" | "tm-whole", id: string, recipientTravellerIds: string[]) =>
+      f.actor(key).mutation(api.crm.fieldSync.recordAnnouncement, {
+        audience: "trip",
+        body: `Message ${id}`,
+        clientAnnouncementId: id,
+        jobCardId: f.ids.jobCardId,
+        recipientTravellerIds,
+        seenByTravellerIds: [],
+        sharedAt: NOW,
+      });
+    await send("tm-whole", "all", everyone);
+    await send("tm-whole", "one", [f.ids.a1]);
+    await send("tm-batch", "group", [f.ids.a1, f.ids.a3]);
+    const rows = await t.run((ctx) => ctx.db.query("fieldAnnouncements").collect());
+    const audienceOf = (id: string) =>
+      rows.find((row) => row.clientAnnouncementId === id)?.audience;
+    expect(audienceOf("all")).toBe("trip");
+    expect(audienceOf("one")).toBeUndefined();
+    expect(audienceOf("group")).toBeUndefined();
+  });
+
   test("records once per client id, updates seen-by, and lists for the office", async () => {
     const t = harness();
     const f = await seed(t);

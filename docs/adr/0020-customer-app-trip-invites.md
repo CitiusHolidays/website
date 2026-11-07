@@ -56,7 +56,12 @@ only, the tour managers assigned to the whole trip or to their own group (name, 
 note), the frozen itinerary, and the field announcements sent to them or their minors. No prices
 are returned. Nobody sees another traveller's documents or messages: an entitlement without a
 Traveller row sees the trip, itinerary and trip-wide tour managers; an organizer also sees the
-announcements sent to every traveller on the trip, and nothing sent to a group or a few people.
+announcements the tour manager sent to the whole trip, and nothing sent to a group or a few people.
+"Whole trip" is the sender's explicit choice (`fieldSync:recordAnnouncement` with
+`audience: "trip"`), kept only when it went to every travelling traveller from a whole-Job-Card
+grant, never inferred from the recipient list: a message to the only traveller on a trip is still
+personal when others are added later. Until Citius Connect sends that choice, organizers see no
+announcements.
 A Traveller later marked a minor, or whose age record is cleared, loses the app view. A claimed
 invite is shown only in the app, behind the pilot; it does not add a packet to the website
 `/account` page. On that page a traveller-role packet carries no CRM facts (query code, lead
@@ -81,11 +86,20 @@ them). Each link is bound to the phone that asked for it: the app keeps a random
 SHA-256 digest with the request (`metadata.deviceDigest`) and the secret itself in the
 `x-citius-sign-in-device` header when it verifies; a link forwarded to another phone signs nobody
 in, so nobody can be signed in to someone else's account and then claim their own invite into it.
-Before accepting, the app shows which account the trip will be added to. Links are limited
-whatever IP the requests come from, counted on rows of digests (`customerAppSignInLinks`): five an
-hour per inbox, after folding aliases that reach one inbox (case, `+tags`, Gmail dots and
-googlemail.com), answered like a sent link; ten an hour per phone; and 300 an hour across the app,
-which fails closed with "try again later". The daily job `jobs.purge_customer_app_sign_in_links`
+Before accepting, the app shows which account the trip will be added to. A Convex HTTP action
+sees no client IP it can trust, so links are limited on rows of digests
+(`customerAppSignInLinks`), bounding what an inbox can receive rather than who asks:
+five an hour per inbox, after folding aliases that reach one inbox (case, `+tags`, Gmail dots and
+googlemail.com, Yahoo `-` disposable addresses); thirty an hour per domain that is not a large
+shared provider, which bounds catch-all domains and subdomain addressing that no folding can see
+(a company group signing in all at once may meet it and retry within the hour). Both answer like a
+sent link. The ten-an-hour phone limit counts a digest the caller chooses, so it only slows a
+looping app ("try again later"); it is not a security control. Past 300 links an hour across the
+app, addresses that already have a login are still served, a new address is refused silently and
+an alarm is logged (`customer_app.sign_in_overall_ceiling`): a flood can delay first sign-ins, never
+lock out existing customers, and the silent answer reveals nothing about which addresses exist.
+Every refused request also deletes the link Better Auth stored before the limit was checked, which
+holds the address. The daily job `jobs.purge_customer_app_sign_in_links`
 deletes requests older than a day with each link's Better Auth verification row, which holds the
 address; account deletion deletes the account's requests and those rows at once, expired or not. The `/app/invite` and `/app/sign-in` pages run no page
 analytics. Delivery shares the verification email's

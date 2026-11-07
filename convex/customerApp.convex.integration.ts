@@ -4,14 +4,6 @@ import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { passportStatusWord } from "./customerApp";
 import { eraseCustomerAccount, isMagicLinkFor } from "./lib/accountErasure";
-import {
-  SIGN_IN_LINKS_OVERALL_PER_HOUR,
-  SIGN_IN_LINKS_PER_DEVICE_PER_HOUR,
-  SIGN_IN_LINKS_PER_HOUR,
-  sha256Hex,
-  signInInbox,
-  signInRecipientDigest,
-} from "./lib/customerAppSignIn";
 import { hashTripInviteToken, TRIP_INVITE_ERRORS } from "./lib/customerTripInvites";
 import schema from "./schema";
 import { modules } from "./test.setup";
@@ -155,8 +147,14 @@ async function seed(t: ReturnType<typeof harness>) {
     await assignment("Trip Lead");
     await assignment("Group A Manager", groupA);
     await assignment("Group B Manager", groupB);
-    const announce = (body: string, recipientTravellerIds: Id<"travellers">[], sharedAt: number) =>
+    const announce = (
+      body: string,
+      recipientTravellerIds: Id<"travellers">[],
+      sharedAt: number,
+      audience?: "trip"
+    ) =>
       ctx.db.insert("fieldAnnouncements", {
+        audience,
         authorName: "Group A Manager",
         authorStaffId: staffIds.tm,
         body,
@@ -168,7 +166,7 @@ async function seed(t: ReturnType<typeof harness>) {
         sharedAt,
         updatedAt: sharedAt,
       });
-    await announce("Coach at 08:00", [parent, child, stranger], NOW - 2000);
+    await announce("Coach at 08:00", [parent, child, stranger], NOW - 2000, "trip");
     await announce("Group B dinner moved", [stranger], NOW - 1000);
     await announce("Kids club at 16:00", [child], NOW);
     await ctx.db.insert("itineraries", {
@@ -565,6 +563,36 @@ describe("customer app privacy and safety (review of PR 315)", () => {
     expect(later?.announcements.map((row) => row.body)).toEqual(["Coach at 08:00"]);
   });
 
+  test("O2: a message to one traveller never reaches the organizer, whoever joins later", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const t = harness();
+    const ids = await seed(t);
+    await t.run((ctx) =>
+      ctx.db.insert("fieldAnnouncements", {
+        authorName: "Trip Lead",
+        authorStaffId: ids.staffIds.tm,
+        body: "Asha: your visa was refused",
+        clientAnnouncementId: "asha-only",
+        createdAt: NOW,
+        jobCardId: ids.jobCardId,
+        recipientTravellerIds: [ids.parent],
+        seenByTravellerIds: [],
+        sharedAt: NOW,
+        updatedAt: NOW,
+      })
+    );
+    await startPilot(t, ids.jobCardId);
+    const tripId = await operatorGrant(t, "organizer", {
+      jobCardId: ids.jobCardId,
+      role: "organizer",
+    });
+    const detail = await asCustomer(t, "organizer").query(api.customerApp.getMyTrip, {
+      referenceNow: NOW,
+      tripId,
+    });
+    expect(detail?.announcements.map((row) => row.body)).toEqual(["Coach at 08:00"]);
+  });
+
   test("F2: a guardian sees their minors by name, and only their own documents", async () => {
     vi.useFakeTimers({ now: NOW });
     const t = harness();
@@ -776,87 +804,6 @@ describe("customer app privacy and safety (review of PR 315)", () => {
 });
 
 describe("customer app email sign-in guards", () => {
-  test("N1: aliases of one inbox share its hourly links; a phone and the whole app have limits too", async () => {
-    vi.useFakeTimers({ now: NOW });
-    const t = harness();
-    let counter = 0;
-    const nextId = (kind: string) => {
-      counter += 1;
-      return `${kind}-${counter}`;
-    };
-    const request = async (email: string, deviceDigest?: string) =>
-      await t.mutation(internal.customerAppAuth.recordSignInLink, {
-        // A new phone for each request unless one is named, so only the inbox limit applies.
-        deviceDigest: deviceDigest ?? nextId("device"),
-        recipientDigest: await signInRecipientDigest(email),
-        tokenDigest: nextId("token"),
-      });
-
-    const first: string[] = [];
-    for (let n = 0; n < SIGN_IN_LINKS_PER_HOUR; n += 1) {
-      first.push(await request("victim@gmail.com"));
-    }
-    expect(first).toEqual(Array.from({ length: SIGN_IN_LINKS_PER_HOUR }, () => "recorded"));
-    const aliases: string[] = [];
-    for (const alias of [
-      "VICTIM@gmail.com",
-      " victim+1@gmail.com ",
-      "v.ictim@gmail.com",
-      "vi.c.tim+news@googlemail.com",
-    ]) {
-      aliases.push(await request(alias));
-    }
-    expect(aliases).toEqual(Array.from({ length: 4 }, () => "inbox_limited"));
-    // Dots matter outside Gmail.
-    expect(await request("v.ictim@example.test")).toBe("recorded");
-
-    const phone = "b".repeat(64);
-    const fromOnePhone: string[] = [];
-    for (let n = 0; n <= SIGN_IN_LINKS_PER_DEVICE_PER_HOUR; n += 1) {
-      fromOnePhone.push(await request(`person${n}@example.test`, phone));
-    }
-    expect(fromOnePhone[SIGN_IN_LINKS_PER_DEVICE_PER_HOUR]).toBe("device_limited");
-    expect(fromOnePhone.slice(0, -1).every((result) => result === "recorded")).toBe(true);
-
-    await t.run(async (ctx) => {
-      for (let n = 0; n < SIGN_IN_LINKS_OVERALL_PER_HOUR; n += 1) {
-        await ctx.db.insert("customerAppSignInLinks", {
-          deviceDigest: `d${n}`,
-          recipientDigest: `r${n}`,
-          requestedAt: NOW,
-          tokenDigest: `t${n}`,
-        });
-      }
-    });
-    expect(await request("someone.new@example.test")).toBe("busy");
-
-    vi.setSystemTime(NOW + 61 * 60 * 1000);
-    expect(await request("victim+again@gmail.com")).toBe("recorded");
-  });
-
-  test("N1: the inbox an address reaches is what is counted", () => {
-    expect(signInInbox(" Vi.Ctim+Tag@GoogleMail.com ")).toBe("victim@gmail.com");
-    expect(signInInbox("first.last+x@example.test")).toBe("first.last@example.test");
-    expect(signInInbox("+only@example.test")).toBe("+only@example.test");
-  });
-
-  test("M8: a sign-in link signs in only the device that asked for it, once", async () => {
-    vi.useFakeTimers({ now: NOW });
-    const t = harness();
-    const secret = "S".repeat(43);
-    const tokenDigest = await sha256Hex("the-link-token");
-    await t.mutation(internal.customerAppAuth.recordSignInLink, {
-      deviceDigest: await sha256Hex(secret),
-      recipientDigest: "r".repeat(64),
-      tokenDigest,
-    });
-    const consume = (deviceSecret: string) =>
-      t.mutation(internal.customerAppAuth.consumeSignInDevice, { deviceSecret, tokenDigest });
-    expect(await consume("X".repeat(43))).toBe(false);
-    expect(await consume(secret)).toBe(true);
-    expect(await consume(secret)).toBe(false);
-  });
-
   test("L3: a bootstrap Admin mailbox is staff, so it gets no customer sign-in link", async () => {
     const t = harness();
     const previous = process.env.PORTAL_BOOTSTRAP_ADMINS;

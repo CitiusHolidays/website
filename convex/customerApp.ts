@@ -36,8 +36,6 @@ type Entitlement = Doc<"customerJourneyEntitlements">;
 
 const MAX_ENTITLEMENTS = 100;
 const MAX_ANNOUNCEMENTS = 50;
-/** Larger rosters never count an announcement as "to the whole trip" for an organizer. */
-const MAX_ROSTER = 1000;
 const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
 
 const phaseValidator = v.union(v.literal("upcoming"), v.literal("ongoing"), v.literal("past"));
@@ -364,36 +362,6 @@ async function loadOwnTrip(ctx: Ctx, rawTripId: string) {
   return await resolveTrip(ctx, entitlement);
 }
 
-/** The trip's live (not cancelled) Traveller ids, or null when the roster is too large to check. */
-async function wholeTripRoster(ctx: Ctx, jobCardId: Id<"jobCards">) {
-  const rows = await ctx.db
-    .query("travellers")
-    .withIndex("by_jobCardId", (q) => q.eq("jobCardId", jobCardId))
-    .take(MAX_ROSTER + 1);
-  if (rows.length > MAX_ROSTER) {
-    return null;
-  }
-  return rows
-    .filter((row) => !row.cancellation)
-    .map((row) => ({ createdAt: row.createdAt, id: row._id }));
-}
-
-/**
- * An announcement every live traveller on the trip at the time received, not one for a group or a
- * few. Travellers added after it was sent do not count against it.
- */
-function sentToWholeTrip(
-  row: Doc<"fieldAnnouncements">,
-  roster: { createdAt: number; id: Id<"travellers"> }[] | null
-): boolean {
-  if (!roster || row.travelBatchId) {
-    return false;
-  }
-  const onTripThen = roster.filter((traveller) => traveller.createdAt <= row.sharedAt);
-  const recipients = new Set(row.recipientTravellerIds);
-  return onTripThen.length > 0 && onTripThen.every((traveller) => recipients.has(traveller.id));
-}
-
 /** One trip: the day plan, the tour managers to call, document status words and announcements. */
 export const getMyTrip = query({
   args: { referenceNow: v.number(), tripId: v.string() },
@@ -403,7 +371,7 @@ export const getMyTrip = query({
       return null;
     }
     const { entitlement, job, minors, traveller } = trip;
-    const [itinerary, assignments, announcementRows, consents, roster] = await Promise.all([
+    const [itinerary, assignments, announcementRows, consents] = await Promise.all([
       latestFrozenItinerary(ctx, job._id),
       ctx.db
         .query("tourManagerAssignments")
@@ -415,9 +383,6 @@ export const getMyTrip = query({
         .order("desc")
         .take(200),
       Promise.all(minors.map((minor) => myConsent(ctx, entitlement._id, minor._id))),
-      !traveller && entitlement.role === "organizer"
-        ? wholeTripRoster(ctx, job._id)
-        : Promise.resolve(null),
     ]);
     const myGroup = traveller?.travelBatchId;
     const contacts = assignments
@@ -435,11 +400,13 @@ export const getMyTrip = query({
       traveller ? [traveller._id, ...minors.map((minor) => minor._id)] : []
     );
     const announcements = announcementRows
-      .filter((row) =>
-        traveller
-          ? row.recipientTravellerIds.some((id) => audience.has(id))
-          : sentToWholeTrip(row, roster)
-      )
+      .filter((row) => {
+        if (traveller) {
+          return row.recipientTravellerIds.some((id) => audience.has(id));
+        }
+        // An organizer sees only what the tour manager sent to the whole trip.
+        return entitlement.role === "organizer" && row.audience === "trip";
+      })
       .slice(0, MAX_ANNOUNCEMENTS)
       .map((row) => ({
         authorName: row.authorName,

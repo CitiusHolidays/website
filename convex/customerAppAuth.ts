@@ -8,9 +8,11 @@ import {
   SIGN_IN_LINK_WINDOW_MS,
   SIGN_IN_LINKS_OVERALL_PER_HOUR,
   SIGN_IN_LINKS_PER_DEVICE_PER_HOUR,
+  SIGN_IN_LINKS_PER_DOMAIN_PER_HOUR,
   SIGN_IN_LINKS_PER_HOUR,
   sha256Hex,
 } from "./lib/customerAppSignIn";
+import { deleteSignInVerifications } from "./lib/customerAppSignInVerification";
 
 /**
  * Staff sign in with their password (Citius Connect, the portal), never with the customer app's
@@ -37,23 +39,47 @@ export const isStaffEmail = internalQuery({
   returns: v.boolean(),
 });
 
+/** Why a sign-in link request was not recorded; see `lib/customerAppSignIn.ts`. */
+const refusalValidator = v.union(
+  v.literal("busy"),
+  v.literal("device_limited"),
+  v.literal("domain_limited"),
+  v.literal("inbox_limited")
+);
+
 /**
- * Records one sign-in link request, unless a limit is reached. `inbox_limited` sends nothing and
- * answers like a sent link (the form never reveals an address); `device_limited` and `busy` are
- * refused with "try again later". Rows older than a day go with the daily purge
+ * Records one sign-in link request, unless a limit refuses it. A refused request's Better Auth
+ * verification row (written before `sendMagicLink` runs, holding the address) is deleted here,
+ * so nothing of it outlives the refusal. Rows older than a day go with the daily purge
  * (`crm/customerAppSignInRetention`).
  */
 export const recordSignInLink = internalMutation({
-  args: { deviceDigest: v.string(), recipientDigest: v.string(), tokenDigest: v.string() },
+  args: {
+    deviceDigest: v.string(),
+    domainDigest: v.optional(v.string()),
+    /** The address already has a login: served even past the overall ceiling. */
+    knownAccount: v.boolean(),
+    recipientDigest: v.string(),
+    tokenDigest: v.string(),
+  },
   handler: async (ctx, args) => {
     const since = Date.now() - SIGN_IN_LINK_WINDOW_MS;
-    const [inbox, device, overall] = await Promise.all([
+    const { domainDigest } = args;
+    const [inbox, domain, device, overall] = await Promise.all([
       ctx.db
         .query("customerAppSignInLinks")
         .withIndex("by_recipientDigest_and_requestedAt", (q) =>
           q.eq("recipientDigest", args.recipientDigest).gt("requestedAt", since)
         )
         .take(SIGN_IN_LINKS_PER_HOUR),
+      domainDigest === undefined
+        ? Promise.resolve([])
+        : ctx.db
+            .query("customerAppSignInLinks")
+            .withIndex("by_domainDigest_and_requestedAt", (q) =>
+              q.eq("domainDigest", domainDigest).gt("requestedAt", since)
+            )
+            .take(SIGN_IN_LINKS_PER_DOMAIN_PER_HOUR),
       ctx.db
         .query("customerAppSignInLinks")
         .withIndex("by_deviceDigest_and_requestedAt", (q) =>
@@ -65,24 +91,46 @@ export const recordSignInLink = internalMutation({
         .withIndex("by_requestedAt", (q) => q.gt("requestedAt", since))
         .take(SIGN_IN_LINKS_OVERALL_PER_HOUR),
     ]);
-    if (overall.length >= SIGN_IN_LINKS_OVERALL_PER_HOUR) {
-      return "busy" as const;
-    }
-    if (device.length >= SIGN_IN_LINKS_PER_DEVICE_PER_HOUR) {
-      return "device_limited" as const;
-    }
+    let refusal: "busy" | "device_limited" | "domain_limited" | "inbox_limited" | null = null;
     if (inbox.length >= SIGN_IN_LINKS_PER_HOUR) {
-      return "inbox_limited" as const;
+      refusal = "inbox_limited";
+    } else if (domain.length >= SIGN_IN_LINKS_PER_DOMAIN_PER_HOUR) {
+      refusal = "domain_limited";
+    } else if (device.length >= SIGN_IN_LINKS_PER_DEVICE_PER_HOUR) {
+      refusal = "device_limited";
+    } else if (overall.length >= SIGN_IN_LINKS_OVERALL_PER_HOUR && !args.knownAccount) {
+      refusal = "busy";
     }
-    await ctx.db.insert("customerAppSignInLinks", { ...args, requestedAt: Date.now() });
+    if (overall.length >= SIGN_IN_LINKS_OVERALL_PER_HOUR) {
+      // An alarm, not a lockout: someone is asking for far more links than customers do.
+      console.warn(
+        JSON.stringify({ event: "customer_app.sign_in_overall_ceiling", served: refusal === null })
+      );
+    }
+    if (refusal) {
+      await deleteSignInVerifications(ctx, [args.tokenDigest]);
+      return refusal;
+    }
+    await ctx.db.insert("customerAppSignInLinks", {
+      deviceDigest: args.deviceDigest,
+      domainDigest,
+      recipientDigest: args.recipientDigest,
+      requestedAt: Date.now(),
+      tokenDigest: args.tokenDigest,
+    });
     return "recorded" as const;
   },
-  returns: v.union(
-    v.literal("recorded"),
-    v.literal("inbox_limited"),
-    v.literal("device_limited"),
-    v.literal("busy")
-  ),
+  returns: v.union(v.literal("recorded"), refusalValidator),
+});
+
+/** A sign-in link the app will not send (no device binding, or a staff address): forget it. */
+export const discardSignInLink = internalMutation({
+  args: { tokenDigest: v.string() },
+  handler: async (ctx, args) => {
+    await deleteSignInVerifications(ctx, [args.tokenDigest]);
+    return null;
+  },
+  returns: v.null(),
 });
 
 /**

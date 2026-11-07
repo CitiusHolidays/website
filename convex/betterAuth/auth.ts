@@ -29,6 +29,7 @@ import {
   deviceDigestFrom,
   SIGN_IN_DEVICE_HEADER,
   sha256Hex,
+  signInDomainDigest,
   signInRecipientDigest,
 } from "../lib/customerAppSignIn";
 import { NATIVE_APP_TRUSTED_ORIGINS } from "../lib/nativeAppOrigins";
@@ -294,30 +295,41 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       convex({ authConfig }),
       magicLink({
         expiresIn: APP_SIGN_IN_LINK_TTL_SECONDS,
-        sendMagicLink: async ({ email, metadata, token }) => {
+        sendMagicLink: async ({ email, metadata, token }, endpoint) => {
           const actionCtx = requireActionCtx(ctx);
-          // Refusals that concern the address answer like a sent link, so the form reveals
-          // nothing about it; the phone's own limit and the overall ceiling say "try later".
+          const tokenDigest = await sha256Hex(token);
+          // Refusals answer like a sent link, so the form reveals nothing about an address; only
+          // the phone's own limit says "try again later". Each refusal also forgets the link
+          // Better Auth already stored, which holds the address.
           const deviceDigest = deviceDigestFrom(metadata);
-          if (!deviceDigest) {
-            // Only the app asks for these links, and it always binds them to its device.
+          // Only the app asks for these links, and it always binds them to its device.
+          if (
+            !deviceDigest ||
+            (await actionCtx.runQuery(internal.customerAppAuth.isStaffEmail, { email }))
+          ) {
+            await actionCtx.runMutation(internal.customerAppAuth.discardSignInLink, {
+              tokenDigest,
+            });
             return;
           }
-          if (await actionCtx.runQuery(internal.customerAppAuth.isStaffEmail, { email })) {
-            return;
-          }
+          const knownAccount = Boolean(
+            await endpoint?.context.internalAdapter.findUserByEmail(email)
+          );
           const recorded = await actionCtx.runMutation(internal.customerAppAuth.recordSignInLink, {
             deviceDigest,
+            domainDigest: await signInDomainDigest(email),
+            knownAccount,
             recipientDigest: await signInRecipientDigest(email),
-            tokenDigest: await sha256Hex(token),
+            tokenDigest,
           });
-          if (recorded === "busy" || recorded === "device_limited") {
+          if (recorded === "device_limited") {
             throw new APIError("TOO_MANY_REQUESTS", {
               code: "SIGN_IN_LINKS_LIMITED",
-              message: "Too many sign-in links were asked for. Try again in an hour.",
+              message:
+                "Too many sign-in links were asked for from this phone. Try again in an hour.",
             });
           }
-          if (recorded === "inbox_limited") {
+          if (recorded !== "recorded") {
             return;
           }
           try {

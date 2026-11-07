@@ -722,7 +722,8 @@ describe("self-service account deletion", () => {
 async function sentSignInLink(t: Harness, email: string, token: string, expiresAt: number) {
   const tokenDigest = await sha256Hex(token);
   await t.mutation(internal.customerAppAuth.recordSignInLink, {
-    deviceDigest: "d".repeat(64),
+    deviceDigest: `device-${token}`,
+    knownAccount: true,
     recipientDigest: await signInRecipientDigest(email),
     tokenDigest,
   });

@@ -246,6 +246,8 @@ export const pushHeadcountStop = mutation({
 
 export const recordAnnouncement = mutation({
   args: {
+    /** The sender chose "whole trip"; kept only if it really went to every travelling traveller. */
+    audience: v.optional(v.literal("trip")),
     body: v.string(),
     clientAnnouncementId: v.string(),
     clientUpdatedAt: v.optional(v.number()),
@@ -314,7 +316,14 @@ export const recordAnnouncement = mutation({
       args.seenByTravellerIds,
       new Map(recipients.ids.map((travellerId) => [String(travellerId), travellerId]))
     );
+    const sentTo = new Set(recipients.ids.map(String));
+    const wholeTrip =
+      args.audience === "trip" &&
+      scope.kind === "jobCard" &&
+      !travelBatchId &&
+      travellers.filter(isTravelling).every((traveller) => sentTo.has(String(traveller._id)));
     const id = await insertWithE2eOwnership(ctx, "fieldAnnouncements", {
+      audience: wholeTrip ? "trip" : undefined,
       authorName: access.name,
       authorStaffId,
       body,
