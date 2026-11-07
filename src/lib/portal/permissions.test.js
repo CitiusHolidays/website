@@ -11,6 +11,7 @@ import {
   canCreateJobCardFromAccounts,
   canManageJobCardCreatorAccess,
   canUseTeamPicker,
+  canViewFieldPassportAccessLog,
   canViewPassportExpiryInWorkspace,
   canViewPassportScansInWorkspace,
   getAccessibleNavGroups,
@@ -299,6 +300,37 @@ describe("Passport scans in the Staff Workspace", () => {
     expect(canViewPassportExpiryInWorkspace({ roles: ["Tour Manager"] })).toBe(false);
     expect(canViewPassportExpiryInWorkspace({ roles: ["Sales"] })).toBe(false);
     expect(canViewPassportExpiryInWorkspace({})).toBe(false);
+  });
+});
+
+describe("Passport view log", () => {
+  const signedIn = (roles, extra = {}) => ({ allowed: true, roles, ...extra });
+
+  test("only the Operations Head and Admin see the log, as on the server", () => {
+    expect(canViewFieldPassportAccessLog(signedIn(["Operations Head"]))).toBe(true);
+    expect(canViewFieldPassportAccessLog(signedIn(["Admin"]))).toBe(true);
+    expect(canViewFieldPassportAccessLog(signedIn(["Operations Head", "Tour Manager"]))).toBe(true);
+    for (const roles of [
+      ["Directors"],
+      ["Director Cement"],
+      ["Operations"],
+      ["Operations Cement"],
+      ["Tour Manager"],
+      ["Ticketing"],
+      ["Sales"],
+      [],
+    ]) {
+      expect(canViewFieldPassportAccessLog(signedIn(roles))).toBe(false);
+    }
+  });
+
+  test("refuses an external login, a signed-out caller and missing access", () => {
+    expect(
+      canViewFieldPassportAccessLog(signedIn(["Operations Head"], { externalTourManager: true }))
+    ).toBe(false);
+    expect(canViewFieldPassportAccessLog({ allowed: false, roles: ["Admin"] })).toBe(false);
+    expect(canViewFieldPassportAccessLog(undefined)).toBe(false);
+    expect(canViewFieldPassportAccessLog(null)).toBe(false);
   });
 });
 

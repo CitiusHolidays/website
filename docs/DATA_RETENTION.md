@@ -17,7 +17,8 @@ anonymised until an Admin has reviewed that job's dry-run report and switched it
 | Field passport views (`fieldPassportAccessAudit`) | 1 year after the trip | `purge_field_passport_audit`, `jobs.purge_field_passport_audit` | Deletes the audit row (this job already existed and stays on) |
 
 Only the Operations Head and Admin read the field passport view log
-(`crm/fieldPassports:listFieldPassportAccess`).
+(`crm/fieldPassports:listFieldPassportAccess`), shown on the Job Card as the **Passport views**
+panel.
 
 ## Shared rules
 
