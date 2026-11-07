@@ -217,6 +217,157 @@ async function sendInboundHandoff(payload, submissionKey) {
   }
 }
 
+function handoffPrivacyCopy(isSacredBharat, contextDescription) {
+  if (!isSacredBharat) {
+    return "Citius receives only the fields below. Your Concierge conversation is not attached.";
+  }
+  return `Citius receives only the fields below and ${contextDescription?.label ?? "this Sacred Bharat selection"}. Your Soul Score, progress, wishlist, and AI journey text are not attached.`;
+}
+
+function HandoffNameField({ error, updateField, value }) {
+  return (
+    <label className="col-span-2 text-brand-dark text-xs">
+      Name
+      <input
+        aria-describedby={error ? "concierge-name-error" : undefined}
+        aria-invalid={error ? "true" : "false"}
+        autoComplete="name"
+        className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
+        maxLength={160}
+        name="clientName"
+        onChange={updateField}
+        required
+        value={value}
+      />
+      {error ? (
+        <span className="mt-1 block text-red-700" id="concierge-name-error">
+          {error}
+        </span>
+      ) : null}
+    </label>
+  );
+}
+
+function HandoffContactMethodFields({ error, form, updateField }) {
+  const describedBy = error ? "concierge-contact-error" : undefined;
+  const invalid = error ? "true" : "false";
+  return (
+    <>
+      <label className="text-brand-dark text-xs">
+        Email
+        <input
+          aria-describedby={describedBy}
+          aria-invalid={invalid}
+          autoComplete="email"
+          className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
+          maxLength={254}
+          name="contactEmail"
+          onChange={updateField}
+          type="email"
+          value={form.contactEmail}
+        />
+      </label>
+      <label className="text-brand-dark text-xs">
+        Mobile
+        <input
+          aria-describedby={describedBy}
+          aria-invalid={invalid}
+          autoComplete="tel"
+          className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
+          maxLength={50}
+          name="contactMobile"
+          onChange={updateField}
+          type="tel"
+          value={form.contactMobile}
+        />
+      </label>
+      {error ? (
+        <p className="col-span-2 text-red-700 text-xs" id="concierge-contact-error">
+          {error}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+function HandoffTripFields({ form, updateField }) {
+  return (
+    <>
+      <label className="text-brand-dark text-xs">
+        Destination
+        <input
+          autoComplete="off"
+          className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
+          maxLength={240}
+          name="destination"
+          onChange={updateField}
+          value={form.destination}
+        />
+      </label>
+      <label className="text-brand-dark text-xs">
+        Travellers
+        <input
+          className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
+          max={1000}
+          min={1}
+          name="paxCount"
+          onChange={updateField}
+          type="number"
+          value={form.paxCount}
+        />
+      </label>
+      <label className="col-span-2 text-brand-dark text-xs">
+        Preferred travel date
+        <input
+          className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
+          name="travelStartDate"
+          onChange={updateField}
+          type="date"
+          value={form.travelStartDate}
+        />
+      </label>
+    </>
+  );
+}
+
+function HandoffConsentField({ checked, error, updateField }) {
+  return (
+    <>
+      <label className="flex gap-2 text-brand-muted text-xs leading-5">
+        <input
+          aria-describedby={error ? "concierge-consent-error" : undefined}
+          aria-invalid={error ? "true" : "false"}
+          checked={checked}
+          className="mt-1 size-4 shrink-0"
+          name="consent"
+          onChange={updateField}
+          type="checkbox"
+        />
+        I agree that Citius Holidays may contact me about this travel request.
+      </label>
+      {error ? (
+        <p className="text-red-700 text-xs" id="concierge-consent-error">
+          {error}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+function HandoffFormStatus({ status }) {
+  return (
+    <p
+      aria-live="polite"
+      className={`${
+        status.state === "error" ? "text-red-700" : "text-brand-muted"
+      } text-xs ${status.message ? "" : "sr-only"}`}
+      role="status"
+    >
+      {status.message}
+    </p>
+  );
+}
+
 function InboundHandoffForm({
   clearTurnstileToken,
   contextDescription,
@@ -231,9 +382,6 @@ function InboundHandoffForm({
   updateField,
   verifyTurnstileToken,
 }) {
-  const privacyCopy = isSacredBharat
-    ? `Citius receives only the fields below and ${contextDescription?.label ?? "this Sacred Bharat selection"}. Your Soul Score, progress, wishlist, and AI journey text are not attached.`
-    : "Citius receives only the fields below. Your Concierge conversation is not attached.";
   return (
     <form
       aria-busy={status.state === "sending"}
@@ -243,111 +391,27 @@ function InboundHandoffForm({
       onSubmit={submit}
       ref={formRef}
     >
-      <p className="text-brand-muted text-xs leading-5">{privacyCopy}</p>
+      <p className="text-brand-muted text-xs leading-5">
+        {handoffPrivacyCopy(isSacredBharat, contextDescription)}
+      </p>
       <div className="grid grid-cols-2 gap-2">
-        <label className="col-span-2 text-brand-dark text-xs">
-          Name
-          <input
-            aria-describedby={fieldErrors.clientName ? "concierge-name-error" : undefined}
-            aria-invalid={fieldErrors.clientName ? "true" : "false"}
-            autoComplete="name"
-            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
-            maxLength={160}
-            name="clientName"
-            onChange={updateField}
-            required
-            value={form.clientName}
-          />
-          {fieldErrors.clientName ? (
-            <span className="mt-1 block text-red-700" id="concierge-name-error">
-              {fieldErrors.clientName}
-            </span>
-          ) : null}
-        </label>
-        <label className="text-brand-dark text-xs">
-          Email
-          <input
-            aria-describedby={fieldErrors.contact ? "concierge-contact-error" : undefined}
-            aria-invalid={fieldErrors.contact ? "true" : "false"}
-            autoComplete="email"
-            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
-            maxLength={254}
-            name="contactEmail"
-            onChange={updateField}
-            type="email"
-            value={form.contactEmail}
-          />
-        </label>
-        <label className="text-brand-dark text-xs">
-          Mobile
-          <input
-            aria-describedby={fieldErrors.contact ? "concierge-contact-error" : undefined}
-            aria-invalid={fieldErrors.contact ? "true" : "false"}
-            autoComplete="tel"
-            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
-            maxLength={50}
-            name="contactMobile"
-            onChange={updateField}
-            type="tel"
-            value={form.contactMobile}
-          />
-        </label>
-        {fieldErrors.contact ? (
-          <p className="col-span-2 text-red-700 text-xs" id="concierge-contact-error">
-            {fieldErrors.contact}
-          </p>
-        ) : null}
-        <label className="text-brand-dark text-xs">
-          Destination
-          <input
-            autoComplete="off"
-            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
-            maxLength={240}
-            name="destination"
-            onChange={updateField}
-            value={form.destination}
-          />
-        </label>
-        <label className="text-brand-dark text-xs">
-          Travellers
-          <input
-            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
-            max={1000}
-            min={1}
-            name="paxCount"
-            onChange={updateField}
-            type="number"
-            value={form.paxCount}
-          />
-        </label>
-        <label className="col-span-2 text-brand-dark text-xs">
-          Preferred travel date
-          <input
-            className="mt-1 min-h-10 w-full rounded-lg border border-brand-border px-3 text-sm"
-            name="travelStartDate"
-            onChange={updateField}
-            type="date"
-            value={form.travelStartDate}
-          />
-        </label>
-      </div>
-      <label className="flex gap-2 text-brand-muted text-xs leading-5">
-        <input
-          aria-describedby={fieldErrors.consent ? "concierge-consent-error" : undefined}
-          aria-invalid={fieldErrors.consent ? "true" : "false"}
-          checked={form.consent}
-          className="mt-1 size-4 shrink-0"
-          name="consent"
-          onChange={updateField}
-          type="checkbox"
+        <HandoffNameField
+          error={fieldErrors.clientName}
+          updateField={updateField}
+          value={form.clientName}
         />
-        I agree that Citius Holidays may contact me about this travel request.
-      </label>
-      {fieldErrors.consent ? (
-        <p className="text-red-700 text-xs" id="concierge-consent-error">
-          {fieldErrors.consent}
-        </p>
-      ) : null}
+        <HandoffContactMethodFields
+          error={fieldErrors.contact}
+          form={form}
+          updateField={updateField}
+        />
+        <HandoffTripFields form={form} updateField={updateField} />
+      </div>
+      <HandoffConsentField
+        checked={form.consent}
+        error={fieldErrors.consent}
+        updateField={updateField}
+      />
       {TURNSTILE_SITE_KEY ? (
         <TurnstileWidget
           key={turnstileGeneration}
@@ -357,15 +421,7 @@ function InboundHandoffForm({
           siteKey={TURNSTILE_SITE_KEY}
         />
       ) : null}
-      <p
-        aria-live="polite"
-        className={`${
-          status.state === "error" ? "text-red-700" : "text-brand-muted"
-        } text-xs ${status.message ? "" : "sr-only"}`}
-        role="status"
-      >
-        {status.message}
-      </p>
+      <HandoffFormStatus status={status} />
       <button
         className="min-h-11 w-full rounded-xl bg-citius-blue px-4 font-medium text-sm text-white disabled:opacity-60"
         disabled={status.state === "sending"}
