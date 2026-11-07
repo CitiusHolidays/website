@@ -9,7 +9,9 @@ const portalAuthBoundarySource = readFileSync(
 
 test("Syncs the signed-in identity from the authenticated portal request, not the stale client token", () => {
   expect(loginSource).not.toContain("syncMyAuthIdentity");
+  expect(loginSource).not.toContain("syncMyPortalAccess");
+  // The portal syncs and reads access in one server call on the request's token.
   expect(portalAuthBoundarySource).toContain(
-    "fetchAuthMutation(anyApi.authSync.syncMyAuthIdentity, {}, authOptions)"
+    "fetchAuthMutation(anyApi.authSync.syncMyPortalAccess, {}, authOptions)"
   );
 });

@@ -1410,6 +1410,125 @@ describe("Several sessions a day", () => {
   });
 });
 
+describe("Where someone says they are working", () => {
+  function choose(
+    t: Harness,
+    subject: string,
+    checkInId: Id<"officeCheckIns">,
+    reason: FunctionArgs<typeof api.crm.officeCheckIns.chooseAwayReason>["reason"]
+  ) {
+    return as(t, subject).mutation(api.crm.officeCheckIns.chooseAwayReason, {
+      checkInId,
+      reason,
+    });
+  }
+
+  async function storedRecord(t: Harness, checkInId: Id<"officeCheckIns">) {
+    return await t.run(async (ctx) => ctx.db.get("officeCheckIns", checkInId));
+  }
+
+  test("A failed clock-in records the person's answer, can change it, and audits each change", async () => {
+    const t = createHarness();
+    const { offices, staff } = await seed(t);
+    await seedRule(t, offices.delhi);
+    const { checkIn } = await clockIn(t, "delhi_rep", HOME_IP);
+    expect(checkIn.awayReason).toBeUndefined();
+
+    await choose(t, "delhi_rep", checkIn._id, "on_tour");
+    expect(await storedRecord(t, checkIn._id)).toMatchObject({
+      admission: "admitted",
+      awayReason: "on_tour",
+      clockIn: { outcome: "fail" },
+    });
+    // Choosing the same answer again changes nothing and writes no audit.
+    await choose(t, "delhi_rep", checkIn._id, "on_tour");
+    await choose(t, "delhi_rep", checkIn._id, "market_visit");
+    expect((await storedRecord(t, checkIn._id))?.awayReason).toBe("market_visit");
+    expect(await auditFor(t, "away_reason_set")).toEqual([
+      expect.objectContaining({
+        actorStaffId: staff.delhiRep,
+        checkInId: checkIn._id,
+        subjectStaffId: staff.delhiRep,
+        summary: "working on tour",
+      }),
+      expect.objectContaining({ summary: "working on market visit (was on tour)" }),
+    ]);
+    const [row] = (await teamDay(t, "hr")).rows.filter((entry) => entry.name === "delhi_rep");
+    expect(row?.checkIn?.awayReason).toBe("market_visit");
+  });
+
+  test("An answer never admits a held check-in: it still waits for a manager", async () => {
+    const t = createHarness();
+    const { offices } = await seed(t);
+    await seedRule(t, offices.delhi, { enforcementMode: "enforce" });
+    const { checkIn } = await clockIn(t, "delhi_rep", HOME_IP);
+    await choose(t, "delhi_rep", checkIn._id, "out_of_office");
+    expect(await storedRecord(t, checkIn._id)).toMatchObject({
+      admission: "pending_review",
+      awayReason: "out_of_office",
+    });
+  });
+
+  test("Nothing is asked when the check passed or the office has no rule", async () => {
+    const t = createHarness();
+    const { offices } = await seed(t);
+    await seedRule(t, offices.delhi);
+    const passed = (await clockIn(t, "delhi_rep", IN_OFFICE_IP)).checkIn;
+    await expect(choose(t, "delhi_rep", passed._id, "on_tour")).rejects.toThrow(
+      "AWAY_REASON_NOT_NEEDED"
+    );
+    const noRule = (await clockIn(t, "mumbai_rep", HOME_IP)).checkIn;
+    expect(noRule.clockIn.requirement).toBe("not_configured");
+    await expect(choose(t, "mumbai_rep", noRule._id, "on_tour")).rejects.toThrow(
+      "AWAY_REASON_NOT_NEEDED"
+    );
+    expect(await auditFor(t, "away_reason_set")).toHaveLength(0);
+  });
+
+  test("Only the person answers for their own session, and not after a review", async () => {
+    const t = createHarness();
+    const { offices } = await seed(t);
+    await seedRule(t, offices.delhi, { enforcementMode: "enforce" });
+    const { checkIn } = await clockIn(t, "delhi_rep", HOME_IP);
+    // Not even HR or Admin can answer for someone else.
+    for (const subject of ["hr", "admin", "delhi_head", "mumbai_rep"]) {
+      await expect(choose(t, subject, checkIn._id, "on_tour")).rejects.toThrow(
+        "CHECK_IN_NOT_FOUND"
+      );
+    }
+    await as(t, "delhi_head").mutation(api.crm.officeCheckIns.review, {
+      checkInId: checkIn._id,
+      decision: "accepted",
+      reason: "Confirmed with the client",
+    });
+    await expect(choose(t, "delhi_rep", checkIn._id, "on_tour")).rejects.toThrow(
+      "ALREADY_REVIEWED"
+    );
+    expect((await storedRecord(t, checkIn._id))?.awayReason).toBeUndefined();
+    expect(await auditFor(t, "away_reason_set")).toHaveLength(0);
+  });
+
+  test("A retried clock-in that passes clears the answer; one that fails keeps it", async () => {
+    const t = createHarness();
+    const { offices } = await seed(t);
+    await seedRule(t, offices.delhi, { requirement: "network_and_geofence" });
+    const { checkIn } = await clockIn(t, "delhi_rep", IN_OFFICE_IP, LOCATION_DENIED);
+    await choose(t, "delhi_rep", checkIn._id, "market_visit");
+
+    vi.setSystemTime(NOW.getTime() + 30_000);
+    const stillDenied = await clockIn(t, "delhi_rep", IN_OFFICE_IP, {
+      code: "timeout",
+      kind: "error",
+    });
+    expect(stillDenied.checkIn.awayReason).toBe("market_visit");
+
+    vi.setSystemTime(NOW.getTime() + 60_000);
+    const passed = await clockIn(t, "delhi_rep", IN_OFFICE_IP, IN_FENCE);
+    expect(passed.checkIn.clockIn.outcome).toBe("pass");
+    expect(passed.checkIn.awayReason).toBeUndefined();
+  });
+});
+
 describe("Deleting a session", () => {
   async function seedDeletion(t: Harness) {
     const seeded = await seed(t);

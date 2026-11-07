@@ -224,10 +224,11 @@ function activityLogCountLine({
 }
 
 function ActivityLogSection({ log }: { log: ActivityLogControls }) {
-  // Filters restored from the address bar must stay visible, so the log opens with them.
-  const [open, setOpen] = useState(log.filtersActive);
+  // Active filters keep the log visible until the reader opens or closes it themselves.
+  const [toggledOpen, setToggledOpen] = useState<boolean | null>(null);
+  const open = toggledOpen ?? log.filtersActive;
   const handleToggle = (event: SyntheticEvent<HTMLDetailsElement>) => {
-    setOpen(event.currentTarget.open);
+    setToggledOpen(event.currentTarget.open);
   };
   const handleSearch = (event: ChangeEvent<HTMLInputElement>) => log.setSearch(event.target.value);
   const loadedCount = log.pagination?.loadedCount ?? log.rows.length;

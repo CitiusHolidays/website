@@ -14,6 +14,7 @@ import {
   Search,
   X,
 } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { Button } from "@/components/ui/application-button";
 import { ControlledDialog, ControlledDialogTitle } from "@/components/ui/application-dialog";
@@ -35,11 +36,27 @@ import {
   isRuntimeObject,
   isRuntimeString,
 } from "@/lib/runtimeValues";
-import {
-  DocumentPreviewRenderer,
-  type PreviewSearchResult,
-  type PreviewViewerController,
-} from "./DocumentPreviewRenderers";
+import type { PreviewSearchResult, PreviewViewerController } from "./DocumentPreviewRenderers";
+
+/**
+ * The renderers (PDF, spreadsheet, Office, image, text) load only when someone
+ * opens a preview, so they don't slow every portal page on a slow connection.
+ * Opening a preview starts this download alongside the document itself.
+ */
+const loadRenderers = () => import("./DocumentPreviewRenderers");
+
+function RendererLoading() {
+  return (
+    <div className="grid h-full min-h-80 place-items-center p-8 text-center text-slate-700">
+      <Loader2 aria-hidden="true" className="mx-auto animate-spin" size={28} />
+    </div>
+  );
+}
+
+const DocumentPreviewRenderer = dynamic(
+  () => loadRenderers().then((module) => module.DocumentPreviewRenderer),
+  { loading: RendererLoading, ssr: false }
+);
 
 type PreviewLoadState = "closed" | "loading" | "preparing" | "ready" | "unavailable";
 
@@ -353,6 +370,7 @@ function useDocumentPreviewController() {
           `${location.pathname}${location.search}${location.hash}`
         );
       }
+      loadRenderers();
       dispatch({ request: { ...detail, sourceUrl }, type: "open" });
     };
     const handlePopState = () => {

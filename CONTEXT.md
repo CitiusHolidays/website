@@ -184,6 +184,10 @@ _Avoid_: Creating a Job Card before order confirmation, using the Accounts creat
 A staff member's clock-in and clock-out for one work date at their assigned office, with the verification evidence recorded at each step. It shows who is in the office and whether the Branch Verification Rule was met; it is not payroll, timesheets, or continuous location tracking.
 _Avoid_: Attendance system, proof of presence, tracking, treating a failed or uncertain signal as proof of absence
 
+**Away Reason**:
+What a staff member says they are doing when their own clock-in check did not pass: On tour, On market visit, or Out of office. It is their statement, shown to their overseers beside the evidence; it is not verified and never admits a held check-in.
+_Avoid_: Treating the answer as verification, asking when the office has no rule, answering for someone else
+
 **Branch Verification Rule**:
 The Admin-configured rule for one office naming which signals a check-in must satisfy (office network, location, both, or either) and whether the office is in Report only or Enforce mode. The server evaluates every named signal; the staff member does not choose a method.
 _Avoid_: Employee-selected verification method, enabling Enforce without a completed pilot, invented office IPs or coordinates

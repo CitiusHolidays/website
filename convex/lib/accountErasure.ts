@@ -204,6 +204,7 @@ async function eraseProfiles(ctx: MutationCtx, target: AccountErasureTarget) {
     )
   ).flat();
   const ownedIds = new Set<Id<"userProfiles">>(owned.map((profile) => profile._id));
+  const identityIds = new Set(target.identityIds);
   // Archived duplicates keep the email but drop the live owner, so find them through the email
   // index and accept only rows provably tied to this login.
   const archived = (
@@ -223,7 +224,7 @@ async function eraseProfiles(ctx: MutationCtx, target: AccountErasureTarget) {
         !ownedIds.has(profile._id) &&
         profile.archivedAt !== undefined &&
         ((profile.archivedAuthUserId !== undefined &&
-          target.identityIds.includes(profile.archivedAuthUserId)) ||
+          identityIds.has(profile.archivedAuthUserId)) ||
           (profile.mergedIntoProfileId !== undefined && ownedIds.has(profile.mergedIntoProfileId)))
     );
   const profiles = bounded([...owned, ...archived]);
@@ -511,14 +512,18 @@ export async function eraseCustomerAccount(
   ctx: MutationCtx,
   target: AccountErasureTarget
 ): Promise<AccountErasureCounts> {
-  const profiles = await eraseProfiles(ctx, target);
-  const sacredBharatRows = await eraseSacredBharat(ctx, target);
-  const [entitlementsRevoked] = await Promise.all([
-    endEntitlements(ctx, target),
-    eraseSignInLinkRows(ctx, target),
-  ]);
-  const bookings = await detachBookings(ctx, target);
-  const identityLinks = await eraseIdentityLinks(ctx, target);
+  // Each step owns its own tables, so they run together inside the one transaction.
+  const [profiles, sacredBharatRows, entitlementsRevoked, bookings, identityLinks] =
+    await Promise.all([
+      eraseProfiles(ctx, target),
+      eraseSacredBharat(ctx, target),
+      endEntitlements(ctx, target),
+      detachBookings(ctx, target),
+      eraseIdentityLinks(ctx, target),
+      eraseSignInLinkRows(ctx, target),
+    ]);
+  // The Better Auth login goes last, only once every app-owned row is bounded and resolved, so a
+  // too-large refusal never starts the component's writes.
   const login = await eraseBetterAuthLogins(
     ctx,
     target.betterAuthUserIds,

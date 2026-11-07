@@ -42,6 +42,11 @@ owners.
 - Lint and baseline: `bun run lint` then `bun run lint:ratchet`
 - Tests: `bun run test`
 - Dead code: `bun run deadcode` then `bun run deadcode:ratchet`
+- React health: `bun run doctor -- --verbose` must report 100/100 with no issues
+  before any change is called done, including after merging `main`. Fix true
+  positives in the same change. Exceptions are only for verified false positives
+  or deliberately ordered integration tests, recorded with evidence in
+  `docs/agents/react-doctor-triage.md`.
 - Complete target-neutral evidence: `bun run verify:local`
 
 `bun run typecheck` refreshes ignored Next route types before TypeScript. For an

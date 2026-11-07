@@ -6,6 +6,7 @@ import {
   type postTourJobValidator,
 } from "@convex/lib/postTourFeedbackValidators";
 import type { Infer } from "convex/values";
+import { useReducedMotion } from "motion/react";
 import Image from "next/image";
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/application-button";
@@ -32,6 +33,21 @@ const categoryLabels = new Map(
   POST_TOUR_FEEDBACK_CATEGORIES.map((item) => [item.value, item.label])
 );
 
+/** The stored thumbnail's longest edge; wider tiles load the sharper copy over it. */
+const THUMBNAIL_EDGE = 640;
+
+/** Device pixels the tile needs, read from the loaded thumbnail's rendered width. */
+function needsSharperCopy(image: HTMLImageElement) {
+  // Runs from the image's load event, so it's always in the browser.
+  return image.clientWidth * (window.devicePixelRatio || 1) > THUMBNAIL_EDGE;
+}
+
+/**
+ * A feedback photo tile for slow connections: a quiet placeholder holds the
+ * space, the small thumbnail loads lazily, and only when the tile is wider than
+ * the thumbnail (one photo across the panel, a phone, a 2x screen) does a
+ * sharper copy load and fade in over it. If that copy fails, the thumbnail stays.
+ */
 export function FeedbackPhotoPreview({
   photo,
   category,
@@ -43,11 +59,24 @@ export function FeedbackPhotoPreview({
 }) {
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [thumbnailReady, setThumbnailReady] = useState(false);
+  const [sharpCopy, setSharpCopy] = useState<"none" | "loading" | "ready">("none");
+  const reducedMotion = useReducedMotion();
   const fail = () => setFailed(true);
   const retry = () => {
     setAttempt((current) => current + 1);
     setFailed(false);
+    setThumbnailReady(false);
+    setSharpCopy("none");
   };
+  const thumbnailLoaded = (event: React.SyntheticEvent<HTMLImageElement>) => {
+    setThumbnailReady(true);
+    if (sharpCopy === "none" && needsSharperCopy(event.currentTarget)) {
+      setSharpCopy("loading");
+    }
+  };
+  const sharpLoaded = () => setSharpCopy("ready");
+  const keepThumbnail = () => setSharpCopy("none");
   if (failed) {
     return (
       <div className="rounded-xl border border-brand-border p-3 text-brand-muted text-xs">
@@ -64,24 +93,52 @@ export function FeedbackPhotoPreview({
       </div>
     );
   }
+  const photoPath = `${basePath}/${encodeURIComponent(photo.id)}`;
+  const fade = reducedMotion ? "" : "transition-opacity duration-300 ease-out";
   return (
     <a
       className="block overflow-hidden rounded-xl border border-brand-border bg-[#FDFBF7] focus-visible:outline-2 focus-visible:outline-citius-blue"
-      href={`${basePath}/${encodeURIComponent(photo.id)}`}
+      href={photoPath}
       rel="noopener noreferrer"
       target="_blank"
     >
-      <Image
-        alt={`${category}: ${photo.fileName}`}
-        className="aspect-[4/3] w-full object-cover"
-        height={300}
-        key={attempt}
-        loading="lazy"
-        onError={fail}
-        src={`${basePath}/${encodeURIComponent(photo.id)}?inline=1&retry=${attempt}`}
-        unoptimized
-        width={400}
-      />
+      <span
+        className={`relative block aspect-[4/3] w-full bg-brand-light ${
+          thumbnailReady || reducedMotion ? "" : "animate-pulse"
+        }`}
+      >
+        <Image
+          alt={`${category}: ${photo.fileName}`}
+          className={`absolute inset-0 h-full w-full object-cover ${fade} ${
+            thumbnailReady ? "opacity-100" : "opacity-0"
+          }`}
+          decoding="async"
+          height={300}
+          key={attempt}
+          loading="lazy"
+          onError={fail}
+          onLoad={thumbnailLoaded}
+          src={`${photoPath}?inline=1&retry=${attempt}`}
+          unoptimized
+          width={400}
+        />
+        {sharpCopy === "none" ? null : (
+          <Image
+            alt=""
+            aria-hidden="true"
+            className={`absolute inset-0 h-full w-full object-cover ${fade} ${
+              sharpCopy === "ready" ? "opacity-100" : "opacity-0"
+            }`}
+            decoding="async"
+            height={1200}
+            onError={keepThumbnail}
+            onLoad={sharpLoaded}
+            src={`${photoPath}?inline=1&size=display&retry=${attempt}`}
+            unoptimized
+            width={1600}
+          />
+        )}
+      </span>
       <span className="block truncate px-3 py-2.5 text-brand-muted text-xs">{photo.fileName}</span>
     </a>
   );
@@ -233,32 +290,28 @@ function FeedbackForm({
   );
 }
 
-function FeedbackCard({
-  entry,
-  onDelete,
-  onRemovePhoto,
-  onUpdate,
-  onUpload,
-}: {
-  entry: FeedbackEntry;
+const PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
+const MAX_PHOTOS = 8;
+
+function isAcceptedPhoto(file: File) {
+  return PHOTO_TYPES.includes(file.type) && file.size <= MAX_PHOTO_BYTES;
+}
+
+interface FeedbackCardHandlers {
   onDelete: (entry: FeedbackEntry) => Promise<void>;
   onRemovePhoto: (photoId: FeedbackEntry["photos"][number]["id"]) => Promise<void>;
   onUpdate: (entry: FeedbackEntry, draft: FeedbackDraft) => Promise<void>;
   onUpload: (entry: FeedbackEntry, file: File) => Promise<void>;
-}) {
-  const [editing, setEditing] = useState(false);
+}
+
+function useFeedbackCardActions(
+  entry: FeedbackEntry,
+  { onDelete, onRemovePhoto, onUpload }: Omit<FeedbackCardHandlers, "onUpdate">
+) {
   const [busy, setBusy] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
-  const update = async (draft: FeedbackDraft) => {
-    await onUpdate(entry, draft);
-    setEditing(false);
-  };
-  const edit = () => setEditing(true);
-  const cancel = () => setEditing(false);
-  const askDelete = () => setConfirmDelete(true);
-  const cancelDelete = () => setConfirmDelete(false);
   const remove = async () => {
     setBusy(true);
     setError("");
@@ -276,10 +329,7 @@ function FeedbackCard({
     }
     setError("");
     setStatus("");
-    if (
-      !["image/jpeg", "image/png", "image/webp"].includes(file.type) ||
-      file.size > 4 * 1024 * 1024
-    ) {
+    if (!isAcceptedPhoto(file)) {
       setError("Choose a JPEG, PNG or WebP photo no larger than 4 MB.");
       event.target.value = "";
       return;
@@ -310,21 +360,173 @@ function FeedbackCard({
     }
     setBusy(false);
   };
+  return { busy, error, remove, removePhoto, status, upload };
+}
+
+function FeedbackCardHeader({ entry }: { entry: FeedbackEntry }) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-2">
+      <div className="min-w-0">
+        <h3 className="break-words font-heading font-semibold text-brand-dark text-lg">
+          {categoryLabels.get(entry.category)}
+        </h3>
+        <p className="mt-1 break-words text-brand-muted text-xs">
+          {entry.job.jobCode} · {entry.job.clientName} · {entry.job.destination}
+        </p>
+      </div>
+      <span className="shrink-0 text-brand-muted text-xs">
+        {formatDisplayDate(new Date(entry.createdAt).toISOString().slice(0, 10))}
+      </span>
+    </div>
+  );
+}
+
+function FeedbackVendorLine({ entry }: { entry: FeedbackEntry }) {
+  if (!entry.vendorName && entry.vendorRating === null) {
+    return null;
+  }
+  return (
+    <p className="mt-3 font-medium text-brand-dark text-sm">
+      {entry.vendorName || "Vendor"} ·{" "}
+      {entry.vendorRating === null ? "Not rated" : `${entry.vendorRating} / 10`}
+    </p>
+  );
+}
+
+function FeedbackPhotoGrid({
+  busy,
+  entry,
+  onRemovePhoto,
+}: {
+  busy: boolean;
+  entry: FeedbackEntry;
+  onRemovePhoto: (event: React.MouseEvent<HTMLButtonElement>) => void;
+}) {
+  if (entry.photos.length === 0) {
+    return null;
+  }
+  return (
+    <ul className="mt-5 grid gap-3 sm:grid-cols-2 [&>li:only-child]:sm:col-span-2">
+      {entry.photos.map((photo) => (
+        <li className="min-w-0" key={photo.id}>
+          <FeedbackPhotoPreview
+            category={categoryLabels.get(entry.category) ?? "Tour photo"}
+            photo={photo}
+          />
+          {entry.canEdit ? (
+            <Button
+              className="mt-1 min-h-11"
+              data-photo-id={photo.id}
+              disabled={busy}
+              onClick={onRemovePhoto}
+              surface="staff"
+              type="button"
+              variant="bare"
+            >
+              Remove photo
+            </Button>
+          ) : null}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function FeedbackCardActions({
+  busy,
+  confirmDelete,
+  editing,
+  entry,
+  onAskDelete,
+  onEdit,
+  onUpload,
+}: {
+  busy: boolean;
+  confirmDelete: boolean;
+  editing: boolean;
+  entry: FeedbackEntry;
+  onAskDelete: () => void;
+  onEdit: () => void;
+  onUpload: (event: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      {entry.canEdit && !editing ? (
+        <Button disabled={busy} onClick={onEdit} surface="staff" type="button" variant="outline">
+          Edit feedback
+        </Button>
+      ) : null}
+      {entry.canEdit && entry.photos.length < MAX_PHOTOS ? (
+        <label className="inline-flex min-h-11 max-w-full cursor-pointer items-center rounded-xl border border-brand-border px-3 text-citius-blue text-sm">
+          <span>{busy ? "Uploading..." : "Add photo"}</span>
+          <input
+            accept="image/jpeg,image/png,image/webp"
+            aria-label={`Add photo to ${categoryLabels.get(entry.category)}`}
+            className="sr-only"
+            disabled={busy}
+            onChange={onUpload}
+            type="file"
+          />
+        </label>
+      ) : null}
+      {entry.canDelete && !confirmDelete ? (
+        <Button disabled={busy} onClick={onAskDelete} surface="staff" type="button" variant="bare">
+          Delete feedback
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+function FeedbackDeleteConfirm({
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="mt-3 space-y-2 rounded-xl border border-brand-border p-3">
+      <p className="text-sm">Delete this feedback and its photos? This cannot be undone.</p>
+      <div className="flex gap-2">
+        <Button disabled={busy} onClick={onConfirm} surface="staff" type="button" variant="danger">
+          Delete permanently
+        </Button>
+        <Button disabled={busy} onClick={onCancel} surface="staff" type="button" variant="outline">
+          Keep feedback
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function FeedbackCard({
+  entry,
+  onDelete,
+  onRemovePhoto,
+  onUpdate,
+  onUpload,
+}: { entry: FeedbackEntry } & FeedbackCardHandlers) {
+  const [editing, setEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const { busy, error, remove, removePhoto, status, upload } = useFeedbackCardActions(entry, {
+    onDelete,
+    onRemovePhoto,
+    onUpload,
+  });
+  const update = async (draft: FeedbackDraft) => {
+    await onUpdate(entry, draft);
+    setEditing(false);
+  };
+  const edit = () => setEditing(true);
+  const cancel = () => setEditing(false);
+  const askDelete = () => setConfirmDelete(true);
+  const cancelDelete = () => setConfirmDelete(false);
   return (
     <article className="min-w-0 rounded-lg border border-brand-border bg-white p-5 sm:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className="break-words font-heading font-semibold text-brand-dark text-lg">
-            {categoryLabels.get(entry.category)}
-          </h3>
-          <p className="mt-1 break-words text-brand-muted text-xs">
-            {entry.job.jobCode} · {entry.job.clientName} · {entry.job.destination}
-          </p>
-        </div>
-        <span className="shrink-0 text-brand-muted text-xs">
-          {formatDisplayDate(new Date(entry.createdAt).toISOString().slice(0, 10))}
-        </span>
-      </div>
+      <FeedbackCardHeader entry={entry} />
       <div className="mt-4">
         {editing ? (
           <FeedbackForm initial={entry} onCancel={cancel} onSave={update} />
@@ -334,89 +536,28 @@ function FeedbackCard({
           </p>
         )}
       </div>
-      {entry.vendorName || entry.vendorRating !== null ? (
-        <p className="mt-3 font-medium text-brand-dark text-sm">
-          {entry.vendorName || "Vendor"} ·{" "}
-          {entry.vendorRating === null ? "Not rated" : `${entry.vendorRating} / 10`}
-        </p>
-      ) : null}
-      {entry.photos.length > 0 ? (
-        <ul className="mt-5 grid gap-3 sm:grid-cols-2 [&>li:only-child]:sm:col-span-2">
-          {entry.photos.map((photo) => (
-            <li className="min-w-0" key={photo.id}>
-              <FeedbackPhotoPreview
-                category={categoryLabels.get(entry.category) ?? "Tour photo"}
-                photo={photo}
-              />
-              {entry.canEdit ? (
-                <Button
-                  className="mt-1 min-h-11"
-                  data-photo-id={photo.id}
-                  disabled={busy}
-                  onClick={removePhoto}
-                  surface="staff"
-                  type="button"
-                  variant="bare"
-                >
-                  Remove photo
-                </Button>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <FeedbackVendorLine entry={entry} />
+      <FeedbackPhotoGrid busy={busy} entry={entry} onRemovePhoto={removePhoto} />
       <p className="mt-4 text-brand-muted text-xs">
         By {entry.authorName}
         {entry.updatedAt === entry.createdAt ? "" : " · Edited"}
       </p>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {entry.canEdit && !editing ? (
-          <Button disabled={busy} onClick={edit} surface="staff" type="button" variant="outline">
-            Edit feedback
-          </Button>
-        ) : null}
-        {entry.canEdit && entry.photos.length < 8 ? (
-          <label className="inline-flex min-h-11 max-w-full cursor-pointer items-center rounded-xl border border-brand-border px-3 text-citius-blue text-sm">
-            <span>{busy ? "Uploading..." : "Add photo"}</span>
-            <input
-              accept="image/jpeg,image/png,image/webp"
-              aria-label={`Add photo to ${categoryLabels.get(entry.category)}`}
-              className="sr-only"
-              disabled={busy}
-              onChange={upload}
-              type="file"
-            />
-          </label>
-        ) : null}
-        {entry.canDelete && !confirmDelete ? (
-          <Button disabled={busy} onClick={askDelete} surface="staff" type="button" variant="bare">
-            Delete feedback
-          </Button>
-        ) : null}
-      </div>
+      <FeedbackCardActions
+        busy={busy}
+        confirmDelete={confirmDelete}
+        editing={editing}
+        entry={entry}
+        onAskDelete={askDelete}
+        onEdit={edit}
+        onUpload={upload}
+      />
       {entry.canEdit ? (
         <p className="mt-2 text-brand-muted text-xs">
           JPEG, PNG or WebP. Up to 4 MB each and 8 photos per feedback.
         </p>
       ) : null}
       {confirmDelete ? (
-        <div className="mt-3 space-y-2 rounded-xl border border-brand-border p-3">
-          <p className="text-sm">Delete this feedback and its photos? This cannot be undone.</p>
-          <div className="flex gap-2">
-            <Button disabled={busy} onClick={remove} surface="staff" type="button" variant="danger">
-              Delete permanently
-            </Button>
-            <Button
-              disabled={busy}
-              onClick={cancelDelete}
-              surface="staff"
-              type="button"
-              variant="outline"
-            >
-              Keep feedback
-            </Button>
-          </div>
-        </div>
+        <FeedbackDeleteConfirm busy={busy} onCancel={cancelDelete} onConfirm={remove} />
       ) : null}
       <p aria-live="polite" className="mt-2 text-brand-muted text-xs" role="status">
         {status}
@@ -441,10 +582,7 @@ export function PostTourFeedbackView({
   job: FeedbackJob | null;
   loading?: boolean;
   onSave: (draft: FeedbackDraft) => Promise<void>;
-} & Pick<
-  React.ComponentProps<typeof FeedbackCard>,
-  "onDelete" | "onRemovePhoto" | "onUpdate" | "onUpload"
->) {
+} & FeedbackCardHandlers) {
   const [status, setStatus] = useState("");
   const save = async (draft: FeedbackDraft) => {
     await onSave(draft);

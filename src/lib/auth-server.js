@@ -80,6 +80,7 @@ function transientError(options) {
   );
 }
 
+const TRAILING_COLON = /:$/;
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL ?? "http://127.0.0.1:3210";
 const convexSiteUrl =
   process.env.NEXT_PUBLIC_CONVEX_SITE_URL ??
@@ -120,11 +121,9 @@ function authenticationCookieHeader(cookieHeader) {
 }
 
 function tokenRequestHeaders(requestHeaders) {
-  const protectionBypass = requestHeaders.get("x-vercel-protection-bypass")?.trim();
   return {
     accept: "application/json",
     cookie: authenticationCookieHeader(requestHeaders.get("cookie")),
-    ...propertiesWhen(protectionBypass, () => ({ "x-vercel-protection-bypass": protectionBypass })),
   };
 }
 
@@ -277,6 +276,7 @@ export async function fetchConvexTokenFromHeaders(
     maxAttempts = 2,
     timeoutMs = 5000,
     trustedOrigin,
+    convexSite = convexSiteUrl,
   } = {}
 ) {
   if (!isRuntimeFunction(fetchImpl)) {
@@ -313,7 +313,24 @@ export async function fetchConvexTokenFromHeaders(
     3,
     Math.max(1, Number.isFinite(Number(maxAttempts)) ? Number(maxAttempts) : 2)
   );
-  const tokenUrl = `${parsedOrigin.origin}/api/auth/convex/token`;
+  // Ask Convex directly instead of going through this app's /api/auth proxy:
+  // one hop fewer on every portal request. The proxy's only additions were the
+  // forwarded host and protocol, which come from the configured origin here,
+  // never from the incoming request.
+  let tokenUrl;
+  try {
+    tokenUrl = `${new URL(convexSite).origin}/api/auth/convex/token`;
+  } catch (cause) {
+    throw configurationError("Configure a valid Convex site URL for server authentication", {
+      cause,
+      correlationId,
+    });
+  }
+  forwardedHeaders["x-better-auth-forwarded-host"] = parsedOrigin.host;
+  forwardedHeaders["x-better-auth-forwarded-proto"] = parsedOrigin.protocol.replace(
+    TRAILING_COLON,
+    ""
+  );
 
   return await exchangeConvexToken({
     attempt: 1,

@@ -46,6 +46,7 @@
           "convex/crm/jobCards.convex.integration.ts",
           "convex/crm/leaveLapse.convex.integration.ts",
           "convex/crm/leaveLapse.ts",
+          "convex/crm/lib/retentionRun.ts",
           "convex/crm/metricDirty.ts",
           "convex/crm/notificationEmailLedger.convex.integration.ts",
           "convex/crm/notificationEmailLedger.ts",
@@ -58,14 +59,24 @@
           "convex/crm/passengerImportCommit.ts",
           "convex/crm/proposalAttachmentSummary.convex.integration.ts",
           "convex/crm/settings.ts",
+          "convex/customerApp.ts",
+          "convex/lib/accountErasure.ts",
           "convex/sacredBharatEditionEvents.convex.integration.ts",
           "src/components/portal/workspace/modals/CommercialFileUploadEditor.tsx",
+          "src/components/portal/workspace/officeCheckIn/OfficeStaffDialog.tsx",
           "src/lib/portal/passengerImportClient.ts"
         ],
         "rules": ["react-doctor/async-await-in-loop"]
       },
       {
-        "files": ["convex/crm/e2eSeedActions.ts"],
+        "files": ["convex/customerTripInvites.ts"],
+        "rules": ["react-doctor/async-defer-await"]
+      },
+      {
+        "files": [
+          "convex/crm/e2eSeedActions.ts",
+          "convex/lib/accountErasure.ts"
+        ],
         "rules": ["react-doctor/async-parallel"]
       },
       {
@@ -119,6 +130,7 @@
       },
       {
         "files": [
+          "convex/lib/transactionalEmail.tsx",
           "src/components/portal/PortalActionMenu.tsx",
           "src/components/portal/workspace/portalRouteLifecycle.tsx"
         ],
@@ -130,12 +142,19 @@
       },
       {
         "files": [
+          "convex/accountDeletion.convex.integration.ts",
           "convex/authEmailDeliveries.convex.integration.ts",
+          "convex/bookingCustomerEmails.convex.integration.ts",
+          "convex/crm/appPilot.convex.integration.ts",
           "convex/crm/cementScope.convex.integration.ts",
           "convex/crm/commercialFiles.ts",
+          "convex/crm/connectFieldAccess.convex.integration.ts",
+          "convex/crm/dataRetention.convex.integration.ts",
           "convex/crm/documentPreview.convex.integration.ts",
           "convex/crm/documentPreview.ts",
           "convex/crm/e2eSeedActions.ts",
+          "convex/crm/externalTourManagerAccess.convex.integration.ts",
+          "convex/crm/fieldPassportPreview.convex.integration.ts",
           "convex/crm/invoiceOutstandingProjection.convex.integration.ts",
           "convex/crm/jobCards.convex.integration.ts",
           "convex/crm/leaveLapse.convex.integration.ts",
@@ -143,15 +162,27 @@
           "convex/crm/lib/notifications.ts",
           "convex/crm/metricAggregates.ts",
           "convex/crm/notificationEmailLedger.convex.integration.ts",
+          "convex/crm/notificationEmailOutbox.convex.integration.ts",
           "convex/crm/notificationUnreadProjection.convex.integration.ts",
+          "convex/crm/notificationWorkAudience.convex.integration.ts",
           "convex/crm/officeCheckInRetention.convex.integration.ts",
           "convex/crm/officeCheckIns.convex.integration.ts",
           "convex/crm/operationalControls.convex.integration.ts",
           "convex/crm/ops.ts",
+          "convex/crm/postTourFeedback.convex.integration.ts",
+          "convex/crm/postTourReports.convex.integration.ts",
           "convex/crm/proposalAttachmentSummary.convex.integration.ts",
           "convex/crm/settings.ts",
           "convex/crm/staffWorkbookUpdates.ts",
+          "convex/crm/teamTravel.convex.integration.ts",
+          "convex/crm/tourManagerJobVisibility.convex.integration.ts",
+          "convex/crm/tourManagerLegacyNamesMigration.convex.integration.ts",
+          "convex/crm/travelerFeedback.convex.integration.ts",
+          "convex/crm/travellerGuardianConsent.convex.integration.ts",
+          "convex/crm/travellerGuardians.convex.integration.ts",
           "convex/crm/workflowNudges.ts",
+          "convex/customerApp.convex.integration.ts",
+          "convex/lib/accountErasure.ts",
           "convex/sacredBharatEditionEvents.ts"
         ],
         "rules": ["react-doctor/server-sequential-independent-await"]
@@ -167,6 +198,37 @@
       {
         "files": ["src/lib/portal/trackedConvexSubscriptions.ts"],
         "rules": ["react-hooks-js/todo"]
+      },
+      {
+        "files": ["src/app/[(]auth[)]/layout.js"],
+        "rules": [
+          "react-doctor/nextjs-no-native-script",
+          "react-doctor/rendering-script-defer-async"
+        ]
+      },
+      {
+        "files": ["src/components/portal/NotificationInbox.tsx"],
+        "rules": ["react-doctor/no-locale-format-in-render"]
+      },
+      {
+        "files": [
+          "src/components/portal/document-preview/DocumentPreviewHost.tsx"
+        ],
+        "rules": ["react-doctor/effect-needs-cleanup"]
+      },
+      {
+        "files": [
+          "src/components/portal/workspace/officeCheckIn/DeleteSessionForm.tsx"
+        ],
+        "rules": ["react-doctor/no-loading-flag-reset-outside-finally"]
+      },
+      {
+        "files": ["src/components/portal/PortalWorkspace.tsx"],
+        "rules": ["react-doctor/nextjs-no-client-side-redirect"]
+      },
+      {
+        "files": ["src/lib/auth-login-pages.js"],
+        "rules": ["react-doctor/clickjacking-redirect-risk"]
       }
     ]
   }

@@ -73,11 +73,13 @@ function textWidth(value: string, size: number) {
   return (units * size) / 1000;
 }
 
+const MONEY_FORMAT = new Intl.NumberFormat("en-IN", {
+  maximumFractionDigits: 2,
+  minimumFractionDigits: 2,
+});
+
 function money(paise: number) {
-  return new Intl.NumberFormat("en-IN", {
-    maximumFractionDigits: 2,
-    minimumFractionDigits: 2,
-  }).format(paise / 100);
+  return MONEY_FORMAT.format(paise / 100);
 }
 
 function displayDate(value: string) {

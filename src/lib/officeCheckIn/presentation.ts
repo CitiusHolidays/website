@@ -1,4 +1,5 @@
 import type {
+  AwayReason,
   CheckInRequirement,
   EnforcementMode,
   GeofenceReason,
@@ -94,6 +95,13 @@ export const NETWORK_KIND_LABELS = {
   office_shared_with_vpn: "Office, shared with VPN",
   vpn_or_proxy_exit: "VPN or proxy",
 } satisfies Record<NetworkEntryKind, string>;
+
+/** The answers to "Where are you working today?", asked when a clock-in check fails. */
+export const AWAY_REASON_LABELS = {
+  market_visit: "On market visit",
+  on_tour: "On tour",
+  out_of_office: "Out of office",
+} satisfies Record<AwayReason, string>;
 
 export const OUTCOME_LABELS = {
   fail: "Fail",
@@ -253,6 +261,7 @@ export interface TeamStatus {
 }
 
 export interface TeamStatusRecord extends DayStatusRecord {
+  awayReason?: AwayReason;
   clockIn: { outcome: SignalOutcome };
   source: "manager_entry" | "self";
 }
@@ -279,6 +288,13 @@ export function teamStatusFor(record: TeamStatusRecord | null): TeamStatus {
   const { outcome } = record.clockIn;
   if (outcome === "pass") {
     return { label: `${presence} · Pass`, tone: record.status === "open" ? "green" : "gray" };
+  }
+  // The person's own answer replaces the failed check; the times column says in or out.
+  if (record.awayReason) {
+    return {
+      label: AWAY_REASON_LABELS[record.awayReason],
+      tone: record.status === "open" ? "blue" : "gray",
+    };
   }
   return { label: `${presence} · ${OUTCOME_LABELS[outcome]}`, tone: OUTCOME_TONES[outcome] };
 }

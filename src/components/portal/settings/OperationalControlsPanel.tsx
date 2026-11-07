@@ -339,6 +339,174 @@ function canLoadMore(status: string) {
   return status === "CanLoadMore";
 }
 
+type OperationalPanel = ReturnType<typeof useOperationalControlsPanel>;
+
+/** The just-applied receipt reads from the live list once it arrives there. */
+function latestReceiptChangeSet(panel: OperationalPanel) {
+  const receipt = panel.latestAppliedReceipt;
+  if (!receipt) {
+    return panel.changeSets.results[0];
+  }
+  return panel.changeSets.results.find((changeSet) => changeSet._id === receipt._id) ?? receipt;
+}
+
+function PanelTabs({ onSelect, tab }: { onSelect: (tab: PanelTab) => void; tab: PanelTab }) {
+  return (
+    <div
+      aria-label="Feature control views"
+      className="my-5 flex flex-wrap gap-1 rounded-full bg-brand-light p-1"
+      role="tablist"
+    >
+      {PANEL_TABS.map((entry) => {
+        const selected = tab === entry.id;
+        return (
+          <button
+            aria-controls={`operational-panel-${entry.id}`}
+            aria-selected={selected}
+            className={cn(
+              "min-h-11 rounded-full px-4 font-semibold text-sm focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2",
+              selected
+                ? "bg-white text-brand-dark shadow-sm"
+                : "text-brand-muted hover:text-brand-dark"
+            )}
+            id={`operational-tab-${entry.id}`}
+            key={entry.id}
+            onClick={() => onSelect(entry.id)}
+            role="tab"
+            type="button"
+          >
+            {entry.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function PanelHeader({ onReview, stagedCount }: { onReview: () => void; stagedCount: number }) {
+  return (
+    <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className="font-heading font-semibold text-brand-dark text-lg">
+            Live feature controls
+          </h2>
+          <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-brand-light px-3 text-brand-muted text-xs">
+            <ShieldCheck aria-hidden="true" className="size-3.5" />
+            Admin only
+          </span>
+        </div>
+        <p className="mt-1 max-w-3xl text-brand-muted text-sm">
+          Pause or restore individual live features. Stage any number of changes, review them
+          together, then apply the complete set immediately.
+        </p>
+      </div>
+      {stagedCount > 0 ? (
+        <button className="portal-primary-btn min-h-11" onClick={onReview} type="button">
+          Review {stagedCount} staged {stagedCount === 1 ? "change" : "changes"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function ControlsTab({ panel }: { panel: OperationalPanel }) {
+  const controls = panel.controls ?? [];
+  return (
+    <>
+      {/* The latest result leads, so a failed restoration is read before the catalog. */}
+      <LatestChangeReceipt
+        changeSet={latestReceiptChangeSet(panel)}
+        controlLabels={panel.controlLabels}
+      />
+      <OperationalControlCatalog
+        controlLabels={panel.controlLabels}
+        controls={panel.visibleControls}
+        filter={panel.filter}
+        onFilterChange={panel.setFilter}
+        onSearchChange={panel.setSearch}
+        onStage={panel.stageControl}
+        search={panel.search}
+        staged={panel.staged}
+      />
+      {panel.reviewing && panel.stagedRows.length > 0 && panel.targetIdentity ? (
+        <ChangeSetReviewPanel
+          allControls={controls}
+          changes={panel.stagedRows}
+          controlLabels={panel.controlLabels}
+          identity={panel.targetIdentity}
+          onApply={panel.applyReviewedChanges}
+          onCancel={() => panel.setReviewing(false)}
+          onReasonChange={panel.setReason}
+          onRestorationChange={panel.setRestoration}
+          pending={panel.applying}
+          reason={panel.reason}
+          restoration={panel.restoration}
+        />
+      ) : null}
+    </>
+  );
+}
+
+function TestsTab({ panel }: { panel: OperationalPanel }) {
+  return (
+    <ProductionTestLab
+      activeRuns={panel.activeTestRuns ?? []}
+      canLoadMore={canLoadMore(panel.testRuns.status)}
+      history={panel.testRuns.results}
+      latestResults={panel.latestResults}
+      note={panel.testNote}
+      onLoadMore={() => panel.testRuns.loadMore(HISTORY_PAGE_SIZE)}
+      onNoteChange={panel.setTestNote}
+      onResume={panel.resumeTestRun}
+      onRun={panel.runSelectedRecipes}
+      onToggle={panel.toggleRecipe}
+      pending={panel.runningTests}
+      recipes={panel.recipes}
+      selected={panel.selectedRecipes}
+    />
+  );
+}
+
+function ActivityTab({
+  onCloseUndo,
+  onRequestUndo,
+  panel,
+}: {
+  onCloseUndo: () => void;
+  onRequestUndo: (changeSet: OperationalChangeSet, trigger: HTMLButtonElement) => void;
+  panel: OperationalPanel;
+}) {
+  return (
+    <>
+      <OperationalActivity
+        audits={panel.audits.results}
+        canLoadMoreAudits={canLoadMore(panel.audits.status)}
+        canLoadMoreChanges={canLoadMore(panel.changeSets.status)}
+        canLoadMoreReceipts={canLoadMore(panel.receipts.status)}
+        changeSets={panel.changeSets.results}
+        controlLabels={panel.controlLabels}
+        onLoadMoreAudits={() => panel.audits.loadMore(HISTORY_PAGE_SIZE)}
+        onLoadMoreChanges={() => panel.changeSets.loadMore(HISTORY_PAGE_SIZE)}
+        onLoadMoreReceipts={() => panel.receipts.loadMore(HISTORY_PAGE_SIZE)}
+        onRequestUndo={onRequestUndo}
+        receipts={panel.receipts.results}
+      />
+      {panel.undoTarget ? (
+        <UndoReviewPanel
+          changeSet={panel.undoTarget}
+          controlLabels={panel.controlLabels}
+          onCancel={onCloseUndo}
+          onConfirm={panel.applyUndo}
+          onReasonChange={panel.setUndoReason}
+          pending={panel.undoPending}
+          reason={panel.undoReason}
+        />
+      ) : null}
+    </>
+  );
+}
+
 export function OperationalControlsPanel() {
   const [tab, setTab] = useState<PanelTab>("controls");
   const undoTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -347,6 +515,15 @@ export function OperationalControlsPanel() {
   const closeUndoReview = () => {
     panel.setUndoTarget(null);
     focusUndoTrigger();
+  };
+  const requestUndo = (changeSet: OperationalChangeSet, trigger: HTMLButtonElement) => {
+    undoTriggerRef.current = trigger;
+    panel.setUndoTarget(changeSet);
+    panel.setUndoReason("");
+  };
+  const reviewStaged = () => {
+    setTab("controls");
+    panel.setReviewing(true);
   };
   if (panel.controls === undefined) {
     return (
@@ -357,66 +534,11 @@ export function OperationalControlsPanel() {
   }
   return (
     <section className="rounded-2xl border border-brand-border/70 bg-white/95 p-4 shadow-[0_12px_34px_rgba(16,42,131,0.045)] md:p-5">
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="font-heading font-semibold text-brand-dark text-lg">
-              Live feature controls
-            </h2>
-            <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-brand-light px-3 text-brand-muted text-xs">
-              <ShieldCheck aria-hidden="true" className="size-3.5" />
-              Admin only
-            </span>
-          </div>
-          <p className="mt-1 max-w-3xl text-brand-muted text-sm">
-            Pause or restore individual live features. Stage any number of changes, review them
-            together, then apply the complete set immediately.
-          </p>
-        </div>
-        {panel.staged.size > 0 ? (
-          <button
-            className="portal-primary-btn min-h-11"
-            onClick={() => {
-              setTab("controls");
-              panel.setReviewing(true);
-            }}
-            type="button"
-          >
-            Review {panel.staged.size} staged {panel.staged.size === 1 ? "change" : "changes"}
-          </button>
-        ) : null}
-      </div>
+      <PanelHeader onReview={reviewStaged} stagedCount={panel.staged.size} />
 
       <OperationalTargetBanner identity={panel.targetIdentity} />
 
-      <div
-        aria-label="Feature control views"
-        className="my-5 flex flex-wrap gap-1 rounded-full bg-brand-light p-1"
-        role="tablist"
-      >
-        {PANEL_TABS.map((entry) => {
-          const selected = tab === entry.id;
-          return (
-            <button
-              aria-controls={`operational-panel-${entry.id}`}
-              aria-selected={selected}
-              className={cn(
-                "min-h-11 rounded-full px-4 font-semibold text-sm focus-visible:outline-2 focus-visible:outline-citius-blue focus-visible:outline-offset-2",
-                selected
-                  ? "bg-white text-brand-dark shadow-sm"
-                  : "text-brand-muted hover:text-brand-dark"
-              )}
-              id={`operational-tab-${entry.id}`}
-              key={entry.id}
-              onClick={() => setTab(entry.id)}
-              role="tab"
-              type="button"
-            >
-              {entry.label}
-            </button>
-          );
-        })}
-      </div>
+      <PanelTabs onSelect={setTab} tab={tab} />
 
       <div
         aria-labelledby={`operational-tab-${tab}`}
@@ -424,94 +546,10 @@ export function OperationalControlsPanel() {
         id={`operational-panel-${tab}`}
         role="tabpanel"
       >
-        {tab === "controls" ? (
-          <>
-            {/* The latest result leads, so a failed restoration is read before the catalog. */}
-            <LatestChangeReceipt
-              changeSet={
-                panel.latestAppliedReceipt
-                  ? (panel.changeSets.results.find(
-                      (changeSet) => changeSet._id === panel.latestAppliedReceipt?._id
-                    ) ?? panel.latestAppliedReceipt)
-                  : panel.changeSets.results[0]
-              }
-              controlLabels={panel.controlLabels}
-            />
-            <OperationalControlCatalog
-              controlLabels={panel.controlLabels}
-              controls={panel.visibleControls}
-              filter={panel.filter}
-              onFilterChange={panel.setFilter}
-              onSearchChange={panel.setSearch}
-              onStage={panel.stageControl}
-              search={panel.search}
-              staged={panel.staged}
-            />
-            {panel.reviewing && panel.stagedRows.length > 0 && panel.targetIdentity ? (
-              <ChangeSetReviewPanel
-                allControls={panel.controls}
-                changes={panel.stagedRows}
-                controlLabels={panel.controlLabels}
-                identity={panel.targetIdentity}
-                onApply={panel.applyReviewedChanges}
-                onCancel={() => panel.setReviewing(false)}
-                onReasonChange={panel.setReason}
-                onRestorationChange={panel.setRestoration}
-                pending={panel.applying}
-                reason={panel.reason}
-                restoration={panel.restoration}
-              />
-            ) : null}
-          </>
-        ) : null}
-        {tab === "tests" ? (
-          <ProductionTestLab
-            activeRuns={panel.activeTestRuns ?? []}
-            canLoadMore={canLoadMore(panel.testRuns.status)}
-            history={panel.testRuns.results}
-            latestResults={panel.latestResults}
-            note={panel.testNote}
-            onLoadMore={() => panel.testRuns.loadMore(HISTORY_PAGE_SIZE)}
-            onNoteChange={panel.setTestNote}
-            onResume={panel.resumeTestRun}
-            onRun={panel.runSelectedRecipes}
-            onToggle={panel.toggleRecipe}
-            pending={panel.runningTests}
-            recipes={panel.recipes}
-            selected={panel.selectedRecipes}
-          />
-        ) : null}
+        {tab === "controls" ? <ControlsTab panel={panel} /> : null}
+        {tab === "tests" ? <TestsTab panel={panel} /> : null}
         {tab === "activity" ? (
-          <>
-            <OperationalActivity
-              audits={panel.audits.results}
-              canLoadMoreAudits={canLoadMore(panel.audits.status)}
-              canLoadMoreChanges={canLoadMore(panel.changeSets.status)}
-              canLoadMoreReceipts={canLoadMore(panel.receipts.status)}
-              changeSets={panel.changeSets.results}
-              controlLabels={panel.controlLabels}
-              onLoadMoreAudits={() => panel.audits.loadMore(HISTORY_PAGE_SIZE)}
-              onLoadMoreChanges={() => panel.changeSets.loadMore(HISTORY_PAGE_SIZE)}
-              onLoadMoreReceipts={() => panel.receipts.loadMore(HISTORY_PAGE_SIZE)}
-              onRequestUndo={(changeSet, trigger) => {
-                undoTriggerRef.current = trigger;
-                panel.setUndoTarget(changeSet);
-                panel.setUndoReason("");
-              }}
-              receipts={panel.receipts.results}
-            />
-            {panel.undoTarget ? (
-              <UndoReviewPanel
-                changeSet={panel.undoTarget}
-                controlLabels={panel.controlLabels}
-                onCancel={closeUndoReview}
-                onConfirm={panel.applyUndo}
-                onReasonChange={panel.setUndoReason}
-                pending={panel.undoPending}
-                reason={panel.undoReason}
-              />
-            ) : null}
-          </>
+          <ActivityTab onCloseUndo={closeUndoReview} onRequestUndo={requestUndo} panel={panel} />
         ) : null}
       </div>
     </section>

@@ -45,8 +45,10 @@ interface Reader {
   ) => Promise<{ complete: boolean; linked: Doc<"queries">[] }>;
   query: (id?: Id<"queries">) => Promise<Doc<"queries"> | null>;
 }
-const hasRole = (access: PortalAccess, roles: string[]) =>
-  roles.some((role) => access.roles.includes(role));
+const hasRole = (access: PortalAccess, roles: string[]) => {
+  const held = new Set(access.roles);
+  return roles.some((role) => held.has(role));
+};
 const owns = (access: PortalAccess, staffId?: string) =>
   Boolean(staffId && access.staffId === staffId);
 const openQuery = (row: Doc<"queries">) =>
@@ -347,8 +349,9 @@ async function proposalDestinations(reader: Reader, entityId: string) {
   const visible = reader.authIds.some((authUserId) =>
     canSeeProposalRecord({ ...reader.access, authUserId }, row, linked)
   );
+  const authIds = new Set(reader.authIds);
   const salesOwner = linked.some((query) =>
-    Boolean(query.salesOwnerId && reader.authIds.includes(query.salesOwnerId))
+    Boolean(query.salesOwnerId && authIds.has(query.salesOwnerId))
   );
   return visible &&
     (proposalWork(reader, row, linked) ||

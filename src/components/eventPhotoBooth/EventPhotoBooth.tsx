@@ -4,7 +4,8 @@ import { api } from "@convex/_generated/api";
 import { useQuery } from "convex/react";
 import { Camera, Check, Download, ImagePlus, RotateCcw, Share2 } from "lucide-react";
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { type ComponentProps, useEffect, useRef, useState } from "react";
 import {
   ControlledAlertDialog,
   ControlledAlertDialogDescription,
@@ -28,6 +29,7 @@ import { type BoothCopyKey, boothCopy } from "@/lib/eventPhotoBooth/visitorCopy"
 import { createBoothMetrics } from "@/lib/eventPhotoBooth/visitorMetrics";
 import { getPhotoBoothContactHref } from "@/lib/public/contactIntent";
 import styles from "./EventPhotoBooth.module.css";
+import { leaveUnsavedThroughDocument } from "./unsavedNavigation";
 import { useBoothEditor } from "./useBoothEditor";
 
 export default function EventPhotoBooth() {
@@ -48,7 +50,7 @@ function useVisitorBooth(state: BoothParticipantState | undefined) {
   const [discardConfirmed, setDiscardConfirmed] = useState(false);
   const [pendingDiscard, setPendingDiscard] = useState<(() => void) | null>(null);
   const [metrics] = useState(createBoothMetrics);
-  const retainedScene = useRef<BoothScene | undefined>(undefined);
+  const [retainedScene, setRetainedScene] = useState<BoothScene | undefined>(undefined);
   const visited = useRef(false);
   const picker = useRef<HTMLInputElement>(null);
   const camera = useRef<HTMLInputElement>(null);
@@ -63,10 +65,11 @@ function useVisitorBooth(state: BoothParticipantState | undefined) {
     availableScenes.find((item) => item.id === sceneId) ??
     availableScenes.find((item) => item.category === category) ??
     availableScenes[0];
-  if (liveScene) {
-    retainedScene.current = liveScene;
+  // Keep the last published scene so an in-progress photo survives the event closing.
+  if (liveScene && liveScene !== retainedScene) {
+    setRetainedScene(liveScene);
   }
-  const scene = liveScene ?? retainedScene.current;
+  const scene = liveScene ?? retainedScene;
   const editor = useBoothEditor({
     canParticipate,
     format,
@@ -139,9 +142,9 @@ function useVisitorBooth(state: BoothParticipantState | undefined) {
       setShareStatus(
         error instanceof Error && error.name === "AbortError" ? "shareCancelled" : "shareFailed"
       );
-    } finally {
-      setSharing(false);
     }
+    // `sharing` only becomes true after the handoff starts; every later path reaches here.
+    setSharing(false);
   }
 
   function download() {
@@ -281,12 +284,13 @@ export function EventPhotoBoothView({ state }: { state: BoothParticipantState | 
     editor,
     canParticipate,
     availableScenes,
+    pageHeading,
     showEditor,
   } = view;
   return (
     <div className={styles.booth} lang={language}>
       <header className={styles.header}>
-        <a aria-label={copy.home} href="/">
+        <BoothLink aria-label={copy.home} dirty={editor.dirty} href="/">
           <Image
             alt="Citius Holidays"
             height={58}
@@ -295,7 +299,7 @@ export function EventPhotoBoothView({ state }: { state: BoothParticipantState | 
             unoptimized
             width={138}
           />
-        </a>
+        </BoothLink>
         <fieldset className={styles.languages}>
           <legend className="sr-only">{copy.language}</legend>
           <button
@@ -319,7 +323,7 @@ export function EventPhotoBoothView({ state }: { state: BoothParticipantState | 
 
       <div className={styles.content}>
         <div className={styles.intro}>
-          <h1 ref={view.pageHeading} tabIndex={-1}>
+          <h1 ref={pageHeading} tabIndex={-1}>
             {copy.title}
           </h1>
         </div>
@@ -336,8 +340,12 @@ export function EventPhotoBoothView({ state }: { state: BoothParticipantState | 
             <h2>{copy.closed}</h2>
             <p>{editor.hasPhoto ? copy.closedDuring : copy.closedHelp}</p>
             <div className={styles.links}>
-              <a href="/">{copy.explore}</a>
-              <a href="/pilgrimage">{copy.explorePilgrimage}</a>
+              <BoothLink dirty={editor.dirty} href="/">
+                {copy.explore}
+              </BoothLink>
+              <BoothLink dirty={editor.dirty} href="/pilgrimage">
+                {copy.explorePilgrimage}
+              </BoothLink>
             </div>
           </section>
         ) : null}
@@ -358,11 +366,21 @@ export function EventPhotoBoothView({ state }: { state: BoothParticipantState | 
         <DiscardPhotoDialog view={view} />
         <footer className={styles.footer}>
           <p>{copy.artworkNote}</p>
-          <a href="/policies">{copy.privacyLink}</a>
+          <BoothLink dirty={editor.dirty} href="/policies">
+            {copy.privacyLink}
+          </BoothLink>
         </footer>
       </div>
     </div>
   );
+}
+
+function BoothLink({
+  dirty,
+  href,
+  ...props
+}: Omit<ComponentProps<typeof Link>, "href" | "onNavigate"> & { dirty: boolean; href: string }) {
+  return <Link {...props} href={href} onNavigate={leaveUnsavedThroughDocument(dirty, href)} />;
 }
 
 function SceneChoices({ view }: { view: VisitorView }) {
@@ -451,6 +469,7 @@ function PhotoControls({ view }: { view: VisitorView }) {
     mode,
     chooseMode,
     createPhoto,
+    photoOptionsSummary,
   } = view;
   return (
     <section aria-labelledby="booth-photo-title" className={styles.photoSection}>
@@ -458,11 +477,7 @@ function PhotoControls({ view }: { view: VisitorView }) {
         className={styles.photoOptions}
         open={!view.ready || Boolean(editor.error) || (!editor.cutout && mode === "cutout")}
       >
-        <summary
-          className={styles.sectionTitle}
-          id="booth-photo-title"
-          ref={view.photoOptionsSummary}
-        >
+        <summary className={styles.sectionTitle} id="booth-photo-title" ref={photoOptionsSummary}>
           {view.ready ? copy.photoOptions : copy.addPhoto}
         </summary>
         <input
@@ -578,6 +593,7 @@ function PhotoPreview({ view }: { view: VisitorView }) {
     language,
     editor,
   } = view;
+  const { previewCanvas } = editor;
   const displayedFormat = editor.showLivePreview ? editor.previewFormat : (ready?.format ?? format);
   return (
     <section aria-labelledby="booth-preview-title" className={styles.previewSection}>
@@ -609,7 +625,7 @@ function PhotoPreview({ view }: { view: VisitorView }) {
         <canvas
           aria-label={copy.previewAlt}
           hidden={!editor.showLivePreview}
-          ref={editor.previewCanvas}
+          ref={previewCanvas}
           role="img"
         />
         {ready && !editor.showLivePreview ? (
@@ -635,95 +651,55 @@ function PhotoPreview({ view }: { view: VisitorView }) {
   );
 }
 
-function PhotoOutputControls({ view }: { view: VisitorView }) {
-  const {
-    copy,
-    canParticipate,
-    mode,
-    editor,
-    transform,
-    setTransform,
-    setShareStatus,
-    ready,
-    language,
-    download,
-    sharing,
-    share,
-    shareStatus,
-    startOver,
-    scene,
-    metrics,
-  } = view;
+function PlacementControls({ view }: { view: VisitorView }) {
+  const { copy, canParticipate, transform, setTransform, setShareStatus } = view;
   return (
-    <section aria-label={copy.adjust} className={styles.outputControls}>
-      {mode === "cutout" && editor.cutout ? (
-        <fieldset className={styles.adjustments} disabled={!canParticipate}>
-          <legend className="sr-only">{copy.adjust}</legend>
-          {(
-            [
-              { key: "x", label: copy.horizontal, max: 0.65, min: -0.65 },
-              { key: "y", label: copy.vertical, max: 0.65, min: -0.65 },
-              { key: "scale", label: copy.size, max: 2.5, min: 0.35 },
-            ] as const
-          ).map((control) => (
-            <label key={control.key}>
-              {control.label}
-              <input
-                max={control.max}
-                min={control.min}
-                onChange={(event) => {
-                  setTransform(
-                    clampTransform({
-                      ...transform,
-                      [control.key]: Number(event.target.value),
-                    })
-                  );
-                  setShareStatus(null);
-                }}
-                step="0.01"
-                type="range"
-                value={transform[control.key]}
-              />
-            </label>
-          ))}
-          <button
-            className={styles.textButton}
-            onClick={() => setTransform(DEFAULT_TRANSFORM)}
-            type="button"
-          >
-            <RotateCcw aria-hidden size={16} />
-            {copy.resetPlacement}
-          </button>
-        </fieldset>
-      ) : null}
-      {ready && editor.previousResult && !editor.rendering ? (
-        <p className={styles.notice} role="status">
-          {copy.previousResult}: {ready.title[language]} · {copy[ready.format]}
-        </p>
-      ) : null}
-      <div className={styles.actions}>
-        <button
-          className={styles.primary}
-          disabled={!editor.canExport}
-          onClick={download}
-          type="button"
-        >
-          <Download aria-hidden size={18} />
-          {copy.save}
-        </button>
-        <button
-          className={styles.secondary}
-          disabled={!editor.canExport || sharing}
-          onClick={share}
-          type="button"
-        >
-          <Share2 aria-hidden size={18} />
-          {sharing ? copy.sharing : copy.share}
-        </button>
-      </div>
-      <p aria-live="polite" className={styles.status} role="status">
-        {shareStatus ? copy[shareStatus] : ""}
-      </p>
+    <fieldset className={styles.adjustments} disabled={!canParticipate}>
+      <legend className="sr-only">{copy.adjust}</legend>
+      {(
+        [
+          { key: "x", label: copy.horizontal, max: 0.65, min: -0.65 },
+          { key: "y", label: copy.vertical, max: 0.65, min: -0.65 },
+          { key: "scale", label: copy.size, max: 2.5, min: 0.35 },
+        ] as const
+      ).map((control) => (
+        <label key={control.key}>
+          {control.label}
+          <input
+            max={control.max}
+            min={control.min}
+            onChange={(event) => {
+              setTransform(
+                clampTransform({
+                  ...transform,
+                  [control.key]: Number(event.target.value),
+                })
+              );
+              setShareStatus(null);
+            }}
+            step="0.01"
+            type="range"
+            value={transform[control.key]}
+          />
+        </label>
+      ))}
+      <button
+        className={styles.textButton}
+        onClick={() => setTransform(DEFAULT_TRANSFORM)}
+        type="button"
+      >
+        <RotateCcw aria-hidden size={16} />
+        {copy.resetPlacement}
+      </button>
+    </fieldset>
+  );
+}
+
+/** Cancel, retry, and error affordances for an in-flight or failed preview. */
+function PreviewRecovery({ view }: { view: VisitorView }) {
+  const { copy, canParticipate, mode, editor } = view;
+  return (
+    <>
       {editor.busy ? (
         <button className={styles.secondary} onClick={editor.cancel} type="button">
           {copy.cancel}
@@ -754,6 +730,57 @@ function PhotoOutputControls({ view }: { view: VisitorView }) {
           ) : null}
         </div>
       ) : null}
+    </>
+  );
+}
+
+function PhotoOutputControls({ view }: { view: VisitorView }) {
+  const {
+    copy,
+    mode,
+    editor,
+    ready,
+    language,
+    download,
+    sharing,
+    share,
+    shareStatus,
+    startOver,
+    scene,
+    metrics,
+  } = view;
+  return (
+    <section aria-label={copy.adjust} className={styles.outputControls}>
+      {mode === "cutout" && editor.cutout ? <PlacementControls view={view} /> : null}
+      {ready && editor.previousResult && !editor.rendering ? (
+        <p className={styles.notice} role="status">
+          {copy.previousResult}: {ready.title[language]} · {copy[ready.format]}
+        </p>
+      ) : null}
+      <div className={styles.actions}>
+        <button
+          className={styles.primary}
+          disabled={!editor.canExport}
+          onClick={download}
+          type="button"
+        >
+          <Download aria-hidden size={18} />
+          {copy.save}
+        </button>
+        <button
+          className={styles.secondary}
+          disabled={!editor.canExport || sharing}
+          onClick={share}
+          type="button"
+        >
+          <Share2 aria-hidden size={18} />
+          {sharing ? copy.sharing : copy.share}
+        </button>
+      </div>
+      <p aria-live="polite" className={styles.status} role="status">
+        {shareStatus ? copy[shareStatus] : ""}
+      </p>
+      <PreviewRecovery view={view} />
       <p aria-live="polite" className={styles.status} role="status">
         {view.status}
       </p>

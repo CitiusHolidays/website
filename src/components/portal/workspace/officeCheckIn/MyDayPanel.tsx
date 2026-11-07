@@ -1,6 +1,6 @@
 "use client";
 
-import type { LocationReading } from "@convex/crm/officeCheckInVerification";
+import { type LocationReading, needsAwayReason } from "@convex/crm/officeCheckInVerification";
 import { Loader2 } from "lucide-react";
 import { useRef, useState } from "react";
 import type { OfficeCheckInAction } from "@/lib/officeCheckIn/contracts";
@@ -19,6 +19,7 @@ import {
 } from "@/lib/officeCheckIn/presentation";
 import { submitOfficeCheckIn } from "@/lib/officeCheckIn/submit";
 import { Panel } from "../portalWorkspaceListUi";
+import { AwayReasonPicker } from "./AwayReasonPicker";
 import { DeleteSessionForm } from "./DeleteSessionForm";
 import { DayStatusBadge, OfficeDialog, OutcomeBadge, SignalList } from "./OfficeCheckInParts";
 import type { CheckInRecord, MyCheckInStatus } from "./officeCheckInTypes";
@@ -367,6 +368,9 @@ export function MyDayPanel({ status }: { status: MyCheckInStatus }) {
             >
               {clock.feedback.message}
             </p>
+          ) : null}
+          {status.today && needsAwayReason(status.today) && !status.today.review ? (
+            <AwayReasonPicker session={status.today} />
           ) : null}
           {status.openFromEarlierDay && !status.today ? (
             <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900 text-xs">

@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
+import type { PaginationStatus } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 import { PortalTooltip } from "@/components/portal/PortalTooltip";
@@ -62,6 +63,57 @@ function TravelBatchRow({
   );
 }
 
+function travelBatchToggleLabel(expanded: boolean, travelBatchCount: number | undefined) {
+  if (expanded) {
+    return "Hide series";
+  }
+  return `View series${travelBatchCount ? ` (${travelBatchCount})` : ""}`;
+}
+
+/** The expanded series list with its loading, empty and load-more states. */
+function TravelBatchSeries({
+  batches,
+  canManage,
+  job,
+  onLoadMore,
+  openModal,
+  status,
+}: {
+  batches: TravelBatch[];
+  canManage: boolean;
+  job: PortalJobCardListRow;
+  onLoadMore: () => void;
+  openModal: PortalModalOpener;
+  status: PaginationStatus;
+}) {
+  const loadingFirstPage = status === "LoadingFirstPage";
+  return (
+    <>
+      {loadingFirstPage ? <span className="block text-brand-muted">Loading series…</span> : null}
+      {!loadingFirstPage && batches.length === 0 ? (
+        <span className="block text-brand-muted">No series</span>
+      ) : null}
+      {batches.map((batch) => (
+        <TravelBatchRow
+          batch={batch}
+          canManage={canManage}
+          job={job}
+          key={batch.id}
+          openModal={openModal}
+        />
+      ))}
+      {status === "CanLoadMore" ? (
+        <Button className="portal-small-btn" onClick={onLoadMore} type="button">
+          Load more series
+        </Button>
+      ) : null}
+      {status === "LoadingMore" ? (
+        <span className="block text-brand-muted">Loading more…</span>
+      ) : null}
+    </>
+  );
+}
+
 export function JobCardTravelBatchesCell({
   job,
   openModal,
@@ -77,7 +129,6 @@ export function JobCardTravelBatchesCell({
     expanded ? { jobCardId: String(job.id) } : "skip",
     { initialNumItems: 4 }
   );
-  const batches = expanded ? batchPage.results : [];
   const toggleExpanded = () => setExpanded((current) => !current);
   const loadMore = () => batchPage.loadMore(4);
   const addBatch = () => {
@@ -94,34 +145,17 @@ export function JobCardTravelBatchesCell({
         onClick={toggleExpanded}
         type="button"
       >
-        {expanded
-          ? "Hide series"
-          : `View series${job.travelBatchCount ? ` (${job.travelBatchCount})` : ""}`}
+        {travelBatchToggleLabel(expanded, job.travelBatchCount)}
       </Button>
-      {expanded && batchPage.status === "LoadingFirstPage" ? (
-        <span className="block text-brand-muted">Loading series…</span>
-      ) : null}
-      {expanded && batchPage.status !== "LoadingFirstPage" && batches.length === 0 ? (
-        <span className="block text-brand-muted">No series</span>
-      ) : null}
-      {expanded
-        ? batches.map((batch) => (
-            <TravelBatchRow
-              batch={batch}
-              canManage={canManage}
-              job={job}
-              key={batch.id}
-              openModal={openModal}
-            />
-          ))
-        : null}
-      {expanded && batchPage.status === "CanLoadMore" ? (
-        <Button className="portal-small-btn" onClick={loadMore} type="button">
-          Load more series
-        </Button>
-      ) : null}
-      {expanded && batchPage.status === "LoadingMore" ? (
-        <span className="block text-brand-muted">Loading more…</span>
+      {expanded ? (
+        <TravelBatchSeries
+          batches={batchPage.results}
+          canManage={canManage}
+          job={job}
+          onLoadMore={loadMore}
+          openModal={openModal}
+          status={batchPage.status}
+        />
       ) : null}
       {canManage ? (
         <Button className="portal-small-btn mt-1" onClick={addBatch} type="button">

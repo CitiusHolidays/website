@@ -758,6 +758,290 @@ function TestRecipeChoice({
   );
 }
 
+const SCHEDULED_RECIPE_PREFIX = "scheduled_job:";
+
+function runButtonLabel(selectedCount: number, pending: boolean, recipesLoading: boolean) {
+  if (recipesLoading) {
+    return "Loading checks…";
+  }
+  if (pending) {
+    return "Running checks…";
+  }
+  return `Run ${selectedCount} selected ${selectedCount === 1 ? "check" : "checks"}`;
+}
+
+/** Completed runs whose actor, note, status, target or recipes contain the search. */
+function completedRunsMatching(history: ProductionTestRun[], search: string) {
+  const term = search.trim().toLocaleLowerCase();
+  return history.filter(
+    (run) =>
+      run.status !== "running" &&
+      (!term ||
+        [
+          run.actorName,
+          run.note,
+          run.status,
+          run.targetDeployment,
+          run.targetEnvironment,
+          run.targetRevision,
+          ...run.recipeIds,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLocaleLowerCase()
+          .includes(term))
+  );
+}
+
+function ActiveRunRecovery({
+  activeRuns,
+  onResume,
+  pending,
+}: {
+  activeRuns: ProductionTestRun[];
+  onResume: (runId: ProductionTestRun["_id"]) => void;
+  pending: boolean;
+}) {
+  if (activeRuns.length === 0) {
+    return null;
+  }
+  return (
+    <section className="rounded-xl border border-amber-300 bg-amber-50 p-4" role="status">
+      <h3 className="font-heading font-semibold text-brand-dark text-lg">
+        Recover an active test run
+      </h3>
+      <p className="mt-1 text-brand-muted text-sm">
+        Recipe choices are locked because an immutable server-side run is still active. Resume it to
+        finish cleanup and evidence recording.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {activeRuns.map((run) => (
+          <button
+            className="portal-primary-btn min-h-11"
+            disabled={pending}
+            key={run._id}
+            onClick={() => onResume(run._id)}
+            type="button"
+          >
+            Resume {run.recipeIds.length} {run.recipeIds.length === 1 ? "check" : "checks"}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RecipeChoiceGrid({
+  className,
+  disabled,
+  onToggle,
+  recipes,
+  selected,
+}: {
+  className: string;
+  disabled: boolean;
+  onToggle: (id: ProductionTestRecipe["id"]) => void;
+  recipes: ProductionTestRecipe[];
+  selected: ReadonlySet<ProductionTestRecipe["id"]>;
+}) {
+  return (
+    <div className={className}>
+      {recipes.map((recipe) => (
+        <TestRecipeChoice
+          checked={selected.has(recipe.id)}
+          disabled={disabled}
+          key={recipe.id}
+          onToggle={onToggle}
+          recipe={recipe}
+        />
+      ))}
+    </div>
+  );
+}
+
+function RecipeCatalog({
+  disabled,
+  onToggle,
+  recipes,
+  selected,
+}: {
+  disabled: boolean;
+  onToggle: (id: ProductionTestRecipe["id"]) => void;
+  recipes: ProductionTestRecipe[] | undefined;
+  selected: ReadonlySet<ProductionTestRecipe["id"]>;
+}) {
+  const majorRecipes =
+    recipes?.filter((recipe) => !recipe.id.startsWith(SCHEDULED_RECIPE_PREFIX)) ?? [];
+  const scheduledRecipes =
+    recipes?.filter((recipe) => recipe.id.startsWith(SCHEDULED_RECIPE_PREFIX)) ?? [];
+  return (
+    <div className="mt-4 space-y-4">
+      {recipes === undefined ? (
+        <p
+          className="rounded-lg border border-brand-border bg-white/70 p-4 text-brand-muted text-sm"
+          role="status"
+        >
+          Loading available checks…
+        </p>
+      ) : null}
+      {recipes?.length === 0 ? (
+        <p className="rounded-lg border border-brand-border bg-white/70 p-4 text-brand-muted text-sm">
+          No Production Test Lab checks are available for this source revision.
+        </p>
+      ) : null}
+      {majorRecipes.length > 0 ? (
+        <section aria-labelledby="major-feature-checks-heading">
+          <h4 className="font-semibold text-brand-dark text-sm" id="major-feature-checks-heading">
+            Major feature checks
+          </h4>
+          <RecipeChoiceGrid
+            className="mt-2 grid gap-3 md:grid-cols-2 xl:grid-cols-3"
+            disabled={disabled}
+            onToggle={onToggle}
+            recipes={majorRecipes}
+            selected={selected}
+          />
+        </section>
+      ) : null}
+      {scheduledRecipes.length > 0 ? (
+        <details className="rounded-lg border border-brand-border bg-white/55 p-3">
+          <summary className="flex min-h-11 cursor-pointer items-center font-semibold text-brand-dark text-sm">
+            Scheduled job checks ({scheduledRecipes.length})
+          </summary>
+          <p className="mb-3 text-brand-muted text-xs">
+            Open this list when you need to validate a specific background job boundary.
+          </p>
+          <RecipeChoiceGrid
+            className="grid gap-3 md:grid-cols-2 xl:grid-cols-3"
+            disabled={disabled}
+            onToggle={onToggle}
+            recipes={scheduledRecipes}
+            selected={selected}
+          />
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
+function LatestResultRow({ result }: { result: ProductionTestResult }) {
+  return (
+    <div className="p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-semibold text-brand-dark text-sm">{result.label}</span>
+        <span
+          className={cn("rounded-full px-2.5 py-1 font-medium text-xs", resultTone(result.status))}
+        >
+          {result.status[0]?.toUpperCase()}
+          {result.status.slice(1)}
+        </span>
+        <span className="text-brand-muted text-xs">Cleanup {result.cleanup}</span>
+        <span className="text-brand-muted text-xs">{result.durationMs} ms</span>
+      </div>
+      <p className="mt-1 text-brand-muted text-sm">{result.detail}</p>
+      <ol className="mt-2 space-y-1 text-brand-muted text-xs">
+        {result.steps.map((step) => (
+          <li key={step.id}>
+            {step.label}: {step.status} — {step.detail}
+          </li>
+        ))}
+      </ol>
+      {result.recordedEffects.length > 0 ? (
+        <ul className="mt-2 space-y-1 break-words text-brand-muted text-xs [overflow-wrap:anywhere]">
+          {result.recordedEffects.map((effect) => (
+            <li key={effect}>{effect}</li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
+function LatestResults({ results }: { results: ProductionTestResult[] | null }) {
+  if (!results) {
+    return null;
+  }
+  return (
+    <section aria-live="polite">
+      <h3 className="font-heading font-semibold text-brand-dark text-lg">Latest result</h3>
+      <div className="mt-2 divide-y divide-brand-border overflow-hidden rounded-xl border border-brand-border">
+        {results.map((result) => (
+          <LatestResultRow key={result.recipeId} result={result} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function TestHistoryRun({ run }: { run: ProductionTestRun }) {
+  const results = run.results ?? [];
+  return (
+    <details className="p-3">
+      <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3">
+        <span className="font-medium text-brand-dark text-sm">
+          {results.length} checks by {run.actorName}
+        </span>
+        <span className="flex items-center gap-2 text-brand-muted text-xs">
+          {formatTimestamp(run.completedAt)} <ChevronDown aria-hidden="true" className="size-4" />
+        </span>
+      </summary>
+      <p className="text-brand-muted text-xs">
+        {run.targetEnvironment} · {run.targetDeployment} · {run.targetRevision}
+      </p>
+      <p className="mt-1 text-brand-muted text-xs">
+        Duration {Math.max(0, (run.completedAt ?? run.startedAt) - run.startedAt)} ms
+        {run.note ? ` · ${run.note}` : ""}
+      </p>
+      <ul className="mt-2 space-y-1 text-sm">
+        {results.map((result) => (
+          <li key={result.recipeId}>
+            {result.label}: {result.status}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+function TestHistory({
+  canLoadMore,
+  history,
+  onLoadMore,
+}: {
+  canLoadMore: boolean;
+  history: ProductionTestRun[];
+  onLoadMore: () => void;
+}) {
+  const [testSearch, setTestSearch] = useState("");
+  const completedHistory = completedRunsMatching(history, testSearch);
+  return (
+    <section>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h3 className="font-heading font-semibold text-brand-dark text-lg">Test history</h3>
+        <PortalSearchField
+          label="Search Test Lab history"
+          onChange={(event) => setTestSearch(event.target.value)}
+          placeholder="Search test history"
+          value={testSearch}
+          wrapperClassName="min-w-64"
+        />
+      </div>
+      <div className="mt-2 divide-y divide-brand-border overflow-hidden rounded-xl border border-brand-border">
+        {completedHistory.length > 0 ? (
+          completedHistory.map((run) => <TestHistoryRun key={run._id} run={run} />)
+        ) : (
+          <p className="p-4 text-brand-muted text-sm">No Test Lab runs yet.</p>
+        )}
+      </div>
+      {canLoadMore ? (
+        <button className="portal-small-btn mt-3 min-h-11" onClick={onLoadMore} type="button">
+          Load older tests
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
 export function ProductionTestLab({
   activeRuns,
   canLoadMore,
@@ -787,64 +1071,11 @@ export function ProductionTestLab({
   recipes: ProductionTestRecipe[] | undefined;
   selected: ReadonlySet<ProductionTestRecipe["id"]>;
 }) {
-  const [testSearch, setTestSearch] = useState("");
   const recipesLoading = recipes === undefined;
   const controlsLocked = pending || activeRuns.length > 0 || recipesLoading;
-  let runButtonLabel = `Run ${selected.size} selected ${selected.size === 1 ? "check" : "checks"}`;
-  if (pending) {
-    runButtonLabel = "Running checks…";
-  }
-  if (recipesLoading) {
-    runButtonLabel = "Loading checks…";
-  }
-  const normalizedTestSearch = testSearch.trim().toLocaleLowerCase();
-  const majorRecipes = recipes?.filter((recipe) => !recipe.id.startsWith("scheduled_job:")) ?? [];
-  const scheduledRecipes =
-    recipes?.filter((recipe) => recipe.id.startsWith("scheduled_job:")) ?? [];
-  const completedHistory = history.filter(
-    (run) =>
-      run.status !== "running" &&
-      (!normalizedTestSearch ||
-        [
-          run.actorName,
-          run.note,
-          run.status,
-          run.targetDeployment,
-          run.targetEnvironment,
-          run.targetRevision,
-          ...run.recipeIds,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLocaleLowerCase()
-          .includes(normalizedTestSearch))
-  );
   return (
     <div aria-busy={pending || recipesLoading} className="space-y-6">
-      {activeRuns.length > 0 ? (
-        <section className="rounded-xl border border-amber-300 bg-amber-50 p-4" role="status">
-          <h3 className="font-heading font-semibold text-brand-dark text-lg">
-            Recover an active test run
-          </h3>
-          <p className="mt-1 text-brand-muted text-sm">
-            Recipe choices are locked because an immutable server-side run is still active. Resume
-            it to finish cleanup and evidence recording.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {activeRuns.map((run) => (
-              <button
-                className="portal-primary-btn min-h-11"
-                disabled={pending}
-                key={run._id}
-                onClick={() => onResume(run._id)}
-                type="button"
-              >
-                Resume {run.recipeIds.length} {run.recipeIds.length === 1 ? "check" : "checks"}
-              </button>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      <ActiveRunRecovery activeRuns={activeRuns} onResume={onResume} pending={pending} />
       <div className="rounded-xl border border-citius-blue/25 bg-citius-blue/[0.035] p-4 md:p-5">
         <div className="flex items-start gap-3">
           <FlaskConical aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-citius-blue" />
@@ -858,63 +1089,12 @@ export function ProductionTestLab({
             </p>
           </div>
         </div>
-        <div className="mt-4 space-y-4">
-          {recipesLoading ? (
-            <p
-              className="rounded-lg border border-brand-border bg-white/70 p-4 text-brand-muted text-sm"
-              role="status"
-            >
-              Loading available checks…
-            </p>
-          ) : null}
-          {recipes?.length === 0 ? (
-            <p className="rounded-lg border border-brand-border bg-white/70 p-4 text-brand-muted text-sm">
-              No Production Test Lab checks are available for this source revision.
-            </p>
-          ) : null}
-          {majorRecipes.length > 0 ? (
-            <section aria-labelledby="major-feature-checks-heading">
-              <h4
-                className="font-semibold text-brand-dark text-sm"
-                id="major-feature-checks-heading"
-              >
-                Major feature checks
-              </h4>
-              <div className="mt-2 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {majorRecipes.map((recipe) => (
-                  <TestRecipeChoice
-                    checked={selected.has(recipe.id)}
-                    disabled={controlsLocked}
-                    key={recipe.id}
-                    onToggle={onToggle}
-                    recipe={recipe}
-                  />
-                ))}
-              </div>
-            </section>
-          ) : null}
-          {scheduledRecipes.length > 0 ? (
-            <details className="rounded-lg border border-brand-border bg-white/55 p-3">
-              <summary className="flex min-h-11 cursor-pointer items-center font-semibold text-brand-dark text-sm">
-                Scheduled job checks ({scheduledRecipes.length})
-              </summary>
-              <p className="mb-3 text-brand-muted text-xs">
-                Open this list when you need to validate a specific background job boundary.
-              </p>
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {scheduledRecipes.map((recipe) => (
-                  <TestRecipeChoice
-                    checked={selected.has(recipe.id)}
-                    disabled={controlsLocked}
-                    key={recipe.id}
-                    onToggle={onToggle}
-                    recipe={recipe}
-                  />
-                ))}
-              </div>
-            </details>
-          ) : null}
-        </div>
+        <RecipeCatalog
+          disabled={controlsLocked}
+          onToggle={onToggle}
+          recipes={recipes}
+          selected={selected}
+        />
         <label className="mt-4 block text-brand-dark text-sm">
           <span className="font-semibold">Test note (optional)</span>
           <textarea
@@ -932,105 +1112,14 @@ export function ProductionTestLab({
             onClick={onRun}
             type="button"
           >
-            {runButtonLabel}
+            {runButtonLabel(selected.size, pending, recipesLoading)}
           </button>
         </div>
       </div>
 
-      {latestResults ? (
-        <section aria-live="polite">
-          <h3 className="font-heading font-semibold text-brand-dark text-lg">Latest result</h3>
-          <div className="mt-2 divide-y divide-brand-border overflow-hidden rounded-xl border border-brand-border">
-            {latestResults.map((result) => (
-              <div className="p-3" key={result.recipeId}>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold text-brand-dark text-sm">{result.label}</span>
-                  <span
-                    className={cn(
-                      "rounded-full px-2.5 py-1 font-medium text-xs",
-                      resultTone(result.status)
-                    )}
-                  >
-                    {result.status[0]?.toUpperCase()}
-                    {result.status.slice(1)}
-                  </span>
-                  <span className="text-brand-muted text-xs">Cleanup {result.cleanup}</span>
-                  <span className="text-brand-muted text-xs">{result.durationMs} ms</span>
-                </div>
-                <p className="mt-1 text-brand-muted text-sm">{result.detail}</p>
-                <ol className="mt-2 space-y-1 text-brand-muted text-xs">
-                  {result.steps.map((step) => (
-                    <li key={step.id}>
-                      {step.label}: {step.status} — {step.detail}
-                    </li>
-                  ))}
-                </ol>
-                {result.recordedEffects.length > 0 ? (
-                  <ul className="mt-2 space-y-1 break-words text-brand-muted text-xs [overflow-wrap:anywhere]">
-                    {result.recordedEffects.map((effect) => (
-                      <li key={effect}>{effect}</li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
+      <LatestResults results={latestResults} />
 
-      <section>
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <h3 className="font-heading font-semibold text-brand-dark text-lg">Test history</h3>
-          <PortalSearchField
-            label="Search Test Lab history"
-            onChange={(event) => setTestSearch(event.target.value)}
-            placeholder="Search test history"
-            value={testSearch}
-            wrapperClassName="min-w-64"
-          />
-        </div>
-        <div className="mt-2 divide-y divide-brand-border overflow-hidden rounded-xl border border-brand-border">
-          {completedHistory.length > 0 ? (
-            completedHistory.map((run) => {
-              const results = run.results ?? [];
-              return (
-                <details className="p-3" key={run._id}>
-                  <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-3">
-                    <span className="font-medium text-brand-dark text-sm">
-                      {results.length} checks by {run.actorName}
-                    </span>
-                    <span className="flex items-center gap-2 text-brand-muted text-xs">
-                      {formatTimestamp(run.completedAt)}{" "}
-                      <ChevronDown aria-hidden="true" className="size-4" />
-                    </span>
-                  </summary>
-                  <p className="text-brand-muted text-xs">
-                    {run.targetEnvironment} · {run.targetDeployment} · {run.targetRevision}
-                  </p>
-                  <p className="mt-1 text-brand-muted text-xs">
-                    Duration {Math.max(0, (run.completedAt ?? run.startedAt) - run.startedAt)} ms
-                    {run.note ? ` · ${run.note}` : ""}
-                  </p>
-                  <ul className="mt-2 space-y-1 text-sm">
-                    {results.map((result) => (
-                      <li key={result.recipeId}>
-                        {result.label}: {result.status}
-                      </li>
-                    ))}
-                  </ul>
-                </details>
-              );
-            })
-          ) : (
-            <p className="p-4 text-brand-muted text-sm">No Test Lab runs yet.</p>
-          )}
-        </div>
-        {canLoadMore ? (
-          <button className="portal-small-btn mt-3 min-h-11" onClick={onLoadMore} type="button">
-            Load older tests
-          </button>
-        ) : null}
-      </section>
+      <TestHistory canLoadMore={canLoadMore} history={history} onLoadMore={onLoadMore} />
     </div>
   );
 }

@@ -66,20 +66,24 @@ export function DeleteSessionForm({
     setBusy(true);
     onBusyChange(true);
     setServerError("");
-    try {
-      const trimmed = reason.trim();
-      await deleteCheckIn(
-        trimmed ? { checkInId: session._id, reason: trimmed } : { checkInId: session._id }
-      );
-      toast.success(personName ? `Session deleted for ${personName}.` : "Session deleted.");
-      setBusy(false);
-      onBusyChange(false);
-      onDone();
-    } catch (error) {
-      setServerError(formatConvexError(error, "Couldn't delete the session. Try again."));
-      setBusy(false);
-      onBusyChange(false);
+    const trimmed = reason.trim();
+    // Settle the request first so every path unlocks; no try/finally, which React Compiler
+    // cannot compile.
+    const failure = await deleteCheckIn(
+      trimmed ? { checkInId: session._id, reason: trimmed } : { checkInId: session._id }
+    ).then(
+      () => "",
+      (error) => formatConvexError(error, "Couldn't delete the session. Try again.")
+    );
+    setBusy(false);
+    onBusyChange(false);
+    if (failure) {
+      setServerError(failure);
+      return;
     }
+    // Close only after the busy lock is released, so the dialog is allowed to close.
+    toast.success(personName ? `Session deleted for ${personName}.` : "Session deleted.");
+    onDone();
   };
 
   return (

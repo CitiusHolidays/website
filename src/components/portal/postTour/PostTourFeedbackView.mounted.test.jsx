@@ -121,6 +121,56 @@ test("a failed private photo has a keyboard-operable retry", async () => {
   expect(container.querySelector("img").src).toContain("retry=1");
 });
 
+async function photoTile() {
+  return await mount({
+    entries: [
+      {
+        ...entry,
+        photos: [{ fileName: "hotel.jpg", fileSize: 100, id: "photo-1", mimeType: "image/jpeg" }],
+      },
+    ],
+  });
+}
+
+async function loadThumbnail(container, renderedWidth) {
+  const thumbnail = container.querySelector("img");
+  Object.defineProperty(thumbnail, "clientWidth", { configurable: true, value: renderedWidth });
+  await act(() => thumbnail.dispatchEvent(new dom.window.Event("load")));
+  return thumbnail;
+}
+
+test("a wide photo tile loads a sharper copy over the thumbnail, then fades it in", async () => {
+  const container = await photoTile();
+  const thumbnail = container.querySelector("img");
+  expect(thumbnail.getAttribute("loading")).toBe("lazy");
+  expect(thumbnail.className).toContain("opacity-0");
+  await loadThumbnail(container, 700);
+  expect(thumbnail.className).toContain("opacity-100");
+  const images = container.querySelectorAll("img");
+  expect(images).toHaveLength(2);
+  const [, sharper] = images;
+  expect(sharper.src).toContain("size=display");
+  expect(sharper.getAttribute("aria-hidden")).toBe("true");
+  expect(sharper.className).toContain("opacity-0");
+  await act(() => sharper.dispatchEvent(new dom.window.Event("load")));
+  expect(sharper.className).toContain("opacity-100");
+});
+
+test("a narrow tile keeps the thumbnail, and a failed sharper copy falls back to it", async () => {
+  const narrow = await photoTile();
+  await loadThumbnail(narrow, 300);
+  expect(narrow.querySelectorAll("img")).toHaveLength(1);
+  await act(() => root.unmount());
+  narrow.remove();
+
+  const wide = await photoTile();
+  await loadThumbnail(wide, 900);
+  const [, sharper] = wide.querySelectorAll("img");
+  await act(() => sharper.dispatchEvent(new dom.window.Event("error")));
+  expect(wide.querySelectorAll("img")).toHaveLength(1);
+  expect(wide.textContent).not.toContain("Photo could not be loaded");
+});
+
 test("failed save preserves the comment and retry saves it with an N/A rating", async () => {
   const saved = [];
   let fail = true;
@@ -184,4 +234,58 @@ test("photo failures retain saved comments and destructive feedback deletion has
   await act(async () => button(container, "Delete feedback").click());
   await act(async () => button(container, "Delete permanently").click());
   expect(deleted).toBe(1);
+});
+
+test("an unsupported photo is refused before upload and a removed photo is announced", async () => {
+  const uploads = [];
+  const removed = [];
+  const container = await mount({
+    entries: [
+      {
+        ...entry,
+        photos: [{ fileName: "hotel.jpg", fileSize: 100, id: "photo-1", mimeType: "image/jpeg" }],
+      },
+    ],
+    onRemovePhoto: (photoId) => {
+      removed.push(photoId);
+      return Promise.resolve();
+    },
+    onUpload: (_entry, file) => {
+      uploads.push(file.name);
+      return Promise.resolve();
+    },
+  });
+  const input = container.querySelector('input[type="file"]');
+  const choose = async (file) => {
+    Object.defineProperty(input, "files", { configurable: true, value: [file] });
+    await act(async () => input.dispatchEvent(new dom.window.Event("change", { bubbles: true })));
+  };
+  await choose(new dom.window.File(["synthetic"], "hotel.gif", { type: "image/gif" }));
+  expect(container.querySelector('[role="alert"]').textContent).toBe(
+    "Choose a JPEG, PNG or WebP photo no larger than 4 MB."
+  );
+  expect(uploads).toEqual([]);
+  await choose(new dom.window.File(["synthetic"], "hotel.webp", { type: "image/webp" }));
+  expect(uploads).toEqual(["hotel.webp"]);
+  expect(container.querySelector('[role="alert"]')).toBeNull();
+  expect(container.querySelector('[role="status"]:not(:empty)')?.textContent).toBe(
+    "Photo uploaded."
+  );
+  await act(async () => button(container, "Remove photo").click());
+  expect(removed).toEqual(["photo-1"]);
+  expect(container.textContent).toContain("Photo removed.");
+});
+
+test("vendor details show only when recorded, and edits are marked", async () => {
+  const container = await mount({
+    entries: [
+      { ...entry, id: "a", vendorName: "", vendorRating: null },
+      { ...entry, id: "b", updatedAt: 2, vendorName: "", vendorRating: 8 },
+    ],
+  });
+  const [first, second] = container.querySelectorAll("article");
+  expect(first.textContent).not.toContain("Not rated");
+  expect(first.textContent).not.toContain("Edited");
+  expect(second.textContent).toContain("Vendor · 8 / 10");
+  expect(second.textContent).toContain("By Synthetic manager · Edited");
 });

@@ -2,6 +2,7 @@
 
 import { api } from "@convex/_generated/api";
 import { useConvexAuth, useMutation } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import {
   Bell,
   ChevronDown,
@@ -368,6 +369,208 @@ function SavedViewButton({
   );
 }
 
+type NotificationBellState =
+  | FunctionReturnType<typeof api.crm.activity.notificationBellState>
+  | undefined;
+
+function portalAccountSummary(access: PortalAccess, user?: PortalUser | null) {
+  const roles = access.roles ? access.roles.filter(Boolean) : [];
+  return {
+    accountEmail: access.email || user?.email,
+    accountImage: user?.image,
+    accountName: access.name || user?.name || "Staff",
+    compactRoleLabel: getCompactRoleLabel(roles),
+    roleLabel: roles.join(" / ") || "Staff",
+  };
+}
+
+function notificationBellSummary(notificationBellState: NotificationBellState) {
+  // SAFETY: the notificationBellState Convex validator is the source of NotificationItem's fields.
+  const notificationRows = (notificationBellState?.notifications ?? []) as NotificationItem[];
+  const shownUnreadCount = notificationRows.filter((item) => !item.readAt).length;
+  return {
+    notificationRows,
+    shownUnreadCount,
+    unreadCount: notificationBellState?.unreadCount ?? shownUnreadCount,
+    unreadCountIsLowerBound: Boolean(
+      notificationBellState &&
+        "hasMoreUnread" in notificationBellState &&
+        notificationBellState.hasMoreUnread
+    ),
+  };
+}
+
+function NotificationUnreadBadge({
+  shouldReduceMotion,
+  unreadCount,
+}: {
+  shouldReduceMotion: boolean | null;
+  unreadCount: number;
+}) {
+  return (
+    <m.span
+      animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, transform: "scale(1)" }}
+      className="absolute -top-1 -right-1 min-w-5 rounded-full bg-citius-blue px-1.5 text-center font-bold text-[10px] text-white tabular-nums leading-5 shadow-sm"
+      initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, transform: "scale(0.95)" }}
+      transition={
+        shouldReduceMotion ? { duration: 0 } : { duration: 0.15, ease: [0.23, 1, 0.32, 1] }
+      }
+    >
+      {unreadCount > 99 ? "99+" : String(unreadCount)}
+    </m.span>
+  );
+}
+
+function PortalNotificationsMenu({
+  loading,
+  onActivate,
+  onOpenChange,
+  open,
+  shouldReduceMotion,
+  summary,
+}: {
+  loading: boolean;
+  onActivate: (item: NotificationItem) => void;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  shouldReduceMotion: boolean | null;
+  summary: ReturnType<typeof notificationBellSummary>;
+}) {
+  const { notificationRows, shownUnreadCount, unreadCount, unreadCountIsLowerBound } = summary;
+  const closeNotifications = () => onOpenChange(false);
+  const renderNotificationTrigger = (props: React.ComponentProps<typeof Button>) => (
+    <Button
+      {...props}
+      aria-label="Open notifications"
+      className="relative grid size-11 place-items-center rounded-lg text-brand-muted transition-colors hover:bg-brand-light hover:text-citius-blue"
+      type="button"
+    >
+      <Bell size={17} />
+      {unreadCount > 0 ? (
+        <NotificationUnreadBadge
+          shouldReduceMotion={shouldReduceMotion}
+          unreadCount={unreadCount}
+        />
+      ) : null}
+    </Button>
+  );
+  return (
+    <PortalPopover
+      aria-label="notifications"
+      className="portal-shell-surface w-[min(23rem,calc(100vw-1rem))]"
+      onOpenChange={onOpenChange}
+      open={open}
+      sideOffset={12}
+      trigger={renderNotificationTrigger}
+    >
+      <div className="flex items-center justify-between gap-3 border-brand-border border-b px-4 py-3">
+        <div className="font-heading font-semibold text-citius-blue text-sm">Notifications</div>
+        {unreadCount > shownUnreadCount ? (
+          <span className="text-brand-muted text-xs tabular-nums">
+            {shownUnreadCount} of {unreadCount}
+            {unreadCountIsLowerBound ? "+" : ""} unread
+          </span>
+        ) : null}
+      </div>
+      <NotificationInbox
+        compact
+        items={notificationRows}
+        loading={loading}
+        onActivate={onActivate}
+      />
+      <div className="border-brand-border border-t px-4 py-3">
+        <Link
+          className="font-semibold text-citius-blue text-xs transition-colors duration-150 ease-[var(--portal-ease-out)] hover:text-citius-orange-ink"
+          href="/portal/activity"
+          onClick={closeNotifications}
+        >
+          View all notifications
+        </Link>
+      </div>
+    </PortalPopover>
+  );
+}
+
+function PortalMobileDrawer({
+  navGroups,
+  navShortcuts,
+  onOpenChange,
+  open,
+  pathname,
+  shouldReduceMotion,
+  triggerRef,
+}: {
+  navGroups: PortalNavGroup[];
+  navShortcuts?: PortalNavShortcuts;
+  onOpenChange: (open: boolean) => void;
+  open: boolean;
+  pathname: string | null;
+  shouldReduceMotion: boolean | null;
+  triggerRef: React.RefObject<HTMLButtonElement | null>;
+}) {
+  const drawerMotion = portalOverlayMotion(!!shouldReduceMotion, "left", 0.2, "snap");
+  const drawerBackdropMotion = portalOverlayMotion(!!shouldReduceMotion, "static", 0.15, "snap");
+  const closeDrawer = () => onOpenChange(false);
+  const drawerBackdrop = (
+    <m.button
+      animate={open ? drawerBackdropMotion.visible : drawerBackdropMotion.hidden}
+      aria-label="Close portal navigation backdrop"
+      className={`${buttonVariants({ surface: "staff" })} fixed inset-0 data-ending-style:pointer-events-none ${PORTAL_Z.mobileBackdrop} bg-slate-950/70 lg:hidden`}
+      initial={drawerBackdropMotion.hidden}
+      transition={drawerBackdropMotion.transition}
+      type="button"
+    />
+  );
+  const drawer = (
+    <m.aside
+      animate={open ? drawerMotion.visible : drawerMotion.hidden}
+      className={`portal-mobile-drawer fixed inset-y-0 left-0 data-ending-style:pointer-events-none ${PORTAL_Z.mobileDrawer} flex w-[min(20rem,calc(100vw-1.5rem))] flex-col bg-white shadow-2xl lg:hidden`}
+      initial={drawerMotion.hidden}
+      transition={drawerMotion.transition}
+    />
+  );
+  return (
+    <BaseDialog.Root onOpenChange={onOpenChange} open={open}>
+      <BaseDialog.Portal>
+        <BaseDialog.Backdrop
+          className="data-ending-style:pointer-events-none"
+          render={drawerBackdrop}
+        />
+        <BaseDialog.Popup
+          aria-hidden={open ? undefined : "true"}
+          aria-label="Navigation"
+          className="data-ending-style:pointer-events-none"
+          finalFocus={triggerRef}
+          inert={open ? undefined : true}
+          render={drawer}
+        >
+          <div className="flex h-16 items-center justify-between border-brand-border border-b px-4">
+            <span className="font-heading text-citius-blue text-lg">Navigation</span>
+            <BaseDialog.Close
+              render={
+                <Button
+                  aria-label="Close portal navigation"
+                  className="grid min-h-11 min-w-11 place-items-center rounded-full text-brand-muted transition-[background-color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light active:scale-[0.96]"
+                  type="button"
+                />
+              }
+            >
+              <X size={20} />
+            </BaseDialog.Close>
+          </div>
+          <PortalNav
+            mobile
+            navGroups={navGroups}
+            navShortcuts={navShortcuts}
+            onNavigate={closeDrawer}
+            pathname={pathname}
+          />
+        </BaseDialog.Popup>
+      </BaseDialog.Portal>
+    </BaseDialog.Root>
+  );
+}
+
 export default function PortalShell({ access, user, children }: PortalShellProps) {
   const shouldReduceMotion = useReducedMotion();
   const pathname = usePathname();
@@ -377,39 +580,25 @@ export default function PortalShell({ access, user, children }: PortalShellProps
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const sidebarTriggerRef = useRef<HTMLButtonElement>(null);
   const { isAuthenticated } = useConvexAuth();
+  const portalQueriesEnabled = isAuthenticated && access.allowed;
   const eventPhotoBooth = useQuery(
     api.eventPhotoBooth.getMyAccess,
-    isAuthenticated && access.allowed ? {} : "skip"
+    portalQueriesEnabled ? {} : "skip"
   );
   const notificationBellState = useQuery(
     api.crm.activity.notificationBellState,
-    isAuthenticated && access.allowed ? { limit: 8 } : "skip"
+    portalQueriesEnabled ? { limit: 8 } : "skip"
   );
   // SAFETY: the Convex query validator and PortalNavShortcuts mirror the same nav-shortcut response contract.
-  const navShortcuts = useQuery(
-    api.crm.navShortcuts.list,
-    isAuthenticated && access.allowed ? {} : "skip"
-  ) as PortalNavShortcuts | undefined;
+  const navShortcuts = useQuery(api.crm.navShortcuts.list, portalQueriesEnabled ? {} : "skip") as
+    | PortalNavShortcuts
+    | undefined;
   const markNotificationRead = useMutation(api.crm.activity.markNotificationRead);
   // SAFETY: getAccessibleNavGroups returns only the portal navigation descriptors consumed by PortalNav.
   const navGroups = getAccessibleNavGroups(access, eventPhotoBooth) as PortalNavGroup[];
-  // SAFETY: the notificationBellState Convex validator is the source of NotificationItem's fields.
-  const notificationRows = (notificationBellState?.notifications ?? []) as NotificationItem[];
-  const roles = access.roles ? access.roles.filter(Boolean) : [];
-  const roleLabel = roles.join(" / ") || "Staff";
-  const compactRoleLabel = getCompactRoleLabel(roles);
-  const accountName = access.name || user?.name || "Staff";
-  const accountEmail = access.email || user?.email;
-  const accountImage = user?.image;
-  const shownUnreadCount = notificationRows.filter((item) => !item.readAt).length;
-  const unreadCount = notificationBellState?.unreadCount ?? shownUnreadCount;
-  const unreadCountIsLowerBound = Boolean(
-    notificationBellState &&
-      "hasMoreUnread" in notificationBellState &&
-      notificationBellState.hasMoreUnread
-  );
-  const drawerMotion = portalOverlayMotion(!!shouldReduceMotion, "left", 0.2, "snap");
-  const drawerBackdropMotion = portalOverlayMotion(!!shouldReduceMotion, "static", 0.15, "snap");
+  const { accountEmail, accountImage, accountName, compactRoleLabel, roleLabel } =
+    portalAccountSummary(access, user);
+  const notificationSummary = notificationBellSummary(notificationBellState);
 
   useEffect(() => {
     const target = getPortalPerformanceTarget(pathname ?? "");
@@ -446,48 +635,6 @@ export default function PortalShell({ access, user, children }: PortalShellProps
     }
   };
   const openSidebar = () => setSidebarOpen(true);
-  const closeSidebar = () => setSidebarOpen(false);
-  const closeNotifications = () => setNotificationsOpen(false);
-  const renderNotificationTrigger = (props: React.ComponentProps<typeof Button>) => (
-    <Button
-      {...props}
-      aria-label="Open notifications"
-      className="relative grid size-11 place-items-center rounded-lg text-brand-muted transition-colors hover:bg-brand-light hover:text-citius-blue"
-      type="button"
-    >
-      <Bell size={17} />
-      {unreadCount > 0 ? (
-        <m.span
-          animate={shouldReduceMotion ? { opacity: 1 } : { opacity: 1, transform: "scale(1)" }}
-          className="absolute -top-1 -right-1 min-w-5 rounded-full bg-citius-blue px-1.5 text-center font-bold text-[10px] text-white tabular-nums leading-5 shadow-sm"
-          initial={shouldReduceMotion ? { opacity: 0 } : { opacity: 0, transform: "scale(0.95)" }}
-          transition={
-            shouldReduceMotion ? { duration: 0 } : { duration: 0.15, ease: [0.23, 1, 0.32, 1] }
-          }
-        >
-          {unreadCount > 99 ? "99+" : String(unreadCount)}
-        </m.span>
-      ) : null}
-    </Button>
-  );
-  const drawerBackdrop = (
-    <m.button
-      animate={sidebarOpen ? drawerBackdropMotion.visible : drawerBackdropMotion.hidden}
-      aria-label="Close portal navigation backdrop"
-      className={`${buttonVariants({ surface: "staff" })} fixed inset-0 data-ending-style:pointer-events-none ${PORTAL_Z.mobileBackdrop} bg-slate-950/70 lg:hidden`}
-      initial={drawerBackdropMotion.hidden}
-      transition={drawerBackdropMotion.transition}
-      type="button"
-    />
-  );
-  const drawer = (
-    <m.aside
-      animate={sidebarOpen ? drawerMotion.visible : drawerMotion.hidden}
-      className={`portal-mobile-drawer fixed inset-y-0 left-0 data-ending-style:pointer-events-none ${PORTAL_Z.mobileDrawer} flex w-[min(20rem,calc(100vw-1.5rem))] flex-col bg-white shadow-2xl lg:hidden`}
-      initial={drawerMotion.hidden}
-      transition={drawerMotion.transition}
-    />
-  );
 
   return (
     <PortalAccessProvider access={{ ...access, eventPhotoBooth }}>
@@ -540,41 +687,14 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                     <div className="flex shrink-0 items-center gap-1.5 sm:gap-3 lg:gap-5">
                       <div className="flex items-center">
                         <div className="relative shrink-0">
-                          <PortalPopover
-                            aria-label="notifications"
-                            className="portal-shell-surface w-[min(23rem,calc(100vw-1rem))]"
+                          <PortalNotificationsMenu
+                            loading={notificationBellState === undefined}
+                            onActivate={handleNotificationClick}
                             onOpenChange={handleNotificationsOpenChange}
                             open={notificationsOpen}
-                            sideOffset={12}
-                            trigger={renderNotificationTrigger}
-                          >
-                            <div className="flex items-center justify-between gap-3 border-brand-border border-b px-4 py-3">
-                              <div className="font-heading font-semibold text-citius-blue text-sm">
-                                Notifications
-                              </div>
-                              {unreadCount > shownUnreadCount ? (
-                                <span className="text-brand-muted text-xs tabular-nums">
-                                  {shownUnreadCount} of {unreadCount}
-                                  {unreadCountIsLowerBound ? "+" : ""} unread
-                                </span>
-                              ) : null}
-                            </div>
-                            <NotificationInbox
-                              compact
-                              items={notificationRows}
-                              loading={notificationBellState === undefined}
-                              onActivate={handleNotificationClick}
-                            />
-                            <div className="border-brand-border border-t px-4 py-3">
-                              <Link
-                                className="font-semibold text-citius-blue text-xs transition-colors duration-150 ease-[var(--portal-ease-out)] hover:text-citius-orange-ink"
-                                href="/portal/activity"
-                                onClick={closeNotifications}
-                              >
-                                View all notifications
-                              </Link>
-                            </div>
-                          </PortalPopover>
+                            shouldReduceMotion={shouldReduceMotion}
+                            summary={notificationSummary}
+                          />
                         </div>
                       </div>
 
@@ -613,44 +733,15 @@ export default function PortalShell({ access, user, children }: PortalShellProps
                     />
                   </aside>
 
-                  <BaseDialog.Root onOpenChange={setSidebarOpen} open={sidebarOpen}>
-                    <BaseDialog.Portal>
-                      <BaseDialog.Backdrop
-                        className="data-ending-style:pointer-events-none"
-                        render={drawerBackdrop}
-                      />
-                      <BaseDialog.Popup
-                        aria-hidden={sidebarOpen ? undefined : "true"}
-                        aria-label="Navigation"
-                        className="data-ending-style:pointer-events-none"
-                        finalFocus={sidebarTriggerRef}
-                        inert={sidebarOpen ? undefined : true}
-                        render={drawer}
-                      >
-                        <div className="flex h-16 items-center justify-between border-brand-border border-b px-4">
-                          <span className="font-heading text-citius-blue text-lg">Navigation</span>
-                          <BaseDialog.Close
-                            render={
-                              <Button
-                                aria-label="Close portal navigation"
-                                className="grid min-h-11 min-w-11 place-items-center rounded-full text-brand-muted transition-[background-color,transform] duration-150 ease-[var(--portal-ease-out)] hover:bg-brand-light active:scale-[0.96]"
-                                type="button"
-                              />
-                            }
-                          >
-                            <X size={20} />
-                          </BaseDialog.Close>
-                        </div>
-                        <PortalNav
-                          mobile
-                          navGroups={navGroups}
-                          navShortcuts={navShortcuts}
-                          onNavigate={closeSidebar}
-                          pathname={pathname}
-                        />
-                      </BaseDialog.Popup>
-                    </BaseDialog.Portal>
-                  </BaseDialog.Root>
+                  <PortalMobileDrawer
+                    navGroups={navGroups}
+                    navShortcuts={navShortcuts}
+                    onOpenChange={setSidebarOpen}
+                    open={sidebarOpen}
+                    pathname={pathname}
+                    shouldReduceMotion={shouldReduceMotion}
+                    triggerRef={sidebarTriggerRef}
+                  />
 
                   <main
                     className="min-w-0 flex-1 p-4 sm:p-6 lg:ml-[var(--portal-sidebar-width)] lg:p-8"

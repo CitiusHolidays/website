@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { BoothLanguage, BoothScene } from "@/lib/eventPhotoBooth/contracts";
 import type { BoothCutout, BoothPhoto } from "@/lib/eventPhotoBooth/imageEngine";
 import type { BoothFormat, BoothTransform } from "@/lib/eventPhotoBooth/imageGeometry";
@@ -8,6 +8,8 @@ import type { BoothCopyKey } from "@/lib/eventPhotoBooth/visitorCopy";
 import type { createBoothMetrics } from "@/lib/eventPhotoBooth/visitorMetrics";
 
 type Engine = typeof import("@/lib/eventPhotoBooth/imageEngine");
+// Module scope keeps the lazy engine import outside the hook React Compiler optimizes.
+const loadEngine = (): Promise<Engine> => import("@/lib/eventPhotoBooth/imageEngine");
 interface PreparedPhoto {
   destination: string;
   file: File;
@@ -31,6 +33,43 @@ interface EditorOptions {
   mode: "cutout" | "frame";
   scene: BoothScene | undefined;
   transform: BoothTransform;
+}
+
+interface EditorStatusInput {
+  canParticipate: boolean;
+  error: BoothCopyKey | null;
+  phase: BoothCopyKey | null;
+  photo: BoothPhoto | null;
+  previewFormat: BoothFormat | null;
+  ready: PreparedPhoto | null;
+  rendering: boolean;
+  renderKey: string;
+  savedFile: File | null;
+}
+
+/** Pure render-time flags derived from editor state; kept out of the hook body for readability. */
+function editorStatus(input: EditorStatusInput) {
+  const {
+    canParticipate,
+    error,
+    phase,
+    photo,
+    previewFormat,
+    ready,
+    renderKey,
+    rendering,
+    savedFile,
+  } = input;
+  const previousResult = Boolean(ready && ready.key !== renderKey);
+  return {
+    busy: rendering || phase === "loading" || phase === "preparing" || phase === "processing",
+    canExport: Boolean(
+      ready && !rendering && (!previousResult || error || phase === "cancelled" || !canParticipate)
+    ),
+    dirty: Boolean(photo && (!ready || previousResult || ready.file !== savedFile)),
+    previousResult,
+    showLivePreview: Boolean(previewFormat && canParticipate && !error && phase !== "cancelled"),
+  };
 }
 
 export function useBoothEditor(options: EditorOptions) {
@@ -60,7 +99,15 @@ export function useBoothEditor(options: EditorOptions) {
   const completedCreation = useRef(new Set<string>());
   const artworkCache = useRef(new Map<string, HTMLImageElement>());
   const active = useRef(canParticipate);
-  active.current = canParticipate;
+  // Losing access clears in-flight progress in the same render instead of a follow-up effect.
+  const [participating, setParticipating] = useState(canParticipate);
+  if (participating !== canParticipate) {
+    setParticipating(canParticipate);
+    if (!canParticipate) {
+      setRendering(false);
+      setPhase(null);
+    }
+  }
   const renderKey = JSON.stringify([
     photoRevision,
     scene,
@@ -70,7 +117,6 @@ export function useBoothEditor(options: EditorOptions) {
     transform,
     renderRetry,
   ]);
-  const busy = rendering || phase === "loading" || phase === "preparing" || phase === "processing";
 
   const cancel = useCallback(() => {
     operation.current?.abort();
@@ -81,13 +127,14 @@ export function useBoothEditor(options: EditorOptions) {
     setPhase("cancelled");
   }, []);
 
-  useEffect(() => {
+  // Layout timing publishes access and aborts work during commit, before late async
+  // completions can observe the previous participation state.
+  useLayoutEffect(() => {
+    active.current = canParticipate;
     if (!canParticipate) {
       operation.current?.abort();
       operation.current = null;
       renderOperation.current?.abort();
-      setRendering(false);
-      setPhase(null);
     }
   }, [canParticipate]);
 
@@ -115,8 +162,8 @@ export function useBoothEditor(options: EditorOptions) {
     operation.current = controller;
     setError(null);
     setPhase("loading");
-    try {
-      const loadedEngine = await import("@/lib/eventPhotoBooth/imageEngine");
+    async function load() {
+      const loadedEngine = await loadEngine();
       engine.current = loadedEngine;
       const next = await loadedEngine.loadSourcePhoto(file, { signal: controller.signal });
       if (controller.signal.aborted || !active.current) {
@@ -135,15 +182,18 @@ export function useBoothEditor(options: EditorOptions) {
       setCutout(null);
       setPhotoRevision((value) => value + 1);
       setPhase(null);
+    }
+    try {
+      await load();
     } catch {
       if (!controller.signal.aborted) {
         setError("uploadError");
         setPhase(null);
       }
-    } finally {
-      if (operation.current === controller) {
-        operation.current = null;
-      }
+    }
+    // The catch swallows every failure, so this always runs like the former `finally`.
+    if (operation.current === controller) {
+      operation.current = null;
     }
   }
 
@@ -158,13 +208,17 @@ export function useBoothEditor(options: EditorOptions) {
     operation.current = controller;
     setError(null);
     setPhase("preparing");
-    try {
-      const { createCutoutProcessor } = await import("@/lib/eventPhotoBooth/imageEngine");
+    const source = photo;
+    const renderer = engine.current;
+    async function segment() {
+      const { createCutoutProcessor } = await loadEngine();
       if (controller.signal.aborted) {
         return;
       }
-      processor.current ??= createCutoutProcessor();
-      const next = await processor.current.segment(photo, {
+      if (!processor.current) {
+        processor.current = createCutoutProcessor();
+      }
+      const next = await processor.current.segment(source, {
         onProgress: (value) => {
           if (!controller.signal.aborted) {
             setPhase(value);
@@ -173,22 +227,25 @@ export function useBoothEditor(options: EditorOptions) {
         signal: controller.signal,
       });
       if (controller.signal.aborted || !active.current) {
-        engine.current.releaseBoothPhoto(next);
+        renderer.releaseBoothPhoto(next);
         return;
       }
-      engine.current.releaseBoothPhoto(resources.current.cutout);
+      renderer.releaseBoothPhoto(resources.current.cutout);
       resources.current.cutout = next;
       setCutout(next);
       setPhase(null);
+    }
+    try {
+      await segment();
     } catch {
       if (!controller.signal.aborted) {
         setError("cutoutError");
         setPhase(null);
       }
-    } finally {
-      if (operation.current === controller) {
-        operation.current = null;
-      }
+    }
+    // The catch swallows every failure, so this always runs like the former `finally`.
+    if (operation.current === controller) {
+      operation.current = null;
     }
   }
 
@@ -271,7 +328,7 @@ export function useBoothEditor(options: EditorOptions) {
     }
     async function encode(canvas: HTMLCanvasElement) {
       try {
-        const { exportBoothPhoto } = await import("@/lib/eventPhotoBooth/imageEngine");
+        const { exportBoothPhoto } = await loadEngine();
         if (controller.signal.aborted) {
           return;
         }
@@ -357,29 +414,37 @@ export function useBoothEditor(options: EditorOptions) {
     setError(null);
   }
 
-  const previousResult = Boolean(ready && ready.key !== renderKey);
+  const status = editorStatus({
+    canParticipate,
+    error,
+    phase,
+    photo,
+    previewFormat,
+    ready,
+    rendering,
+    renderKey,
+    savedFile,
+  });
   return {
-    busy,
+    busy: status.busy,
     cancel,
-    canExport: Boolean(
-      ready && !rendering && (!previousResult || error || phase === "cancelled" || !canParticipate)
-    ),
+    canExport: status.canExport,
     createCutout,
     cutout,
-    dirty: Boolean(photo && (!ready || previousResult || ready.file !== savedFile)),
+    dirty: status.dirty,
     error,
     hasPhoto: Boolean(photo),
     markSaved: (file: File) => setSavedFile(file),
     phase,
     previewCanvas,
     previewFormat,
-    previousResult,
+    previousResult: status.previousResult,
     ready,
     rendering,
     reset,
     retryPreview: () => setRenderRetry((value) => value + 1),
     selectPhoto,
-    showLivePreview: Boolean(previewFormat && canParticipate && !error && phase !== "cancelled"),
+    showLivePreview: status.showLivePreview,
     sourceUrl,
   };
 }
