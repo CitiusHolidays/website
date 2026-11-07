@@ -22,7 +22,11 @@ const confirmedTripPacketValidator = v.object({
   destination: v.string(),
   entitlement: v.object({
     role: v.union(v.literal("organizer"), v.literal("traveller")),
-    source: v.union(v.literal("crm_operator_grant"), v.literal("identity_migration")),
+    source: v.union(
+      v.literal("crm_operator_grant"),
+      v.literal("identity_migration"),
+      v.literal("trip_invite")
+    ),
   }),
   itinerary: v.union(
     v.object({ content: v.string(), title: v.string(), version: v.number() }),

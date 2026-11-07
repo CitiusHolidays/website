@@ -186,7 +186,8 @@ const customerJourneyEntitlementValidator = v.object({
     v.literal("public_booking_owner"),
     v.literal("crm_operator_grant"),
     v.literal("identity_migration"),
-    v.literal("legacy_booking_owner")
+    v.literal("legacy_booking_owner"),
+    v.literal("trip_invite")
   ),
 });
 export const customerJourneySummaryValidator = v.object({
