@@ -163,10 +163,11 @@ export const createInvites = mutation({
     if (!access.staffId) {
       throw new ConvexError("FORBIDDEN");
     }
-    const job = await loadInviteJob(ctx, access, args.jobCardId);
+    // The batch size depends only on the arguments, so check it before reading the Job Card.
     if (args.invites.length === 0 || args.invites.length > TRIP_INVITE_BATCH_LIMIT) {
       throw new ConvexError(`Send between 1 and ${TRIP_INVITE_BATCH_LIMIT} invites at a time`);
     }
+    const job = await loadInviteJob(ctx, access, args.jobCardId);
     const seen = new Set<string>();
     const now = Date.now();
     const created: {
@@ -278,8 +279,11 @@ export const revokeTravellerAccess = mutation({
     if (!traveller) {
       throw new ConvexError("Traveller not found");
     }
-    const job = await loadInviteJob(ctx, access, traveller.jobCardId);
-    const entitlement = await activeTravellerEntitlement(ctx, traveller._id);
+    // Both are reads; if the Job Card check throws, the mutation fails and nothing is written.
+    const [job, entitlement] = await Promise.all([
+      loadInviteJob(ctx, access, traveller.jobCardId),
+      activeTravellerEntitlement(ctx, traveller._id),
+    ]);
     if (!entitlement) {
       return null;
     }

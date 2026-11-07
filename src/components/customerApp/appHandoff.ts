@@ -5,7 +5,7 @@
  * Links will later open the app directly from the same https URLs.
  */
 
-export const CUSTOMER_APP_SCHEME = "citius";
+const CUSTOMER_APP_SCHEME = "citius";
 
 export type AppHandoffKind = "invite" | "sign-in";
 

@@ -682,10 +682,12 @@ export const claimInvite = mutation({
     });
     if (args.consent && args.consent.minorTravellerIds.length > 0) {
       requireConsentVersion(args.consent.textVersion);
-      const minors = await guardedMinors(ctx, traveller);
+      const minors = new Map(
+        (await guardedMinors(ctx, traveller)).map((row) => [row._id, row] as const)
+      );
       const entitlement = await ctx.db.get("customerJourneyEntitlements", entitlementId);
       for (const minorId of new Set(args.consent.minorTravellerIds)) {
-        const minor = minors.find((row) => row._id === minorId);
+        const minor = minors.get(minorId);
         if (!(minor && entitlement)) {
           throw new ConvexError(TRIP_INVITE_ERRORS.consentNotGuardian);
         }

@@ -64,6 +64,8 @@ limitations. Every override names the exact file and rule whose behavior was ins
 | Retention page apply (`convex/crm/lib/retentionRun.ts`) | `async-await-in-loop` | Decisions on one page may touch the same rows (guardian links, Job Cards), so they apply in plan order. |
 | Portal home redirect (`PortalWorkspace.tsx`) | `nextjs-no-client-side-redirect` | The server boundary already redirects a login without Staff Workspace access. The remaining `/portal` to first-allowed-page redirect follows the live `getMyPortalAccess` subscription, so it also fires when permissions change while the page is open; a server `redirect()` cannot see that. |
 | Auth sign-in redirect (`src/lib/auth-login-pages.js`) | `clickjacking-redirect-risk` | The target is `resolveAuthReturnPath`, which accepts only a same-origin path inside the variant's own area (`auth-return-path.test.js` covers off-site, protocol-relative, backslash and control-character values), or the variant's fixed home. Every route sends `X-Frame-Options: DENY` (`next.config.mjs`). |
+| Customer app guardian consent at claim (`convex/customerApp.ts`, `claimInvite`) | `async-await-in-loop` | One append-only consent record is written per minor, in the order the guardian listed them, after every minor is checked against the guardian's own minors (now a `Map`). The loop is already annotated `noAwaitInLoops` by its author for that reason. |
+| Customer app invite revoke (`convex/customerTripInvites.ts`, `revokeInvite`) | `async-defer-await` | `loadInviteJob` is the Job Card access check, not just a read. Moving the "not pending" early return above it would hand a caller without access to that Job Card a silent success for any invite id instead of a refusal. |
 
 On 2026-11-06, with React Doctor `0.9.22`, the integration tests for notification email outbox,
 notification audience, post-tour feedback and reports, team travel and traveler feedback were added
@@ -76,6 +78,9 @@ creation times and assertions stay deterministic.
 On 2026-11-07, with `0.9.22`, the field passport preview integration test (from main) joined the
 same exception: each case freezes the clock, seeds a traveller, stores a scan into that record and
 only then reads it back, so the awaits depend on each other.
+Also on 2026-11-07, the customer app integration test (from main, PR #315) joined it: its seed
+builds Job Card batches in a fixed order, and the claim test claims an invite and then claims it
+again to prove the second claim is a no-op, so each await depends on the one before.
 
 Each exception is a claim to re-check when the scoped code changes. New suppressions require the
 same source inspection and a focused behavior test; React Doctor output alone is a hypothesis, not
