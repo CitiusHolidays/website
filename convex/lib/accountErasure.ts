@@ -306,6 +306,61 @@ async function eraseSacredBharat(ctx: MutationCtx, target: AccountErasureTarget)
   return erased;
 }
 
+/**
+ * Customer app trips (ADR 0020): the invite an Account Holder claimed and the parental consents
+ * they recorded stay as Operations' and consent evidence, detached from the login like the
+ * entitlement they hang off. The Traveller rows are the operation's and are not touched.
+ */
+async function detachTripRecords(
+  ctx: MutationCtx,
+  target: AccountErasureTarget,
+  entitlements: Doc<"customerJourneyEntitlements">[]
+) {
+  const holders = new Set(target.identityIds);
+  const travellerIds = [
+    ...new Set(entitlements.flatMap((row) => (row.travellerId ? [row.travellerId] : []))),
+  ];
+  const invites = bounded(
+    (
+      await Promise.all(
+        travellerIds.map((travellerId) =>
+          ctx.db
+            .query("customerTripInvites")
+            .withIndex("by_travellerId_and_createdAt", (q) => q.eq("travellerId", travellerId))
+            .take(MAX_ROWS_PER_STORE + 1)
+        )
+      )
+    )
+      .flat()
+      .filter(
+        (row) => row.claimedByAuthUserId !== undefined && holders.has(row.claimedByAuthUserId)
+      )
+  );
+  const consents = bounded(
+    (
+      await Promise.all(
+        entitlements.map((row) =>
+          ctx.db
+            .query("customerParentalConsents")
+            .withIndex("by_entitlementId", (q) => q.eq("entitlementId", row._id))
+            .take(MAX_ROWS_PER_STORE + 1)
+        )
+      )
+    ).flat()
+  );
+  await Promise.all([
+    ...invites.map((row) =>
+      ctx.db.patch("customerTripInvites", row._id, {
+        claimedByAuthUserId: target.tombstone,
+        updatedAt: target.now,
+      })
+    ),
+    ...consents.map((row) =>
+      ctx.db.patch("customerParentalConsents", row._id, { authUserId: target.tombstone })
+    ),
+  ]);
+}
+
 /** Entitlements are revoked and detached (the row is the grant's audit trail), or deleted. */
 async function endEntitlements(ctx: MutationCtx, target: AccountErasureTarget) {
   const rows = bounded(
@@ -320,6 +375,7 @@ async function endEntitlements(ctx: MutationCtx, target: AccountErasureTarget) {
       )
     ).flat()
   );
+  await detachTripRecords(ctx, target, rows);
   await Promise.all(
     rows.map((row) =>
       target.entitlements === "delete"

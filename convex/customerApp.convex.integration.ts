@@ -2,6 +2,7 @@ import { convexTest } from "convex-test";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { eraseCustomerAccount } from "./lib/accountErasure";
 import { hashTripInviteToken, TRIP_INVITE_ERRORS } from "./lib/customerTripInvites";
 import schema from "./schema";
 import { modules } from "./test.setup";
@@ -377,6 +378,41 @@ describe("customer app trip invites", () => {
     expect(records.every((row) => row.source === "guardian_invite")).toBe(true);
     const marked = await t.run((ctx) => ctx.db.get("travellers", ids.child));
     expect(marked?.isMinor).toBe(true);
+  });
+
+  test("deleting the account detaches its invite claim and consent records from the login", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const t = harness();
+    const ids = await seed(t);
+    const raw = await invite(t, ids.jobCardId, ids.parent, 9);
+    const asha = asCustomer(t, "asha");
+    await asha.mutation(api.customerApp.claimInvite, {
+      consent: { minorTravellerIds: [ids.child], textVersion: CONSENT_VERSION },
+      token: raw,
+    });
+    const [entitlement] = await t.run((ctx) =>
+      ctx.db.query("customerJourneyEntitlements").collect()
+    );
+    const holder = entitlement?.authUserId ?? "";
+    const tombstone = "deleted-account:test";
+
+    await t.run((ctx) =>
+      eraseCustomerAccount(ctx, {
+        betterAuthUserIds: [],
+        entitlements: "revoke",
+        identityIds: [holder],
+        loginEmails: [],
+        now: NOW,
+        tombstone,
+      })
+    );
+
+    const invites = await t.run((ctx) => ctx.db.query("customerTripInvites").collect());
+    expect(invites.map((row) => row.claimedByAuthUserId)).toEqual([tombstone]);
+    expect(invites[0]?.status).toBe("claimed");
+    const consents = await t.run((ctx) => ctx.db.query("customerParentalConsents").collect());
+    expect(consents.map((row) => [row.action, row.authUserId])).toEqual([["granted", tombstone]]);
+    expect(await asha.query(api.customerApp.listMyTrips, { referenceNow: NOW })).toEqual([]);
   });
 
   test("ending a traveller's access hides the trip; past trips are listed as past", async () => {

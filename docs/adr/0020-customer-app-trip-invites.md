@@ -80,6 +80,9 @@ registration exist; it will use Better Auth's `phoneNumber` plugin.
 - Until Universal Links and App Links are set up, the `citius://` hand-off can be claimed by another
   app that registers the same scheme on the phone. The token is single-use and short-lived, and the
   website page never holds a session, which bounds the exposure; Universal Links remove it.
-- Account deletion ([ADR 0019](0019-self-service-customer-account-deletion.md), separate PR) must also remove the
-  account's `customerTripInvites.claimedByAuthUserId` link and decide how long
-  `customerParentalConsents` rows are kept as consent evidence.
+- Account deletion ([ADR 0019](0019-self-service-customer-account-deletion.md)) revokes the
+  account's trip entitlements and writes the deletion tombstone into the invite it claimed
+  (`claimedByAuthUserId`) and the parental consents it recorded (`authUserId`). Both are kept as
+  Operations' and consent evidence, detached from the login, like the entitlement itself. How long
+  consent evidence is kept after a trip is a retention decision still to be made
+  (docs/DATA_RETENTION.md).
