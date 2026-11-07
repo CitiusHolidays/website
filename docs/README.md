@@ -26,6 +26,7 @@ provider or production proof.
 - [Role dashboard](ROLE_DASHBOARD.md) - persona and KPI contract.
 - [Notification email delivery](NOTIFICATION_EMAIL_DELIVERY.md) - delivery semantics and ledger.
 - [Commercial File retention](COMMERCIAL_FILE_RETENTION.md) - bounded purge and retry operations.
+- [Data retention schedule](DATA_RETENTION.md) - the retention jobs (off by default), dry-run reports and how to switch each on.
 - [Spreadsheet operations](SPREADSHEET_OPERATIONS.md) - bounded import/export states, replay, and cleanup.
 - [Portal operation-status UX](PORTAL_OPERATION_STATUS_UX.md) - visible state, retry, accessibility, privacy, and evidence matrix.
 - [Production Test Lab and Live Feature Controls](OPERATIONAL_CONTROLS.md) - exact-Admin testing, live-control, restoration, Undo, and rollout contracts.

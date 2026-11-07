@@ -15,19 +15,26 @@ export const operationalControlKeyValidator = v.union(
   v.literal("inbound.info_mailbox_email"),
   v.literal("inbound.sales_bell"),
   v.literal("inbound.sales_email"),
+  v.literal("jobs.anonymise_past_travellers"),
   v.literal("jobs.check_cl_sl_leave_lapse"),
   v.literal("jobs.cleanup_ai_runtime"),
   v.literal("jobs.cleanup_passenger_exports"),
   v.literal("jobs.cleanup_portal_rate_limits"),
   v.literal("jobs.cleanup_sacred_bharat_rate_limits"),
+  v.literal("jobs.purge_activity_logs"),
   v.literal("jobs.purge_commercial_files"),
   v.literal("jobs.purge_field_passport_audit"),
+  v.literal("jobs.purge_inactive_customer_accounts"),
   v.literal("jobs.purge_office_check_ins"),
+  v.literal("jobs.purge_old_feedback"),
+  v.literal("jobs.purge_passport_scans"),
+  v.literal("jobs.purge_unconverted_enquiries"),
   v.literal("jobs.reconcile_crm_metrics"),
   v.literal("jobs.reconcile_list_search"),
   v.literal("jobs.reconcile_proposal_links"),
   v.literal("jobs.reconcile_proposal_relations"),
   v.literal("jobs.reconcile_query_commercial"),
+  v.literal("jobs.retire_financial_records"),
   v.literal("jobs.run_workflow_nudges"),
   v.literal("notifications.crm_bell"),
   v.literal("payments.razorpay_new_order"),
@@ -47,19 +54,26 @@ export type OperationalControlKey =
   | "inbound.info_mailbox_email"
   | "inbound.sales_bell"
   | "inbound.sales_email"
+  | "jobs.anonymise_past_travellers"
   | "jobs.check_cl_sl_leave_lapse"
   | "jobs.cleanup_ai_runtime"
   | "jobs.cleanup_passenger_exports"
   | "jobs.cleanup_portal_rate_limits"
   | "jobs.cleanup_sacred_bharat_rate_limits"
+  | "jobs.purge_activity_logs"
   | "jobs.purge_commercial_files"
   | "jobs.purge_field_passport_audit"
+  | "jobs.purge_inactive_customer_accounts"
   | "jobs.purge_office_check_ins"
+  | "jobs.purge_old_feedback"
+  | "jobs.purge_passport_scans"
+  | "jobs.purge_unconverted_enquiries"
   | "jobs.reconcile_crm_metrics"
   | "jobs.reconcile_list_search"
   | "jobs.reconcile_proposal_links"
   | "jobs.reconcile_proposal_relations"
   | "jobs.reconcile_query_commercial"
+  | "jobs.retire_financial_records"
   | "jobs.run_workflow_nudges"
   | "notifications.crm_bell"
   | "payments.razorpay_new_order"
@@ -340,7 +354,7 @@ export const OPERATIONAL_CONTROL_CATALOG = [
     category: "Infrastructure",
     dependencies: [],
     description:
-      "Delete records of tour managers opening passports in the field once the trip is over.",
+      "Delete records of tour managers opening passports in the field one year after the trip is over.",
     enforcement: "Scheduled-job action gateway",
     key: "jobs.purge_field_passport_audit",
     label: "Field passport audit retention",
@@ -356,6 +370,83 @@ export const OPERATIONAL_CONTROL_CATALOG = [
     key: "jobs.purge_office_check_ins",
     label: "Office check-in retention",
     standardEnabled: true,
+  },
+  {
+    availability: "available",
+    category: "Infrastructure",
+    dependencies: [],
+    description:
+      "Delete office access logs (activity logs) older than one year. Off until the owner reviews the dry-run report and switches it on.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.purge_activity_logs",
+    label: "Activity log retention",
+    standardEnabled: false,
+  },
+  {
+    availability: "available",
+    category: "Infrastructure",
+    dependencies: [],
+    description:
+      "Delete website enquiries that never became a Query, two years after they arrived. Off until the owner reviews the dry-run report and switches it on.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.purge_unconverted_enquiries",
+    label: "Unconverted enquiry retention",
+    standardEnabled: false,
+  },
+  {
+    availability: "available",
+    category: "Infrastructure",
+    dependencies: [],
+    description:
+      "Delete customer accounts with no sign-in or activity for three years; bookings stay for the tax period. Off until the owner reviews the dry-run report and switches it on.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.purge_inactive_customer_accounts",
+    label: "Inactive customer account retention",
+    standardEnabled: false,
+  },
+  {
+    availability: "available",
+    category: "Infrastructure",
+    dependencies: [],
+    description:
+      "Anonymise website bookings and delete CRM invoices eight years after the booking and the trip. Off until the owner reviews the dry-run report and switches it on.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.retire_financial_records",
+    label: "Booking and invoice retention",
+    standardEnabled: false,
+  },
+  {
+    availability: "available",
+    category: "Infrastructure",
+    dependencies: [],
+    description:
+      "Anonymise traveller records three years after the trip; rows, counts and financial links stay. Off until the owner reviews the dry-run report and switches it on.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.anonymise_past_travellers",
+    label: "Traveller record retention",
+    standardEnabled: false,
+  },
+  {
+    availability: "available",
+    category: "Infrastructure",
+    dependencies: [],
+    description:
+      "Delete passport scans and encrypted passport details 90 days after the trip. Off until the owner reviews the dry-run report and switches it on.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.purge_passport_scans",
+    label: "Passport scan retention",
+    standardEnabled: false,
+  },
+  {
+    availability: "available",
+    category: "Infrastructure",
+    dependencies: [],
+    description:
+      "Delete traveller feedback and its photos three years after it was submitted. Off until the owner reviews the dry-run report and switches it on.",
+    enforcement: "Scheduled-job action gateway",
+    key: "jobs.purge_old_feedback",
+    label: "Traveller feedback retention",
+    standardEnabled: false,
   },
   {
     availability: "available",

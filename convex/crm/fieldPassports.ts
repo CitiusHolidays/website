@@ -4,8 +4,13 @@ import type { Doc } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx, query } from "../_generated/server";
 import { requireAppPilotOn } from "./appPilot";
 import { hasRole, jobCardRecordGrant, PERMISSIONS, type PortalAccess, requireStaff } from "./lib";
+import {
+  FIELD_PASSPORT_AUDIT_RETENTION_DAYS,
+  RETENTION_DAY_MS,
+  tripDates,
+} from "./lib/retentionSchedule";
 import { boundedPaginationOptions, loadRowsByIdInBatches } from "./paginationPolicy";
-import { canReadPassportInStaffWorkspace } from "./passportPolicy";
+import { canReadFieldPassportAccessLog } from "./passportPolicy";
 import { assertReferenceNow } from "./referenceTimePolicy";
 import { loadTourManagerGroupScope, travellerInGroupScope } from "./tourManagerGroupScope";
 
@@ -56,12 +61,6 @@ export function fieldPassportWindow(dates: {
     closesAt: end + 2 * DAY_MS - IST_OFFSET_MS,
     opensAt: start - DAY_MS - IST_OFFSET_MS,
   };
-}
-
-/** The batch's own date pair when it records a start date, else the Job Card's; never a mix. */
-export function tripDates(job: Doc<"jobCards">, batch: Doc<"travelBatches"> | null) {
-  const source = batch?.travelStartDate ? batch : job;
-  return { travelEndDate: source.travelEndDate, travelStartDate: source.travelStartDate };
 }
 
 /** The scan's stored type, with the same PDF default the file read returns. */
@@ -149,9 +148,10 @@ export const authorizeFieldPassportRead = internalMutation({
       actorName: access.name,
       actorStaffId,
       jobCardId: job._id,
-      retainUntil: window.closesAt,
+      retainUntil: window.closesAt + FIELD_PASSPORT_AUDIT_RETENTION_DAYS * RETENTION_DAY_MS,
       travelBatchId: traveller.travelBatchId,
       travellerId: traveller._id,
+      tripClosesAt: window.closesAt,
     });
     return {
       fileName: passport.fileName || "passport.pdf",
@@ -251,18 +251,19 @@ export const listFieldPassports = query({
   }),
 });
 
-/** Office review of field passport reads on a Job Card, newest first. */
+/**
+ * Office review of field passport reads on a Job Card, newest first. Only the Operations Head
+ * and Admin read the log (director decision, 7 Nov 2026).
+ */
 export const listFieldPassportAccess = query({
   args: { jobCardId: v.string(), paginationOpts: paginationOptsValidator },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx, PERMISSIONS.VIEW_VISA);
+    const access = await requireStaff(ctx);
     const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
     const job = jobCardId ? await ctx.db.get("jobCards", jobCardId) : null;
     const linkedQuery = job?.queryId ? await ctx.db.get("queries", job.queryId) : null;
     if (
-      !(
-        job && canReadPassportInStaffWorkspace(access, jobCardRecordGrant(access, job, linkedQuery))
-      )
+      !(job && canReadFieldPassportAccessLog(access, jobCardRecordGrant(access, job, linkedQuery)))
     ) {
       throw new ConvexError("FORBIDDEN");
     }
