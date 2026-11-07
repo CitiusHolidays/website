@@ -131,6 +131,7 @@ describe("Convex capability inventory", () => {
       "crm/fieldPassports.authorizeFieldPassportRead:internalMutation:internal",
       "crm/fieldPassports.listFieldPassportAccess:query:public-product",
       "crm/fieldPassports.listFieldPassports:query:public-product",
+      "crm/fieldPassports.withdrawFieldPassportPreview:internalMutation:internal",
       "crm/fieldSync.listAnnouncements:query:public-product",
       "crm/fieldSync.listLatestHeadcounts:query:public-product",
       "crm/fieldSync.pushHeadcountStop:mutation:public-product",

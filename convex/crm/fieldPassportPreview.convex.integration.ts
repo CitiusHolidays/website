@@ -32,10 +32,11 @@ afterEach(() => {
 const staff = {
   "ops-head": { name: "Synthetic Ops Head", roles: ["Operations Head"] },
   tm: { name: "Synthetic Tour Manager", roles: ["Tour Manager"] },
+  "tm-co": { name: "Synthetic Co Manager", roles: ["Tour Manager"] },
   "tm-other": { name: "Synthetic Other Manager", roles: ["Tour Manager"] },
 } as const;
 type StaffKey = keyof typeof staff;
-const STAFF_KEYS = ["ops-head", "tm", "tm-other"] as const satisfies readonly StaffKey[];
+const STAFF_KEYS = ["ops-head", "tm", "tm-co", "tm-other"] as const satisfies readonly StaffKey[];
 
 /**
  * A synthetic camera photo: the stored pixels are landscape (red left half, blue right half) and
@@ -141,11 +142,13 @@ async function seed() {
       subject: key,
       tokenIdentifier: `${ISSUER}|${key}`,
     });
-  await actor("ops-head").mutation(api.crm.ops.createTourManager, {
-    jobCardId: ids.jobCardId,
-    name: "ignored for staff assignments",
-    staffId: ids.staffIds.tm,
-  });
+  for (const staffId of [ids.staffIds.tm, ids.staffIds["tm-co"]]) {
+    await actor("ops-head").mutation(api.crm.ops.createTourManager, {
+      jobCardId: ids.jobCardId,
+      name: "ignored for staff assignments",
+      staffId,
+    });
+  }
   const storeScan = (travellerId: Id<"travellers">, bytes: Buffer, mimeType: string) =>
     t.run(async (ctx) => {
       const storageId = await ctx.storage.store(new Blob([new Uint8Array(encryptBuffer(bytes))]));
@@ -217,7 +220,7 @@ describe("field passport preview", () => {
 });
 
 describe("field passport variants", () => {
-  test("a PDF has no preview: nothing is read, counted or audited", async () => {
+  test("a PDF has no preview; the full call completes the same open", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(IN_WINDOW);
     const f = await seed();
@@ -230,7 +233,10 @@ describe("field passport variants", () => {
         variant: "preview",
       })
     ).toEqual({ variant: "none" });
-    expect(await f.audit()).toEqual([]);
+    // The open starts, but it has served nothing yet.
+    expect((await f.audit()).map((row) => [row.openId, row.variants])).toEqual([
+      ["open-pdf-1", []],
+    ]);
 
     const full = await tm.action(api.crm.fieldPassportActions.getFieldPassportFile, {
       openId: "open-pdf-1",
@@ -247,6 +253,28 @@ describe("field passport variants", () => {
       throw new Error("expected the full file");
     }
     expect(Buffer.from(full.bytes).equals(SYNTHETIC_PDF)).toBe(true);
+    expect((await f.audit()).map((row) => [row.openId, row.variants])).toEqual([
+      ["open-pdf-1", ["full"]],
+    ]);
+  });
+
+  test("an image sharp cannot read has no preview, and the row does not claim one", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(IN_WINDOW);
+    const f = await seed();
+    const unreadable = Buffer.from("synthetic bytes that are not an image");
+    await f.storeScan(f.ids.photo, unreadable, "image/jpeg");
+    const read = (variant: "full" | "preview") =>
+      f.actor("tm").action(api.crm.fieldPassportActions.getFieldPassportFile, {
+        openId: "open-unreadable",
+        travellerId: f.ids.photo,
+        variant,
+      });
+    expect(await read("preview")).toEqual({ variant: "none" });
+    expect((await f.audit()).map((row) => row.variants)).toEqual([[]]);
+    const full = await read("full");
+    expect(full).toMatchObject({ mimeType: "image/jpeg", variant: "full" });
+    expect(Object.keys(full).sort()).toEqual(["bytes", "fileName", "mimeType", "variant"]);
     expect((await f.audit()).map((row) => row.variants)).toEqual([["full"]]);
   });
 
@@ -354,6 +382,24 @@ describe("one audit row per open", () => {
     expect((await f.audit()).map((row) => row.travellerId)).toEqual([f.ids.photo, f.ids.pdf]);
   });
 
+  test("another Tour Manager's call with the same openId is their own open", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(IN_WINDOW);
+    const f = await seed();
+    await f.storeScan(f.ids.pdf, SYNTHETIC_PDF, "application/pdf");
+    for (const key of ["tm", "tm-co"] as const) {
+      await f.actor(key).action(api.crm.fieldPassportActions.getFieldPassportFile, {
+        openId: "open-guessed",
+        travellerId: f.ids.pdf,
+        variant: "full",
+      });
+    }
+    expect((await f.audit()).map((row) => [row.actorStaffId, row.variants])).toEqual([
+      [f.ids.staffIds.tm, ["full"]],
+      [f.ids.staffIds["tm-co"], ["full"]],
+    ]);
+  });
+
   test("an unbounded openId is refused", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(IN_WINDOW);
@@ -396,6 +442,56 @@ describe("the rate limit counts opens", () => {
     await read("full", "open-30");
     await expect(read("preview", "open-31")).rejects.toThrow("PORTAL_FILE_RATE_LIMITED");
     expect(await f.audit()).toHaveLength(30);
+  });
+
+  test("serving a variant the open already served counts again", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(IN_WINDOW);
+    const f = await seed();
+    await f.storeScan(f.ids.photo, await syntheticCameraJpeg(600, 400), "image/jpeg");
+    await f.t.run((ctx) =>
+      ctx.db.insert("portalFileDownloadRateLimits", {
+        authUserId: `${ISSUER}|tm`,
+        count: 28,
+        expiresAt: IN_WINDOW + 60_000,
+        startedAt: IN_WINDOW,
+      })
+    );
+    const read = (variant: "full" | "preview") =>
+      f.actor("tm").action(api.crm.fieldPassportActions.getFieldPassportFile, {
+        openId: "open-replayed",
+        travellerId: f.ids.photo,
+        variant,
+      });
+    await read("preview"); // 29: the open
+    await read("full"); // still 29: same open
+    await read("full"); // 30: a second full download
+    await expect(read("full")).rejects.toThrow("PORTAL_FILE_RATE_LIMITED");
+    await expect(read("preview")).rejects.toThrow("PORTAL_FILE_RATE_LIMITED");
+    expect((await f.audit()).map((row) => row.variants)).toEqual([["preview", "full"]]);
+  });
+
+  test("a PDF preview call starts an open, so it is held to the limit", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(IN_WINDOW);
+    const f = await seed();
+    await f.storeScan(f.ids.pdf, SYNTHETIC_PDF, "application/pdf");
+    await f.t.run((ctx) =>
+      ctx.db.insert("portalFileDownloadRateLimits", {
+        authUserId: `${ISSUER}|tm`,
+        count: 30,
+        expiresAt: IN_WINDOW + 60_000,
+        startedAt: IN_WINDOW,
+      })
+    );
+    await expect(
+      f.actor("tm").action(api.crm.fieldPassportActions.getFieldPassportFile, {
+        openId: "open-pdf-limited",
+        travellerId: f.ids.pdf,
+        variant: "preview",
+      })
+    ).rejects.toThrow("PORTAL_FILE_RATE_LIMITED");
+    expect(await f.audit()).toEqual([]);
   });
 });
 

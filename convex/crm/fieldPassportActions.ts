@@ -1,5 +1,6 @@
 "use node";
 
+import type { FunctionReturnType } from "convex/server";
 import { ConvexError, type Infer, v } from "convex/values";
 import sharp from "sharp";
 import { api, internal } from "../_generated/api";
@@ -12,9 +13,12 @@ import { enforcePortalFileDownloadLimit } from "./lib/portalFileDownloadLimit";
 /** About 900 px on the long edge at JPEG quality 70: typically well under 150 KB. */
 const PREVIEW_LONG_EDGE_PX = 900;
 const PREVIEW_JPEG_QUALITY = 70;
-// Phone cameras top out near 200 MP; anything larger is not a passport scan.
-const MAX_INPUT_PIXELS = 250_000_000;
+// A 50 MP phone photo fits; anything larger gets no preview and the app loads the full file.
+const MAX_INPUT_PIXELS = 60_000_000;
 const FILE_EXTENSION_PATTERN = /\.[^.]*$/;
+
+// No libvips operation cache: decoded passport pixels never outlive the request that made them.
+sharp.cache(false);
 
 /**
  * The response. Without `variant` it is exactly the original `{ bytes, fileName, mimeType }`,
@@ -44,12 +48,9 @@ const fieldPassportFileResultValidator = v.union(
 );
 type FieldPassportFileResult = Infer<typeof fieldPassportFileResultValidator>;
 
-interface FieldPassportGrant {
-  fileName: string;
-  mimeType: string;
-  serve: "full" | "none" | "preview";
-  storageId: Id<"_storage">;
-}
+type FieldPassportGrant = FunctionReturnType<
+  typeof internal.crm.fieldPassports.authorizeFieldPassportRead
+>;
 
 function toArrayBuffer(buffer: Buffer) {
   const bytes = new Uint8Array(buffer.byteLength);
@@ -68,7 +69,10 @@ async function readDecryptedScan(ctx: ActionCtx, storageId: Id<"_storage">) {
 /** Displayed width and height of an image scan from its header, or null when unreadable. */
 async function displayedSize(scan: Buffer) {
   try {
-    const metadata = await sharp(scan, { limitInputPixels: MAX_INPUT_PIXELS }).metadata();
+    const metadata = await sharp(scan, {
+      limitInputPixels: MAX_INPUT_PIXELS,
+      sequentialRead: true,
+    }).metadata();
     if (!(metadata.width && metadata.height)) {
       return null;
     }
@@ -88,7 +92,10 @@ async function displayedSize(scan: Buffer) {
  */
 async function previewOf(scan: Buffer) {
   try {
-    const { data, info } = await sharp(scan, { limitInputPixels: MAX_INPUT_PIXELS })
+    const { data, info } = await sharp(scan, {
+      limitInputPixels: MAX_INPUT_PIXELS,
+      sequentialRead: true,
+    })
       .rotate()
       .resize({
         fit: "inside",
@@ -148,6 +155,9 @@ export const getFieldPassportFile = action({
     if (grant.serve === "preview") {
       const preview = await previewOf(scan);
       if (!preview) {
+        await ctx.runMutation(internal.crm.fieldPassports.withdrawFieldPassportPreview, {
+          auditId: grant.auditId,
+        });
         return { variant: "none" };
       }
       return {
@@ -164,7 +174,9 @@ export const getFieldPassportFile = action({
     if (args.variant === undefined) {
       return file;
     }
-    const size = grant.mimeType.startsWith("image/") ? await displayedSize(scan) : null;
+    const size = grant.mimeType.toLowerCase().startsWith("image/")
+      ? await displayedSize(scan)
+      : null;
     return { ...file, ...size, variant: "full" };
   },
   returns: fieldPassportFileResultValidator,

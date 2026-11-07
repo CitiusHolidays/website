@@ -1234,11 +1234,16 @@ export default defineSchema({
     travellerId: v.id("travellers"),
     // The trip's field passport window close when the row was last checked.
     tripClosesAt: v.optional(v.number()),
-    // Which renditions this open served; absent on rows written before previews.
+    // Which renditions this open served (empty when it served none, e.g. a PDF preview call);
+    // absent on rows written before previews.
     variants: v.optional(v.array(fieldPassportVariantValidator)),
   })
     .index("by_jobCardId_and_accessedAt", ["jobCardId", "accessedAt"])
-    .index("by_openId_and_accessedAt", ["openId", "accessedAt"])
+    .index("by_actorAuthUserId_and_openId_and_accessedAt", [
+      "actorAuthUserId",
+      "openId",
+      "accessedAt",
+    ])
     .index("by_retainUntil", ["retainUntil"])
     .index("by_travellerId_and_accessedAt", ["travellerId", "accessedAt"]),
 

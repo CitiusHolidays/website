@@ -168,28 +168,33 @@ quick low-resolution image, then `variant: "full"` to swap in the full-quality s
   the app can reserve the aspect ratio. The EXIF orientation is applied and all metadata (EXIF,
   GPS, ICC, XMP) is stripped. A synthetic 12 MP camera JPEG (3.1 MB) gives a 59 KB preview; a
   12 MP pure-noise JPEG (10 MB, the worst case) gives 64 KB.
-- **No preview.** For a PDF, or an image sharp cannot read, `"preview"` returns `{ variant:
-  "none" }` with no bytes, and the app loads the full file directly. For a PDF nothing is read,
-  so that call is neither audited nor counted against the rate limit; it still runs every check.
+- **No preview.** For a PDF, or an image sharp cannot read (or one over 60 MP), `"preview"`
+  returns `{ variant: "none" }` with no bytes, and the app loads the full file directly. The
+  call still runs every check and starts (or joins) the open, so the full call that follows
+  counts with it; the row records only what was actually served.
 - **Full.** `variant: "full"` returns the stored scan byte for byte with `variant: "full"`, plus
   the upright `width` and `height` for an image scan, read from its header. A PDF has none.
 - **Nothing new is stored.** Previews are generated in memory in the Node action for each
-  request and never written to storage or a cache, so a passport never leaks into extra storage.
-  A short-lived storage cache would save the downscale on a repeat open (about 60-90 ms for
-  12 MP), but it would put a second copy of the passport at rest, with its own encryption,
-  expiry and deletion to get right; the transfer, not the downscale, is what 3G pays for.
+  request and never written to storage or a cache (sharp's operation cache is off), so a passport
+  never leaks into extra storage. A short-lived storage cache would save the downscale on a
+  repeat open (about 60-90 ms for 12 MP), but it would put a second copy of the passport at rest,
+  with its own encryption, expiry and deletion to get right; the transfer, not the downscale, is
+  what 3G pays for. It is not built.
 - **Same checks.** A preview is a passport read: the Tour Manager role, own staff assignment,
-  own group, trip window, app pilot and portal file rate limit apply exactly as for the full file,
-  and it is audited.
+  own group, trip window and app pilot apply exactly as for the full file, it is held to the
+  portal file rate limit, and it is audited.
 - **One audit row per open.** Calls with the same actor, traveller and `openId` within 10 minutes
-  of the open's first call share one `fieldPassportAccessAudit` row: the first call writes it
-  and later calls only add their variant to its `variants` (`["preview", "full"]`). The row keeps
-  the first call's time. Without an `openId` every call writes its own row, as before. The
-  office log (`listFieldPassportAccess`) therefore lists one entry per open and does not show
-  the variants.
+  of the open's first call share one `fieldPassportAccessAudit` row: the first call writes it and
+  later calls only add their variant to its `variants` (`["preview", "full"]`; `[]` while a
+  PDF's open has served nothing). The row keeps the first call's time. Only the caller's own
+  rows are matched, so another login sending the same `openId` gets its own open. Without an
+  `openId` every call writes its own row, as before. The office log (`listFieldPassportAccess`)
+  therefore lists one entry per open and does not show the variants.
 - **Rate limit per open.** The portal file rate limit (30 downloads a minute per login, shared
   with other portal files) counts opens, not calls: the call that writes the row counts once,
-  and later calls of that open do not. A refused call still counts, as before.
+  and the other variant of that open does not. Serving a variant the open already served (a
+  retry) counts again, so an open cannot be replayed past the limit. A refused call still
+  counts, as before.
 
 ## External tour managers
 
@@ -413,7 +418,7 @@ rejects the new argument before then):
   before it are purged by the same job once their trip is over. The new operational control
   `jobs.purge_field_passport_audit` is on by default.
 - Fast passport previews add optional `fieldPassportAccessAudit.openId` and `.variants` and the
-  index `fieldPassportAccessAudit.by_openId_and_accessedAt`. No backfill; older rows have
+  index `fieldPassportAccessAudit.by_actorAuthUserId_and_openId_and_accessedAt`. No backfill; older rows have
   neither. The new `getFieldPassportFile` arguments are optional, so current app builds keep
   working; the app adopts previews by sending `variant: "preview"` then `variant: "full"` with
   one `openId` per open.
