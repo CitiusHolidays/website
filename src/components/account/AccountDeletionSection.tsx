@@ -8,12 +8,16 @@ import Link from "next/link";
 import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/application-button";
 import { Field, Input } from "@/components/ui/application-field";
+import { signInHrefWithReturn } from "@/lib/auth-return-path";
+import { getAuthVariant } from "@/lib/auth-sign-in-targets";
 import { isJsonObject, type JsonValue } from "@/lib/jsonValue";
+import { ACCOUNT_DELETION_HREF } from "@/lib/public/contactIntent";
 import { isRuntimeString } from "@/lib/runtimeValues";
 import { ProfileAlert } from "./AccountUi";
 
 const DELETION_ENDPOINT = "/api/account/deletion";
-const SIGN_IN_PATH = "/auth/guest";
+// After signing in again the customer returns straight to this row.
+const SIGN_IN_PATH = signInHrefWithReturn(ACCOUNT_DELETION_HREF, getAuthVariant("guest"));
 const GENERIC_FAILURE =
   "We couldn't delete your account just now. Nothing was changed. Please try again.";
 
@@ -80,7 +84,7 @@ const READY: Phase = { error: null, kind: "ready", submitting: false };
 const PHASE_STATUS = {
   loading: "Checking your account…",
   reauth:
-    "For your security, sign in again, then come back to Settings and delete your account within 10 minutes.",
+    "For your security, sign in again. You'll come back here and can then delete your account within 10 minutes.",
   staff:
     "This login belongs to a Citius staff account, so it can't be deleted here. Contact HR to close your staff account.",
 } satisfies Partial<Record<Phase["kind"], string>>;

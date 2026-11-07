@@ -167,7 +167,10 @@ describe("Account deletion", () => {
 
     await act(async () => button(view.container, "Sign in again").click());
     await settle();
-    expect(order).toEqual(["signOut", "/auth/guest"]);
+    expect(order).toEqual([
+      "signOut",
+      "/auth/guest?returnTo=%2Faccount%3Ftab%3Dsettings%23delete-account",
+    ]);
 
     await view.unmount();
   });
