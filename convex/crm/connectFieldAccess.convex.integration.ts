@@ -7,6 +7,15 @@ import { modules } from "../test.setup";
 import { syncJobCardTourManagerVisibility } from "./jobCardVisibility";
 
 const NOW = Date.parse("2026-11-06T06:00:00Z");
+// These trips are in the tour manager app pilot; appPilot.convex.integration.ts covers the off state.
+const APP_PILOT_ON = {
+  appPilot: {
+    changedAt: NOW,
+    changedBy: "synthetic-ops",
+    changedByName: "Synthetic Ops",
+    enabled: true,
+  },
+};
 const ISSUER = "https://connect-field.test";
 
 const byText = (left: string, right: string) => left.localeCompare(right);
@@ -78,6 +87,7 @@ async function seed(t: ReturnType<typeof harness>) {
   const staffIds = new Map(Object.entries(staffIdRecord));
   const ids = await t.run(async (ctx) => {
     const jobCardId = await ctx.db.insert("jobCards", {
+      ...APP_PILOT_ON,
       clientName: "Synthetic incentive group",
       confirmedPax: 4,
       createdAt: NOW,
@@ -91,6 +101,7 @@ async function seed(t: ReturnType<typeof harness>) {
       updatedAt: NOW,
     });
     const otherJobCardId = await ctx.db.insert("jobCards", {
+      ...APP_PILOT_ON,
       clientName: "Synthetic second group",
       confirmedPax: 1,
       createdAt: NOW + 1,

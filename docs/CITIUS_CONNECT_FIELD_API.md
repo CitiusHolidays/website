@@ -14,6 +14,8 @@ Owner decisions of 6 Nov 2026 behind this API:
 3. Headcounts and announcements sync to the office. The server never sends a message.
 4. External tour managers should be wired in. See [External tour managers](#external-tour-managers)
    for the owner decisions of 7 Nov 2026 that do this.
+5. The app is piloted trip by trip (director, 7 Nov 2026): nothing about a Job Card shows in the
+   app until someone starts its pilot. See [Per-trip app pilot](#per-trip-app-pilot).
 
 ## Traveller scope
 
@@ -269,8 +271,79 @@ import and the staff workbook refuse or skip it, and it is never a reporting man
 approver. The profile's email is locked once a login exists; name and phone edits are copied to
 the login.
 
-The tour manager app needs no change: it signs in as staff, requires the Tour Manager role and
-calls only the functions listed above.
+External logins needed no app change: the app signs in as staff, requires the Tour Manager role
+and calls only the functions listed above. The [app pilot](#per-trip-app-pilot) does need one.
+
+## Per-trip app pilot
+
+Owner decision (director, 7 Nov 2026): Citius pilots the apps trip by trip. Each Job Card has an
+on/off switch. Nothing about a trip shows in the tour manager app until someone presses **Start
+pilot** on it; from then on every app feature works for it. **Stop pilot** turns it off again. The
+same switch will later gate the customer app, so it is stored generically as
+`jobCards.appPilot = { enabled, changedAt, changedBy, changedByName }`. A missing field means
+off.
+
+**Who switches it.** The Operations Head, Directors, Director Cement, Admin and the Job Card's
+own Operations owner (`jobCards.operationsOwnerId`), on a Job Card they can see
+(`canManageAppPilot` in `convex/crm/appPilot.ts`). External tour manager logins never can.
+Everyone else gets `FORBIDDEN`. Each change writes a Job Card activity row (`entityType`
+`"jobCard"`, action `app_pilot_started` or `app_pilot_stopped`, with the actor and time);
+repeating the current state changes and logs nothing.
+
+| Function | Kind | Args | Returns |
+| --- | --- | --- | --- |
+| `crm/jobCards:getAppPilot` | query | `{ jobCardId }` | `null` when the caller cannot see the Job Card, else `{ enabled, changedAt, changedByName, canManage }` (`changedAt` and `changedByName` are `null` until the first change) |
+| `crm/jobCards:setAppPilot` | mutation | `{ jobCardId, enabled }` | the same state object; `FORBIDDEN` for callers who may not switch it |
+
+The Job Card page shows the state and a **Start pilot** / **Stop pilot** button
+(`JobCardAppPilot`) above **Field updates**. Stopping asks for confirmation first and says the trip
+disappears from tour managers' phones.
+
+**What an off trip looks like to the app.** Authorization runs first, exactly as today; only a
+caller who could otherwise use the trip meets the pilot check.
+
+- `crm/jobCards:listMyAssignedPage` leaves the Job Card out. The page cursor still walks
+  assignments, so a short or empty page with `isDone: false` is normal: keep paging.
+- These app-only functions refuse it with `ConvexError` data `"APP_PILOT_OFF"` on every call:
+  `crm/fieldSync:pushHeadcountStop`, `crm/fieldSync:recordAnnouncement`,
+  `crm/fieldPassports:listFieldPassports`, `crm/fieldPassportActions:getFieldPassportFile`
+  (through `crm/fieldPassports:authorizeFieldPassportRead`, before any audit row is written) and
+  `crm/finance:createExpense` when it carries a `clientRef` and a `jobCardId`. A retry of an
+  expense already recorded with the same `clientRef` still returns its id, because it writes
+  nothing; only a new expense is refused.
+- The trip-pack reads the app shares with the Staff Workspace accept an optional
+  `surface: "connect"`. With it they refuse an off trip with `"APP_PILOT_OFF"`; without it they
+  behave as before. They are `crm/jobCards:getCommandCenter`, `crm/jobCards:listTravelBatches`,
+  `crm/jobCards:getDetail` (the notification screen), `crm/travellers:listPage` and
+  `crm/ops:listTourManagers`. With `surface: "connect"` the last two need a `jobCardId` the
+  caller can see (`FORBIDDEN` otherwise), which the app always passes.
+
+**Why an argument on the shared reads.** The server cannot tell the app from a browser session,
+and the Staff Workspace calls the same five reads for staff and external tour managers. Gating
+them for every caller would take the trip out of the CRM too, which the decision rules out. So
+the app opts in with `surface: "connect"`. This is not a new security boundary: a caller who
+leaves the argument out gets exactly what the CRM already gives them. The data that exists only in
+the app (field sync, field passports, the offline expense outbox and the trip list) is refused
+unconditionally.
+
+**Not gated.** The office readers `crm/fieldSync:listLatestHeadcounts`,
+`crm/fieldSync:listAnnouncements` and `crm/fieldPassports:listFieldPassportAccess` are Staff
+Workspace views and keep working, as do expenses created without `clientRef`. The app's other
+calls (`crm/staff:getMyPortalAccess`, `crm/activity:listNotifications`, `crm/finance:listExpenses`,
+`crm/finance:getExpenseListRow`, the expense attachment actions and
+`crm/finance:submitExpenseForApproval`) do not check the pilot. They are shared with the Staff
+Workspace, where Finance and the tour manager work on the same expenses, and they were outside the
+decision's list. So an expense recorded before the pilot stopped stays visible in the app, and the
+outbox can still attach its proof and submit it.
+
+**App changes this needs** (citius-app, after this server revision is deployed; the server
+rejects the new argument before then):
+
+1. Pass `surface: "connect"` on the five shared reads above.
+2. Treat `APP_PILOT_OFF` from any call as "this trip is not in the app": drop the trip, its saved
+   trip pack and its pending field-sync items, and do not retry them. An offline expense whose
+   create is refused this way was not recorded and needs a message to the tour manager.
+3. Drop a saved trip pack whose Job Card no longer appears in `listMyAssignedPage`.
 
 ## Deploy notes
 
@@ -296,3 +369,7 @@ calls only the functions listed above.
 - `fieldPassportAccessAudit` gains optional `retainUntil` and index `by_retainUntil`; rows written
   before it are purged by the same job once their trip is over. The new operational control
   `jobs.purge_field_passport_audit` is on by default.
+- The per-trip app pilot (7 Nov 2026) adds optional `jobCards.appPilot`. No index, no backfill.
+  **Every existing Job Card starts with the pilot off, so on deploy tour managers lose the app for
+  every trip until someone presses Start pilot on it.** That is intended. The Staff Workspace is
+  unchanged. Deploy the server before the app build that sends `surface: "connect"`.
