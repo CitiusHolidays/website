@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
+import { type AppSurface, isAppPilotOn, requireAppPilotForSurface } from "./appPilot";
 import {
   canSeeJobCardRecord,
   PERMISSIONS,
@@ -117,6 +118,8 @@ export async function handleMyAssignedJobCardsPage(
     })
   );
   const jobCardIds = firstAssignments.filter((id) => id !== null);
+  // Rows for Job Cards whose app pilot is off are dropped below; the page cursor still walks
+  // assignments, so a short or empty page does not mean the list is done.
   const jobs = await loadRowsByIdInBatches(ctx, "jobCards", jobCardIds, jobCardIds.length);
   const jobById = new Map(jobs.map((job) => [String(job._id), job]));
   const linkedQueries = await loadRowsByIdInBatches(
@@ -128,7 +131,7 @@ export async function handleMyAssignedJobCardsPage(
   const queryById = new Map(linkedQueries.map((row) => [String(row._id), row]));
   const page = jobCardIds.flatMap((jobCardId) => {
     const job = jobById.get(String(jobCardId));
-    if (!job || (args.status && job.status !== args.status)) {
+    if (!job || (args.status && job.status !== args.status) || !isAppPilotOn(job)) {
       return [];
     }
     const linkedQuery = job.queryId ? queryById.get(String(job.queryId)) : null;
@@ -140,7 +143,7 @@ export async function handleMyAssignedJobCardsPage(
   return { ...assignmentPage, page };
 }
 
-export async function handleJobCardGetListRow(
+async function loadVisibleJobCardRow(
   ctx: QueryCtx,
   args: {
     jobCardId?: string;
@@ -168,7 +171,31 @@ export async function handleJobCardGetListRow(
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     return null;
   }
-  return publicJobCard(job, linkedQuery);
+  return { job, linkedQuery };
+}
+
+export async function handleJobCardGetListRow(
+  ctx: QueryCtx,
+  args: {
+    jobCardId?: string;
+    queryId?: string;
+  }
+) {
+  const visible = await loadVisibleJobCardRow(ctx, args);
+  return visible ? publicJobCard(visible.job, visible.linkedQuery) : null;
+}
+
+/** `getDetail`: the list row; the tour manager app surface also needs the trip's pilot on. */
+export async function handleJobCardGetDetail(
+  ctx: QueryCtx,
+  args: { jobCardId?: string; queryId?: string; surface?: AppSurface }
+) {
+  const visible = await loadVisibleJobCardRow(ctx, args);
+  if (!visible) {
+    return null;
+  }
+  requireAppPilotForSurface(visible.job, args.surface);
+  return publicJobCard(visible.job, visible.linkedQuery);
 }
 
 export async function handleListTravelBatches(
@@ -176,6 +203,7 @@ export async function handleListTravelBatches(
   args: {
     jobCardId: string;
     paginationOpts: { numItems: number; cursor: string | null };
+    surface?: AppSurface;
   }
 ) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_JOB_CARDS);
@@ -191,6 +219,7 @@ export async function handleListTravelBatches(
   if (!canSeeJobCardRecord(access, job, linkedQuery)) {
     throw new ConvexError("FORBIDDEN");
   }
+  requireAppPilotForSurface(job, args.surface);
   const page = await ctx.db
     .query("travelBatches")
     .withIndex("by_jobCardId_and_createdAt", (q) => q.eq("jobCardId", jobCardId))
