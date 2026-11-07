@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "ba059b57a8965c7791443b69efd8a4381784fd4f29be8c2d7fa66a7ee0307a93";
+const EXPECTED_CAPABILITY_HASH = "73013d1022c94038bc2a2dbf1ae4866b742f32870b99f102c41790db754beb9d";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_CAPABILITIES = new Set(["crm/postTourReports.archive"]);
