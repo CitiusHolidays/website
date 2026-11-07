@@ -565,3 +565,47 @@ worker so it could not collide with the office check-in section above).
   3. View mounted tests print React `act(...)` warnings (tests pass); not traced | test owner.
   4. Product: removing someone from an office leaves them unable to clock in (the checklist says
      so); an "unassigned staff" view may be wanted later | product.
+
+## Task: Self-service account deletion in Account settings (2026-11-06)
+
+### Brief
+
+- **Outcome.** Owner decision (7 Nov 2026): customers delete their own account on the website.
+  Account settings replaces the "Contact team" row with a "Delete my account" action that says
+  plainly what is deleted and kept, needs a fresh sign-in and the typed word DELETE, and tells
+  staff logins to contact HR. Backend and contract: ADR 0019.
+- **Constraints.** Customer Travel Account baseline (DESIGN.md): existing `--account-*` tokens,
+  `SettingRow` rhythm, `Button`/`Field`/`Input` on `surface="account"`, `ProfileAlert`; no new
+  fonts, colours outside the Account's existing error/success inks, or motion.
+- **Flows.** Open → eligibility (ready / reauth / staff / unavailable) → type DELETE → delete →
+  signed-out notice with reference. Failure keeps the typed value; a stale session switches to
+  "Sign in again" (signs out, then `/auth/guest`). Cancel closes and returns focus to the trigger.
+- **Source revision.** Branch `feat/account-deletion-consent`, base `0702bfa1` + `origin/main`
+  `cb014e36`.
+
+### Accepted direction
+
+- Destructive action last, in its own row (design-taste-frontend app-screens §8.2 house rule):
+  outlined button in the Account's negative ink `#9b3d32`, the consequence in words, a confirmation
+  that names the object. The panel expands inline under the row (disclosure with
+  `aria-expanded`/`aria-controls`), not a modal: one decision, no focus trap to manage.
+- "What we delete" / "What we keep" side by side on desktop, stacked on phones, on the Account
+  paper surface; "This can't be undone." in the negative ink. One filled control (the final
+  delete), pill shape and 44px targets as elsewhere in Account.
+
+### Pass 9: Verify (2026-11-06)
+
+- Mounted tests: `src/components/account/AccountDeletion.mounted.test.jsx` (6) and the updated
+  settings test in `AccountPanels.mounted.test.jsx`.
+- Fixture render: a temporary route rendered `AccountClient` on Settings with `/api/account/deletion`
+  stubbed in-page (ready, staff, reauth, error), `next dev` with a dummy Convex URL, driven by
+  Playwright 1.65 with the cached Chromium headless shell 1248. Deleted afterwards. Evidence:
+  `/private/tmp/claude-502/-Users-sharm1-Downloads-projects-citius-app/8cd74b40-7e38-44dd-8aed-051d2531acab/scratchpad/shots/`
+  and `checks.json` there.
+- Observed in Chromium at 1440×900 and 390×844: trigger 44px tall, `aria-expanded` true when open,
+  no horizontal overflow, submit disabled until DELETE, Enter submits, error keeps the value and
+  shows the alert, success shows the reference and "Return to home", Cancel returns focus to the
+  trigger. The only dev-overlay issue came from the fixture route itself (`connection()` outside
+  Suspense).
+- **Not verified:** WebKit (Playwright 1.65 wants webkit-2388, not installed; not downloaded),
+  Firefox, a live backend, real sign-in/re-auth and the real email.
