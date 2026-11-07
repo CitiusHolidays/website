@@ -15,7 +15,17 @@ const RELEASE_TARGET = {
   expectedTargetEnvironment: "development",
   expectedTargetRevision: "working-tree",
 } as const;
+const RETENTION_JOB_CONTROLS = [
+  ["anonymise_past_travellers", "jobs.anonymise_past_travellers"],
+  ["purge_activity_logs", "jobs.purge_activity_logs"],
+  ["purge_inactive_customer_accounts", "jobs.purge_inactive_customer_accounts"],
+  ["purge_old_feedback", "jobs.purge_old_feedback"],
+  ["purge_passport_scans", "jobs.purge_passport_scans"],
+  ["purge_unconverted_enquiries", "jobs.purge_unconverted_enquiries"],
+  ["retire_financial_records", "jobs.retire_financial_records"],
+] as const satisfies ReadonlyArray<readonly [ScheduledJob, OperationalControlKey]>;
 const SCHEDULED_JOB_CONTROLS = [
+  ...RETENTION_JOB_CONTROLS,
   ["check_cl_sl_leave_lapse", "jobs.check_cl_sl_leave_lapse"],
   ["cleanup_ai_runtime", "jobs.cleanup_ai_runtime"],
   ["cleanup_passenger_exports", "jobs.cleanup_passenger_exports"],
@@ -60,6 +70,7 @@ const listOperationalControls = makeFunctionReference<
     key: string;
     revision: number;
     source: string;
+    standardEnabled: boolean;
     state: string;
   }>
 >("crm/settings:listOperationalControls");
@@ -206,7 +217,12 @@ const runProductionTestRecipes = makeFunctionReference<
     replayed: boolean;
     run: {
       note?: string;
-      results: Array<{ recordedEffects: string[]; status: string; steps: unknown[] }>;
+      results: Array<{
+        recipeId: string;
+        recordedEffects: string[];
+        status: string;
+        steps: unknown[];
+      }>;
       status: string;
     };
   }
@@ -332,7 +348,7 @@ describe("registered exact-Admin Operational Controls", () => {
     const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
     const asDirector = t.withIdentity(identity("auth_director", "director@citius.test"));
 
-    expect(await asAdmin.query(listProductionTestRecipes, {})).toHaveLength(22);
+    expect(await asAdmin.query(listProductionTestRecipes, {})).toHaveLength(29);
     const recipeIds = PRODUCTION_TEST_RECIPES.map((recipe) => recipe.id);
     const result = await asAdmin.action(runProductionTestRecipes, {
       ...RELEASE_TARGET,
@@ -345,12 +361,22 @@ describe("registered exact-Admin Operational Controls", () => {
       status: "passed",
     });
     expect(result.run.results).toHaveLength(recipeIds.length);
-    expect(result.run.results.every((entry) => entry.status === "passed")).toBe(true);
-    expect(result.run.results.every((entry) => entry.recordedEffects.length > 0)).toBe(true);
+    // The retention jobs are off by default, so their recipes report a skip, never an effect.
+    const retentionRecipeIds = new Set<string>(
+      RETENTION_JOB_CONTROLS.map(([job]) => `scheduled_job:${job}`)
+    );
+    const ran = result.run.results.filter((entry) => !retentionRecipeIds.has(entry.recipeId));
+    expect(
+      result.run.results
+        .filter((entry) => retentionRecipeIds.has(entry.recipeId))
+        .map((entry) => [entry.status, entry.recordedEffects.length])
+    ).toEqual(RETENTION_JOB_CONTROLS.map(() => ["skipped", 0]));
+    expect(ran.filter((entry) => entry.status !== "passed")).toEqual([]);
+    expect(ran.every((entry) => entry.recordedEffects.length > 0)).toBe(true);
     expect(result.run.results.flatMap((entry) => entry.recordedEffects).join(" ")).not.toMatch(
       /[\w.+-]+@[\w.-]+\.[a-z]{2,}/iu
     );
-    expect(result.run.results.every((entry) => entry.steps.length >= 4)).toBe(true);
+    expect(ran.every((entry) => entry.steps.length >= 4)).toBe(true);
     const sideEffects = await t.run(async (ctx) => ({
       authDeliveries: await ctx.db.query("authEmailDeliveries").collect(),
       authIntents: await ctx.db.query("authEmailDeliveryIntents").collect(),
@@ -558,7 +584,7 @@ describe("registered exact-Admin Operational Controls", () => {
       commandId: "0a0a0a0a-0a0a-4a0a-8a0a-0a0a0a0a0a0a",
       reason: "Retire coarse controls and initialize the precise catalog.",
     });
-    expect(migrated.initializedControlKeys).toHaveLength(30);
+    expect(migrated.initializedControlKeys).toHaveLength(37);
     const direct = await t.run(async (ctx) => ctx.db.query("operationalControlStates").collect());
     expect(direct.filter((row) => row.key === "email.auth.verification")).toHaveLength(1);
     expect(direct.find((row) => row.key === "email.auth.verification")).toMatchObject({
@@ -631,7 +657,7 @@ describe("registered exact-Admin Operational Controls", () => {
 
     const catalog = await asAdmin.query(listOperationalControls, { at: NOW.getTime() });
 
-    expect(catalog).toHaveLength(30);
+    expect(catalog).toHaveLength(37);
     expect(catalog.map((entry) => entry.key)).toEqual(
       expect.arrayContaining([
         "email.auth.verification",
@@ -914,9 +940,27 @@ describe("registered exact-Admin Operational Controls", () => {
     });
     expect(
       catalog
-        .filter((entry) => entry.availability === "available")
+        .filter((entry) => entry.availability === "available" && entry.standardEnabled)
         .every((entry) => entry.effectiveEnabled === true)
     ).toBe(true);
+    // The data retention jobs are off by default, even before the control plane is active.
+    const retentionKeys = new Set<string>(RETENTION_JOB_CONTROLS.map(([, key]) => key));
+    expect(
+      catalog
+        .filter((entry) => retentionKeys.has(entry.key))
+        .sort((left, right) => left.key.localeCompare(right.key))
+        .map(({ effectiveEnabled, key, standardEnabled }) => ({
+          effectiveEnabled,
+          key,
+          standardEnabled,
+        }))
+    ).toEqual(
+      RETENTION_JOB_CONTROLS.map(([, key]) => ({
+        effectiveEnabled: false,
+        key,
+        standardEnabled: false,
+      })).sort((left, right) => left.key.localeCompare(right.key))
+    );
     expect(catalog.find((entry) => entry.key === "jobs.cleanup_ai_runtime")).toMatchObject({
       availability: "available",
       effectiveEnabled: true,
@@ -947,14 +991,14 @@ describe("registered exact-Admin Operational Controls", () => {
       expectedRevision: 0,
       reason: "Initialize the exact local release target for source verification.",
     });
-    expect(activated.initializedControlKeys).toHaveLength(30);
+    expect(activated.initializedControlKeys).toHaveLength(37);
     const persisted = await t.run(async (ctx) => ({
       audits: await ctx.db.query("operationalControlAuditEvents").collect(),
       markers: await ctx.db.query("operationalControlPlaneState").collect(),
       states: await ctx.db.query("operationalControlStates").collect(),
     }));
     expect(persisted.markers).toHaveLength(1);
-    expect(persisted.states).toHaveLength(30);
+    expect(persisted.states).toHaveLength(37);
     expect(persisted.audits).toContainEqual(
       expect.objectContaining({ action: "plane_activated", actorName: "Release setup" })
     );
@@ -1138,7 +1182,7 @@ describe("registered exact-Admin Operational Controls", () => {
     ).rejects.toThrow("OPERATIONAL_TEST_OVERRIDE_RETIRED");
   });
 
-  test("suppresses and records every one of the fourteen scheduled jobs at execution time", async () => {
+  test("suppresses and records every one of the twenty-one scheduled jobs at execution time", async () => {
     const t = createHarness();
     await seedStaff(t);
     await t.mutation(activateOperationalControlPlane, {
@@ -1156,7 +1200,7 @@ describe("registered exact-Admin Operational Controls", () => {
         state: "disabled" as const,
       })),
       commandId: "21212121-1010-4010-8010-101010101010",
-      reason: "Pause all fourteen job dispatches together to prove each named execution gate.",
+      reason: "Pause all twenty-one job dispatches together to prove each named execution gate.",
       restorationAfterMs: null,
     });
 
@@ -1166,10 +1210,59 @@ describe("registered exact-Admin Operational Controls", () => {
     const receipts = await t.run(async (ctx) =>
       ctx.db.query("operationalEffectReceipts").collect()
     );
-    expect(receipts).toHaveLength(14);
+    expect(receipts).toHaveLength(21);
     expect(new Set(receipts.map((receipt) => receipt.controlKey))).toEqual(
       new Set(SCHEDULED_JOB_CONTROLS.map(([, key]) => key))
     );
     expect(receipts.every((receipt) => receipt.disposition === "suppressed")).toBe(true);
+  });
+  test("keeps every data retention job off until the owner switches it on", async () => {
+    const t = createHarness();
+    await seedStaff(t);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("activityLogs", {
+        action: "updated",
+        actorId: "synthetic-actor",
+        actorName: "Synthetic Actor",
+        createdAt: NOW.getTime() - 800 * 24 * 60 * 60 * 1000,
+        entityType: "traveller",
+        message: "synthetic old log",
+      });
+    });
+    const logs = () => t.run(async (ctx) => (await ctx.db.query("activityLogs").collect()).length);
+
+    // Before the control plane is active: off, nothing deleted.
+    for (const [job] of RETENTION_JOB_CONTROLS) {
+      await expect(t.action(runScheduledJob, { job })).resolves.toEqual({ executed: false });
+    }
+    await t.mutation(activateOperationalControlPlane, {
+      ...RELEASE_TARGET,
+      commandId: "30303030-1010-4010-8010-101010101010",
+      expectedRevision: 0,
+      reason: "Initialize the local release target for retention default proof.",
+    });
+    // After activation, at Normal Behavior: still off.
+    for (const [job] of RETENTION_JOB_CONTROLS) {
+      await expect(t.action(runScheduledJob, { job })).resolves.toEqual({ executed: false });
+    }
+    expect(await logs()).toBe(1);
+
+    const asAdmin = t.withIdentity(identity("auth_admin", "admin@citius.test"));
+    await asAdmin.mutation(applyOperationalChangeSet, {
+      ...RELEASE_TARGET,
+      changes: [
+        { expectedRevision: 1, key: "jobs.purge_activity_logs", state: "enabled" as const },
+      ],
+      commandId: "31313131-1010-4010-8010-101010101010",
+      reason: "Owner reviewed the activity log dry run and switched the job on.",
+      restorationAfterMs: null,
+    });
+    await expect(t.action(runScheduledJob, { job: "purge_activity_logs" })).resolves.toEqual({
+      executed: true,
+    });
+    expect(await logs()).toBe(0);
+    await expect(t.action(runScheduledJob, { job: "purge_passport_scans" })).resolves.toEqual({
+      executed: false,
+    });
   });
 });

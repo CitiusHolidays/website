@@ -104,4 +104,58 @@ crons.cron(
   {}
 );
 
+// Data retention schedule (crm/retention/*). Each job is off until the owner switches it on.
+// 19:15 UTC is 00:45 IST, after the IST date changes.
+crons.cron(
+  "purge passport scans after trips",
+  "15 19 * * *",
+  scheduledJob("operationalScheduledJobs:purgePassportScans"),
+  {}
+);
+
+// 21:30 UTC is 03:00 IST.
+crons.cron(
+  "purge activity logs after a year",
+  "30 21 * * *",
+  scheduledJob("operationalScheduledJobs:purgeActivityLogs"),
+  {}
+);
+
+// 21:45 UTC is 03:15 IST.
+crons.cron(
+  "purge unconverted enquiries",
+  "45 21 * * *",
+  scheduledJob("operationalScheduledJobs:purgeUnconvertedEnquiries"),
+  {}
+);
+
+// The multi-year rules run weekly, on Sunday nights UTC (early Monday IST).
+crons.cron(
+  "purge old traveller feedback",
+  "0 22 * * 0",
+  scheduledJob("operationalScheduledJobs:purgeOldFeedback"),
+  {}
+);
+
+crons.cron(
+  "anonymise past travellers",
+  "15 22 * * 0",
+  scheduledJob("operationalScheduledJobs:anonymisePastTravellers"),
+  {}
+);
+
+crons.cron(
+  "retire old bookings and invoices",
+  "30 22 * * 0",
+  scheduledJob("operationalScheduledJobs:retireFinancialRecords"),
+  {}
+);
+
+crons.cron(
+  "purge inactive customer accounts",
+  "45 22 * * 0",
+  scheduledJob("operationalScheduledJobs:purgeInactiveCustomerAccounts"),
+  {}
+);
+
 export default crons;

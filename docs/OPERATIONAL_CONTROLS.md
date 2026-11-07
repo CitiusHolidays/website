@@ -26,7 +26,8 @@ The catalog contains 29 independently recoverable controls:
   affects payment completion or invoice issue — see
   [Booking emails and invoices](BOOKING_EMAILS_AND_INVOICES.md);
 - document-preview preparation; and
-- fourteen individual scheduled jobs.
+- twenty-one individual scheduled jobs. The seven data retention jobs are off by default; see
+  [the data retention schedule](DATA_RETENTION.md).
 
 A control added to the catalog after the control plane was activated has no stored state on that
 target, so it resolves Paused until an Admin sets it or `migrateOperationalControlCatalog`

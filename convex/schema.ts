@@ -199,19 +199,26 @@ const productionTestRecipeIdValidator = v.union(
   v.literal("razorpay_new_order"),
   v.literal("document_preview"),
   v.literal("sacred_bharat_publication"),
+  v.literal("scheduled_job:anonymise_past_travellers"),
   v.literal("scheduled_job:check_cl_sl_leave_lapse"),
   v.literal("scheduled_job:cleanup_ai_runtime"),
   v.literal("scheduled_job:cleanup_passenger_exports"),
   v.literal("scheduled_job:cleanup_portal_rate_limits"),
   v.literal("scheduled_job:cleanup_sacred_bharat_rate_limits"),
+  v.literal("scheduled_job:purge_activity_logs"),
   v.literal("scheduled_job:purge_commercial_files"),
   v.literal("scheduled_job:purge_field_passport_audit"),
+  v.literal("scheduled_job:purge_inactive_customer_accounts"),
   v.literal("scheduled_job:purge_office_check_ins"),
+  v.literal("scheduled_job:purge_old_feedback"),
+  v.literal("scheduled_job:purge_passport_scans"),
+  v.literal("scheduled_job:purge_unconverted_enquiries"),
   v.literal("scheduled_job:reconcile_crm_metrics"),
   v.literal("scheduled_job:reconcile_list_search"),
   v.literal("scheduled_job:reconcile_proposal_links"),
   v.literal("scheduled_job:reconcile_proposal_relations"),
   v.literal("scheduled_job:reconcile_query_commercial"),
+  v.literal("scheduled_job:retire_financial_records"),
   v.literal("scheduled_job:run_workflow_nudges")
 );
 
@@ -458,6 +465,8 @@ export default defineSchema({
     refundAmount: v.optional(v.number()),
     refundedAt: v.optional(v.number()),
     refundReference: v.optional(v.string()),
+    // Set when crm/retention/financialRecords has anonymised the booking (8 years).
+    retentionAnonymisedAt: v.optional(v.number()),
     status: bookingStatus,
     totalAmount: v.number(),
     travelerDetails: v.optional(v.any()),
@@ -1244,9 +1253,12 @@ export default defineSchema({
     actorName: v.string(),
     actorStaffId: v.id("staffUsers"),
     jobCardId: v.id("jobCards"),
+    // Deletion time: one year after `tripClosesAt` (crm/fieldPassportAuditRetention).
     retainUntil: v.optional(v.number()),
     travelBatchId: v.optional(v.id("travelBatches")),
     travellerId: v.id("travellers"),
+    // The trip's field passport window close when the row was last checked.
+    tripClosesAt: v.optional(v.number()),
   })
     .index("by_jobCardId_and_accessedAt", ["jobCardId", "accessedAt"])
     .index("by_retainUntil", ["retainUntil"])
@@ -3219,6 +3231,8 @@ export default defineSchema({
     passportExpiryDate: v.optional(v.string()),
     passportStatus: v.optional(v.string()),
     paymentType,
+    // Set when crm/retention/travellers has anonymised the record (3 years after the trip).
+    retentionAnonymisedAt: v.optional(v.number()),
     roomType,
     secondGuardianTravellerId: v.optional(v.id("travellers")),
     sourceDealerCode: v.optional(v.string()),
