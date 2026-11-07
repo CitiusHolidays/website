@@ -1,6 +1,7 @@
 "use client";
 
 import { SelectableDataTable } from "@/components/portal/SelectableDataTable";
+import { formatDisplayDate } from "@/lib/formatDate";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import { buildThankYouDraft } from "@/lib/portal/guestContactPresentation";
 import {
@@ -16,7 +17,7 @@ function travellerRowLabel(row: TravellerRow) {
   return row.fullName;
 }
 
-function TravellerMobileCard({ row }: { row: TravellerRow }) {
+export function TravellerMobileCard({ row }: { row: TravellerRow }) {
   const expiry = getPassportExpiryInfo({
     expiryDate: row.passportExpiryDate,
     travelDate: row.travelStartDate || row.travelDate,
@@ -71,6 +72,35 @@ function ageGroupFormValue(isMinor: boolean | null | undefined) {
   return isMinor === false ? "adult" : "";
 }
 
+/** Operations' parental consent mark (ADR 0018), shown and edited for minors only. */
+function parentalConsentFormFields(row: TravellerRow) {
+  const consent = row.isMinor ? row.parentalConsent : null;
+  return {
+    initialParentalConsent: consent ? "received" : "pending",
+    initialParentalConsentNote: consent?.note ?? "",
+    parentalConsent: consent ? "received" : "pending",
+    parentalConsentNote: consent?.note ?? "",
+    parentalConsentReceivedAt: consent ? new Date(consent.receivedAt).toISOString() : "",
+    parentalConsentRecordedByName: consent?.recordedByName ?? "",
+  };
+}
+
+function ParentalConsentBadge({ row }: { row: TravellerRow }) {
+  const consent = row.parentalConsent;
+  if (!consent) {
+    return (
+      <Badge label="Consent pending" meaning="Parental consent not yet received" tone="amber" />
+    );
+  }
+  return (
+    <Badge
+      label="Consent received"
+      meaning={`Parental consent recorded by ${consent.recordedByName} on ${formatDisplayDate(consent.receivedAt)}`}
+      tone="green"
+    />
+  );
+}
+
 function guardianFormFields(row: TravellerRow) {
   const guardianIds = (row.guardians ?? []).map((guardian) => String(guardian.id));
   return {
@@ -101,6 +131,7 @@ function MinorGuardianLines({ row }: { row: TravellerRow }) {
       {unmatched.length > 0 ? (
         <div className="text-amber-700">Sheet guardian not matched: {unmatched.join(", ")}</div>
       ) : null}
+      <ParentalConsentBadge row={row} />
     </div>
   );
 }
@@ -141,6 +172,7 @@ function TravellerRowActions({
   const edit = () => {
     openModal("traveller", {
       ...guardianFormFields(row),
+      ...parentalConsentFormFields(row),
       arrivingEarly: row.arrivingEarly ? "Yes" : "No",
       biometricAppointmentDate: row.biometricAppointmentDate,
       contactNo: row.contactNo || "",

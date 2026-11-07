@@ -1,6 +1,7 @@
 # ADR 0018: Link minors to up to two guardian Travellers on the same Job Card
 
-- Status: Accepted (owner decisions relayed 2026-11-06, including answers to the questions below)
+- Status: Accepted (owner decisions relayed 2026-11-06, including answers to the questions below;
+  parental consent decision 2026-11-07)
 - Scope: Citius Connect CRM Travellers and passenger-family spreadsheets; contract only for the
   future Customer Travel Account
 
@@ -67,6 +68,48 @@ confirmed Query, not to a Traveller row.
   whole Job Card, adds Minor, Parent/Guardian and Parent/Guardian 2 columns that the import reads
   back.
 
+## Parental consent (owner decision 2026-11-07)
+
+Parental consent has two parts. Linking a guardian is neither of them.
+
+**Built: the Operations mark.** `travellers.parentalConsent` is an optional
+`{ receivedAt, recordedByName, recordedByStaffId?, note? }` record meaning "Parental consent
+received". `receivedAt` is server time and the recorder is the signed-in staff member, never
+client-supplied; `recordedByStaffId` is absent only for a break-glass Admin session without a staff
+record. The note is trimmed, at most 500 characters, and absent when empty.
+
+- It exists only on a known minor. Recording it on an adult or a traveller whose age is not
+  recorded is refused, and it is cleared whenever `isMinor` becomes false or unset, through the
+  editor or an import.
+- Operations set or clear it in the traveller editor through `travellers.update`/`create`
+  (`parentalConsentReceived`, `parentalConsentNote`), so the permission is exactly "may edit this
+  traveller". Recording it again keeps the original who and when; only the note can change.
+- Each set, clear (including the automatic clear) and note change writes one activity-log entry
+  such as "Recorded parental consent for …"; the note text is never logged.
+- The Staff Workspace row returns `parentalConsent` (note, when, by whom) for minors; the list and
+  mobile card show "Consent received" or "Consent pending" on minors only.
+- The traveller master export adds a Parental consent column: Yes or No for a minor, blank
+  otherwise. On import, Yes records the mark (by the importing staff member at import time,
+  unless already recorded), No clears it, blank or no column leaves it, and Yes on a row that is
+  not a known minor is ignored with a message on that reconciliation-report row. The column is a
+  traveller edit, so it applies only when the importer may edit travellers (`manage:travellers`);
+  a passenger import by Ticketing alone ignores it with a row message. Like every other column,
+  re-importing an old sheet writes its values over newer edits.
+
+**Not built: the guardian's tick at trip-invite acceptance.** When customer invites exist:
+
+- The invite flow records the tick as a separate, append-only consent record with
+  `source: "guardian_invite"`, one per minor per guardian: the minor's Traveller id, the
+  guardian's own Traveller id, the accepting Account Holder and their traveller entitlement, the
+  consent text version, and server time. Only a guardian whose entitlement names their own
+  Traveller row, and only for minors naming that row in either guardian slot, may tick.
+- It must call a server mutation that checks that entitlement; it must not write
+  `travellers.parentalConsent`, which stays the Operations mark (it has no `source` field; it is
+  the Operations source by definition), and it must not infer consent from a guardian link, a
+  matching email or a Client contact.
+- Withdrawal is a new record, not a deletion. Staff screens may show both sources; neither
+  overwrites the other.
+
 ## Customer Travel Account contract (not built)
 
 There is no seam today that ties an Account Holder to a Traveller, so this change builds no customer
@@ -78,8 +121,8 @@ read and no customer authorization. When customer invites and the customer app a
   guardian slot, as read-only journey facts with name only. Both guardians see the same minor.
 - The projection exposes no Sensitive Travel Documents for minors and no photo gallery (event,
   post-tour or traveller-feedback photos) of a minor.
-- Recording parental consent for a minor is a separate, auditable fact; linking a guardian is not
-  consent.
+- Parental consent is a separate, auditable fact (see Parental consent above); linking a guardian
+  is not consent.
 - Entitlements remain explicit ([ADR 0013](0013-explicit-customer-journey-entitlements.md)): a
   guardian link, a matching email or a Client contact never grants access by itself.
 
@@ -90,6 +133,8 @@ read and no customer authorization. When customer invites and the customer app a
   and `by_secondGuardianTravellerId`). No backfill: no existing data
   identifies guardians, and minor status derived from passport birth dates would need decrypting
   every passport; the next import of a sheet with a date of birth or age column records it.
+- `travellers.parentalConsent` is also additive and optional; no backfill, because no consent
+  was recorded before.
 - Linking is bounded to a roster of 2,000 Travellers per Job Card; larger Job Cards report one
   warning and are linked manually.
 

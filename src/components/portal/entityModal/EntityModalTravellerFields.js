@@ -2,6 +2,7 @@
 
 import { api } from "@convex/_generated/api";
 import { Input, Select, Textarea } from "@/components/portal/PortalModalForm";
+import { formatDisplayDateTime } from "@/lib/formatDate";
 import {
   FOOD_PREFERENCES,
   GENDER_OPTIONS,
@@ -18,6 +19,52 @@ const AGE_GROUP_OPTIONS = [
   { label: "Adult", value: "adult" },
   { label: "Minor (under 18 on the trip start date)", value: "minor" },
 ];
+
+const PARENTAL_CONSENT_OPTIONS = [
+  { label: "Pending", value: "pending" },
+  { label: "Received", value: "received" },
+];
+
+function parentalConsentStatus(form, received) {
+  const wasRecorded = form.initialParentalConsent === "received";
+  if (received && wasRecorded && form.parentalConsentRecordedByName) {
+    return `Recorded by ${form.parentalConsentRecordedByName} on ${formatDisplayDateTime(form.parentalConsentReceivedAt)}.`;
+  }
+  if (received) {
+    return "Saving records your name and the current time.";
+  }
+  return wasRecorded ? "Saving clears the recorded consent." : "";
+}
+
+/**
+ * Operations' "Parental consent received" mark on a minor (ADR 0018). Linking a guardian is not
+ * consent; the mark is a separate fact, cleared automatically if the traveller stops being a minor.
+ */
+function ParentalConsentFields({ form, updateForm }) {
+  const received = form.parentalConsent === "received";
+  const status = parentalConsentStatus(form, received);
+  return (
+    <>
+      <Select
+        formField="parentalConsent"
+        label="Parental consent"
+        onChange={updateForm}
+        options={PARENTAL_CONSENT_OPTIONS}
+        value={received ? "received" : "pending"}
+      />
+      {received ? (
+        <Textarea
+          fieldKey="parentalConsentNote"
+          formField="parentalConsentNote"
+          label="Consent note (optional, up to 500 characters)"
+          onChange={updateForm}
+          value={form.parentalConsentNote || ""}
+        />
+      ) : null}
+      {status ? <p className="col-span-full font-sans text-brand-muted text-xs">{status}</p> : null}
+    </>
+  );
+}
 
 function guardianSelectOptions(options, excludedId) {
   return [
@@ -72,6 +119,7 @@ function TravellerGuardianFields({ form, updateForm }) {
         value={form.ageGroup || ""}
       />
       {guardianFields}
+      {isMinor ? <ParentalConsentFields form={form} updateForm={updateForm} /> : null}
       <p className="col-span-full font-sans text-brand-muted text-xs">
         A minor has no login of their own. Up to two guardians, each an adult on this Job Card.
       </p>

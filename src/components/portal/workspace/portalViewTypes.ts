@@ -320,6 +320,13 @@ export interface PortalTravellerLink {
   id: Key;
 }
 
+/** Operations' "Parental consent received" mark on a minor (ADR 0018). */
+export interface PortalParentalConsent {
+  note: string;
+  receivedAt: number;
+  recordedByName: string;
+}
+
 export interface PortalTravellerListRow {
   arrivingEarly?: boolean;
   biometricAppointmentDate?: string;
@@ -346,6 +353,7 @@ export interface PortalTravellerListRow {
   marketingConsent?: string;
   marketingConsentNote?: string;
   notes?: string;
+  parentalConsent?: PortalParentalConsent | null;
   passportExpiryDate?: string;
   passportStatus?: string;
   paymentType?: string;

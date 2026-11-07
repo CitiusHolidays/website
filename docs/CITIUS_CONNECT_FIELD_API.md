@@ -81,7 +81,8 @@ with office scope on the Job Card):
 | --- | --- | --- | --- |
 | `crm/fieldSync:listLatestHeadcounts` | query | `{ jobCardId, dayLimit? }` (default 7, max 14) | `null` for other callers, else `[{ day, stopCount, latest: [{ id, label, startedAt, recordedByName, travelBatchId, batchLabel, presentCount, expectedCount, missing: [{ id, fullName }], missingCount, updatedAt }] }]`; reads at most the newest 40 stops and names at most 25 missing travellers per stop |
 | `crm/fieldSync:listAnnouncements` | query | `{ jobCardId, paginationOpts }` | `PaginationResult<{ id, body, sharedAt, authorName, travelBatchId, batchLabel, recipientCount, seenCount, updatedAt }>`; `FORBIDDEN` for other callers |
-| `crm/fieldPassports:listFieldPassportAccess` | query | `{ jobCardId, paginationOpts }` | audit rows `{ id, accessedAt, actorName, travellerId, travellerName }`; only the Operations Head and Admin, with office access to the Job Card |
+| `crm/fieldPassports:listFieldPassportAccess` | query | `{ jobCardId, paginationOpts }` | audit rows `{ id, accessedAt, actorName, travellerId, travellerName, batchLabel }`, newest first; `batchLabel` is the series (Travel Batch) reference or code, or `null`; only the Operations Head and Admin, with office access to the Job Card |
+| `crm/fieldPassports:canListFieldPassportAccess` | query | `{ jobCardId }` | `true` when the caller may read that Job Card's log, else `false`; the Job Card panel asks first so a refusal never surfaces as an error |
 
 The Job Card page shows a read-only **Field updates** panel (`JobCardFieldUpdates`) to office
 readers: the latest stop per tour manager per day, X of Y present, who is missing, the time, and
@@ -151,6 +152,13 @@ re-reads the trip dates first, so an extended trip keeps its rows a year past th
 that has lost its dates keeps its rows. Only the Operations Head and Admin read the log. See
 [the data retention schedule](DATA_RETENTION.md).
 
+The Job Card page shows a **Passport views** panel (`JobCardPassportViews`) with this log to the
+Operations Head and Admin only: who opened which traveller's passport, when (in IST) and in which
+series, newest first, 20 at a time, with the one-year retention note. Every other role, external
+logins included, gets no panel at all; the client rule `canViewFieldPassportAccessLog` in
+`src/lib/portal/permissions.js` mirrors `canReadFieldPassportAccessLog`, and the panel never
+subscribes to the log before `canListFieldPassportAccess` returns `true`.
+
 ### Fast preview
 
 Tour managers often work on 3G, where a multi-MB scan takes many seconds before anything shows.
@@ -189,7 +197,7 @@ quick low-resolution image, then `variant: "full"` to swap in the full-quality s
   PDF's open has served nothing). The row keeps the first call's time. Only the caller's own
   rows are matched, so another login sending the same `openId` gets its own open. Without an
   `openId` every call writes its own row, as before. The office log (`listFieldPassportAccess`)
-  therefore lists one entry per open and does not show the variants.
+  and its Passport views panel therefore list one entry per open; they do not show the variants.
 - **Rate limit per open.** The portal file rate limit (30 downloads a minute per login, shared
   with other portal files) counts opens, not calls: the call that writes the row counts once,
   and the other variant of that open does not. Serving a variant the open already served (a

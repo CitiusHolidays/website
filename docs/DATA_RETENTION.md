@@ -9,7 +9,7 @@ anonymised until an Admin has reviewed that job's dry-run report and switched it
 | --- | --- | --- | --- |
 | Office access logs (`activityLogs`) | 1 year | `purge_activity_logs`, `jobs.purge_activity_logs` | Deletes the log rows |
 | Website enquiries that never became a Query | 2 years | `purge_unconverted_enquiries`, `jobs.purge_unconverted_enquiries` | Deletes `pending` and `dismissed` inbound intents and their bell rows |
-| Customer accounts | Until deleted, or 3 years idle | `purge_inactive_customer_accounts`, `jobs.purge_inactive_customer_accounts` | Deletes the sign-in, sessions, profile, identity links and journey entitlements; detaches bookings |
+| Customer accounts | Until deleted, or 3 years idle | `purge_inactive_customer_accounts`, `jobs.purge_inactive_customer_accounts` | Deletes the sign-in, sessions, live verification tokens, profile (and its archived duplicates), identity links and journey entitlements; detaches bookings and strips their identity documents |
 | Bookings and invoices | 8 years | `retire_financial_records`, `jobs.retire_financial_records` | Anonymises website bookings; deletes CRM invoices |
 | Traveller records | 3 years after the trip | `anonymise_past_travellers`, `jobs.anonymise_past_travellers` | Anonymises the traveller; keeps the row |
 | Passport scans | 90 days after the trip | `purge_passport_scans`, `jobs.purge_passport_scans` | Deletes the scan file and the encrypted passport details |
@@ -17,7 +17,8 @@ anonymised until an Admin has reviewed that job's dry-run report and switched it
 | Field passport views (`fieldPassportAccessAudit`) | 1 year after the trip | `purge_field_passport_audit`, `jobs.purge_field_passport_audit` | Deletes the audit row (this job already existed and stays on) |
 
 Only the Operations Head and Admin read the field passport view log
-(`crm/fieldPassports:listFieldPassportAccess`).
+(`crm/fieldPassports:listFieldPassportAccess`), shown on the Job Card as the **Passport views**
+panel.
 
 ## Shared rules
 
@@ -70,8 +71,12 @@ Only the Operations Head and Admin read the field passport view log
   booking or journey entitlement, across every identity id of the account (canonical and legacy
   ids from `authIdentityLinks`, and the old-site user id). Never touched: staff accounts (matched
   by id or email), accounts with any Sacred Bharat profile, visit or wishlist row, archived duplicate profiles, and accounts with 50 or more bookings
-  or entitlements or 50 or more sessions (left for a person to review). Bookings stay for the 8-year rule
-  with their account link replaced by `retention:deleted-account`.
+  or entitlements or 50 or more sessions (left for a person to review). Deletion runs the same
+  `eraseCustomerAccount` as self-service deletion ([ADR 0019](adr/0019-self-service-customer-account-deletion.md)),
+  except that journey entitlements are deleted rather than revoked. Bookings stay for the 8-year
+  rule with their account link replaced by `retention:deleted-account`, the purchaser's note
+  removed, and passport, document-expiry, national-ID and date-of-birth fields removed from the
+  checkout traveller details.
 - **Enquiries.** Converted intents are never touched. The `crmHandoffEvents` row holds no personal
   data and stays for the handoff counts.
 - **Feedback.** Traveller feedback responses and their photo files and thumbnails. The feedback

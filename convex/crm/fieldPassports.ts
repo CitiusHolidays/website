@@ -396,6 +396,27 @@ export const listFieldPassports = query({
   }),
 });
 
+/** The Job Card when the caller may read its passport view log, else null. */
+async function loadAccessLogJobCard(ctx: QueryCtx, jobCardIdText: string) {
+  const access = await requireStaff(ctx);
+  const jobCardId = ctx.db.normalizeId("jobCards", jobCardIdText);
+  const job = jobCardId ? await ctx.db.get("jobCards", jobCardId) : null;
+  const linkedQuery = job?.queryId ? await ctx.db.get("queries", job.queryId) : null;
+  return job && canReadFieldPassportAccessLog(access, jobCardRecordGrant(access, job, linkedQuery))
+    ? job
+    : null;
+}
+
+/**
+ * Whether the caller may read this Job Card's passport view log. The Job Card panel asks before
+ * subscribing to `listFieldPassportAccess`, so a refusal shows nothing instead of an error.
+ */
+export const canListFieldPassportAccess = query({
+  args: { jobCardId: v.string() },
+  handler: async (ctx, args) => (await loadAccessLogJobCard(ctx, args.jobCardId)) !== null,
+  returns: v.boolean(),
+});
+
 /**
  * Office review of field passport reads on a Job Card, newest first. Only the Operations Head
  * and Admin read the log (director decision, 7 Nov 2026).
@@ -403,13 +424,8 @@ export const listFieldPassports = query({
 export const listFieldPassportAccess = query({
   args: { jobCardId: v.string(), paginationOpts: paginationOptsValidator },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
-    const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
-    const job = jobCardId ? await ctx.db.get("jobCards", jobCardId) : null;
-    const linkedQuery = job?.queryId ? await ctx.db.get("queries", job.queryId) : null;
-    if (
-      !(job && canReadFieldPassportAccessLog(access, jobCardRecordGrant(access, job, linkedQuery)))
-    ) {
+    const job = await loadAccessLogJobCard(ctx, args.jobCardId);
+    if (!job) {
       throw new ConvexError("FORBIDDEN");
     }
     const page = await ctx.db
@@ -424,11 +440,27 @@ export const listFieldPassportAccess = query({
       Math.max(1, page.page.length)
     );
     const nameById = new Map(travellers.map((row) => [String(row._id), row.fullName]));
+    const batches = await loadRowsByIdInBatches(
+      ctx,
+      "travelBatches",
+      page.page.map((row) => row.travelBatchId),
+      Math.max(1, page.page.length)
+    );
+    // Same label as the Field updates panel: the batch reference, else its code.
+    const batchLabelById = new Map(
+      batches.map((batch) => [
+        String(batch._id),
+        batch.batchReference.trim() || batch.batchCode.trim() || "Travel batch",
+      ])
+    );
     return {
       ...page,
       page: page.page.map((row) => ({
         accessedAt: row.accessedAt,
         actorName: row.actorName,
+        batchLabel: row.travelBatchId
+          ? (batchLabelById.get(String(row.travelBatchId)) ?? null)
+          : null,
         id: row._id,
         travellerId: row.travellerId,
         travellerName: nameById.get(String(row.travellerId)) ?? "Removed traveller",
@@ -439,6 +471,8 @@ export const listFieldPassportAccess = query({
     v.object({
       accessedAt: v.number(),
       actorName: v.string(),
+      // The traveller's series (Travel Batch) at the time of the read; null without one.
+      batchLabel: v.union(v.string(), v.null()),
       id: v.id("fieldPassportAccessAudit"),
       travellerId: v.id("travellers"),
       travellerName: v.string(),

@@ -54,6 +54,7 @@ export const TRAVELLER_MASTER_EXPORT_HEADERS = [
   "Minor",
   "Parent/Guardian",
   "Parent/Guardian 2",
+  "Parental consent",
   "",
 ];
 

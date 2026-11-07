@@ -254,7 +254,11 @@ export default defineSchema({
     expiresAt: v.number(),
     failureCode: v.optional(v.string()),
     providerStatus: v.optional(v.number()),
-    purpose: v.union(v.literal("password_reset"), v.literal("verification")),
+    purpose: v.union(
+      v.literal("password_reset"),
+      v.literal("verification"),
+      v.literal("account_deleted")
+    ),
     sentAt: v.optional(v.number()),
     status: v.union(
       v.literal("queued"),
@@ -279,6 +283,33 @@ export default defineSchema({
     purpose: v.union(v.literal("password_reset"), v.literal("verification")),
     recipientDigest: v.string(),
   }).index("by_correlationDigest", ["correlationDigest"]),
+
+  // Content-free proof that a customer deleted their own account (ADR 0019). It holds a one-way
+  // digest of the deleted identity, the time, per-store counts and the confirmation email status;
+  // no name, email, identifier or booking detail.
+  accountDeletionReceipts: defineTable({
+    confirmationEmail: v.union(
+      v.literal("queued"),
+      v.literal("sent"),
+      v.literal("skipped"),
+      v.literal("failed")
+    ),
+    deletedAt: v.number(),
+    erased: v.object({
+      authAccounts: v.number(),
+      authSessions: v.number(),
+      authUser: v.number(),
+      authVerifications: v.number(),
+      bookingDocumentFields: v.number(),
+      bookingsDetached: v.number(),
+      entitlementsRevoked: v.number(),
+      feedbackPhotos: v.number(),
+      identityLinks: v.number(),
+      profiles: v.number(),
+      sacredBharatRows: v.number(),
+    }),
+    subjectHash: v.string(),
+  }).index("by_subjectHash", ["subjectHash"]),
 
   authIdentityLinks: defineTable({
     canonicalAuthUserId: v.string(),
@@ -3200,6 +3231,17 @@ export default defineSchema({
     marketingConsentNote: v.optional(v.string()),
     marketingConsentRecordedAt: v.optional(v.number()),
     marketingConsentRecordedBy: v.optional(v.string()),
+    // Operations' "Parental consent received" mark on a minor (ADR 0018). Present only while
+    // isMinor is true; receivedAt is server time. recordedByStaffId is absent only for a
+    // break-glass Admin session that has no staff record.
+    parentalConsent: v.optional(
+      v.object({
+        note: v.optional(v.string()),
+        receivedAt: v.number(),
+        recordedByName: v.string(),
+        recordedByStaffId: v.optional(v.id("staffUsers")),
+      })
+    ),
     passportExpiryDate: v.optional(v.string()),
     passportStatus: v.optional(v.string()),
     paymentType,

@@ -234,6 +234,7 @@ describe("Auth login loading guard", () => {
     expect(resolved.props).toEqual({
       error: "reviewed",
       initialMode: "signin",
+      returnTo: null,
       variantId: "employee",
     });
   });

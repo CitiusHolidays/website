@@ -12,6 +12,7 @@ import type { DataModel } from "../_generated/dataModel";
 import authConfig from "../auth.config";
 import {
   AUTH_EMAIL_TOKEN_TTL_SECONDS,
+  type AuthEmailPurpose,
   authEmailCorrelationSecretFromUrl,
   deliverTransactionalAuthEmail,
   resolveAuthEmailControlKey,
@@ -27,7 +28,7 @@ const TWENTY_FOUR_HOURS_IN_SECONDS = 24 * 60 * 60;
 function reportAuthEmailFailure(outcome: {
   correlationDigest?: string;
   failureCode?: string;
-  purpose: "password_reset" | "verification";
+  purpose: AuthEmailPurpose;
   status?: string;
 }) {
   console.error(

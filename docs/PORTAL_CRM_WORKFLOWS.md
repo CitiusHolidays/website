@@ -198,6 +198,12 @@ same Job Card. Operations set the age group and guardians in the traveller edito
 list shows the guardians on a minor and the minors a guardian covers, naming only travellers the
 reader can already see. See [ADR 0018](adr/0018-link-minors-to-a-guardian-traveller.md).
 
+On a minor, Operations also set or clear **Parental consent received** in the same editor section,
+with the same permission as editing the traveller, and an optional note of up to 500 characters.
+The server records who set it and when, keeps that stamp on later saves, clears the mark when the
+traveller stops being a minor, and writes each set or clear to the activity log without the note.
+The Travellers list and mobile card show "Consent received" or "Consent pending" on minors only.
+
 Traveller master includes gender (`Male` or `Female`) and passport expiry. Passport expiry display should use the same resolved date as exports, with critical/warning countdowns when expiry blocks or nears blocking travel relative to job start.
 
 Linked-entity selects in portal forms should autofill dependent fields such as job card, traveller, PNR, query, visa, and related records.
@@ -229,8 +235,11 @@ Age columns. Minor status comes from Minor, then Age, then Date of Birth on the 
 After the final batch commits, each named guardian is matched on its own against the Job Card
 roster (narrowed by phone or email when given). Matches are linked; anything other than exactly
 one eligible adult is listed as a warning in the reconciliation report, never guessed. The
-traveller master export adds Minor, Parent/Guardian and Parent/Guardian 2 columns that import
-reads back.
+traveller master export adds Minor, Parent/Guardian, Parent/Guardian 2 and Parental consent
+columns that import reads back. On import, Parental consent "Yes" records the mark on a minor
+(by the importing staff member, unless already recorded), "No" clears it, and a blank cell or a
+sheet without the column leaves it; "Yes" on a row that is not a known minor is ignored and noted
+on that row of the reconciliation report.
 
 Room type labels are canonicalized as Single, Twin, Double, Triple, Child with Bed, and Family Room. Legacy `SGL`, `DBL`, and `TPL` values map into the canonical labels.
 

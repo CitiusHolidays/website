@@ -1010,7 +1010,7 @@ describe("inactive customer account retention (3 years)", () => {
         razorpayPaymentId: `pay_${key}`,
         status: "confirmed",
         totalAmount: 1000,
-        travelerDetails: [{ name: `Synthetic ${key}` }],
+        travelerDetails: [{ name: `Synthetic ${key}`, passportNumber: `P-${key}` }],
         travelers: 1,
         tripId,
         updatedAt: bookingAt,
@@ -1120,9 +1120,10 @@ describe("inactive customer account retention (3 years)", () => {
     expect(state.booking).toMatchObject({
       razorpayPaymentId: "pay_inactive",
       totalAmount: 1000,
-      travelerDetails: [{ name: "Synthetic inactive" }],
       userId: "retention:deleted-account",
     });
+    // The shared erase also strips identity documents from the kept booking.
+    expect(state.booking?.travelerDetails).toEqual([{ name: "Synthetic inactive" }]);
     expect(await authRows(t, f.inactive.subject)).toEqual({
       accounts: 0,
       sessions: 0,
