@@ -1,8 +1,10 @@
 import { v } from "convex/values";
+import type { MutationCtx } from "./_generated/server";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { normalizeEmail } from "./crm/lib/staffAccess";
 import { getBootstrapAdminEmails } from "./lib/bootstrapAuthority";
 import {
+  SIGN_IN_ADDRESSES_PER_INVITE,
   SIGN_IN_DEVICE_SECRET_PATTERN,
   SIGN_IN_LINK_ROW_TTL_MS,
   SIGN_IN_LINK_WINDOW_MS,
@@ -10,7 +12,9 @@ import {
   SIGN_IN_LINKS_PER_DEVICE_PER_HOUR,
   SIGN_IN_LINKS_PER_DOMAIN_PER_HOUR,
   SIGN_IN_LINKS_PER_HOUR,
+  SIGN_IN_TRUSTED_SENDS_PER_INVITE_PER_HOUR,
   sha256Hex,
+  signInRecipientDigest,
 } from "./lib/customerAppSignIn";
 import { deleteSignInVerifications } from "./lib/customerAppSignInVerification";
 
@@ -39,6 +43,48 @@ export const isStaffEmail = internalQuery({
   returns: v.boolean(),
 });
 
+/**
+ * The pending invite's hash when it vouches for this address: the invited traveller's own email
+ * on file, or one of a few addresses a day, within a few sends an hour. Otherwise undefined.
+ */
+async function inviteVouchingFor(
+  ctx: MutationCtx,
+  inviteTokenHash: string | undefined,
+  recipientDigest: string,
+  now: number
+) {
+  if (inviteTokenHash === undefined) {
+    return;
+  }
+  const invite = await ctx.db
+    .query("customerTripInvites")
+    .withIndex("by_tokenHash", (q) => q.eq("tokenHash", inviteTokenHash))
+    .first();
+  if (!(invite?.status === "pending" && invite.expiresAt > now)) {
+    return;
+  }
+  const [traveller, sends] = await Promise.all([
+    ctx.db.get("travellers", invite.travellerId),
+    ctx.db
+      .query("customerAppSignInLinks")
+      .withIndex("by_inviteTokenHash_and_requestedAt", (q) =>
+        q.eq("inviteTokenHash", inviteTokenHash).gt("requestedAt", now - SIGN_IN_LINK_ROW_TTL_MS)
+      )
+      .take(SIGN_IN_TRUSTED_SENDS_PER_INVITE_PER_HOUR * 24),
+  ]);
+  const lastHour = sends.filter((row) => row.requestedAt > now - SIGN_IN_LINK_WINDOW_MS);
+  if (lastHour.length >= SIGN_IN_TRUSTED_SENDS_PER_INVITE_PER_HOUR) {
+    return;
+  }
+  const onFile = traveller?.email ? await signInRecipientDigest(traveller.email) : null;
+  const vouched = new Set(sends.map((row) => row.recipientDigest));
+  const allowed =
+    recipientDigest === onFile ||
+    vouched.has(recipientDigest) ||
+    vouched.size < SIGN_IN_ADDRESSES_PER_INVITE;
+  return allowed ? inviteTokenHash : undefined;
+}
+
 /** Why a sign-in link request was not recorded; see `lib/customerAppSignIn.ts`. */
 const refusalValidator = v.union(
   v.literal("busy"),
@@ -57,14 +103,20 @@ export const recordSignInLink = internalMutation({
   args: {
     deviceDigest: v.string(),
     domainDigest: v.optional(v.string()),
-    /** The address already has a login: served even past the overall ceiling. */
+    /** The SHA-256 of the trip invite the app holds, if any; only a pending invite counts. */
+    inviteTokenHash: v.optional(v.string()),
+    /** The address already has a login. */
     knownAccount: v.boolean(),
     recipientDigest: v.string(),
     tokenDigest: v.string(),
   },
   handler: async (ctx, args) => {
-    const since = Date.now() - SIGN_IN_LINK_WINDOW_MS;
-    const { domainDigest } = args;
+    const now = Date.now();
+    const since = now - SIGN_IN_LINK_WINDOW_MS;
+    const vouchedBy = await inviteVouchingFor(ctx, args.inviteTokenHash, args.recipientDigest, now);
+    // A customer, or a traveller Operations invited: never held back by domain or volume.
+    const trusted = args.knownAccount || vouchedBy !== undefined;
+    const domainDigest = trusted ? undefined : args.domainDigest;
     const [inbox, domain, device, overall] = await Promise.all([
       ctx.db
         .query("customerAppSignInLinks")
@@ -98,8 +150,11 @@ export const recordSignInLink = internalMutation({
       refusal = "domain_limited";
     } else if (device.length >= SIGN_IN_LINKS_PER_DEVICE_PER_HOUR) {
       refusal = "device_limited";
-    } else if (overall.length >= SIGN_IN_LINKS_OVERALL_PER_HOUR && !args.knownAccount) {
+    } else if (overall.length >= SIGN_IN_LINKS_OVERALL_PER_HOUR && !trusted) {
       refusal = "busy";
+    }
+    if (refusal === "domain_limited") {
+      console.warn(JSON.stringify({ event: "customer_app.sign_in_domain_limit" }));
     }
     if (overall.length >= SIGN_IN_LINKS_OVERALL_PER_HOUR) {
       // An alarm, not a lockout: someone is asking for far more links than customers do.
@@ -114,8 +169,9 @@ export const recordSignInLink = internalMutation({
     await ctx.db.insert("customerAppSignInLinks", {
       deviceDigest: args.deviceDigest,
       domainDigest,
+      inviteTokenHash: vouchedBy,
       recipientDigest: args.recipientDigest,
-      requestedAt: Date.now(),
+      requestedAt: now,
       tokenDigest: args.tokenDigest,
     });
     return "recorded" as const;
