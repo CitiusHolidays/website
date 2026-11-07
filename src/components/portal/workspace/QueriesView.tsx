@@ -25,6 +25,7 @@ import { canDeleteQuery } from "@/lib/portal/queryDeletionAccess";
 import {
   getQueryAttentionLabel,
   getQueryPrimaryActionKind,
+  type QueryPrimaryActionKind,
 } from "@/lib/portal/queryListPresentation";
 import { buildQueryStatusAction } from "@/lib/portal/queryStatusAction";
 import type { QueriesViewProps } from "./portalViewTypes";
@@ -89,6 +90,108 @@ interface QueryActionsProps {
   submitToContracting: QueriesViewProps["submitToContracting"];
 }
 
+type QueryWorkflowKind = Exclude<QueryPrimaryActionKind, null>;
+
+function queryActionClassName(primaryActionKind: QueryWorkflowKind, kind: QueryWorkflowKind) {
+  return primaryActionKind === kind ? "portal-primary-btn" : "portal-small-btn";
+}
+
+interface QueryWorkflowButtons {
+  assign: OptionalAction;
+  status: OptionalAction;
+  submit: OptionalAction;
+}
+
+/** The workflow buttons, built once so the primary slot and the overflow menu share them. */
+function queryWorkflowButtons({
+  access,
+  canAssignTeams,
+  onAssign,
+  onStatus,
+  onSubmit,
+  primaryActionKind,
+  statusLabel,
+}: {
+  access: QueriesViewProps["access"];
+  canAssignTeams: boolean;
+  onAssign: () => void;
+  onStatus: () => void;
+  onSubmit: () => void;
+  primaryActionKind: QueryWorkflowKind;
+  statusLabel: string | undefined;
+}): QueryWorkflowButtons {
+  return {
+    assign: canAssignTeams ? (
+      <button
+        className={queryActionClassName(primaryActionKind, "assign")}
+        key="assign"
+        onClick={onAssign}
+        type="button"
+      >
+        <UsersRound aria-hidden="true" size={14} />
+        <span>{assignQueryTeamsButtonLabel(access)}</span>
+      </button>
+    ) : null,
+    status: statusLabel ? (
+      <button
+        className={queryActionClassName(primaryActionKind, "status")}
+        key="status"
+        onClick={onStatus}
+        type="button"
+      >
+        <CircleCheck aria-hidden="true" size={14} />
+        <span>{statusLabel}</span>
+      </button>
+    ) : null,
+    submit: (
+      <button className="portal-primary-btn" key="submit" onClick={onSubmit} type="button">
+        <Send aria-hidden="true" size={14} />
+        <span>Submit to Contracting</span>
+      </button>
+    ),
+  };
+}
+
+/** Overflow entries for query managers; the primary workflow button is left out. */
+function queryManagerOverflowActions({
+  access,
+  buttons,
+  onDelete,
+  onEdit,
+  onReferenceItinerary,
+  primaryActionKind,
+  queryCode,
+}: {
+  access: QueriesViewProps["access"];
+  buttons: QueryWorkflowButtons;
+  onDelete: () => void;
+  onEdit: () => void;
+  onReferenceItinerary: () => void;
+  primaryActionKind: QueryWorkflowKind;
+  queryCode: PortalQueryRow["queryCode"];
+}): OptionalAction[] {
+  return [
+    <button className="portal-small-btn" key="edit" onClick={onEdit} type="button">
+      <Pencil aria-hidden="true" size={14} />
+      <span>Edit query</span>
+    </button>,
+    <button
+      className="portal-small-btn"
+      key="reference-itinerary"
+      onClick={onReferenceItinerary}
+      type="button"
+    >
+      <MapIcon aria-hidden="true" size={14} />
+      <span>Reference Itinerary</span>
+    </button>,
+    primaryActionKind === "status" ? null : buttons.status,
+    primaryActionKind === "assign" ? null : buttons.assign,
+    canDeleteQuery(access) ? (
+      <DeleteButton key="delete" label={queryCode} onClick={onDelete} />
+    ) : null,
+  ];
+}
+
 function QueryActions({
   access,
   deleteItem,
@@ -105,6 +208,7 @@ function QueryActions({
     canManageQueries,
     submittedToContractingAt: row.submittedToContractingAt,
   });
+  const queryLabel = row.queryCode ?? "";
   const openCommercialFiles = () =>
     openModal("commercialFiles", { entityId: String(row.id), entryPoint: "query" });
   const openQuery = () =>
@@ -119,8 +223,7 @@ function QueryActions({
   };
   const openAssignment = () => openModal("assignQueryTeams", { queryId: String(row.id) });
   const handleSubmit = () => submitToContracting({ queryId: String(row.id) });
-  const handleDelete = () =>
-    deleteItem(row.queryCode ?? "", removeQuery, { queryId: String(row.id) });
+  const handleDelete = () => deleteItem(queryLabel, removeQuery, { queryId: String(row.id) });
   const commercialFilesAction = (
     <button
       className="portal-small-btn"
@@ -133,82 +236,37 @@ function QueryActions({
     </button>
   );
   if (!primaryActionKind) {
-    return (
-      <QueryRowActions label={row.queryCode ?? ""} overflowActions={[commercialFilesAction]} />
-    );
+    return <QueryRowActions label={queryLabel} overflowActions={[commercialFilesAction]} />;
   }
-  const statusAction = buildQueryStatusAction(row, has);
-  const editAction = (
-    <button className="portal-small-btn" key="edit" onClick={openQuery} type="button">
-      <Pencil aria-hidden="true" size={14} />
-      <span>Edit query</span>
-    </button>
-  );
-  const referenceItineraryAction = (
-    <button
-      className="portal-small-btn"
-      key="reference-itinerary"
-      onClick={openReferenceItinerary}
-      type="button"
-    >
-      <MapIcon aria-hidden="true" size={14} />
-      <span>Reference Itinerary</span>
-    </button>
-  );
-  const statusButton = statusAction ? (
-    <button
-      className={primaryActionKind === "status" ? "portal-primary-btn" : "portal-small-btn"}
-      key="status"
-      onClick={openStatusAction}
-      type="button"
-    >
-      <CircleCheck aria-hidden="true" size={14} />
-      <span>{statusAction.label}</span>
-    </button>
-  ) : null;
-  const assignButton = canAssignTeams ? (
-    <button
-      className={primaryActionKind === "assign" ? "portal-primary-btn" : "portal-small-btn"}
-      key="assign"
-      onClick={openAssignment}
-      type="button"
-    >
-      <UsersRound aria-hidden="true" size={14} />
-      <span>{assignQueryTeamsButtonLabel(access)}</span>
-    </button>
-  ) : null;
-  const submitButton = (
-    <button className="portal-primary-btn" key="submit" onClick={handleSubmit} type="button">
-      <Send aria-hidden="true" size={14} />
-      <span>Submit to Contracting</span>
-    </button>
-  );
-  let primaryAction: OptionalAction = statusButton;
-  if (primaryActionKind === "submit") {
-    primaryAction = submitButton;
-  } else if (primaryActionKind === "assign") {
-    primaryAction = assignButton;
-  }
+  const buttons = queryWorkflowButtons({
+    access,
+    canAssignTeams,
+    onAssign: openAssignment,
+    onStatus: openStatusAction,
+    onSubmit: handleSubmit,
+    primaryActionKind,
+    statusLabel: buildQueryStatusAction(row, has)?.label,
+  });
   const overflowActions = [
     commercialFilesAction,
     ...(canManageQueries
-      ? [
-          editAction,
-          referenceItineraryAction,
-          primaryActionKind === "status" ? null : statusButton,
-          primaryActionKind === "assign" ? null : assignButton,
-          canDeleteQuery(access) ? (
-            <DeleteButton key="delete" label={row.queryCode} onClick={handleDelete} />
-          ) : null,
-        ]
+      ? queryManagerOverflowActions({
+          access,
+          buttons,
+          onDelete: handleDelete,
+          onEdit: openQuery,
+          onReferenceItinerary: openReferenceItinerary,
+          primaryActionKind,
+          queryCode: row.queryCode,
+        })
       : []),
   ];
 
   return (
     <QueryRowActions
-      label={row.queryCode ?? ""}
+      label={queryLabel}
       overflowActions={overflowActions}
-      primaryAction={primaryAction}
+      primaryAction={buttons[primaryActionKind]}
     />
   );
 }
