@@ -5,6 +5,7 @@ export const portalAccessArgumentValidator = v.object({
   authUserId: v.optional(v.string()),
   bootstrap: v.optional(v.boolean()),
   email: v.string(),
+  externalTourManager: v.optional(v.boolean()),
   name: v.string(),
   permissions: v.array(v.string()),
   reason: v.optional(v.union(v.literal("UNAUTHENTICATED"), v.literal("NOT_STAFF"))),

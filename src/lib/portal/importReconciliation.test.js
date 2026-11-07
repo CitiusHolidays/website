@@ -2,6 +2,24 @@ import { describe, expect, test } from "bun:test";
 import { buildPassengerImportReportRows, passengerImportReportToCsv } from "./importReconciliation";
 
 describe("BuildPassengerImportReportRows", () => {
+  test("Lists unlinked guardian references after the committed rows", () => {
+    const rows = buildPassengerImportReportRows(
+      [{ action: "create", id: "row-1", travellerName: "Isha Rao" }],
+      [],
+      [{ disposition: "created", fullName: "Isha Rao", id: "row-1", sourceRowNumber: 4 }],
+      [{ fullName: "Isha Rao", message: "Guardian Anil Rao not linked", sourceRowNumber: 4 }]
+    );
+    expect(rows).toEqual([
+      { disposition: "created", message: "", rowNumber: 4, travellerName: "Isha Rao" },
+      {
+        disposition: "warning",
+        message: "Guardian Anil Rao not linked",
+        rowNumber: 4,
+        travellerName: "Isha Rao",
+      },
+    ]);
+  });
+
   test("Maps preview actions and batch errors to dispositions", () => {
     const rows = buildPassengerImportReportRows(
       [

@@ -155,7 +155,11 @@ export async function enqueueNotificationEmailOutbox(
 ) {
   const now = Date.now();
   const recipients = Array.from(new Set(envelope.recipients.map(normalizeEmail).filter(Boolean)));
-  const staff = await ctx.db.query("staffUsers").collect();
+  // A customer recipient is never resolved to a staff identity, even when the
+  // address matches one: staff access rules must not decide customer mail.
+  const staff = isCustomerBookingPurpose(envelope.recipientPurpose)
+    ? []
+    : await ctx.db.query("staffUsers").collect();
   return await Promise.all(
     recipients.map(async (recipient) => {
       const idempotencyKey = await notificationEmailIdempotencyKey(envelope.eventId, recipient);
@@ -219,7 +223,25 @@ export const enqueueLegacyNotificationEmail = internalMutation({
   returns: v.array(v.id("notificationEmailOutbox")),
 });
 
+function isCustomerBookingPurpose(purpose: NotificationEmailEnvelope["recipientPurpose"]) {
+  return purpose?.kind === "customer_booking";
+}
+
+export function isCustomerBookingJob(job: Pick<Job, "recipientPurposes">) {
+  return Boolean(job.recipientPurposes?.some(isCustomerBookingPurpose));
+}
+
+async function customerBookingEligibilityFailure(ctx: MutationCtx, job: Job) {
+  const bookingId =
+    job.entityType === "booking" ? ctx.db.normalizeId("bookings", job.entityId ?? "") : null;
+  const booking = bookingId ? await ctx.db.get("bookings", bookingId) : null;
+  return booking ? null : "recipient_no_longer_identified";
+}
+
 async function recipientEligibilityFailure(ctx: MutationCtx, job: Job): Promise<string | null> {
+  if (isCustomerBookingJob(job)) {
+    return await customerBookingEligibilityFailure(ctx, job);
+  }
   const mailboxCopy =
     job.entityType === "inboundQueryIntent" &&
     job.controlKeys?.includes("inbound.info_mailbox_email");

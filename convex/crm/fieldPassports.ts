@@ -2,6 +2,7 @@ import { paginationOptsValidator, paginationResultValidator } from "convex/serve
 import { ConvexError, v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx, query } from "../_generated/server";
+import { requireAppPilotOn } from "./appPilot";
 import { hasRole, jobCardRecordGrant, PERMISSIONS, type PortalAccess, requireStaff } from "./lib";
 import { boundedPaginationOptions, loadRowsByIdInBatches } from "./paginationPolicy";
 import { canReadPassportInStaffWorkspace } from "./passportPolicy";
@@ -98,6 +99,8 @@ async function loadFieldJobCard(
   if (scope.kind === "batches" && scope.travelBatchIds.size === 0) {
     throw new ConvexError("FORBIDDEN");
   }
+  // Field passports exist only in the tour manager app, so the trip's app pilot must be on.
+  requireAppPilotOn(job);
   return { job, scope };
 }
 

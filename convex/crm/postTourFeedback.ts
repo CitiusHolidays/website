@@ -15,7 +15,12 @@ import { createActivity } from "./lib/activity";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { canSeeJobCardRecord } from "./lib/recordScope";
 import { PERMISSIONS } from "./lib/rolePolicy";
-import { isDirectorOrAdmin, type PortalAccess, requireStaff } from "./lib/staffAccess";
+import {
+  isDirectorOrAdmin,
+  isExternalTourManagerAccess,
+  type PortalAccess,
+  requireStaffSession,
+} from "./lib/staffAccess";
 
 type DatabaseCtx = QueryCtx | MutationCtx;
 
@@ -44,6 +49,10 @@ async function canCompose(ctx: DatabaseCtx, access: PortalAccess, job: Doc<"jobC
   const active = assignments.filter((assignment) => assignment.status === "Assigned");
   if (active.some((assignment) => assignment.staffId === access.staffId)) {
     return true;
+  }
+  if (isExternalTourManagerAccess(access)) {
+    // An external tour manager's login composes only on its own staff-id assignment.
+    return false;
   }
   const name = access.name.trim().toLowerCase();
   // Legacy name matching is limited to unlinked assignments. An explicit
@@ -74,7 +83,7 @@ async function canCompose(ctx: DatabaseCtx, access: PortalAccess, job: Doc<"jobC
 }
 
 async function editableFeedback(ctx: DatabaseCtx, feedbackId: Id<"postTourFeedback">) {
-  const access = await requireStaff(ctx);
+  const access = await requireStaffSession(ctx);
   const record = await ctx.db.get("postTourFeedback", feedbackId);
   const job = record ? await ctx.db.get("jobCards", record.jobCardId) : null;
   if (!(record && job)) {
@@ -97,6 +106,10 @@ async function canReadJobContext(
 ) {
   if (compose) {
     return true;
+  }
+  if (isExternalTourManagerAccess(access)) {
+    // Post-tour context is a staff-wide read; an external login reads only its own trips.
+    return false;
   }
   if (access.permissions.includes(PERMISSIONS.VIEW_JOB_CARDS)) {
     const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
@@ -152,7 +165,7 @@ function checkedContent(args: {
 export const list = query({
   args: { jobCardId: v.optional(v.string()), paginationOpts: paginationOptsValidator },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     const jobCardId =
       args.jobCardId === undefined ? null : ctx.db.normalizeId("jobCards", args.jobCardId);
     if (args.jobCardId !== undefined && !jobCardId) {
@@ -173,6 +186,9 @@ export const list = query({
       result.page.map(async (record) => {
         const job = await ctx.db.get("jobCards", record.jobCardId);
         if (!job) {
+          return null;
+        }
+        if (isExternalTourManagerAccess(access) && !(await canCompose(ctx, access, job))) {
           return null;
         }
         const canEdit =
@@ -211,7 +227,7 @@ export const list = query({
 export const listJobs = query({
   args: { paginationOpts: paginationOptsValidator },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     const result = await ctx.db
       .query("jobCards")
       .withIndex("by_createdAt")
@@ -237,7 +253,7 @@ export const listJobs = query({
 export const getJobContext = query({
   args: { jobCardId: v.string() },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     const jobCardId = ctx.db.normalizeId("jobCards", args.jobCardId);
     const job = jobCardId ? await ctx.db.get("jobCards", jobCardId) : null;
     if (!job) {
@@ -261,7 +277,7 @@ const contentArgs = {
 export const create = mutation({
   args: { ...contentArgs, jobCardId: v.id("jobCards") },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     const job = await ctx.db.get("jobCards", args.jobCardId);
     if (!(job && access.staffId && access.authUserId && (await canCompose(ctx, access, job)))) {
       throw new ConvexError("FORBIDDEN");
@@ -353,7 +369,7 @@ export const remove = mutation({
 export const removePhoto = mutation({
   args: { photoId: v.id("postTourFeedbackPhotos") },
   handler: async (ctx, args) => {
-    await requireStaff(ctx);
+    await requireStaffSession(ctx);
     const photo = await ctx.db.get("postTourFeedbackPhotos", args.photoId);
     if (!photo) {
       throw new ConvexError("Photo not found");
@@ -470,11 +486,14 @@ export const savePhoto = internalMutation({
 export const photoRecord = internalQuery({
   args: { photoId: v.id("postTourFeedbackPhotos") },
   handler: async (ctx, args) => {
-    const access = await requireStaff(ctx);
+    const access = await requireStaffSession(ctx);
     const photo = await ctx.db.get("postTourFeedbackPhotos", args.photoId);
     const record = photo ? await ctx.db.get("postTourFeedback", photo.feedbackId) : null;
     const job = record ? await ctx.db.get("jobCards", record.jobCardId) : null;
     if (!(photo && record && job) || photo.jobCardId !== record.jobCardId) {
+      throw new ConvexError("Photo not found");
+    }
+    if (isExternalTourManagerAccess(access) && !(await canCompose(ctx, access, job))) {
       throw new ConvexError("Photo not found");
     }
     return {

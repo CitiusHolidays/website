@@ -1,9 +1,10 @@
 import { ConvexError } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
+import { type AppSurface, requireAppPilotForSurface } from "./appPilot";
 import { loadCommercialChainFilesForEntryPoint } from "./commercialRecordChainReads";
 import { getChecklistTasksWithFallback } from "./jobCardChecklist";
-import { PERMISSIONS, publicJobCard, requireStaff } from "./lib";
+import { isExternalTourManagerAccess, PERMISSIONS, publicJobCard, requireStaff } from "./lib";
 import { publicProposalAttachment } from "./proposalAttachments";
 import { resolveTravellerGroupScope, travellerInGroupScope } from "./tourManagerGroupScope";
 
@@ -43,6 +44,7 @@ export async function handleGetCommandCenter(
   ctx: QueryCtx,
   args: {
     jobCardId: string;
+    surface?: AppSurface;
   }
 ) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_JOB_CARDS);
@@ -59,6 +61,7 @@ export async function handleGetCommandCenter(
   if (!travellerScope) {
     throw new ConvexError("FORBIDDEN");
   }
+  requireAppPilotForSurface(job, args.surface);
   const linkedProposalId = job.proposalId;
   const [
     proposal,
@@ -106,6 +109,42 @@ export async function handleGetCommandCenter(
       : Promise.resolve([]),
     loadCommercialChainFilesForEntryPoint(ctx, "jobCard", String(jobCardId)),
   ]);
+  if (isExternalTourManagerAccess(access)) {
+    // An external tour manager gets the trip, not the commercial chain: the itinerary and its
+    // own group's visa and ticket statuses stay; invoices, the linked query, proposal files and
+    // commercial files do not.
+    const groupTravellers = travellers.filter((traveller) =>
+      travellerInGroupScope(travellerScope, traveller)
+    );
+    const inGroup = new Set(groupTravellers.map((traveller) => String(traveller._id)));
+    const wholeJobCard = travellerScope.kind === "jobCard";
+    return {
+      checklistTasks: [],
+      commercialFiles: [],
+      hotels: [],
+      invoices: [],
+      jobCard: publicJobCard(job),
+      proposal: proposal
+        ? {
+            ...publicOperationalProposalSummary(proposal),
+            finalizedPdf: null,
+          }
+        : null,
+      query: null,
+      rooming: [],
+      tickets: tickets
+        .filter((ticket) =>
+          ticket.travellerId ? inGroup.has(String(ticket.travellerId)) : wholeJobCard
+        )
+        .map((ticket) => ({ ticketStatus: ticket.ticketStatus })),
+      travellers: groupTravellers.map((traveller) => ({
+        passportStatus: traveller.passportStatus ?? "",
+      })),
+      visaRecords: visaRecords
+        .filter((visa) => inGroup.has(String(visa.travellerId)))
+        .map((visa) => ({ status: visa.status })),
+    };
+  }
   return {
     checklistTasks: checklistTasks.map((task: CommandCenterChecklistTask) => {
       const fields = {

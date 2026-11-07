@@ -108,6 +108,10 @@ _Avoid_: Displaying the capability as Paused, repeatedly enabling an already-ava
 The non-disableable mechanisms required to authorize, apply, audit, test, and automatically restore Live Feature Controls, together with completion paths for already-started payments.
 _Avoid_: Exposing recovery mechanisms as ordinary controls, allowing a paused scheduled-job group to prevent Automatic Restoration
 
+**External Tour Manager Login**:
+A narrowed Tour Manager sign-in that the Operations Head or a director/admin grants from an external tour manager's profile. It reaches only the trips the person is assigned to (those Job Cards, their group's travellers, visa and ticket rows, field features, post-tour feedback and report, and their own trip expenses), never sees passport data in the CRM, takes no part in HR flows, and ends only when someone switches it off.
+_Avoid_: Staff record, employee, creating a full staff record for a contractor, automatic expiry
+
 **Client**:
 The person or organization record that receives Citius travel service and carries primary contact details; a Client may be associated with one or more Travellers.
 _Avoid_: Treating the Client record as the Traveller, using a Job Card as an identity factor, sharing every Traveller's documents with every Client contact
@@ -115,6 +119,14 @@ _Avoid_: Treating the Client record as the Traveller, using a Job Card as an ide
 **Traveller**:
 An individual person travelling under a Job Card. Traveller is the canonical unit for operational records and for customer document intake, even when several Travellers share one Client or booking.
 _Avoid_: Passenger as a separate domain entity, one document scope for an entire Job Card, assuming the Query creator is the Traveller
+
+**Minor**:
+A Traveller under 18 on the trip's start date (the Travel in Series start, else the Job Card start). A minor has no login of their own and is linked to a Guardian; an unrecorded age is unknown, not adult.
+_Avoid_: Child room type, infant fare type, treating an unrecorded age as adult
+
+**Guardian**:
+An adult Traveller on the same Job Card responsible for a Minor; a Minor has up to two Guardians (for example both parents). The link is recorded on the Minor; it is not parental consent and grants no Customer Travel Account access by itself.
+_Avoid_: Guests travelling with, Client contact, a minor or a traveller on another Job Card as guardian
 
 **Customer Document Intake**:
 The time-limited, customer-facing workflow through which one Traveller submits requested sensitive travel documents to the Citius CRM without receiving staff portal access.

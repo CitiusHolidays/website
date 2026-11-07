@@ -252,7 +252,9 @@ configuration alone does not establish those project associations.
 3. Run `bun run verify:local -- --evidence auto` for the exact candidate revision. Treat
    [`docs/WORKING_TREE_CHANGES.md`](docs/WORKING_TREE_CHANGES.md) only as dated historical context.
 4. Configure manifest keys independently for Preview and Production; verify auth callback origins,
-   mail sender/domain, payment webhooks, CAPTCHA, and Convex runtime values.
+   mail sender/domain, payment webhooks, CAPTCHA, and Convex runtime values, including the
+   `CITIUS_INVOICE_*` booking-invoice keys and the deploy notes in
+   [`docs/BOOKING_EMAILS_AND_INVOICES.md`](docs/BOOKING_EMAILS_AND_INVOICES.md).
 5. Only if the optional GitHub deployment workflow is explicitly selected, configure its
    `preview` and `production` environments with scoped `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and
    `VERCEL_PROJECT_ID` secrets. Protect Production with required reviewers and restrict it to

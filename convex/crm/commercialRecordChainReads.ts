@@ -11,6 +11,7 @@ import {
   canSeeJobCardRecord,
   canSeeProposalRecord,
   canSeeQueryRecord,
+  isExternalTourManagerAccess,
   PERMISSIONS,
   requireAnyPermission,
 } from "./lib";
@@ -246,6 +247,9 @@ export const listForEntryPoint = query({
       PERMISSIONS.VIEW_PROPOSALS,
       PERMISSIONS.VIEW_JOB_CARDS,
     ]);
+    if (isExternalTourManagerAccess(access)) {
+      return [];
+    }
     const chain = await resolveCommercialChain(ctx, args.entryPoint, args.entityId);
     let canSeeEntryPoint = false;
     if (args.entryPoint === "query") {

@@ -54,6 +54,7 @@ async function accessFor(ctx: QueryCtx | MutationCtx) {
   const { staffId } = staff;
   const assigned = Boolean(
     staff.allowed &&
+      !staff.externalTourManager &&
       staffId &&
       (await ctx.db
         .query("eventPhotoBoothAssignments")
@@ -256,7 +257,8 @@ export const listAssignableStaff = query({
       ...page,
       page: await Promise.all(
         page.page
-          .filter((staff) => Boolean(staff.authUserId))
+          // External tour manager logins are not staff for the event booth.
+          .filter((staff) => Boolean(staff.authUserId) && !staff.externalTourManagerProfileId)
           .map(async (staff) => ({
             active: staff.active,
             assigned: Boolean(
@@ -292,7 +294,10 @@ export const setStaffAssignment = mutation({
       .unique();
     if (args.assigned) {
       const target = await ctx.db.get("staffUsers", args.staffId);
-      if (!(target?.active && target.authUserId && target.roles.length)) {
+      if (
+        !(target?.active && target.authUserId && target.roles.length) ||
+        target.externalTourManagerProfileId
+      ) {
         throw new ConvexError("INVALID_STAFF");
       }
       if (!existing) {

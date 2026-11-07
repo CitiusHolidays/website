@@ -1,8 +1,15 @@
 import { describe, expect, test } from "bun:test";
+import { fromAny, fromPartial } from "@total-typescript/shoehorn";
+import type { FunctionReference } from "convex/server";
+import type { Id } from "../_generated/dataModel";
+import type { ActionCtx } from "../_generated/server";
 import type { RuntimeObject } from "../lib/runtimeValues";
+import type { PortalAccess } from "./lib";
 import {
+  type GuardianImportLinkResult,
   type PassengerImportCommitArgs,
   preparePassengerImportCommit,
+  resolveGuardianLinksAfterFinalBatch,
 } from "./passengerImportCommit";
 
 function importRow(overrides: RuntimeObject = {}) {
@@ -64,5 +71,50 @@ describe("Passenger import server request verification", () => {
         rows: [importRow()],
       })
     ).toThrow("Invalid passenger import operation manifest");
+  });
+});
+
+describe("Guardian links after the final import batch", () => {
+  const access = fromPartial<PortalAccess>({ allowed: true, permissions: [], roles: [] });
+  const jobCardId = fromAny<Id<"jobCards">, string>("job");
+
+  function fakeCtx(sweep: () => Promise<GuardianImportLinkResult>) {
+    const calls: RuntimeObject[] = [];
+    const runMutation = async (_reference: FunctionReference<"mutation">, args: RuntimeObject) => {
+      calls.push(args);
+      return await sweep();
+    };
+    // SAFETY: resolveGuardianLinksAfterFinalBatch only calls runMutation with the sweep reference.
+    const ctx = fromPartial<ActionCtx>({ runMutation: fromAny(runMutation) });
+    return { calls, ctx };
+  }
+
+  test("Waits for the final batch before resolving guardians", async () => {
+    const { calls, ctx } = fakeCtx(() => Promise.resolve({ linked: 1, warnings: [] }));
+    const notFinal = await resolveGuardianLinksAfterFinalBatch(ctx, access, {
+      jobCardId,
+      operation: manifest({ batchIndex: 0, batchTotal: 2, complete: false, total: 60 }),
+      rows: [],
+    });
+    expect(notFinal).toEqual({ linked: 0, warnings: [] });
+    expect(calls).toHaveLength(0);
+
+    const final = await resolveGuardianLinksAfterFinalBatch(ctx, access, {
+      jobCardId,
+      operation: manifest(),
+      rows: [],
+    });
+    expect(final).toEqual({ linked: 1, warnings: [] });
+    expect(calls).toEqual([{ access, jobCardId }]);
+  });
+
+  test("Reports a failed guardian sweep without failing the committed import", async () => {
+    const { ctx } = fakeCtx(() =>
+      Promise.reject(new Error("Job Card has more than 2000 travellers; link guardians manually"))
+    );
+    const result = await resolveGuardianLinksAfterFinalBatch(ctx, access, { jobCardId, rows: [] });
+    expect(result.linked).toBe(0);
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]?.message).toStartWith("Guardians were not linked");
   });
 });

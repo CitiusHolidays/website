@@ -21,9 +21,13 @@ export function holdsPermissionOutsideTourManagerRole(
  * passports from the field through `crm/fieldPassportActions`, inside the trip window.
  */
 export function canReadPassportInStaffWorkspace(
-  access: Pick<PortalAccess, "roles">,
+  access: Pick<PortalAccess, "externalTourManager" | "roles">,
   grant: JobCardRecordGrant | null
 ) {
+  // An external tour manager's login never reads passport data in the CRM, whatever it holds.
+  if (access.externalTourManager === true) {
+    return false;
+  }
   return (
     grant === "office" && holdsPermissionOutsideTourManagerRole(access.roles, PERMISSIONS.VIEW_VISA)
   );
@@ -42,8 +46,12 @@ export function holdsPassportExpiryAuthority(roles: readonly string[]) {
 }
 
 export function canReadPassportExpiryInStaffWorkspace(
-  access: Pick<PortalAccess, "roles">,
+  access: Pick<PortalAccess, "externalTourManager" | "roles">,
   grant: JobCardRecordGrant | null
 ) {
-  return grant === "office" && holdsPassportExpiryAuthority(access.roles);
+  return (
+    access.externalTourManager !== true &&
+    grant === "office" &&
+    holdsPassportExpiryAuthority(access.roles)
+  );
 }

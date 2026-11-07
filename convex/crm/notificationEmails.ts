@@ -4,8 +4,9 @@ import { makeFunctionReference } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
-import { internalAction } from "../_generated/server";
+import { type ActionCtx, internalAction } from "../_generated/server";
 import { resolveAuthOrigin } from "../lib/authOriginPolicy";
+import { BOOKING_SUPPORT_EMAIL, renderBookingEmail } from "../lib/bookingEmailContent";
 import { AUTH_EMAIL_FROM } from "../lib/emailConfig";
 import { resolveNotificationResendKey } from "./notificationEmailConfig";
 import {
@@ -18,6 +19,7 @@ import {
 } from "./notificationEmailDelivery";
 import { normalizeNotificationEmailFailure } from "./notificationEmailLedger";
 import {
+  isCustomerBookingJob,
   NOTIFICATION_PROVIDER_TIMEOUT_MS,
   type NotificationEmailEnvelope,
   notificationEmailEnvelopeFields,
@@ -56,6 +58,54 @@ const completeRef = makeFunctionReference<
   null
 >("crm/notificationEmailOutbox:completeNotificationEmail");
 
+function siteOrigin() {
+  return resolveAuthOrigin(process.env).replace(TRAILING_SLASH, "");
+}
+
+async function prepareStaffMessage(
+  ctx: ActionCtx,
+  job: Doc<"notificationEmailOutbox">,
+  jobId: Id<"notificationEmailOutbox">
+): Promise<NotificationEmailMessage> {
+  const details =
+    job.entityType && job.entityId
+      ? await ctx.runQuery(internal.crm.notificationEmailDetails.getNotificationEmailDetails, {
+          jobId,
+        })
+      : null;
+  const content = {
+    body: job.body,
+    details: notificationEmailSummaryDetails(details, job.entityType),
+    href: `${siteOrigin()}${getNotificationHref(job)}`,
+    title: job.title,
+  };
+  const rendered = await renderNotificationEmail(content);
+  return {
+    from: AUTH_EMAIL_FROM,
+    html: rendered.html,
+    subject: `Citius Connect: ${job.title}`,
+    text: rendered.text,
+  };
+}
+
+async function prepareCustomerBookingMessage(
+  ctx: ActionCtx,
+  jobId: Id<"notificationEmailOutbox">
+): Promise<NotificationEmailMessage> {
+  const content = await ctx.runQuery(internal.bookingEmails.getBookingEmailContent, { jobId });
+  if (!content) {
+    throw new ConvexError("NOTIFICATION_EMAIL_RECIPIENT_ACCESS_CHANGED");
+  }
+  const rendered = await renderBookingEmail(content, { accountUrl: `${siteOrigin()}/account` });
+  return {
+    from: AUTH_EMAIL_FROM,
+    html: rendered.html,
+    replyTo: BOOKING_SUPPORT_EMAIL,
+    subject: rendered.subject,
+    text: rendered.text,
+  };
+}
+
 // Retains the old scheduled function's arguments while routing replays through durable dedupe.
 export const sendNotificationEmail = internalAction({
   args: notificationEmailEnvelopeFields,
@@ -92,33 +142,14 @@ export const dispatchNotificationEmail = internalAction({
     let { message } = job;
     if (!message) {
       try {
-        const details =
-          job.entityType && job.entityId
-            ? await ctx.runQuery(
-                internal.crm.notificationEmailDetails.getNotificationEmailDetails,
-                {
-                  jobId,
-                }
-              )
-            : null;
-        const href = `${resolveAuthOrigin(process.env).replace(TRAILING_SLASH, "")}${getNotificationHref(job)}`;
-        const content = {
-          body: job.body,
-          details: notificationEmailSummaryDetails(details, job.entityType),
-          href,
-          title: job.title,
-        };
-        const rendered = await renderNotificationEmail(content);
+        const prepared = isCustomerBookingJob(job)
+          ? await prepareCustomerBookingMessage(ctx, jobId)
+          : await prepareStaffMessage(ctx, job, jobId);
         message =
           (await ctx.runMutation(freezeRef, {
             attempt: job.attempts,
             jobId,
-            message: {
-              from: AUTH_EMAIL_FROM,
-              html: rendered.html,
-              subject: `Citius Connect: ${job.title}`,
-              text: rendered.text,
-            },
+            message: prepared,
           })) ?? undefined;
       } catch (error) {
         const accessChanged =

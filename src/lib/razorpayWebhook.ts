@@ -1,4 +1,4 @@
-import { isRuntimeString } from "./runtimeValues";
+import { isRuntimeNumber, isRuntimeString } from "./runtimeValues";
 export interface RazorpayPaymentEntity {
   error_description?: string;
   id?: string;
@@ -6,6 +6,7 @@ export interface RazorpayPaymentEntity {
 }
 
 export interface RazorpayRefundEntity {
+  amount?: unknown;
   id?: string;
   payment_id?: string;
 }
@@ -53,6 +54,8 @@ export interface RazorpayWebhookDeps {
     paymentId: string;
     providerEventId: string;
     reason: string;
+    refundAmount?: number;
+    refundId: string;
     serverSecret: string;
   }) => Promise<BookingTransitionResult>;
   recordPaymentAuthorized: (args: {
@@ -172,6 +175,8 @@ interface PaymentEntityIdentity {
 }
 
 interface RefundEntityIdentity {
+  /** Refund amount in the currency's minor unit, when Razorpay supplies a valid one. */
+  amount?: number;
   paymentId: string;
   refundId: string;
 }
@@ -211,7 +216,10 @@ function requireRefundEntity(
       `Invalid Razorpay webhook payload: ${event} requires refund.entity.id`
     );
   }
-  return { paymentId, refundId };
+  const amount = refund?.amount;
+  return isRuntimeNumber(amount) && Number.isSafeInteger(amount) && amount > 0
+    ? { amount, paymentId, refundId }
+    : { paymentId, refundId };
 }
 
 function requireServerSecret(deps: RazorpayWebhookDeps) {
@@ -280,15 +288,20 @@ async function handleRefundCreated(
   refund: RazorpayRefundEntity | undefined,
   deps: RazorpayWebhookDeps
 ): Promise<RazorpayWebhookResult> {
-  const { paymentId, refundId } = requireRefundEntity("refund.created", refund);
+  const { amount, paymentId, refundId } = requireRefundEntity("refund.created", refund);
   const serverSecret = requireServerSecret(deps);
 
+  const refundArgs: Parameters<RazorpayWebhookDeps["markRefundedByPaymentId"]>[0] = {
+    paymentId,
+    ...webhookEventMetadata("refund.created", refundId),
+    refundId,
+    serverSecret,
+  };
+  if (amount !== undefined) {
+    refundArgs.refundAmount = amount;
+  }
   await runPaymentMutation("mark Razorpay payment refunded", () =>
-    deps.markRefundedByPaymentId({
-      paymentId,
-      ...webhookEventMetadata("refund.created", refundId),
-      serverSecret,
-    })
+    deps.markRefundedByPaymentId(refundArgs)
   );
   return { action: "refund.created", received: true };
 }

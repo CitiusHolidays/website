@@ -1,5 +1,6 @@
 export function toPassengerImportInput(row) {
   return {
+    ageYears: row.ageYears,
     biometricAppointmentDate: row.biometricAppointmentDate,
     contactNo: row.contactNo,
     domesticTravelRequired: row.domesticTravelRequired,
@@ -7,11 +8,13 @@ export function toPassengerImportInput(row) {
     fullName: row.fullName,
     gender: row.gender,
     givenName: row.givenName,
+    guardians: row.guardians,
     guestType: row.guestType,
     hotelAllocation: row.hotelAllocation,
     id: row.id,
     importKey: row.importKey,
     importKind: row.importKind,
+    minorStatus: row.minorStatus,
     passport: {
       dateOfBirth: row.passport?.dateOfBirth,
       expiryDate: row.passport?.expiryDate,

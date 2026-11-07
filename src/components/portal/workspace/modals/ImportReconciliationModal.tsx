@@ -8,7 +8,7 @@ import { PORTAL_Z } from "@/lib/portal/zIndex";
 
 const PAGE_SIZE = 50;
 
-export type PassengerImportReportDisposition = "created" | "failed" | "updated";
+export type PassengerImportReportDisposition = "created" | "failed" | "updated" | "warning";
 
 export interface PassengerImportReportRow {
   disposition: PassengerImportReportDisposition;
@@ -101,7 +101,7 @@ export function ImportReconciliationModal({
                 {pageRows.map((row) => (
                   <tr
                     className="border-brand-border/50 border-t"
-                    key={`${row.rowNumber}-${row.travellerName}`}
+                    key={`${row.rowNumber}-${row.travellerName}-${row.disposition}`}
                   >
                     <td className="py-2 pr-3 tabular-nums">{row.rowNumber}</td>
                     <td className="py-2 pr-3">{row.travellerName || "—"}</td>

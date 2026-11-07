@@ -55,6 +55,11 @@ const beginPassengerImportOperationRef = makeFunctionReference<
   },
   Id<"passengerImportOperations">
 >("crm/imports:beginPassengerImportOperation");
+const resolveImportedGuardianLinksRef = makeFunctionReference<
+  "mutation",
+  { access: PortalAccess; jobCardId: Id<"jobCards"> },
+  GuardianImportLinkResult
+>("crm/imports:resolveImportedGuardianLinks");
 const completePassengerImportOperationRef = makeFunctionReference<
   "mutation",
   { operationId: Id<"passengerImportOperations"> },
@@ -77,12 +82,23 @@ export interface PassengerImportCommitArgs {
 }
 
 type PassengerImportCommitSummary = ReturnType<typeof summarizeImportBatchResults>;
+export interface GuardianImportLinkResult {
+  linked: number;
+  warnings: Array<{
+    fullName: string;
+    message: string;
+    sourceRowNumber?: number;
+    sourceSheet?: string;
+    travellerId?: Id<"travellers">;
+  }>;
+}
 export type PassengerImportCommitResult = PassengerImportCommitSummary & {
   batches: Array<{
     batchId: string;
     errors: Array<{ id: string; kind: "retryable" | "terminal"; message: string }>;
     status: string;
   }>;
+  guardianLinks: GuardianImportLinkResult;
   operationId: Id<"passengerImportOperations">;
   total: number;
 };
@@ -374,6 +390,38 @@ async function processClaimedBatch(
   return result;
 }
 
+/**
+ * Guardian references can point at any row of the sheet, so they resolve only after the final
+ * batch commits. A failed sweep does not undo the committed rows; it is reported as one warning
+ * and the references stay pending for the next import or a manual link.
+ */
+export async function resolveGuardianLinksAfterFinalBatch(
+  ctx: ActionCtx,
+  access: PortalAccess,
+  args: PassengerImportCommitArgs
+): Promise<GuardianImportLinkResult> {
+  if (args.operation && !args.operation.complete) {
+    return { linked: 0, warnings: [] };
+  }
+  try {
+    return await ctx.runMutation(resolveImportedGuardianLinksRef, {
+      access,
+      jobCardId: args.jobCardId,
+    });
+  } catch (error) {
+    console.error("Failed to resolve imported guardian links:", error);
+    return {
+      linked: 0,
+      warnings: [
+        {
+          fullName: "",
+          message: `Guardians were not linked: ${publicImportErrorMessage(error)}`,
+        },
+      ],
+    };
+  }
+}
+
 async function logCompletedImport(
   ctx: ActionCtx,
   access: PortalAccess,
@@ -439,6 +487,7 @@ export async function commitPassengerImportAction(
   }
   const summary = summarizeImportBatchResults(batchResults);
   await ctx.runMutation(completePassengerImportOperationRef, { operationId });
+  const guardianLinks = await resolveGuardianLinksAfterFinalBatch(ctx, access, args);
   await logCompletedImport(ctx, access, args, kinds, summary.created + summary.updated);
   return {
     ...summary,
@@ -447,6 +496,7 @@ export async function commitPassengerImportAction(
       errors: errors.map(({ id, kind, message }) => ({ id, kind, message })),
       status,
     })),
+    guardianLinks,
     operationId,
     total: preparedRows.length,
   };

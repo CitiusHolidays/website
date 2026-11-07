@@ -1,6 +1,20 @@
 import { paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
 
+/** Minors linked to a sheet-named guardian, and the references left unresolved (ADR 0018). */
+export const guardianImportLinkResultValidator = v.object({
+  linked: v.number(),
+  warnings: v.array(
+    v.object({
+      fullName: v.string(),
+      message: v.string(),
+      sourceRowNumber: v.optional(v.number()),
+      sourceSheet: v.optional(v.string()),
+      travellerId: v.optional(v.id("travellers")),
+    })
+  ),
+});
+
 export const passengerImportPreviewResultValidator = v.object({
   roomSummary: v.record(v.string(), v.number()),
   rows: v.array(
@@ -39,6 +53,7 @@ export const passengerImportCommitResultValidator = v.object({
   completed: v.boolean(),
   created: v.number(),
   failed: v.number(),
+  guardianLinks: guardianImportLinkResultValidator,
   operationId: v.id("passengerImportOperations"),
   processed: v.number(),
   remaining: v.number(),

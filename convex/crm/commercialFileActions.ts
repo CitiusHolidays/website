@@ -71,10 +71,16 @@ function isPdfMimeType(mimeType: string) {
 }
 
 function canUploadCommercialFiles(
-  access: { allowed?: boolean; permissions?: string[]; roles?: string[] } | null
+  access: {
+    allowed?: boolean;
+    externalTourManager?: boolean;
+    permissions?: string[];
+    roles?: string[];
+  } | null
 ) {
   return Boolean(
     access?.allowed &&
+      !access.externalTourManager &&
       (COMMERCIAL_FILE_WRITE_PERMISSIONS.some((permission) =>
         access.permissions?.includes(permission)
       ) ||

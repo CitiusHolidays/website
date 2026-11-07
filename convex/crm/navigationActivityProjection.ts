@@ -3,8 +3,7 @@ import type { MutationCtx } from "../_generated/server";
 import { authorizedCustomerIdentityIds } from "../lib/customerIdentityAccess";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { canReceiveNotification } from "./lib/notifications";
-import { getRolePermissions } from "./lib/rolePolicy";
-import type { PortalAccess } from "./lib/staffAccess";
+import { type PortalAccess, portalAccessForStaff } from "./lib/staffAccess";
 import { createNavigationWorkReader } from "./navigationWork";
 
 async function identityIdsForStaff(ctx: MutationCtx, staff: Doc<"staffUsers">) {
@@ -45,15 +44,7 @@ async function identityIdsForStaff(ctx: MutationCtx, staff: Doc<"staffUsers">) {
   return [...ids];
 }
 function accessForStaff(staff: Doc<"staffUsers">): PortalAccess {
-  return {
-    allowed: true,
-    authUserId: staff.authUserId,
-    email: staff.email,
-    name: staff.name,
-    permissions: getRolePermissions(staff.roles),
-    roles: staff.roles,
-    staffId: staff._id,
-  };
+  return portalAccessForStaff(staff);
 }
 
 // One latest arrival per person/destination persists independently of the bell's

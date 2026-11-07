@@ -17,6 +17,7 @@ interface PassengerImportBatchResult {
   completed: boolean;
   created: number;
   failed: number;
+  guardianLinks?: GuardianImportLinks;
   operationId: string;
   processed: number;
   remaining: number;
@@ -31,6 +32,17 @@ interface PassengerImportBatchResult {
   }>;
   total: number;
   updated: number;
+}
+
+export interface GuardianImportLinks {
+  linked: number;
+  warnings: Array<{
+    fullName: string;
+    message: string;
+    sourceRowNumber?: number;
+    sourceSheet?: string;
+    travellerId?: string;
+  }>;
 }
 
 export interface PassengerImportBatchProgress {
@@ -115,6 +127,7 @@ export function combinePassengerImportBatchResults(
     completed: true,
     created: 0,
     failed: 0,
+    guardianLinks: { linked: 0, warnings: [] },
     operationId: results[0].operationId,
     processed: 0,
     remaining: 0,
@@ -132,6 +145,10 @@ export function combinePassengerImportBatchResults(
     combined.remaining += result.remaining;
     combined.rowResults.push(...result.rowResults);
     combined.updated += result.updated;
+    if (result.guardianLinks && combined.guardianLinks) {
+      combined.guardianLinks.linked += result.guardianLinks.linked;
+      combined.guardianLinks.warnings.push(...result.guardianLinks.warnings);
+    }
     for (const [roomType, count] of Object.entries(result.roomSummary)) {
       combined.roomSummary[roomType] = (combined.roomSummary[roomType] ?? 0) + count;
     }

@@ -36,6 +36,9 @@ export function getPermissionsForRoles(roles = []) {
  * the tour manager app during the trip.
  */
 export function canViewPassportScansInWorkspace(access) {
+  if (isExternalTourManager(access)) {
+    return false;
+  }
   const roles = (access?.roles ?? []).filter((role) => role !== "Tour Manager");
   return getPermissionsForRoles(roles).includes(PORTAL_PERMISSIONS.VIEW_VISA);
 }
@@ -46,6 +49,9 @@ export function canViewPassportScansInWorkspace(access) {
  * convex/crm/passportPolicy.ts; the server also requires office scope on the Job Card.
  */
 export function canViewPassportExpiryInWorkspace(access) {
+  if (isExternalTourManager(access)) {
+    return false;
+  }
   const roles = (access?.roles ?? []).filter((role) => role !== "Tour Manager");
   const permissions = getPermissionsForRoles(roles);
   return (
@@ -80,13 +86,40 @@ export function canAccessInboundLeads(access) {
   return Boolean(access?.roles?.some((role) => INBOUND_LEAD_ROLES.has(role)));
 }
 
+/**
+ * An external tour manager's login (owner decision, 7 Nov 2026). The server narrows its
+ * permissions to its assigned trips; the client only hides the pages every employee reaches.
+ */
+export function isExternalTourManager(access) {
+  return Boolean(access?.allowed && access.externalTourManager === true);
+}
+
+const STAFF_WIDE_PAGES = new Set(["post-tour-feedback", "travel-schedule"]);
+// Post-tour feedback is open to an external login for its own trips (the server narrows it);
+// the travel schedule is not.
+const EXTERNAL_STAFF_WIDE_PAGES = new Set(["activity", "post-tour-feedback"]);
+// Pages an external login never opens even though it holds their permission: passport documents
+// (no passport data in the CRM) and the ticket dashboard (no dashboard data).
+const EXTERNAL_CLOSED_PAGES = new Set(["passport", "ticketing"]);
+
+/** True for a page an external tour manager's login never opens, whatever it holds. */
+export function isClosedToExternalTourManager(access, page) {
+  return isExternalTourManager(access) && EXTERNAL_CLOSED_PAGES.has(page);
+}
+
+function staffWidePageAllowed(access, page) {
+  if (!access?.allowed) {
+    return false;
+  }
+  return !isExternalTourManager(access) || EXTERNAL_STAFF_WIDE_PAGES.has(page);
+}
+
 function navItemAllowed(access, item, eventPhotoBooth) {
-  if (
-    item.page === "activity" ||
-    item.page === "post-tour-feedback" ||
-    item.page === "travel-schedule"
-  ) {
-    return Boolean(access?.allowed);
+  if (item.page === "activity" || STAFF_WIDE_PAGES.has(item.page)) {
+    return staffWidePageAllowed(access, item.page);
+  }
+  if (isClosedToExternalTourManager(access, item.page)) {
+    return false;
   }
   if (item.page === "event-photo-booth") {
     return Boolean(access?.allowed && eventPhotoBooth?.canManage);
@@ -110,8 +143,11 @@ export function getAccessibleNavGroups(access, eventPhotoBooth) {
 
 /** @param {import("../eventPhotoBooth/contracts").BoothAccess | undefined} [eventPhotoBooth] */
 export function canAccessPage(access, page, eventPhotoBooth) {
-  if (page === "activity" || page === "post-tour-feedback" || page === "travel-schedule") {
-    return Boolean(access?.allowed);
+  if (page === "activity" || STAFF_WIDE_PAGES.has(page)) {
+    return staffWidePageAllowed(access, page);
+  }
+  if (isClosedToExternalTourManager(access, page)) {
+    return false;
   }
   if (page === "event-photo-booth") {
     return Boolean(access?.allowed && eventPhotoBooth?.canManage);
@@ -125,6 +161,17 @@ export function canAccessPage(access, page, eventPhotoBooth) {
   return PORTAL_NAV_GROUPS.some((group) =>
     group.items.some((item) => item.page === page && hasPermission(access, item.permission))
   );
+}
+
+/** Where `/portal` should land: the dashboard, or the first page a login without it can open. */
+export function portalHomeHref(access) {
+  if (hasPermission(access, PORTAL_PERMISSIONS.VIEW_DASHBOARD)) {
+    return "/portal";
+  }
+  const first = getAccessibleNavGroups(access)
+    .flatMap((group) => group.items)
+    .find((item) => item.page !== "activity");
+  return first?.href ?? "/portal/activity";
 }
 
 export function hasRole(access, role) {

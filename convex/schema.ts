@@ -1,6 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { officeCheckInTables } from "./crm/officeCheckInValidators";
+import { bookingInvoiceFields } from "./lib/bookingInvoiceValidators";
 import { boothAvailability, boothCounts, boothScene } from "./lib/eventPhotoBoothValidators";
 import {
   importFailureValidator,
@@ -398,6 +399,21 @@ export default defineSchema({
     .index("by_providerEventId", ["providerEventId"])
     .index("by_bookingId_createdAt", ["bookingId", "createdAt"]),
 
+  // One GST tax invoice per confirmed website booking payment. Issued rows are
+  // immutable; pending rows wait for the company's invoice configuration.
+  bookingInvoices: defineTable(bookingInvoiceFields)
+    .index("by_bookingId", ["bookingId"])
+    .index("by_status_createdAt", ["status", "createdAt"])
+    .index("by_invoiceNumber", ["invoiceNumber"]),
+
+  // Consecutive invoice serial per series prefix and Indian financial year.
+  bookingInvoiceSeries: defineTable({
+    financialYear: v.string(),
+    lastSequence: v.number(),
+    prefix: v.string(),
+    updatedAt: v.number(),
+  }).index("by_prefix_financialYear", ["prefix", "financialYear"]),
+
   bookings: defineTable({
     confirmedAt: v.optional(v.number()),
     createdAt: v.number(),
@@ -409,6 +425,9 @@ export default defineSchema({
     razorpayOrderId: v.string(),
     razorpayPaymentId: v.string(),
     razorpaySignature: v.optional(v.string()),
+    refundAmount: v.optional(v.number()),
+    refundedAt: v.optional(v.number()),
+    refundReference: v.optional(v.string()),
     status: bookingStatus,
     totalAmount: v.number(),
     travelerDetails: v.optional(v.any()),
@@ -1438,9 +1457,20 @@ export default defineSchema({
 
   jobCards: defineTable({
     airfarePerPax: v.optional(v.number()),
+    // Per-trip app pilot (owner decision, 7 Nov 2026), set by crm/jobCards:setAppPilot. The tour
+    // manager app (and later the customer app) shows nothing about this Job Card unless
+    // enabled is true; missing means off. The Staff Workspace ignores it.
+    appPilot: v.optional(
+      v.object({
+        changedAt: v.number(),
+        changedBy: v.string(),
+        changedByName: v.string(),
+        enabled: v.boolean(),
+      })
+    ),
     approxMargin: v.optional(v.number()),
-    // Derived from tourManagerAssignments (status "Assigned" with a staffId) by
-    // syncJobCardTourManagerVisibility. Grants Job Card scope to every assigned
+    // Derived from tourManagerAssignments (status "Assigned" with a staffId and no external
+    // profile) by syncJobCardTourManagerVisibility. Grants Job Card scope to every assigned
     // staff Tour Manager, independent of the latest-wins tourManagerName.
     assignedTourManagerStaffIds: v.optional(v.array(v.id("staffUsers"))),
     clientName: v.string(),
@@ -1452,6 +1482,11 @@ export default defineSchema({
     createdAt: v.number(),
     createdBy: v.string(),
     destination: v.optional(v.string()),
+    // Also derived by syncJobCardTourManagerVisibility: the app logins of external tour managers
+    // with an active assignment (rows with both an external profile and a staffId). Kept apart
+    // from assignedTourManagerStaffIds so an external login never ends an employee's legacy
+    // name route. Missing means none.
+    externalTourManagerStaffIds: v.optional(v.array(v.id("staffUsers"))),
     jobCode: v.string(),
     landCostPerPax: v.optional(v.number()),
     lastEditedAt: v.optional(v.number()),
@@ -2938,6 +2973,8 @@ export default defineSchema({
     reportedPastTours: v.union(v.number(), v.null()),
     reportedPastToursNote: v.string(),
     reportedPastToursSource: tourExperienceSourceValidator,
+    // The narrowed Tour Manager login granted from this profile (owner decision, 7 Nov 2026).
+    staffId: v.optional(v.id("staffUsers")),
     updatedAt: v.number(),
     updatedBy: v.string(),
   })
@@ -2956,6 +2993,9 @@ export default defineSchema({
     emailAlertRoles: v.optional(v.array(staffRole)),
     emailNormalized: v.string(),
     employmentStatus: v.optional(v.union(v.literal("Probationer"), v.literal("Confirmed"))),
+    // Set only for an external tour manager's login: access narrows to assigned trips and the
+    // record stays out of staff administration and HR flows.
+    externalTourManagerProfileId: v.optional(v.id("externalTourManagerProfiles")),
     function: v.optional(v.string()),
     invitedBy: v.optional(v.string()),
     jobCardCreatorEnabled: v.optional(v.boolean()),
@@ -3107,16 +3147,25 @@ export default defineSchema({
     domesticTravelRequired: v.optional(v.boolean()),
     email: v.optional(v.string()),
     extensionOfTour: v.optional(v.boolean()),
+    // Minor guardianship (ADR 0018): up to two adult Travellers on the same Job Card, held in two
+    // indexed slots because Convex cannot index array membership.
+    firstGuardianTravellerId: v.optional(v.id("travellers")),
     foodPreference,
     fullName: v.string(),
     gender: v.optional(v.string()),
     givenName: v.optional(v.string()),
+    // Spreadsheet Parent/Guardian names not yet resolved to exactly one adult (ADR 0018).
+    guardianImportReferences: v.optional(
+      v.array(v.object({ contact: v.optional(v.string()), name: v.string() }))
+    ),
     guestCompanions: v.optional(v.string()),
     guestType,
     hasPassportScan: v.optional(v.boolean()),
     hotelAllocation: v.optional(v.string()),
     importKey: v.optional(v.string()),
     importSource: v.optional(v.string()),
+    // Under 18 on the trip's start date; undefined means the age is not recorded.
+    isMinor: v.optional(v.boolean()),
     jobCardId: v.id("jobCards"),
     lastMinuteDrop: v.optional(v.boolean()),
     listSearchText: v.optional(v.string()),
@@ -3130,6 +3179,7 @@ export default defineSchema({
     passportStatus: v.optional(v.string()),
     paymentType,
     roomType,
+    secondGuardianTravellerId: v.optional(v.id("travellers")),
     sourceDealerCode: v.optional(v.string()),
     sourceDealerName: v.optional(v.string()),
     sourceDescription: v.optional(v.string()),
@@ -3156,6 +3206,8 @@ export default defineSchema({
     .index("by_travelBatchId", ["travelBatchId"])
     .index("by_jobCardId_and_travelBatchId", ["jobCardId", "travelBatchId"])
     .index("by_jobCardId_importKey", ["jobCardId", "importKey"])
+    .index("by_firstGuardianTravellerId", ["firstGuardianTravellerId"])
+    .index("by_secondGuardianTravellerId", ["secondGuardianTravellerId"])
     .index("by_visaStatus", ["visaStatus"])
     .index("by_ticketStatus", ["ticketStatus"])
     .searchIndex("search_list", { searchField: "listSearchText" }),

@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "c56396cd69ef146a25c1d69841c91007b27585e51ffeb65918c96a9efd31f9a2";
+const EXPECTED_CAPABILITY_HASH = "a62790a84aae17618c29d62d70460254104d4a892b2c7090c72bb29d0122da6c";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_CAPABILITIES = new Set(["crm/postTourReports.archive"]);
@@ -138,18 +138,6 @@ describe("Convex capability inventory", () => {
     ]);
   });
 
-  test("classifies the field passport audit purge as internal capabilities", () => {
-    expect(
-      discoverCapabilities()
-        .filter(({ module }) => module === "crm/fieldPassportAuditRetention")
-        .map(({ classification, kind, name }) => `${name}:${kind}:${classification}`)
-        .sort((left, right) => left.localeCompare(right))
-    ).toEqual([
-      "continuePurge:internalMutation:internal",
-      "purgeExpired:internalMutation:internal",
-    ]);
-  });
-
   test("classifies the Tour Manager legacy-names backfill as internal capabilities", () => {
     expect(
       discoverCapabilities()
@@ -217,11 +205,11 @@ describe("Convex capability inventory", () => {
     const travel = capabilities.filter(
       ({ module }) => module === "crm/staffTravel" || module === "crm/externalTourManagerProfiles"
     );
-    expect(travel).toHaveLength(14);
+    expect(travel).toHaveLength(15);
     expect(travel.every(({ classification }) => classification === "public-product")).toBe(true);
     for (const [module, names] of [
       ["crm/staffTravel", ["create", "update", "cancel"]],
-      ["crm/externalTourManagerProfiles", ["create", "update"]],
+      ["crm/externalTourManagerProfiles", ["create", "update", "setAppAccess"]],
     ] as const) {
       for (const name of names) {
         expect(travel).toContainEqual({

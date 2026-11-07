@@ -3,6 +3,7 @@
 import type { Infer } from "convex/values";
 import { encryptPassportDetails, hash } from "../lib/encryption";
 import { resolveRoomCategory } from "../lib/roomTypes";
+import { propertiesWhen } from "../lib/runtimeValues";
 import { PASSENGER_IMPORT_BATCH_SIZE } from "./importBatchPolicy";
 import {
   exportKindValidator as exportKindValidatorDefinition,
@@ -10,6 +11,7 @@ import {
   publicPassengerImportRow as publicPassengerImportRowDefinition,
 } from "./importRowValidators";
 import { normalizePassportExpiryDate } from "./passportExpiry";
+import { normalizeIsoDate } from "./travellerGuardianPolicy";
 
 export const exportKindValidator = exportKindValidatorDefinition;
 export const internalPassengerImportRow = internalPassengerImportRowDefinition;
@@ -91,8 +93,10 @@ export function preparePassengerRows(
     }
     const normalizedGender = normalizePassengerGender(row.gender);
 
+    const birthDate = normalizeIsoDate(passport?.dateOfBirth) ?? undefined;
     return {
       ...rest,
+      ...propertiesWhen(birthDate, () => ({ birthDate })),
       encryptedPassportPayload: normalizedPassport
         ? encryptPassportDetails(normalizedPassport)
         : undefined,

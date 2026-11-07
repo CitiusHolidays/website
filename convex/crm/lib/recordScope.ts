@@ -5,6 +5,7 @@ import {
   hasRole,
   isAdminDirectorOrRole,
   isDirectorOrAdmin,
+  isExternalTourManagerAccess,
   type PortalAccess,
 } from "./staffAccess";
 
@@ -75,13 +76,20 @@ export function ownsTourManagerJobCard(
   access: PortalAccess,
   job: {
     assignedTourManagerStaffIds?: unknown[] | null;
+    externalTourManagerStaffIds?: unknown[] | null;
     legacyTourManagerNames?: string[] | null;
     tourManagerName?: string | null;
   }
 ) {
+  if (isExternalTourManagerAccess(access)) {
+    // An external tour manager's login reaches a Job Card only through its own assignment,
+    // recorded in its own list; employee lists and names never apply to it.
+    return isAssignedTourManagerStaff(access, job.externalTourManagerStaffIds);
+  }
   if (isAssignedTourManagerStaff(access, job.assignedTourManagerStaffIds)) {
     return true;
   }
+  // Only employee assignments end the legacy name route; an external login never does.
   if (!hasRole(access, "Tour Manager") || (job.assignedTourManagerStaffIds?.length ?? 0) > 0) {
     return false;
   }
@@ -141,6 +149,9 @@ export interface QueryVisibilityRecord {
 }
 
 export function canSeeQueryRecord(access: PortalAccess, query: QueryVisibilityRecord) {
+  if (isExternalTourManagerAccess(access)) {
+    return false;
+  }
   if (shouldApplyCementScope(access)) {
     if (!isCementQueryType(query.queryType)) {
       return false;
@@ -193,6 +204,9 @@ export function canSeeProposalRecord(
   proposal: ProposalVisibilityRecord,
   linkedQuery?: QueryVisibilityRecord | QueryVisibilityRecord[] | null
 ) {
+  if (isExternalTourManagerAccess(access)) {
+    return false;
+  }
   let linkedQueries: QueryVisibilityRecord[] = [];
   if (Array.isArray(linkedQuery)) {
     linkedQueries = linkedQuery.filter((query): query is QueryVisibilityRecord => Boolean(query));
@@ -244,6 +258,7 @@ export interface JobCardVisibilityRecord {
   contractingOwnerId?: string | null;
   contractingOwnerName?: string | null;
   createdBy?: string | null;
+  externalTourManagerStaffIds?: unknown[] | null;
   legacyTourManagerNames?: string[] | null;
   operationsOwnerId?: string | null;
   operationsOwnerName?: string | null;
@@ -267,6 +282,11 @@ export function jobCardRecordGrant(
   job: JobCardVisibilityRecord,
   linkedQuery?: QueryVisibilityRecord | null
 ): JobCardRecordGrant | null {
+  if (isExternalTourManagerAccess(access)) {
+    // No office route (owner, collaborator, name or linked query) ever applies to an external
+    // tour manager's login: only their own staff-id assignment, narrowed to their group.
+    return ownsTourManagerJobCard(access, job) ? "tourManager" : null;
+  }
   const queryType = linkedQuery?.queryType ?? job.queryType ?? "";
   if (shouldApplyCementScope(access)) {
     if (!isCementQueryType(queryType)) {

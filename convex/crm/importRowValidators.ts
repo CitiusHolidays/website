@@ -55,6 +55,16 @@ const importedRoomTypeValidator = v.union(
   v.literal("DBL")
 );
 
+const minorStatusValidator = v.optional(v.union(v.literal("adult"), v.literal("minor")));
+
+/** Parent/Guardian columns and age evidence from the sheet (ADR 0018). */
+const guardianImportFields = {
+  ageYears: v.optional(v.number()),
+  // Up to two Parent/Guardian names per row, each with an optional phone or email.
+  guardians: v.optional(v.array(v.object({ contact: v.optional(v.string()), name: v.string() }))),
+  minorStatus: minorStatusValidator,
+};
+
 const ticketingImportRow = v.optional(
   v.object({
     domesticPnr: v.optional(v.string()),
@@ -67,7 +77,11 @@ const ticketingImportRow = v.optional(
 );
 
 export const internalPassengerImportRow = v.object({
+  ...guardianImportFields,
   biometricAppointmentDate: v.optional(v.string()),
+  // Calendar-checked date of birth used only to decide minor status; it is never stored on
+  // the Traveller (the passport payload stays the encrypted copy).
+  birthDate: v.optional(v.string()),
   contactNo: v.optional(v.string()),
   domesticTravelRequired: v.optional(v.boolean()),
   encryptedPassportPayload: v.optional(v.string()),
@@ -111,6 +125,7 @@ export const internalPassengerImportRow = v.object({
 });
 
 export const publicPassengerImportRow = v.object({
+  ...guardianImportFields,
   biometricAppointmentDate: v.optional(v.string()),
   contactNo: v.optional(v.string()),
   domesticTravelRequired: v.optional(v.boolean()),

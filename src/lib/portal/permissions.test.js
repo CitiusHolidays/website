@@ -18,8 +18,11 @@ import {
   getQueryTypeOptions,
   isCementScopedUser,
   isDirectorOrAdmin,
+  isExternalTourManager,
   normalizeEmail,
+  portalHomeHref,
 } from "./permissions";
+import { canAccessPortalRoute } from "./portalRouteManifest";
 
 const roleExpectations = JSON.parse(
   readFileSync(
@@ -378,5 +381,72 @@ describe("Staff Workspace navigation groups", () => {
       expect(labels, role).not.toContain("Admin");
       expect(labels, role).not.toContain("System");
     }
+  });
+});
+
+describe("External tour manager logins", () => {
+  // What getMyPortalAccess returns for an external tour manager (owner decisions, 7 Nov 2026).
+  const external = {
+    allowed: true,
+    externalTourManager: true,
+    permissions: [
+      "create:expenses",
+      "view:expenses",
+      "view:jobCards",
+      "view:ticketing",
+      "view:travellers",
+      "view:visa",
+    ],
+    roles: ["Tour Manager"],
+  };
+
+  test("see their trips, post-tour feedback, group rows, expenses and notifications", () => {
+    const layout = getAccessibleNavGroups(external).map((group) => [
+      group.label,
+      group.items.map((item) => item.label),
+    ]);
+    expect(layout).toEqual([
+      ["Me", ["Notifications"]],
+      ["Job Cards", ["Job Cards", "Post-tour feedback"]],
+      ["Ticketing", ["Flights & PNR", "Seat Allocation", "All Tickets"]],
+      ["Operations", ["Traveller Master", "Visa Tracking"]],
+      ["Finance", ["Expenses"]],
+    ]);
+  });
+
+  test("never open passport documents, the ticket dashboard or staff-wide pages", () => {
+    for (const page of ["passport", "ticketing", "travel-schedule", "dashboard", "team"]) {
+      expect(canAccessPage(external, page), page).toBe(false);
+    }
+    for (const page of ["job-cards", "activity", "post-tour-feedback", "visa", "tickets"]) {
+      expect(canAccessPage(external, page), page).toBe(true);
+    }
+    expect(canViewPassportScansInWorkspace(external)).toBe(false);
+    expect(canViewPassportExpiryInWorkspace(external)).toBe(false);
+    const has = (permission) => external.permissions.includes(permission);
+    for (const [view, allowed] of [
+      ["passport", false],
+      ["ticketing", false],
+      ["visa", true],
+      ["tickets", true],
+      ["job-cards", true],
+    ]) {
+      expect(canAccessPortalRoute({ access: external, has, view }), view).toBe(allowed);
+    }
+    expect(isExternalTourManager(external)).toBe(true);
+    expect(isExternalTourManager({ allowed: true, roles: ["Tour Manager"] })).toBe(false);
+  });
+
+  test("land on their Job Cards instead of the dashboard", () => {
+    expect(portalHomeHref(external)).toBe("/portal/job-cards");
+    const staffTourManager = {
+      allowed: true,
+      permissions: getPermissionsForRoles(["Tour Manager"]),
+      roles: ["Tour Manager"],
+    };
+    expect(portalHomeHref(staffTourManager)).toBe("/portal");
+    // A staff Tour Manager keeps the staff-wide pages and the passport page.
+    expect(canAccessPage(staffTourManager, "travel-schedule")).toBe(true);
+    expect(canAccessPage(staffTourManager, "passport")).toBe(true);
   });
 });

@@ -3,6 +3,7 @@ import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import type { RuntimeObject } from "../lib/runtimeValues";
+import { requireAppPilotOn } from "./appPilot";
 import { hasExpenseApprovalHistory, isNeverSubmittedExpenseDraft } from "./expenseLifecycle";
 import {
   hasMaterialExpenseChange,
@@ -16,6 +17,7 @@ import { getVisibleJob } from "./jobCardVisibility";
 import {
   createActivity,
   deleteEntityNotifications,
+  isExternalTourManagerAccess,
   PERMISSIONS,
   type PortalAccess,
   requireAnyPermission,
@@ -139,6 +141,24 @@ async function resolveVisibleExpenseJobCard(
   return jobCardId;
 }
 
+/**
+ * A `clientRef` marks the tour manager app's offline outbox: a trip expense recorded there needs
+ * the trip's app pilot on. The Staff Workspace sends no `clientRef`.
+ */
+async function requireAppExpensePilot(
+  ctx: MutationCtx,
+  jobCardId: Id<"jobCards"> | undefined,
+  clientRef: string | undefined
+) {
+  if (!(jobCardId && clientRef?.trim())) {
+    return;
+  }
+  const job = await ctx.db.get("jobCards", jobCardId);
+  if (job) {
+    requireAppPilotOn(job);
+  }
+}
+
 /** The expense an earlier create with the same author and key already inserted, if any. */
 async function findRetriedExpense(
   ctx: MutationCtx,
@@ -185,6 +205,10 @@ export async function handleCreateExpense(
   }
 ) {
   const access = await requireStaff(ctx, PERMISSIONS.CREATE_EXPENSES);
+  if (isExternalTourManagerAccess(access) && !args.jobCardId) {
+    // External tour managers record trip expenses only, never office expenses.
+    throw new ConvexError("Choose the Job Card this expense belongs to");
+  }
   const jobCardId = await resolveVisibleExpenseJobCard(ctx, access, args.jobCardId);
   const { clientRef, retriedId } = await findRetriedExpense(
     ctx,
@@ -193,8 +217,11 @@ export async function handleCreateExpense(
     jobCardId
   );
   if (retriedId) {
+    // A replay writes nothing, so it answers even after the pilot stops: the app learns the
+    // expense it already sent was recorded.
     return { id: retriedId };
   }
+  await requireAppExpensePilot(ctx, jobCardId, clientRef);
   if (!args.category.trim()) {
     throw new ConvexError("Select a category");
   }
