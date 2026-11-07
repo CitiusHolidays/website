@@ -18,7 +18,7 @@ const IST_DATE_TIME = new Intl.DateTimeFormat("en-IN", {
 });
 
 /** The time a passport was opened, in India Standard Time, as the office reads it. */
-export function formatPassportViewTime(timestamp: number) {
+function formatPassportViewTime(timestamp: number) {
   return `${IST_DATE_TIME.format(new Date(timestamp))} IST`;
 }
 
