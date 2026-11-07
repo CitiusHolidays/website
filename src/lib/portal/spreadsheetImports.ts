@@ -87,6 +87,7 @@ export interface ImportedTravellerRow {
   importKey: string;
   importKind: ImportKind;
   minorStatus?: "adult" | "minor";
+  parentalConsentReceived?: boolean;
   passport: ImportedPassportDetails;
   passportStatus: string;
   paymentType: string;
@@ -646,6 +647,16 @@ const MINOR_HEADERS = [
 const AGE_HEADERS = ["Age", "Age (years)", "Age at travel"];
 const MINOR_VALUES = new Set(["1", "child", "minor", "true", "y", "yes"]);
 const ADULT_VALUES = new Set(["0", "adult", "false", "n", "no"]);
+/** Operations' "Parental consent received" mark on a minor (ADR 0018). */
+const PARENTAL_CONSENT_HEADERS = [
+  "Parental consent",
+  "Parental consent received",
+  "Parent consent",
+  "Guardian consent",
+  "Consent received",
+];
+const CONSENT_RECEIVED_VALUES = new Set(["1", "received", "true", "y", "yes"]);
+const CONSENT_PENDING_VALUES = new Set(["0", "false", "n", "no", "notreceived", "pending"]);
 const WHOLE_NUMBER_RE = /^\d{1,3}$/;
 /** One cell may name two guardians: "Meera Iyer & Ravi Iyer", "... and ...", ".../...". */
 const GUARDIAN_NAME_SEPARATOR_RE = /\s*(?:&|\/|\band\b)\s*/i;
@@ -666,6 +677,15 @@ function minorStatusFromCell(value: WorkbookCellValue): "adult" | "minor" | unde
     return "minor";
   }
   return ADULT_VALUES.has(key) ? "adult" : undefined;
+}
+
+/** Yes records consent, No clears it; a blank or unrecognised cell leaves it unchanged. */
+function parentalConsentFromCell(value: WorkbookCellValue): boolean | undefined {
+  const key = headerKey(value);
+  if (CONSENT_RECEIVED_VALUES.has(key)) {
+    return true;
+  }
+  return CONSENT_PENDING_VALUES.has(key) ? false : undefined;
 }
 
 function ageFromCell(value: WorkbookCellValue): number | undefined {
@@ -703,12 +723,17 @@ function guardiansFromColumns(
   });
 }
 
-/** Only columns present on the sheet become fields, so other sheets leave links untouched. */
-function guardianFieldsFromRow(
-  row: WorkbookRow,
-  headers: HeaderMap
-): Pick<ImportedTravellerRow, "ageYears" | "guardians" | "minorStatus"> {
-  const fields: Pick<ImportedTravellerRow, "ageYears" | "guardians" | "minorStatus"> = {};
+type GuardianImportFields = Pick<
+  ImportedTravellerRow,
+  "ageYears" | "guardians" | "minorStatus" | "parentalConsentReceived"
+>;
+
+/**
+ * Only columns present on the sheet become fields, so other sheets leave links and the
+ * parental consent mark untouched.
+ */
+function guardianFieldsFromRow(row: WorkbookRow, headers: HeaderMap): GuardianImportFields {
+  const fields: GuardianImportFields = {};
   const nameIndex = firstHeaderIndex(headers, GUARDIAN_NAME_HEADERS);
   const secondNameIndex = firstHeaderIndex(headers, SECOND_GUARDIAN_NAME_HEADERS);
   if (nameIndex !== undefined || secondNameIndex !== undefined) {
@@ -730,6 +755,12 @@ function guardianFieldsFromRow(
   const ageYears = ageIndex === undefined ? undefined : ageFromCell(row[ageIndex]);
   if (ageYears !== undefined) {
     fields.ageYears = ageYears;
+  }
+  const consentIndex = firstHeaderIndex(headers, PARENTAL_CONSENT_HEADERS);
+  const consent =
+    consentIndex === undefined ? undefined : parentalConsentFromCell(row[consentIndex]);
+  if (consent !== undefined) {
+    fields.parentalConsentReceived = consent;
   }
   return fields;
 }

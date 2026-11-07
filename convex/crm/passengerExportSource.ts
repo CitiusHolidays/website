@@ -91,6 +91,8 @@ async function passengerExportSourceRow(ctx: QueryCtx, traveller: Doc<"traveller
     hotelAllocation: textOrEmpty(traveller.hotelAllocation),
     isMinor: traveller.isMinor ?? null,
     lastMinuteDrop: booleanOrFalse(traveller.lastMinuteDrop),
+    // Received or pending for a minor; null for anyone else (ADR 0018).
+    parentalConsentReceived: traveller.isMinor === true ? Boolean(traveller.parentalConsent) : null,
     paymentType: traveller.paymentType,
     roomType: traveller.roomType,
     sourceDealerCode: textOrEmpty(traveller.sourceDealerCode),

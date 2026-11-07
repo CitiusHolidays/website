@@ -585,7 +585,7 @@ describe("registered exact-Admin Operational Controls", () => {
       commandId: "0a0a0a0a-0a0a-4a0a-8a0a-0a0a0a0a0a0a",
       reason: "Retire coarse controls and initialize the precise catalog.",
     });
-    expect(migrated.initializedControlKeys).toHaveLength(37);
+    expect(migrated.initializedControlKeys).toHaveLength(38);
     const direct = await t.run(async (ctx) => ctx.db.query("operationalControlStates").collect());
     expect(direct.filter((row) => row.key === "email.auth.verification")).toHaveLength(1);
     expect(direct.find((row) => row.key === "email.auth.verification")).toMatchObject({
@@ -658,7 +658,7 @@ describe("registered exact-Admin Operational Controls", () => {
 
     const catalog = await asAdmin.query(listOperationalControls, { at: NOW.getTime() });
 
-    expect(catalog).toHaveLength(37);
+    expect(catalog).toHaveLength(38);
     expect(catalog.map((entry) => entry.key)).toEqual(
       expect.arrayContaining([
         "email.auth.verification",
@@ -992,14 +992,14 @@ describe("registered exact-Admin Operational Controls", () => {
       expectedRevision: 0,
       reason: "Initialize the exact local release target for source verification.",
     });
-    expect(activated.initializedControlKeys).toHaveLength(37);
+    expect(activated.initializedControlKeys).toHaveLength(38);
     const persisted = await t.run(async (ctx) => ({
       audits: await ctx.db.query("operationalControlAuditEvents").collect(),
       markers: await ctx.db.query("operationalControlPlaneState").collect(),
       states: await ctx.db.query("operationalControlStates").collect(),
     }));
     expect(persisted.markers).toHaveLength(1);
-    expect(persisted.states).toHaveLength(37);
+    expect(persisted.states).toHaveLength(38);
     expect(persisted.audits).toContainEqual(
       expect.objectContaining({ action: "plane_activated", actorName: "Release setup" })
     );

@@ -15,6 +15,7 @@ export function toPassengerImportInput(row) {
     importKey: row.importKey,
     importKind: row.importKind,
     minorStatus: row.minorStatus,
+    parentalConsentReceived: row.parentalConsentReceived,
     passport: {
       dateOfBirth: row.passport?.dateOfBirth,
       expiryDate: row.passport?.expiryDate,

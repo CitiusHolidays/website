@@ -1,6 +1,7 @@
 export const OPERATIONAL_CONTROL_KEYS = [
   "ai.concierge",
   "ai.journey_planner",
+  "email.auth.account_deleted",
   "email.auth.password_reset",
   "email.auth.staff_setup",
   "email.auth.verification",

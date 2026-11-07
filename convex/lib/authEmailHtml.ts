@@ -54,3 +54,26 @@ export async function prepareAuthEmailMessage(input: {
     text: toPlainText(html, { wordwrap: 78 }),
   };
 }
+
+/** Sent once after a customer deletes their own account (ADR 0019); it carries no account link. */
+export async function prepareAccountDeletedEmailMessage(input: { contactHref: string }) {
+  const html = await render(
+    createElement(CitiusTransactionalEmail, {
+      action: { href: input.contactHref, label: "Contact Citius" },
+      context: "Account security",
+      footer:
+        "If you did not delete your account, contact us straight away. We cannot restore a deleted account, but we can help you secure your bookings.",
+      greeting: "there",
+      paragraphs: [
+        "Your Citius Holidays account was deleted at your request. You have been signed out everywhere, and your login, profile, saved trips and Sacred Bharat profile are gone.",
+        "We keep the booking, payment and invoice records the tax rules require, detached from your login. Trip records our operations team holds for travellers are unchanged.",
+      ],
+      title: "Your account was deleted",
+    })
+  );
+  return {
+    html,
+    subject: `Your ${AUTH_EMAIL_BRAND} account was deleted`,
+    text: toPlainText(html, { wordwrap: 78 }),
+  };
+}

@@ -192,4 +192,37 @@ describe("Server passenger export workbooks", () => {
     });
     expect(parsed.rows[1]).toMatchObject({ guardians: [], minorStatus: "adult" });
   });
+
+  test("Lists parental consent for minors only and reads Yes, No and blank back", () => {
+    const received = {
+      ...row,
+      fullName: "Kavya Iyer",
+      isMinor: true,
+      parentalConsentReceived: true,
+    };
+    const pending = {
+      ...row,
+      fullName: "Rohan Iyer",
+      isMinor: true,
+      parentalConsentReceived: false,
+      passport: { ...row.passport, number: "P2222222" },
+    };
+    const adult = {
+      ...row,
+      isMinor: false,
+      parentalConsentReceived: null,
+      passport: { ...row.passport, number: "P7654321" },
+    };
+    const rows = buildPassengerExportRows("traveller", [received, pending, adult]);
+    const column = (rows[0] ?? []).indexOf("Parental consent");
+    expect(column).toBeGreaterThan(-1);
+    expect(rows.slice(1).map((values) => values[column])).toEqual(["Yes", "No", ""]);
+
+    const parsed = parseTravellerMasterWorkbook(workbookFromSheets({ "Master list": rows }));
+    expect(parsed.rows.map((parsedRow) => parsedRow.parentalConsentReceived)).toEqual([
+      true,
+      false,
+      undefined,
+    ]);
+  });
 });

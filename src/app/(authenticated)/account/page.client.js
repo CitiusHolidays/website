@@ -32,8 +32,9 @@ export default function AccountClient({
   user,
   journeys = EMPTY_JOURNEYS,
   confirmedTripPage = EMPTY_CONFIRMED_TRIP_PAGE,
+  initialTab = "journeys",
 }) {
-  const [activeTab, setActiveTab] = useState("journeys");
+  const [activeTab, setActiveTab] = useState(initialTab);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const groups = splitJourneys(journeys.summaries);
 
@@ -81,7 +82,7 @@ export default function AccountClient({
             <div hidden={activeTab !== "profile"} key="profile">
               <AccountProfilePanel user={user} />
             </div>
-            {activeTab === "settings" && <AccountSettingsPanel key="settings" />}
+            {activeTab === "settings" && <AccountSettingsPanel key="settings" onSignOut={logout} />}
           </AnimatePresence>
         </main>
       </div>
