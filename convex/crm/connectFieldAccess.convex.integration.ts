@@ -16,6 +16,9 @@ function harness() {
 }
 
 const identities = {
+  admin: { name: "Synthetic Admin", roles: ["Admin"] },
+  director: { name: "Synthetic Director", roles: ["Directors"] },
+  "ops-exec": { name: "Synthetic Ops Exec", roles: ["Operations"] },
   "ops-head": { name: "Synthetic Ops Head", roles: ["Operations Head"] },
   ticketing: { name: "Synthetic Ticketing", roles: ["Ticketing"] },
   "tm-batch": { name: "Asha Rao", roles: ["Tour Manager"] },
@@ -26,6 +29,9 @@ const identities = {
 } as const;
 type StaffKey = keyof typeof identities;
 const STAFF_KEYS = [
+  "admin",
+  "director",
+  "ops-exec",
   "ops-head",
   "ticketing",
   "tm-batch",
@@ -305,41 +311,75 @@ describe("passports in the Staff Workspace", () => {
 });
 
 describe("field passport audit retention", () => {
-  test("keeps audit rows until the trip is over, longer if the trip is extended", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const t = harness();
-    const f = await seed(t);
+  const DAY = 24 * 60 * 60 * 1000;
+  const YEAR = 365 * DAY;
+  // Batch A travels 10-12 Nov; the window closes at 13 Nov 24:00 IST (18:30 UTC).
+  const close = Date.parse("2026-11-13T18:30:00Z");
+
+  async function readOnce(t: ReturnType<typeof harness>, f: Awaited<ReturnType<typeof seed>>) {
     await f.assign("tm-batch", f.ids.batchA);
     await withPassport(t, f.ids.a1);
-    // Batch A travels 10-12 Nov; the window closes at 13 Nov 24:00 IST (18:30 UTC).
-    const close = Date.parse("2026-11-13T18:30:00Z");
     vi.setSystemTime(Date.parse("2026-11-10T06:00:00Z"));
     await f.actor("tm-batch").mutation(internal.crm.fieldPassports.authorizeFieldPassportRead, {
       travellerId: f.ids.a1,
     });
-    const audit = () => t.run((ctx) => ctx.db.query("fieldPassportAccessAudit").collect());
-    expect((await audit()).map((row) => row.retainUntil)).toEqual([close]);
+  }
+  const audit = (t: ReturnType<typeof harness>) =>
+    t.run((ctx) => ctx.db.query("fieldPassportAccessAudit").collect());
+  const purge = (t: ReturnType<typeof harness>) =>
+    t.mutation(internal.crm.fieldPassportAuditRetention.purgeExpired, {});
 
-    vi.setSystemTime(close - 60_000);
-    await t.mutation(internal.crm.fieldPassportAuditRetention.purgeExpired, {});
-    expect(await audit()).toHaveLength(1);
+  test("keeps audit rows for a year after the trip, longer if the trip is extended", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const t = harness();
+    const f = await seed(t);
+    await readOnce(t, f);
+    expect((await audit(t)).map((row) => [row.tripClosesAt, row.retainUntil])).toEqual([
+      [close, close + YEAR],
+    ]);
 
-    // The trip is extended to 13 Nov after the passport was opened: the row stays.
+    // The day after the trip and almost a year later the row is still kept.
+    vi.setSystemTime(close + DAY);
+    expect((await purge(t)).counts).toEqual({});
+    vi.setSystemTime(close + YEAR - 60_000);
+    await purge(t);
+    expect(await audit(t)).toHaveLength(1);
+
+    // The trip is extended to 13 Nov after the passport was opened: the row stays a year longer.
     await t.run((ctx) =>
       ctx.db.patch("travelBatches", f.ids.batchA, { travelEndDate: "2026-11-13" })
     );
-    vi.setSystemTime(close + 60_000);
-    const extended = await t.mutation(internal.crm.fieldPassportAuditRetention.purgeExpired, {});
-    expect(extended).toMatchObject({ deleted: 0, kept: 1 });
-    expect((await audit()).map((row) => row.retainUntil)).toEqual([close + 24 * 60 * 60 * 1000]);
+    vi.setSystemTime(close + YEAR + 60_000);
+    expect((await purge(t)).counts).toEqual({ kept_trip_recent: 1 });
+    expect((await audit(t)).map((row) => row.retainUntil)).toEqual([close + DAY + YEAR]);
 
-    vi.setSystemTime(close + 24 * 60 * 60 * 1000 + 60_000);
-    const over = await t.mutation(internal.crm.fieldPassportAuditRetention.purgeExpired, {});
-    expect(over).toMatchObject({ deleted: 1, kept: 0 });
-    expect(await audit()).toEqual([]);
+    vi.setSystemTime(close + DAY + YEAR + 60_000);
+    expect((await purge(t)).counts).toEqual({ deleted: 1 });
+    expect(await audit(t)).toEqual([]);
   });
 
-  test("removes rows without a stored close whose Job Card is gone", async () => {
+  test("never purges rows of a trip that has lost its dates", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const t = harness();
+    const f = await seed(t);
+    await readOnce(t, f);
+    await t.run(async (ctx) => {
+      await ctx.db.patch("travelBatches", f.ids.batchA, {
+        travelEndDate: undefined,
+        travelStartDate: undefined,
+      });
+      await ctx.db.patch("jobCards", f.ids.jobCardId, {
+        travelEndDate: undefined,
+        travelStartDate: undefined,
+      });
+    });
+    vi.setSystemTime(close + 2 * YEAR);
+    expect((await purge(t)).counts).toEqual({ kept_undated: 1 });
+    expect(await audit(t)).toHaveLength(1);
+  });
+
+  test("a row whose Job Card is gone is kept a year after the close it recorded", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     const t = harness();
     const f = await seed(t);
     const actorStaffId = f.staffIds.get("tm-batch");
@@ -347,18 +387,68 @@ describe("field passport audit retention", () => {
       throw new Error("seeded Tour Manager missing");
     }
     await t.run(async (ctx) => {
+      // Written before `tripClosesAt` existed: `retainUntil` held the window close.
       await ctx.db.insert("fieldPassportAccessAudit", {
-        accessedAt: NOW,
+        accessedAt: close - 3 * DAY,
         actorAuthUserId: "tm-batch",
         actorName: "Asha Rao",
         actorStaffId,
         jobCardId: f.ids.jobCardId,
+        retainUntil: close,
         travellerId: f.ids.a1,
       });
       await ctx.db.delete("jobCards", f.ids.jobCardId);
     });
-    const result = await t.mutation(internal.crm.fieldPassportAuditRetention.purgeExpired, {});
-    expect(result).toMatchObject({ deleted: 1, scheduledContinuation: false });
+    vi.setSystemTime(close + 10 * DAY);
+    expect((await purge(t)).counts).toEqual({ kept_trip_recent: 1 });
+    expect((await audit(t)).map((row) => row.retainUntil)).toEqual([close + YEAR]);
+    vi.setSystemTime(close + YEAR + DAY);
+    expect(await purge(t)).toEqual({ counts: { deleted: 1 }, scheduledContinuation: false });
+  });
+
+  test("the dry run counts what the job would do without writing, behind the secret", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    process.env.MIGRATION_SECRET = "synthetic-retention-secret";
+    try {
+      const t = harness();
+      const f = await seed(t);
+      await readOnce(t, f);
+      const asOf = close + YEAR + DAY;
+      await expect(
+        t.query(internal.crm.fieldPassportAuditRetention.dryRun, {
+          asOf,
+          cursor: null,
+          secret: "wrong",
+        })
+      ).rejects.toThrow("Invalid migration secret");
+      const report = await t.query(internal.crm.fieldPassportAuditRetention.dryRun, {
+        asOf,
+        cursor: null,
+        secret: "synthetic-retention-secret",
+      });
+      expect(report).toEqual({ continueCursor: null, counts: { deleted: 1 }, isDone: true });
+      expect(await audit(t)).toHaveLength(1);
+    } finally {
+      Reflect.deleteProperty(process.env, "MIGRATION_SECRET");
+    }
+  });
+
+  test("only the Operations Head and Admin read the audit log", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const t = harness();
+    const f = await seed(t);
+    await readOnce(t, f);
+    const list = (key: StaffKey) =>
+      f.actor(key).query(api.crm.fieldPassports.listFieldPassportAccess, {
+        jobCardId: f.ids.jobCardId,
+        paginationOpts: { cursor: null, numItems: 10 },
+      });
+    for (const key of ["ops-head", "admin"] as const) {
+      expect((await list(key)).page.map((row) => row.actorName)).toEqual(["Asha Rao"]);
+    }
+    for (const key of ["director", "ops-exec", "ticketing", "tm-batch"] as const) {
+      await expect(list(key)).rejects.toThrow("FORBIDDEN");
+    }
   });
 });
 

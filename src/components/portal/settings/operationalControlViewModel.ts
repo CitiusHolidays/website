@@ -10,19 +10,26 @@ export const OPERATIONAL_CONTROL_KEYS = [
   "inbound.info_mailbox_email",
   "inbound.sales_bell",
   "inbound.sales_email",
+  "jobs.anonymise_past_travellers",
   "jobs.check_cl_sl_leave_lapse",
   "jobs.cleanup_ai_runtime",
   "jobs.cleanup_passenger_exports",
   "jobs.cleanup_portal_rate_limits",
   "jobs.cleanup_sacred_bharat_rate_limits",
+  "jobs.purge_activity_logs",
   "jobs.purge_commercial_files",
   "jobs.purge_field_passport_audit",
+  "jobs.purge_inactive_customer_accounts",
   "jobs.purge_office_check_ins",
+  "jobs.purge_old_feedback",
+  "jobs.purge_passport_scans",
+  "jobs.purge_unconverted_enquiries",
   "jobs.reconcile_crm_metrics",
   "jobs.reconcile_list_search",
   "jobs.reconcile_proposal_links",
   "jobs.reconcile_proposal_relations",
   "jobs.reconcile_query_commercial",
+  "jobs.retire_financial_records",
   "jobs.run_workflow_nudges",
   "notifications.crm_bell",
   "payments.razorpay_new_order",
@@ -71,19 +78,26 @@ export type ProductionTestRecipeId =
   | "journey_planner"
   | "razorpay_new_order"
   | "sacred_bharat_publication"
+  | "scheduled_job:anonymise_past_travellers"
   | "scheduled_job:check_cl_sl_leave_lapse"
   | "scheduled_job:cleanup_ai_runtime"
   | "scheduled_job:cleanup_passenger_exports"
   | "scheduled_job:cleanup_portal_rate_limits"
   | "scheduled_job:cleanup_sacred_bharat_rate_limits"
+  | "scheduled_job:purge_activity_logs"
   | "scheduled_job:purge_commercial_files"
   | "scheduled_job:purge_field_passport_audit"
+  | "scheduled_job:purge_inactive_customer_accounts"
   | "scheduled_job:purge_office_check_ins"
+  | "scheduled_job:purge_old_feedback"
+  | "scheduled_job:purge_passport_scans"
+  | "scheduled_job:purge_unconverted_enquiries"
   | "scheduled_job:reconcile_crm_metrics"
   | "scheduled_job:reconcile_list_search"
   | "scheduled_job:reconcile_proposal_links"
   | "scheduled_job:reconcile_proposal_relations"
   | "scheduled_job:reconcile_query_commercial"
+  | "scheduled_job:retire_financial_records"
   | "scheduled_job:run_workflow_nudges";
 
 export interface ProductionTestRecipe {

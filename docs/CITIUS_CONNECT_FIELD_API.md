@@ -79,7 +79,7 @@ with office scope on the Job Card):
 | --- | --- | --- | --- |
 | `crm/fieldSync:listLatestHeadcounts` | query | `{ jobCardId, dayLimit? }` (default 7, max 14) | `null` for other callers, else `[{ day, stopCount, latest: [{ id, label, startedAt, recordedByName, travelBatchId, batchLabel, presentCount, expectedCount, missing: [{ id, fullName }], missingCount, updatedAt }] }]`; reads at most the newest 40 stops and names at most 25 missing travellers per stop |
 | `crm/fieldSync:listAnnouncements` | query | `{ jobCardId, paginationOpts }` | `PaginationResult<{ id, body, sharedAt, authorName, travelBatchId, batchLabel, recipientCount, seenCount, updatedAt }>`; `FORBIDDEN` for other callers |
-| `crm/fieldPassports:listFieldPassportAccess` | query | `{ jobCardId, paginationOpts }` | audit rows `{ id, accessedAt, actorName, travellerId, travellerName }`; needs Staff Workspace passport access |
+| `crm/fieldPassports:listFieldPassportAccess` | query | `{ jobCardId, paginationOpts }` | audit rows `{ id, accessedAt, actorName, travellerId, travellerName }`; only the Operations Head and Admin, with office access to the Job Card |
 
 The Job Card page shows a read-only **Field updates** panel (`JobCardFieldUpdates`) to office
 readers: the latest stop per tour manager per day, X of Y present, who is missing, the time, and
@@ -140,11 +140,13 @@ The extra day on each side covers trips in other time zones.
 Passport notification emails (status, expiry, last four, file name) follow the same Staff
 Workspace passport rule, so a Tour Manager-only recipient never receives them.
 
-Audit rows hold identifiers and times only and are kept when the Job Card is deleted, but only
-until the trip is over (owner decision, 7 Nov 2026): each row stores the trip window's close as
-`retainUntil`, and the daily `jobs.purge_field_passport_audit` job
-(`crm/fieldPassportAuditRetention`) deletes rows past it. It re-reads the trip dates first, so an
-extended trip keeps its rows until the new close.
+Audit rows hold identifiers and times only and are kept when the Job Card is deleted, for one year
+after the trip is over (director decision, 7 Nov 2026): each row stores the trip window's close as
+`tripClosesAt` and that close plus 365 days as `retainUntil`, and the daily
+`jobs.purge_field_passport_audit` job (`crm/fieldPassportAuditRetention`) deletes rows past it. It
+re-reads the trip dates first, so an extended trip keeps its rows a year past the new close; a trip
+that has lost its dates keeps its rows. Only the Operations Head and Admin read the log. See
+[the data retention schedule](DATA_RETENTION.md).
 
 ## External tour managers
 

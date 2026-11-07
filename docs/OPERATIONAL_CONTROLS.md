@@ -23,7 +23,8 @@ The first catalog contains 27 independently recoverable controls:
 - Citius Concierge and Journey Planner provider requests;
 - Razorpay new-order creation (not verification, webhooks, or in-flight completion);
 - document-preview preparation; and
-- thirteen individual scheduled jobs.
+- twenty-one individual scheduled jobs. The seven data retention jobs are off by default; see
+  [the data retention schedule](DATA_RETENTION.md).
 
 The catalog shows **Configured State** separately from **Blocked Capability**. A control can be
 configured as Available while a paused dependency prevents the capability from running. The
