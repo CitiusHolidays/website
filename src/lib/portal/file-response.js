@@ -42,16 +42,21 @@ export function portalFileResponse(file, options = {}) {
   }
   const mimeType = sanitizeFileMimeType(file.mimeType);
 
-  return new Response(body, {
-    headers: {
-      "Cache-Control": "private, no-store, max-age=0",
-      "Content-Disposition": contentDisposition(file.fileName, options.disposition),
-      "Content-Length": String(body.byteLength),
-      "Content-Type": mimeType,
-      "X-Content-Type-Options": "nosniff",
-    },
-    status: 200,
-  });
+  const headers = {
+    "Cache-Control": "private, no-store, max-age=0",
+    "Content-Disposition": contentDisposition(file.fileName, options.disposition),
+    "Content-Length": String(body.byteLength),
+    "Content-Type": mimeType,
+    "X-Content-Type-Options": "nosniff",
+  };
+  // Opt-in browser caching for small previews: this browser only (never a
+  // shared cache), and keyed to the signed-in cookie so another login on the
+  // same browser fetches its own copy.
+  if (Number.isSafeInteger(options.privateCacheSeconds) && options.privateCacheSeconds > 0) {
+    headers["Cache-Control"] = `private, max-age=${options.privateCacheSeconds}`;
+    headers.Vary = "Cookie";
+  }
+  return new Response(body, { headers, status: 200 });
 }
 
 export function portalFileErrorResponse(error) {

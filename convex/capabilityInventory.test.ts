@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "19298e6e44e981db382391c2438e7a6e296216e82bdf20686587bf59ca59f7d1";
+const EXPECTED_CAPABILITY_HASH = "cdcddd561387098c3171bc913a60bf978b8680a3c50a134f332d7083b0d17d03";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_CAPABILITIES = new Set(["crm/postTourReports.archive"]);
@@ -110,6 +110,13 @@ describe("Convex capability inventory", () => {
     expect(() => registrationsInSource(source, "fixture.ts")).toThrow(
       "Unrecognized Convex registration factory fixture.ts:hiddenRegistration"
     );
+  });
+
+  test("Classifies the one-call portal sign-in bootstrap like the identity sync it extends", () => {
+    const sync = discoverCapabilities().filter(({ module }) => module === "authSync");
+    const classOf = (name: string) => sync.find((entry) => entry.name === name)?.classification;
+    expect(classOf("syncMyPortalAccess")).toBe(classOf("syncMyAuthIdentity"));
+    expect(classOf("syncMyPortalAccess")).toBe("public-product");
   });
 
   test("Every registered backend function is classified by the reviewed snapshot", () => {

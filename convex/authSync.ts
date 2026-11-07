@@ -2,6 +2,8 @@ import { paginationOptsValidator, type UserIdentity } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
 import { internalMutation, mutation } from "./_generated/server";
+import { getPortalAccess } from "./crm/lib/staffAccess";
+import { portalAccessResultValidator } from "./crm/staffSettingsReturnContracts";
 import { legacyAuthUserId } from "./lib/authIdentity";
 import { syncAuthRecords } from "./lib/authSync";
 import { ensureCanonicalIdentityLink } from "./lib/customerIdentityAccess";
@@ -44,6 +46,22 @@ export const syncMyAuthIdentity = mutation({
     return await syncAuthRecords(ctx, { ...identityToSyncInput(identity), authUserId });
   },
   returns: authSyncResultValidator,
+});
+
+/**
+ * The portal's sign-in bootstrap in one round trip: sync this login's identity,
+ * then read portal access in the same transaction, so access always reflects
+ * the sync (a first sign-in links the staff record here).
+ */
+export const syncMyPortalAccess = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identity = await getIdentityOrThrow(ctx);
+    const authUserId = await ensureCanonicalIdentityLink(ctx, identity);
+    await syncAuthRecords(ctx, { ...identityToSyncInput(identity), authUserId });
+    return await getPortalAccess(ctx);
+  },
+  returns: portalAccessResultValidator,
 });
 
 export const repairAuthLinks = mutation({

@@ -55,15 +55,11 @@ mock.module("next/server", () => ({
 }));
 
 mock.module("@/lib/auth-server", () => ({
+  // One call syncs the login and returns portal access.
   fetchAuthMutation: (_mutation, _args, options) => {
-    callOrder.push("identity-sync");
+    callOrder.push("sync-and-access");
     authOptions.push(options);
-    return syncFailure ? Promise.reject(syncFailure) : Promise.resolve(null);
-  },
-  fetchAuthQuery: (_query, _args, options) => {
-    callOrder.push("portal-access");
-    authOptions.push(options);
-    return currentAccess;
+    return syncFailure ? Promise.reject(syncFailure) : Promise.resolve(currentAccess);
   },
   getServerUser: () => {
     callOrder.push("session");
@@ -176,19 +172,10 @@ describe("Portal layout guard", () => {
     await getRenderedShellProps();
 
     expect(tokenAcquisitions).toBe(1);
-    // The session check and the identity sync start together; access waits for both.
-    expect(callOrder).toEqual([
-      "connection",
-      "token",
-      "identity-sync",
-      "require-auth",
-      "portal-access",
-    ]);
-    expect(authOptions).toEqual([
-      { token: "request-token" },
-      { token: "request-token" },
-      { token: "request-token" },
-    ]);
+    // Two server stages: the token, then the session check alongside one call
+    // that syncs the login and returns access.
+    expect(callOrder).toEqual(["connection", "token", "sync-and-access", "require-auth"]);
+    expect(authOptions).toEqual([{ token: "request-token" }, { token: "request-token" }]);
   });
 
   test("Seeds the browser's Convex connection with this request's token", async () => {
@@ -202,13 +189,13 @@ describe("Portal layout guard", () => {
     await expect(PortalAuthBoundary({ children: null })).rejects.toThrow(
       "NEXT_REDIRECT:/auth/connect"
     );
-    expect(callOrder).not.toContain("portal-access");
+    expect(redirectUrls).not.toContain("/account?portal=unauthorized");
   });
 
-  test("Fails a signed-in request whose identity sync fails, before reading access", async () => {
+  test("Fails a signed-in request whose identity sync fails, without rendering the portal", async () => {
     syncFailure = new Error("sync failed");
     await expect(PortalAuthBoundary({ children: null })).rejects.toThrow("sync failed");
-    expect(callOrder).not.toContain("portal-access");
+    expect(redirectUrls).toEqual([]);
   });
 
   test("Evaluates Sales and Operations portal access separately per request", async () => {
