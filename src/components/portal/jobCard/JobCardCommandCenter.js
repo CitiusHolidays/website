@@ -9,6 +9,7 @@ import { buildJobCardCommandCenter } from "@/lib/portal/jobCardCommandCenter";
 import { displayPortalTerm } from "@/lib/portal/productTerminology";
 import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
 import { JobCardAppPilot } from "./JobCardAppPilot";
+import { JobCardCustomerInvites } from "./JobCardCustomerInvites";
 import { JobCardFeedbackMenu } from "./JobCardFeedbackMenu";
 import { JobCardFieldUpdates } from "./JobCardFieldUpdates";
 import JobCardReadinessMap from "./JobCardReadinessMap";
@@ -196,6 +197,7 @@ export default function JobCardCommandCenter({ jobCardId }) {
         </div>
       </section>
       <JobCardAppPilot jobCardId={String(jobCardId)} />
+      <JobCardCustomerInvites jobCardId={String(jobCardId)} />
       <JobCardFieldUpdates jobCardId={String(jobCardId)} />
       <JobCardReadinessMap sections={model.readinessSections} />
       <div className="grid items-start gap-4 lg:grid-cols-[1.4fr_0.8fr]">

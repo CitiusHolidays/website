@@ -12,7 +12,8 @@ export interface CustomerJourneyEntitlementProjection {
     | "public_booking_owner"
     | "crm_operator_grant"
     | "identity_migration"
-    | "legacy_booking_owner";
+    | "legacy_booking_owner"
+    | "trip_invite";
 }
 
 export async function privacySafeIdentityHash(value: string) {

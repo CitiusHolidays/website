@@ -54,3 +54,25 @@ export async function prepareAuthEmailMessage(input: {
     text: toPlainText(html, { wordwrap: 78 }),
   };
 }
+
+/**
+ * The customer app's sign-in link (ADR 0020). `ctaHref` is the website's `/app/sign-in` page, which
+ * hands the one-time token to the installed app; it never signs the browser in.
+ */
+export async function prepareAppSignInEmailMessage(input: { ctaHref: string }) {
+  const html = await buildAuthEmailHtml({
+    bodyParagraphs: [
+      "Tap the button on the phone where you have the Citius Holidays app to sign in. The link works once and expires in 10 minutes.",
+    ],
+    ctaHref: input.ctaHref,
+    ctaLabel: "Sign in to the app",
+    footerNote: "If you did not ask to sign in, you can safely ignore this email.",
+    greetingName: "there",
+    headline: "Sign in to Citius Holidays",
+  });
+  return {
+    html,
+    subject: `Your ${AUTH_EMAIL_BRAND} sign-in link`,
+    text: toPlainText(html, { wordwrap: 78 }),
+  };
+}
