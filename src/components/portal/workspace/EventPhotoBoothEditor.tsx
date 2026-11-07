@@ -12,6 +12,7 @@ import type {
   BoothManagementState,
   BoothScene,
   BoothSceneDraft,
+  BoothSceneKey,
   BoothStaffOption,
 } from "@/lib/eventPhotoBooth/contracts";
 import {
@@ -176,7 +177,22 @@ function SceneFields({
   );
 }
 
-function BackgroundThumbnail({ src, label }: { src: string; label: string }) {
+const THUMBNAIL_SIZES = "160px";
+
+/**
+ * A 160px card. Bundled scenes use their precomputed 192px/384px WebP pair, so
+ * the card stays sharp on 2x screens; uploaded artwork goes through the image
+ * optimizer at card size instead of downloading the full-size original.
+ */
+function BackgroundThumbnail({
+  bundled,
+  label,
+  src,
+}: {
+  bundled: BoothSceneKey | null;
+  label: string;
+  src: string;
+}) {
   const [failed, setFailed] = useState(false);
   return failed ? (
     <p
@@ -186,16 +202,27 @@ function BackgroundThumbnail({ src, label }: { src: string; label: string }) {
       Background unavailable
     </p>
   ) : (
-    <Image
-      alt={label}
-      className="h-28 w-40 rounded-lg border border-brand-border object-cover"
-      height={112}
-      loading="eager"
-      onError={() => setFailed(true)}
-      src={src}
-      unoptimized
-      width={160}
-    />
+    <picture>
+      {bundled ? (
+        <source
+          sizes={THUMBNAIL_SIZES}
+          srcSet={`${BOOTH_THUMBNAIL_URLS[bundled].small} 192w, ${BOOTH_THUMBNAIL_URLS[bundled].large} 384w`}
+          type="image/webp"
+        />
+      ) : null}
+      <Image
+        alt={label}
+        className="h-28 w-40 rounded-lg border border-brand-border bg-brand-light object-cover"
+        height={112}
+        loading="eager"
+        onError={() => setFailed(true)}
+        quality={90}
+        sizes={THUMBNAIL_SIZES}
+        src={bundled ? BOOTH_THUMBNAIL_URLS[bundled].large : src}
+        unoptimized={Boolean(bundled)}
+        width={160}
+      />
+    </picture>
   );
 }
 
@@ -249,9 +276,10 @@ function TemplateChooser({
       {preset?.artwork.kind === "bundled" ? (
         <div className="flex flex-wrap items-center gap-3">
           <BackgroundThumbnail
+            bundled={preset.artwork.key}
             key={preset.id}
             label={`${preset.title.en} template preview`}
-            src={BOOTH_THUMBNAIL_URLS[preset.artwork.key].small}
+            src={BOOTH_THUMBNAIL_URLS[preset.artwork.key].large}
           />
           <div className="text-sm">
             <p>
@@ -1141,13 +1169,10 @@ function SceneEditor({ editor }: { editor: ReturnType<typeof useBoothEditor> }) 
             <div className="flex flex-col items-start gap-4 border-brand-border border-t pt-4 sm:flex-row">
               <figure className="space-y-2">
                 <BackgroundThumbnail
+                  bundled={selected.artwork.kind === "bundled" ? selected.artwork.key : null}
                   key={`${selected.id}:${selected.artworkUrl}`}
                   label={`Current background for ${selected.title.en}`}
-                  src={
-                    selected.artwork.kind === "bundled"
-                      ? BOOTH_THUMBNAIL_URLS[selected.artwork.key].small
-                      : selected.artworkUrl
-                  }
+                  src={selected.artworkUrl}
                 />
                 <figcaption className="text-brand-muted text-sm">Current background</figcaption>
               </figure>

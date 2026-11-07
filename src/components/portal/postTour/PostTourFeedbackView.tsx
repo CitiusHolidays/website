@@ -6,6 +6,7 @@ import {
   type postTourJobValidator,
 } from "@convex/lib/postTourFeedbackValidators";
 import type { Infer } from "convex/values";
+import { useReducedMotion } from "motion/react";
 import Image from "next/image";
 import { useId, useState } from "react";
 import { Button } from "@/components/ui/application-button";
@@ -32,6 +33,21 @@ const categoryLabels = new Map(
   POST_TOUR_FEEDBACK_CATEGORIES.map((item) => [item.value, item.label])
 );
 
+/** The stored thumbnail's longest edge; wider tiles load the sharper copy over it. */
+const THUMBNAIL_EDGE = 640;
+
+/** Device pixels the tile needs, read from the loaded thumbnail's rendered width. */
+function needsSharperCopy(image: HTMLImageElement) {
+  // Runs from the image's load event, so it's always in the browser.
+  return image.clientWidth * (window.devicePixelRatio || 1) > THUMBNAIL_EDGE;
+}
+
+/**
+ * A feedback photo tile for slow connections: a quiet placeholder holds the
+ * space, the small thumbnail loads lazily, and only when the tile is wider than
+ * the thumbnail (one photo across the panel, a phone, a 2x screen) does a
+ * sharper copy load and fade in over it. If that copy fails, the thumbnail stays.
+ */
 export function FeedbackPhotoPreview({
   photo,
   category,
@@ -43,11 +59,24 @@ export function FeedbackPhotoPreview({
 }) {
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const [thumbnailReady, setThumbnailReady] = useState(false);
+  const [sharpCopy, setSharpCopy] = useState<"none" | "loading" | "ready">("none");
+  const reducedMotion = useReducedMotion();
   const fail = () => setFailed(true);
   const retry = () => {
     setAttempt((current) => current + 1);
     setFailed(false);
+    setThumbnailReady(false);
+    setSharpCopy("none");
   };
+  const thumbnailLoaded = (event: React.SyntheticEvent<HTMLImageElement>) => {
+    setThumbnailReady(true);
+    if (sharpCopy === "none" && needsSharperCopy(event.currentTarget)) {
+      setSharpCopy("loading");
+    }
+  };
+  const sharpLoaded = () => setSharpCopy("ready");
+  const keepThumbnail = () => setSharpCopy("none");
   if (failed) {
     return (
       <div className="rounded-xl border border-brand-border p-3 text-brand-muted text-xs">
@@ -64,24 +93,52 @@ export function FeedbackPhotoPreview({
       </div>
     );
   }
+  const photoPath = `${basePath}/${encodeURIComponent(photo.id)}`;
+  const fade = reducedMotion ? "" : "transition-opacity duration-300 ease-out";
   return (
     <a
       className="block overflow-hidden rounded-xl border border-brand-border bg-[#FDFBF7] focus-visible:outline-2 focus-visible:outline-citius-blue"
-      href={`${basePath}/${encodeURIComponent(photo.id)}`}
+      href={photoPath}
       rel="noopener noreferrer"
       target="_blank"
     >
-      <Image
-        alt={`${category}: ${photo.fileName}`}
-        className="aspect-[4/3] w-full object-cover"
-        height={300}
-        key={attempt}
-        loading="lazy"
-        onError={fail}
-        src={`${basePath}/${encodeURIComponent(photo.id)}?inline=1&retry=${attempt}`}
-        unoptimized
-        width={400}
-      />
+      <span
+        className={`relative block aspect-[4/3] w-full bg-brand-light ${
+          thumbnailReady || reducedMotion ? "" : "animate-pulse"
+        }`}
+      >
+        <Image
+          alt={`${category}: ${photo.fileName}`}
+          className={`absolute inset-0 h-full w-full object-cover ${fade} ${
+            thumbnailReady ? "opacity-100" : "opacity-0"
+          }`}
+          decoding="async"
+          height={300}
+          key={attempt}
+          loading="lazy"
+          onError={fail}
+          onLoad={thumbnailLoaded}
+          src={`${photoPath}?inline=1&retry=${attempt}`}
+          unoptimized
+          width={400}
+        />
+        {sharpCopy === "none" ? null : (
+          <Image
+            alt=""
+            aria-hidden="true"
+            className={`absolute inset-0 h-full w-full object-cover ${fade} ${
+              sharpCopy === "ready" ? "opacity-100" : "opacity-0"
+            }`}
+            decoding="async"
+            height={1200}
+            onError={keepThumbnail}
+            onLoad={sharpLoaded}
+            src={`${photoPath}?inline=1&size=display&retry=${attempt}`}
+            unoptimized
+            width={1600}
+          />
+        )}
+      </span>
       <span className="block truncate px-3 py-2.5 text-brand-muted text-xs">{photo.fileName}</span>
     </a>
   );

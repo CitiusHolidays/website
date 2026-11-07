@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "de3b1639df6a52e323928024e30a69f8260fe5525345fca11c6ff8ea7e7487c5";
+const EXPECTED_CAPABILITY_HASH = "19298e6e44e981db382391c2438e7a6e296216e82bdf20686587bf59ca59f7d1";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_CAPABILITIES = new Set(["crm/postTourReports.archive"]);
@@ -257,7 +257,7 @@ describe("Convex capability inventory", () => {
     const feedback = capabilities.filter(
       ({ module }) => module === "crm/postTourFeedback" || module === "crm/postTourFeedbackActions"
     );
-    expect(feedback).toHaveLength(13);
+    expect(feedback).toHaveLength(14);
     for (const [name, kind] of [
       ["list", "query"],
       ["listJobs", "query"],
@@ -274,7 +274,7 @@ describe("Convex capability inventory", () => {
         name,
       });
     }
-    for (const name of ["getPhotoFile", "getPhotoThumbnail"]) {
+    for (const name of ["getPhotoFile", "getPhotoThumbnail", "getPhotoDisplay"]) {
       expect(feedback).toContainEqual({
         classification: "public-product",
         kind: "action",
@@ -311,7 +311,7 @@ describe("Convex capability inventory", () => {
   test("Classifies scoped traveller feedback functions separately from private storage helpers", () => {
     const capabilities = discoverCapabilities();
     const feedback = capabilities.filter(({ module }) => module.startsWith("crm/travelerFeedback"));
-    expect(feedback).toHaveLength(14);
+    expect(feedback).toHaveLength(15);
     for (const name of ["listRequests", "getRequestAccess", "listResponses"]) {
       expect(feedback).toContainEqual({
         classification: "public-product",
@@ -320,7 +320,7 @@ describe("Convex capability inventory", () => {
         name,
       });
     }
-    for (const name of ["createRequest", "getPhotoFile", "getPhotoThumbnail"]) {
+    for (const name of ["createRequest", "getPhotoFile", "getPhotoThumbnail", "getPhotoDisplay"]) {
       expect(feedback).toContainEqual({
         classification: "public-product",
         kind: "action",

@@ -7,14 +7,17 @@ import { portalFileErrorResponse, portalFileResponse } from "@/lib/portal/file-r
 export async function GET(request: Request, { params }: { params: Promise<{ photoId: string }> }) {
   return await withApiRequestLogging(request, "/api/portal/files/post-tour/[photoId]", async () => {
     const { photoId } = await params;
-    if (new URL(request.url).searchParams.get("inline") === "1") {
+    const search = new URL(request.url).searchParams;
+    if (search.get("inline") === "1") {
       try {
         const token = await getToken();
         if (!token) {
           throw new Error("UNAUTHORIZED");
         }
         const file = await fetchAuthAction(
-          anyApi.crm.postTourFeedbackActions.getPhotoThumbnail,
+          search.get("size") === "display"
+            ? anyApi.crm.postTourFeedbackActions.getPhotoDisplay
+            : anyApi.crm.postTourFeedbackActions.getPhotoThumbnail,
           { photoId },
           { token }
         );
