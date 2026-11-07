@@ -7,6 +7,7 @@ import {
   requireRunMutationCtx,
 } from "@convex-dev/better-auth/utils";
 import { type BetterAuthOptions, betterAuth } from "better-auth";
+import { magicLink } from "better-auth/plugins/magic-link";
 import { components, internal } from "../_generated/api";
 import type { DataModel } from "../_generated/dataModel";
 import authConfig from "../auth.config";
@@ -17,13 +18,31 @@ import {
   deliverTransactionalAuthEmail,
   resolveAuthEmailControlKey,
 } from "../lib/authEmailDelivery";
-import { AUTH_EMAIL_BRAND, prepareAuthEmailMessage } from "../lib/authEmailHtml";
+import {
+  AUTH_EMAIL_BRAND,
+  prepareAppSignInEmailMessage,
+  prepareAuthEmailMessage,
+} from "../lib/authEmailHtml";
 import { resolveAuthOrigin } from "../lib/authOriginPolicy";
 import { NATIVE_APP_TRUSTED_ORIGINS } from "../lib/nativeAppOrigins";
 import schema from "./schema";
 
 const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
 const TWENTY_FOUR_HOURS_IN_SECONDS = 24 * 60 * 60;
+/** The customer app's email sign-in link works once, for this long (ADR 0020). */
+export const APP_SIGN_IN_LINK_TTL_SECONDS = 10 * 60;
+
+/**
+ * The customer app's email sign-in link opens the website's `/app/sign-in` page, which hands the
+ * token to the installed app in the URL fragment (never sent to a server). The app then calls
+ * `/magic-link/verify` itself, so the session lands in the app's secure storage and no session
+ * cookie ever travels in a URL.
+ */
+const TRAILING_SLASH = /\/$/;
+
+export function appSignInLinkUrl(baseURL: string, token: string) {
+  return `${baseURL.replace(TRAILING_SLASH, "")}/app/sign-in#token=${encodeURIComponent(token)}`;
+}
 
 function reportAuthEmailFailure(outcome: {
   correlationDigest?: string;
@@ -241,7 +260,42 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
     },
     // expo() lets the installed apps exchange sessions through their URL schemes; the issuer and
     // Convex token path stay the same as the web, so identities match (ADR 0009).
-    plugins: [expo(), convex({ authConfig })],
+    plugins: [
+      expo(),
+      convex({ authConfig }),
+      magicLink({
+        expiresIn: APP_SIGN_IN_LINK_TTL_SECONDS,
+        sendMagicLink: async ({ email, token }) => {
+          const actionCtx = requireActionCtx(ctx);
+          if (await actionCtx.runQuery(internal.customerAppAuth.isStaffEmail, { email })) {
+            // Same response as a sent link, so the form does not reveal staff addresses.
+            return;
+          }
+          try {
+            const link = appSignInLinkUrl(baseURL, token);
+            const message = await prepareAppSignInEmailMessage({ ctaHref: link });
+            // A sign-in link proves the mailbox, like email verification, so it shares that
+            // delivery ledger purpose and its Live Feature Control.
+            const outcome = await deliverTransactionalAuthEmail(actionCtx, {
+              controlKey: "email.auth.verification",
+              correlationSecret: token,
+              expiresAt: Date.now() + APP_SIGN_IN_LINK_TTL_SECONDS * 1000,
+              html: message.html,
+              purpose: "verification",
+              recipient: email,
+              subject: message.subject,
+              text: message.text,
+            });
+            if (outcome.status !== "sent") {
+              reportAuthEmailFailure(outcome);
+            }
+          } catch {
+            reportAuthEmailFailure({ purpose: "verification" });
+          }
+        },
+        storeToken: "hashed",
+      }),
+    ],
     rateLimit: {
       enabled: true,
       max: 10,

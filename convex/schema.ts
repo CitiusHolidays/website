@@ -493,20 +493,72 @@ export default defineSchema({
     confirmedOfferId: v.optional(v.id("confirmedOffers")),
     createdAt: v.number(),
     grantedByStaffId: v.optional(v.id("staffUsers")),
+    // Trip invites (ADR 0020): the Job Card and the Account Holder's own Traveller row. Set only
+    // by claiming an invite; operator grants and bookings leave them unset.
+    jobCardId: v.optional(v.id("jobCards")),
     queryId: v.optional(v.id("queries")),
     revokedAt: v.optional(v.number()),
     role: v.union(v.literal("purchaser"), v.literal("organizer"), v.literal("traveller")),
     source: v.union(
       v.literal("public_booking_owner"),
       v.literal("crm_operator_grant"),
-      v.literal("identity_migration")
+      v.literal("identity_migration"),
+      v.literal("trip_invite")
     ),
+    travellerId: v.optional(v.id("travellers")),
     updatedAt: v.number(),
   })
     .index("by_authUserId_createdAt", ["authUserId", "createdAt"])
     .index("by_bookingId_authUserId", ["bookingId", "authUserId"])
     .index("by_confirmedOfferId_authUserId", ["confirmedOfferId", "authUserId"])
-    .index("by_queryId_authUserId", ["queryId", "authUserId"]),
+    .index("by_queryId_authUserId", ["queryId", "authUserId"])
+    .index("by_travellerId", ["travellerId"]),
+
+  // Single-use trip invites for the customer app (ADR 0020). Only a SHA-256 hash of the token is
+  // stored; the link is shown to staff once. Claiming one creates a traveller entitlement that
+  // names the invited Traveller row.
+  customerTripInvites: defineTable({
+    channel: v.union(
+      v.literal("link"),
+      v.literal("email"),
+      v.literal("sms"),
+      v.literal("whatsapp")
+    ),
+    claimedAt: v.optional(v.number()),
+    claimedByAuthUserId: v.optional(v.string()),
+    createdAt: v.number(),
+    createdByName: v.string(),
+    createdByStaffId: v.id("staffUsers"),
+    entitlementId: v.optional(v.id("customerJourneyEntitlements")),
+    expiresAt: v.number(),
+    jobCardId: v.id("jobCards"),
+    revokedAt: v.optional(v.number()),
+    revokedByName: v.optional(v.string()),
+    status: v.union(v.literal("pending"), v.literal("claimed"), v.literal("revoked")),
+    tokenHash: v.string(),
+    travellerId: v.id("travellers"),
+    updatedAt: v.number(),
+  })
+    .index("by_tokenHash", ["tokenHash"])
+    .index("by_travellerId_and_createdAt", ["travellerId", "createdAt"])
+    .index("by_jobCardId_and_createdAt", ["jobCardId", "createdAt"]),
+
+  // A guardian's own consent for a minor on the trip (ADR 0018, ADR 0020), append-only: a
+  // withdrawal is a new row. Separate from travellers.parentalConsent, which is the Operations
+  // mark.
+  customerParentalConsents: defineTable({
+    action: v.union(v.literal("granted"), v.literal("withdrawn")),
+    authUserId: v.string(),
+    consentTextVersion: v.string(),
+    entitlementId: v.id("customerJourneyEntitlements"),
+    guardianTravellerId: v.id("travellers"),
+    jobCardId: v.id("jobCards"),
+    minorTravellerId: v.id("travellers"),
+    recordedAt: v.number(),
+    source: v.literal("guardian_invite"),
+  })
+    .index("by_minorTravellerId_and_recordedAt", ["minorTravellerId", "recordedAt"])
+    .index("by_entitlementId", ["entitlementId"]),
 
   checklistTasks: defineTable({
     category: v.string(),
