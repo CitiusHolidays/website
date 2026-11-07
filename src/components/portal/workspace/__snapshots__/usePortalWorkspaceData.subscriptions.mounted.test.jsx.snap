@@ -1,0 +1,1734 @@
+// Bun Snapshot v1, https://bun.sh/docs/test/snapshots
+
+exports[`workspace subscriptions: accounts job cards 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/queries:listPage 50",
+      "crm/jobCards:listPage 50",
+    ],
+    "manualLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/queries:listPage 50",
+      "crm/queries:listPage 50",
+      "crm/jobCards:listPage 50",
+    ],
+    "returned": "accountsJobCardCreators:set activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries[1] queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"contractingStatus":"Order Lost","leadStage":"Hot","queryType":"FIT","salesStatus":"Open"} page=50",
+      "#8 crm/jobCards:listPage {} page=50",
+      "#42 crm/staff:listAccountsForJobCards {}",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"contractingStatus":"Order Lost","leadStage":"Hot","queryType":"FIT","salesStatus":"Open"} page=50",
+      "#8 crm/jobCards:listPage {} page=50",
+      "#42 crm/staff:listAccountsForJobCards {}",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/queries:listPage 50",
+      "crm/jobCards:listPage 50",
+    ],
+    "manualLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/queries:listPage 50",
+      "crm/queries:listPage 50",
+      "crm/jobCards:listPage 50",
+    ],
+    "returned": "accountsJobCardCreators:set activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries[1] queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"contractingStatus":"Order Lost","leadStage":"Hot","queryType":"FIT","salesStatus":"Open"} page=50",
+      "#8 crm/jobCards:listPage {} page=50",
+      "#42 crm/staff:listAccountsForJobCards {}",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: activity 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/activity:listActivity 50",
+    ],
+    "manualLoads": [
+      "crm/activity:listActivity 50",
+      "crm/activity:listActivity 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity[1] approvals:undefined dropdowns:undefined emailDeliverySummaries:set expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:set pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#33 crm/activity:listActivity {"action":"update","entityType":"query"} page=50",
+      "#34 crm/notificationEmailLedger:listDeliverySummary {"limit":25}",
+      "#39 crm/activity:listNotifications {"limit":80}",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#33 crm/activity:listActivity {"action":"update","entityType":"query"} page=50",
+      "#34 crm/notificationEmailLedger:listDeliverySummary {"limit":25}",
+      "#39 crm/activity:listNotifications {"limit":80}",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/activity:listActivity 50",
+    ],
+    "manualLoads": [
+      "crm/activity:listActivity 50",
+      "crm/activity:listActivity 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity[1] approvals:undefined dropdowns:undefined emailDeliverySummaries:set expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:set pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#33 crm/activity:listActivity {"action":"update","entityType":"query"} page=50",
+      "#34 crm/notificationEmailLedger:listDeliverySummary {"limit":25}",
+      "#39 crm/activity:listNotifications {"limit":80}",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: approval deep link without expense permission 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/finance:listExpenses 50",
+      "crm/approvals:list 50",
+    ],
+    "manualLoads": [
+      "crm/approvals:list 50",
+      "crm/finance:listExpenses 50",
+      "crm/finance:listExpenses 50",
+      "crm/approvals:list 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals[2] dropdowns:undefined emailDeliverySummaries:undefined expenses[2] financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#23 crm/finance:listExpenses {"approvalStatus":"Pending","category":"Hotel","jobCardId":"jc-filter","reimbursementStatus":"Reimbursed"} page=50",
+      "#24 crm/approvals:getListRow {"approvalId":"a-1"}",
+      "#25 crm/finance:getExpenseListRow {"expenseId":"expense-from-approval"}",
+      "#29 crm/approvals:list {"status":"Approved","type":"expense"} page=50",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#23 crm/finance:listExpenses {"approvalStatus":"Pending","category":"Hotel","jobCardId":"jc-filter","reimbursementStatus":"Reimbursed"} page=50",
+      "#24 crm/approvals:getListRow {"approvalId":"a-1"}",
+      "#29 crm/approvals:list {"status":"Approved","type":"expense"} page=50",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/finance:listExpenses 50",
+      "crm/approvals:list 50",
+    ],
+    "manualLoads": [
+      "crm/approvals:list 50",
+      "crm/finance:listExpenses 50",
+      "crm/finance:listExpenses 50",
+      "crm/approvals:list 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals[2] dropdowns:undefined emailDeliverySummaries:undefined expenses[2] financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#23 crm/finance:listExpenses {"approvalStatus":"Pending","category":"Hotel","jobCardId":"jc-filter","reimbursementStatus":"Reimbursed"} page=50",
+      "#24 crm/approvals:getListRow {"approvalId":"a-1"}",
+      "#25 crm/finance:getExpenseListRow {"expenseId":"expense-from-approval"}",
+      "#29 crm/approvals:list {"status":"Approved","type":"expense"} page=50",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: contracting lost history 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/queries:listPage 50",
+      "crm/staff:listDirectory 50",
+    ],
+    "manualLoads": [
+      "crm/queries:listPage 50",
+      "crm/staff:listDirectory 50",
+      "crm/queries:listPage 50",
+      "crm/staff:listDirectory 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries[1] queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[1] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"contractingStatus":"Order Lost","historyScope":"lost","leadStage":"Hot","queryType":"FIT","salesStatus":"Open"} page=50",
+      "#31 crm/staff:listDirectory {"department":"Sales"} page=50",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"contractingStatus":"Order Lost","historyScope":"lost","leadStage":"Hot","queryType":"FIT","salesStatus":"Open"} page=50",
+      "#31 crm/staff:listDirectory {"department":"Sales"} page=50",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/queries:listPage 50",
+      "crm/staff:listDirectory 50",
+    ],
+    "manualLoads": [
+      "crm/queries:listPage 50",
+      "crm/staff:listDirectory 50",
+      "crm/queries:listPage 50",
+      "crm/staff:listDirectory 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries[1] queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[1] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"contractingStatus":"Order Lost","historyScope":"lost","leadStage":"Hot","queryType":"FIT","salesStatus":"Open"} page=50",
+      "#31 crm/staff:listDirectory {"department":"Sales"} page=50",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: deep links without permissions 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets[1] tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#17 crm/ticketing:getTicketListRow {"ticketId":"tk-1"}",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#17 crm/ticketing:getTicketListRow {"ticketId":"tk-1"}",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets[1] tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#17 crm/ticketing:getTicketListRow {"ticketId":"tk-1"}",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: expense deep link 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/finance:listExpenses 50",
+    ],
+    "manualLoads": [
+      "crm/finance:listExpenses 50",
+      "crm/jobCards:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/finance:listExpenses 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses[2] financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#23 crm/finance:listExpenses {"approvalStatus":"Pending","category":"Hotel","jobCardId":"jc-filter","reimbursementStatus":"Reimbursed"} page=50",
+      "#25 crm/finance:getExpenseListRow {"expenseId":"e-1"}",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#23 crm/finance:listExpenses {"approvalStatus":"Pending","category":"Hotel","jobCardId":"jc-filter","reimbursementStatus":"Reimbursed"} page=50",
+      "#25 crm/finance:getExpenseListRow {"expenseId":"e-1"}",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/finance:listExpenses 50",
+    ],
+    "manualLoads": [
+      "crm/finance:listExpenses 50",
+      "crm/jobCards:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/finance:listExpenses 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses[2] financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#23 crm/finance:listExpenses {"approvalStatus":"Pending","category":"Hotel","jobCardId":"jc-filter","reimbursementStatus":"Reimbursed"} page=50",
+      "#25 crm/finance:getExpenseListRow {"expenseId":"e-1"}",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: finance 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/finance:listInvoices 50",
+      "crm/finance:listFinancePnl 50",
+      "crm/finance:listFinanceOutstanding 50",
+    ],
+    "manualLoads": [
+      "crm/finance:listInvoices 50",
+      "crm/jobCards:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/finance:listInvoices 50",
+      "crm/finance:listFinancePnl 50",
+      "crm/finance:listFinanceOutstanding 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:set flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices[1] jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#22 crm/finance:listInvoices {"jobCardId":"jc-filter","status":"Approved"} page=50",
+      "#26 crm/finance:getFinanceOverview {"dateRange":{"from":"2026-01-01","to":"2026-01-31"}}",
+      "#27 crm/finance:listFinancePnl {"dateRange":{"from":"2026-01-01","to":"2026-01-31"}} page=50",
+      "#28 crm/finance:listFinanceOutstanding {"dateRange":{"from":"2026-01-01","to":"2026-01-31"},"referenceDate":"2026-05-28"} page=50",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#22 crm/finance:listInvoices {"jobCardId":"jc-filter","status":"Approved"} page=50",
+      "#26 crm/finance:getFinanceOverview {"dateRange":{"from":"2026-01-01","to":"2026-01-31"}}",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/finance:listInvoices 50",
+      "crm/finance:listFinancePnl 50",
+      "crm/finance:listFinanceOutstanding 50",
+    ],
+    "manualLoads": [
+      "crm/finance:listInvoices 50",
+      "crm/jobCards:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/finance:listInvoices 50",
+      "crm/finance:listFinancePnl 50",
+      "crm/finance:listFinanceOutstanding 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:set flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices[1] jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#22 crm/finance:listInvoices {"jobCardId":"jc-filter","status":"Approved"} page=50",
+      "#26 crm/finance:getFinanceOverview {"dateRange":{"from":"2026-01-01","to":"2026-01-31"}}",
+      "#27 crm/finance:listFinancePnl {"dateRange":{"from":"2026-01-01","to":"2026-01-31"}} page=50",
+      "#28 crm/finance:listFinanceOutstanding {"dateRange":{"from":"2026-01-01","to":"2026-01-31"},"referenceDate":"2026-05-28"} page=50",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: flights 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/ticketing:listPnrs 50",
+      "crm/imports:listFlightItinerary 50",
+    ],
+    "manualLoads": [
+      "crm/imports:listFlightItinerary 50",
+      "crm/ticketing:listPnrs 50",
+      "crm/imports:listFlightItinerary 50",
+      "crm/jobCards:listPage 50",
+      "crm/ticketing:listPnrs 50",
+      "crm/jobCards:listPage 50",
+      "crm/ticketing:listPnrs 50",
+      "crm/imports:listFlightItinerary 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary[1] focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs[1] proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#15 crm/ticketing:listPnrs {"jobCardId":"jc-filter","status":"Approved"} page=50",
+      "#19 crm/imports:listFlightItinerary {"jobCardId":"jc-filter"} page=50",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#15 crm/ticketing:listPnrs {"jobCardId":"jc-filter","status":"Approved"} page=50",
+      "#19 crm/imports:listFlightItinerary {"jobCardId":"jc-filter"} page=50",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/ticketing:listPnrs 50",
+      "crm/imports:listFlightItinerary 50",
+    ],
+    "manualLoads": [
+      "crm/imports:listFlightItinerary 50",
+      "crm/ticketing:listPnrs 50",
+      "crm/imports:listFlightItinerary 50",
+      "crm/jobCards:listPage 50",
+      "crm/ticketing:listPnrs 50",
+      "crm/jobCards:listPage 50",
+      "crm/ticketing:listPnrs 50",
+      "crm/imports:listFlightItinerary 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary[1] focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs[1] proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#15 crm/ticketing:listPnrs {"jobCardId":"jc-filter","status":"Approved"} page=50",
+      "#19 crm/imports:listFlightItinerary {"jobCardId":"jc-filter"} page=50",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: hotels with room counts 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/ops:listHotels 50",
+    ],
+    "manualLoads": [
+      "crm/ops:listHotels 50",
+      "crm/travellers:listPage 50",
+      "crm/ops:listHotels 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/ops:listHotels 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels[1] invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:set searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers[1] travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#10 crm/travellers:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"jobCardId":"jc-filter","roomType":"Twin"} page=50",
+      "#12 crm/travellers:getRoomCountSummary {"dateRange":{"from":"2026-01-01","to":"2026-01-31"},"jobCardId":"jc-filter","jobCardPageComplete":false,"visibleJobCardIds":["row:crm/jobCards:listPage"]}",
+      "#20 crm/ops:listHotels {"jobCardId":"jc-filter"} page=50",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#10 crm/travellers:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"jobCardId":"jc-filter","roomType":"Twin"} page=50",
+      "#12 crm/travellers:getRoomCountSummary {"dateRange":{"from":"2026-01-01","to":"2026-01-31"},"jobCardId":"jc-filter","jobCardPageComplete":false,"visibleJobCardIds":[]}",
+      "#20 crm/ops:listHotels {"jobCardId":"jc-filter"} page=50",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/ops:listHotels 50",
+    ],
+    "manualLoads": [
+      "crm/ops:listHotels 50",
+      "crm/travellers:listPage 50",
+      "crm/ops:listHotels 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/ops:listHotels 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels[1] invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:set searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers[1] travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#10 crm/travellers:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"jobCardId":"jc-filter","roomType":"Twin"} page=50",
+      "#12 crm/travellers:getRoomCountSummary {"dateRange":{"from":"2026-01-01","to":"2026-01-31"},"jobCardId":"jc-filter","jobCardPageComplete":false,"visibleJobCardIds":["row:crm/jobCards:listPage"]}",
+      "#20 crm/ops:listHotels {"jobCardId":"jc-filter"} page=50",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: job card creation from a query 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/queries:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/jobCards:listPage 50",
+    ],
+    "manualLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/queries:listPage 50",
+      "crm/queries:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/jobCards:listPage 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:set hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals[2] queries[2] queryDeepLinkDetail:set reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"contractingStatus":"Order Lost","historyScope":"active","leadStage":"Hot","queryType":"FIT","salesStatus":"Open"} page=50",
+      "#2 crm/queries:getDetail {"queryId":"query-from-form"}",
+      "#3 crm/proposals:listPage {} page=50",
+      "#6 crm/proposals:getDetail {"proposalId":"offer-proposal"}",
+      "#8 crm/jobCards:listPage {} page=50",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:set reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"contractingStatus":"Order Lost","historyScope":"active","leadStage":"Hot","queryType":"FIT","salesStatus":"Open"} page=50",
+      "#2 crm/queries:getDetail {"queryId":"query-from-form"}",
+      "#3 crm/proposals:listPage {} page=50",
+      "#8 crm/jobCards:listPage {} page=50",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/queries:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/jobCards:listPage 50",
+    ],
+    "manualLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/queries:listPage 50",
+      "crm/queries:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/jobCards:listPage 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:set hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals[2] queries[2] queryDeepLinkDetail:set reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"contractingStatus":"Order Lost","historyScope":"active","leadStage":"Hot","queryType":"FIT","salesStatus":"Open"} page=50",
+      "#2 crm/queries:getDetail {"queryId":"query-from-form"}",
+      "#3 crm/proposals:listPage {} page=50",
+      "#6 crm/proposals:getDetail {"proposalId":"offer-proposal"}",
+      "#8 crm/jobCards:listPage {} page=50",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: job card deep link with query 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/queries:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/jobCards:listPage 50",
+    ],
+    "manualLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/queries:listPage 50",
+      "crm/queries:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/jobCards:listPage 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:set focusedProposal:undefined focusedQuery:set hotels:undefined invoices:undefined jobCardDeletionOperations:set jobCards[2] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals[1] queries[2] queryDeepLinkDetail:set reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {} page=50",
+      "#2 crm/queries:getDetail {"queryId":"dl-query"}",
+      "#3 crm/proposals:listPage {} page=50",
+      "#7 crm/jobCards:listMyDeletionOperations {"referenceNow":1779969600000}",
+      "#8 crm/jobCards:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"queryType":"FIT","status":"Approved"} page=50",
+      "#9 crm/jobCards:getDetail {"jobCardId":"jc-1","queryId":"dl-query"}",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:set reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {} page=50",
+      "#2 crm/queries:getDetail {"queryId":"dl-query"}",
+      "#3 crm/proposals:listPage {} page=50",
+      "#7 crm/jobCards:listMyDeletionOperations {"referenceNow":1779969600000}",
+      "#8 crm/jobCards:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"queryType":"FIT","status":"Approved"} page=50",
+      "#9 crm/jobCards:getDetail {"jobCardId":"jc-1","queryId":"dl-query"}",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/queries:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/jobCards:listPage 50",
+    ],
+    "manualLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/queries:listPage 50",
+      "crm/queries:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/jobCards:listPage 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:set focusedProposal:undefined focusedQuery:set hotels:undefined invoices:undefined jobCardDeletionOperations:set jobCards[2] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals[1] queries[2] queryDeepLinkDetail:set reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {} page=50",
+      "#2 crm/queries:getDetail {"queryId":"dl-query"}",
+      "#3 crm/proposals:listPage {} page=50",
+      "#7 crm/jobCards:listMyDeletionOperations {"referenceNow":1779969600000}",
+      "#8 crm/jobCards:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"queryType":"FIT","status":"Approved"} page=50",
+      "#9 crm/jobCards:getDetail {"jobCardId":"jc-1","queryId":"dl-query"}",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: job card query-only deep link 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/queries:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/jobCards:listPage 50",
+    ],
+    "manualLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/queries:listPage 50",
+      "crm/queries:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/jobCards:listPage 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:set focusedProposal:undefined focusedQuery:set hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[2] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals[1] queries[2] queryDeepLinkDetail:set reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {} page=50",
+      "#2 crm/queries:getDetail {"queryId":"dl-query"}",
+      "#3 crm/proposals:listPage {} page=50",
+      "#8 crm/jobCards:listPage {} page=50",
+      "#9 crm/jobCards:getDetail {"queryId":"dl-query"}",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:set reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {} page=50",
+      "#2 crm/queries:getDetail {"queryId":"dl-query"}",
+      "#3 crm/proposals:listPage {} page=50",
+      "#8 crm/jobCards:listPage {} page=50",
+      "#9 crm/jobCards:getDetail {"queryId":"dl-query"}",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/queries:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/jobCards:listPage 50",
+    ],
+    "manualLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/queries:listPage 50",
+      "crm/queries:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/jobCards:listPage 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:set focusedProposal:undefined focusedQuery:set hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[2] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals[1] queries[2] queryDeepLinkDetail:set reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {} page=50",
+      "#2 crm/queries:getDetail {"queryId":"dl-query"}",
+      "#3 crm/proposals:listPage {} page=50",
+      "#8 crm/jobCards:listPage {} page=50",
+      "#9 crm/jobCards:getDetail {"queryId":"dl-query"}",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: job cards searching 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:set jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:true seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#0 crm/listSearch:getReadiness {"referenceNow":1779969600000}",
+      "#7 crm/jobCards:listMyDeletionOperations {"referenceNow":1779969600000}",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:true seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#0 crm/listSearch:getReadiness {"referenceNow":1779969600000}",
+      "#7 crm/jobCards:listMyDeletionOperations {"referenceNow":1779969600000}",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+    ],
+    "manualLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/jobCards:listPage 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:set jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#0 crm/listSearch:getReadiness {"referenceNow":1779969600000}",
+      "#7 crm/jobCards:listMyDeletionOperations {"referenceNow":1779969600000}",
+      "#8 crm/jobCards:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"queryType":"FIT","search":"beach","status":"Approved"} page=50",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: leave creation 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/staff:listDirectory 50",
+      "crm/leave:list 50",
+    ],
+    "manualLoads": [
+      "crm/leave:list 50",
+      "crm/staff:listDirectory 50",
+      "crm/staff:listDirectory 50",
+      "crm/leave:list 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:set leaveHeadApproverCandidates:undefined leaves[1] notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[1] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#31 crm/staff:listDirectory {"department":"Sales"} page=50",
+      "#37 crm/leave:list {"staffId":"staff-9","status":"Approved"} page=50",
+      "#38 crm/leave:balances {"referenceDate":"2026-05-28","staffId":"staff-1","fiscalYear":"2026-2027"}",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#31 crm/staff:listDirectory {"department":"Sales"} page=50",
+      "#37 crm/leave:list {"staffId":"staff-9","status":"Approved"} page=50",
+      "#38 crm/leave:balances {"referenceDate":"2026-05-28","staffId":"staff-1","fiscalYear":"2026-2027"}",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/staff:listDirectory 50",
+      "crm/leave:list 50",
+    ],
+    "manualLoads": [
+      "crm/leave:list 50",
+      "crm/staff:listDirectory 50",
+      "crm/staff:listDirectory 50",
+      "crm/leave:list 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:set leaveHeadApproverCandidates:undefined leaves[1] notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[1] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#31 crm/staff:listDirectory {"department":"Sales"} page=50",
+      "#37 crm/leave:list {"staffId":"staff-9","status":"Approved"} page=50",
+      "#38 crm/leave:balances {"referenceDate":"2026-05-28","staffId":"staff-1","fiscalYear":"2026-2027"}",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: passenger import modal 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+    ],
+    "manualLoads": [
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:set pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers[1] travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#10 crm/travellers:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"callingStatus":"Called","jobCardId":"jc-filter","ticketStatus":"Issued","visaStatus":"Submitted"} page=50",
+      "#35 crm/imports:listMyPassengerImportOperations {"referenceNow":1779969600000}",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#10 crm/travellers:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"callingStatus":"Called","jobCardId":"jc-filter","ticketStatus":"Issued","visaStatus":"Submitted"} page=50",
+      "#35 crm/imports:listMyPassengerImportOperations {"referenceNow":1779969600000}",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+    ],
+    "manualLoads": [
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:set pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers[1] travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#10 crm/travellers:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"callingStatus":"Called","jobCardId":"jc-filter","ticketStatus":"Issued","visaStatus":"Submitted"} page=50",
+      "#35 crm/imports:listMyPassengerImportOperations {"referenceNow":1779969600000}",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: passport for a tour manager 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+    ],
+    "manualLoads": [
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers[1] travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#10 crm/travellers:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"jobCardId":"jc-filter","passportStatus":"Valid"} page=50",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#10 crm/travellers:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"jobCardId":"jc-filter","passportStatus":"Valid"} page=50",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+    ],
+    "manualLoads": [
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers[1] travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#10 crm/travellers:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"jobCardId":"jc-filter","passportStatus":"Valid"} page=50",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: passport for staff 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+    ],
+    "manualLoads": [
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers[1] travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#10 crm/travellers:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"jobCardId":"jc-filter","passportExpiryUrgency":"critical","passportReferenceDate":"2026-05-28","passportStatus":"Valid"} page=50",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#10 crm/travellers:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"jobCardId":"jc-filter","passportExpiryUrgency":"critical","passportReferenceDate":"2026-05-28","passportStatus":"Valid"} page=50",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+    ],
+    "manualLoads": [
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers[1] travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#10 crm/travellers:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"jobCardId":"jc-filter","passportExpiryUrgency":"critical","passportReferenceDate":"2026-05-28","passportStatus":"Valid"} page=50",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: pipeline 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/queries:listPage 50",
+    ],
+    "manualLoads": [
+      "crm/queries:listPage 50",
+      "crm/queries:listPage 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries[1] queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"contractingStatus":"Order Lost","leadStage":"Hot","queryType":"FIT","salesStatus":"Open"} page=50",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"contractingStatus":"Order Lost","leadStage":"Hot","queryType":"FIT","salesStatus":"Open"} page=50",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/queries:listPage 50",
+    ],
+    "manualLoads": [
+      "crm/queries:listPage 50",
+      "crm/queries:listPage 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries[1] queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"contractingStatus":"Order Lost","leadStage":"Hot","queryType":"FIT","salesStatus":"Open"} page=50",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: proposal collaborator modal 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/queries:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/proposals:listLinkedQueriesPage 50",
+      "crm/staff:listDirectory 50",
+    ],
+    "manualLoads": [
+      "crm/proposals:listPage 50",
+      "crm/queries:listPage 50",
+      "crm/staff:listDirectory 50",
+      "crm/queries:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/proposals:listLinkedQueriesPage 50",
+      "crm/staff:listDirectory 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals[1] queries[1] queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[1] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {} page=50",
+      "#3 crm/proposals:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"status":"Approved"} page=50",
+      "#4 crm/proposals:getDetail {"proposalId":"p-form"}",
+      "#5 crm/proposals:listLinkedQueriesPage {"proposalId":"p-form"} page=50",
+      "#31 crm/staff:listDirectory {"department":"Sales"} page=50",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {} page=50",
+      "#3 crm/proposals:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"status":"Approved"} page=50",
+      "#4 crm/proposals:getDetail {"proposalId":"p-form"}",
+      "#5 crm/proposals:listLinkedQueriesPage {"proposalId":"p-form"} page=50",
+      "#31 crm/staff:listDirectory {"department":"Sales"} page=50",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/queries:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/proposals:listLinkedQueriesPage 50",
+      "crm/staff:listDirectory 50",
+    ],
+    "manualLoads": [
+      "crm/proposals:listPage 50",
+      "crm/queries:listPage 50",
+      "crm/staff:listDirectory 50",
+      "crm/queries:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/proposals:listLinkedQueriesPage 50",
+      "crm/staff:listDirectory 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals[1] queries[1] queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[1] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {} page=50",
+      "#3 crm/proposals:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"status":"Approved"} page=50",
+      "#4 crm/proposals:getDetail {"proposalId":"p-form"}",
+      "#5 crm/proposals:listLinkedQueriesPage {"proposalId":"p-form"} page=50",
+      "#31 crm/staff:listDirectory {"department":"Sales"} page=50",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: proposal deep link 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/queries:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/proposals:listLinkedQueriesPage 50",
+    ],
+    "manualLoads": [
+      "crm/proposals:listPage 50",
+      "crm/queries:listPage 50",
+      "crm/queries:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/proposals:listLinkedQueriesPage 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals[1] queries[1] queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {} page=50",
+      "#3 crm/proposals:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"status":"Approved"} page=50",
+      "#4 crm/proposals:getDetail {"proposalId":"p-1"}",
+      "#5 crm/proposals:listLinkedQueriesPage {"proposalId":"p-1"} page=50",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {} page=50",
+      "#3 crm/proposals:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"status":"Approved"} page=50",
+      "#4 crm/proposals:getDetail {"proposalId":"p-1"}",
+      "#5 crm/proposals:listLinkedQueriesPage {"proposalId":"p-1"} page=50",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/queries:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/proposals:listLinkedQueriesPage 50",
+    ],
+    "manualLoads": [
+      "crm/proposals:listPage 50",
+      "crm/queries:listPage 50",
+      "crm/queries:listPage 50",
+      "crm/proposals:listPage 50",
+      "crm/proposals:listLinkedQueriesPage 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals[1] queries[1] queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {} page=50",
+      "#3 crm/proposals:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"status":"Approved"} page=50",
+      "#4 crm/proposals:getDetail {"proposalId":"p-1"}",
+      "#5 crm/proposals:listLinkedQueriesPage {"proposalId":"p-1"} page=50",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: queries searching 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:true seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#0 crm/listSearch:getReadiness {"referenceNow":1779969600000}",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:true seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#0 crm/listSearch:getReadiness {"referenceNow":1779969600000}",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/queries:listPage 50",
+    ],
+    "manualLoads": [
+      "crm/queries:listPage 50",
+      "crm/queries:listPage 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries[1] queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#0 crm/listSearch:getReadiness {"referenceNow":1779969600000}",
+      "#1 crm/queries:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"contractingStatus":"Order Lost","historyScope":"active","leadStage":"Hot","queryType":"FIT","salesStatus":"Open","search":"beach"} page=50",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: queries without fetch 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [],
+  },
+  "searchReady": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [],
+  },
+}
+`;
+
+exports[`workspace subscriptions: query modal focus 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/queries:listPage 50",
+      "crm/staff:listDirectory 50",
+    ],
+    "manualLoads": [
+      "crm/queries:listPage 50",
+      "crm/staff:listDirectory 50",
+      "crm/queries:listPage 50",
+      "crm/staff:listDirectory 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:set hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries[2] queryDeepLinkDetail:set reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[1] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"contractingStatus":"Order Lost","historyScope":"active","leadStage":"Hot","queryType":"FIT","salesStatus":"Open"} page=50",
+      "#2 crm/queries:getDetail {"queryId":"q-entity"}",
+      "#31 crm/staff:listDirectory {"department":"Sales"} page=50",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:set reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"contractingStatus":"Order Lost","historyScope":"active","leadStage":"Hot","queryType":"FIT","salesStatus":"Open"} page=50",
+      "#2 crm/queries:getDetail {"queryId":"q-entity"}",
+      "#31 crm/staff:listDirectory {"department":"Sales"} page=50",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/queries:listPage 50",
+      "crm/staff:listDirectory 50",
+    ],
+    "manualLoads": [
+      "crm/queries:listPage 50",
+      "crm/staff:listDirectory 50",
+      "crm/queries:listPage 50",
+      "crm/staff:listDirectory 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:set hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries[2] queryDeepLinkDetail:set reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[1] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#1 crm/queries:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"contractingStatus":"Order Lost","historyScope":"active","leadStage":"Hot","queryType":"FIT","salesStatus":"Open"} page=50",
+      "#2 crm/queries:getDetail {"queryId":"q-entity"}",
+      "#31 crm/staff:listDirectory {"department":"Sales"} page=50",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: reports 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:set roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#30 crm/reports:overview {"dateRange":{"from":"2026-01-01","to":"2026-01-31"}}",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#30 crm/reports:overview {"dateRange":{"from":"2026-01-01","to":"2026-01-31"}}",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:set roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#30 crm/reports:overview {"dateRange":{"from":"2026-01-01","to":"2026-01-31"}}",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: seat allocation 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/ticketing:listSeatAllocations 50",
+    ],
+    "manualLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/ticketing:listSeatAllocations 50",
+      "crm/jobCards:listPage 50",
+      "crm/ticketing:listSeatAllocations 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats[1] staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#18 crm/ticketing:listSeatAllocations {"jobCardId":"jc-filter"} page=50",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#18 crm/ticketing:listSeatAllocations {"jobCardId":"jc-filter"} page=50",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/ticketing:listSeatAllocations 50",
+    ],
+    "manualLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/ticketing:listSeatAllocations 50",
+      "crm/jobCards:listPage 50",
+      "crm/ticketing:listSeatAllocations 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats[1] staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#18 crm/ticketing:listSeatAllocations {"jobCardId":"jc-filter"} page=50",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: settings 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/staff:listStaff 50",
+    ],
+    "manualLoads": [
+      "crm/staff:listStaff 50",
+      "crm/staff:listStaff 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:set emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:set leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff[1] team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#40 crm/settings:listDropdowns {}",
+      "#41 crm/staff:listStaff {"active":true,"department":"Sales"} page=50",
+      "#43 crm/leaveApprovers:listHeadApproverCandidates {}",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#40 crm/settings:listDropdowns {}",
+      "#41 crm/staff:listStaff {"active":true,"department":"Sales"} page=50",
+      "#43 crm/leaveApprovers:listHeadApproverCandidates {}",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/staff:listStaff 50",
+    ],
+    "manualLoads": [
+      "crm/staff:listStaff 50",
+      "crm/staff:listStaff 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:set emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:set leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff[1] team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#40 crm/settings:listDropdowns {}",
+      "#41 crm/staff:listStaff {"active":true,"department":"Sales"} page=50",
+      "#43 crm/leaveApprovers:listHeadApproverCandidates {}",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: team picker without directory 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team:set ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#32 crm/staff:listTeamOptions {}",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#32 crm/staff:listTeamOptions {}",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team:set ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#32 crm/staff:listTeamOptions {}",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: ticketing 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:set tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#14 crm/ticketing:dashboard {"dateRange":{"from":"2026-01-01","to":"2026-01-31"},"referenceNow":1779969600000}",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#14 crm/ticketing:dashboard {"dateRange":{"from":"2026-01-01","to":"2026-01-31"},"referenceNow":1779969600000}",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:set tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#14 crm/ticketing:dashboard {"dateRange":{"from":"2026-01-01","to":"2026-01-31"},"referenceNow":1779969600000}",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: tickets with focused ticket 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/ticketing:listPnrs 50",
+      "crm/ticketing:listTickets 50",
+    ],
+    "manualLoads": [
+      "crm/ticketing:listPnrs 50",
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/ticketing:listPnrs 50",
+      "crm/ticketing:listTickets 50",
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/ticketing:listPnrs 50",
+      "crm/ticketing:listTickets 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs[1] proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets[2] tourManagers:undefined travellers[1] travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#10 crm/travellers:listPage {"jobCardId":"jc-filter"} page=50",
+      "#15 crm/ticketing:listPnrs {"jobCardId":"jc-filter"} page=50",
+      "#16 crm/ticketing:listTickets {"jobCardId":"jc-filter","ticketStatus":"Issued"} page=50",
+      "#17 crm/ticketing:getTicketListRow {"ticketId":"tk-1"}",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#10 crm/travellers:listPage {"jobCardId":"jc-filter"} page=50",
+      "#15 crm/ticketing:listPnrs {"jobCardId":"jc-filter"} page=50",
+      "#16 crm/ticketing:listTickets {"jobCardId":"jc-filter","ticketStatus":"Issued"} page=50",
+      "#17 crm/ticketing:getTicketListRow {"ticketId":"tk-1"}",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/ticketing:listPnrs 50",
+      "crm/ticketing:listTickets 50",
+    ],
+    "manualLoads": [
+      "crm/ticketing:listPnrs 50",
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/ticketing:listPnrs 50",
+      "crm/ticketing:listTickets 50",
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/ticketing:listPnrs 50",
+      "crm/ticketing:listTickets 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs[1] proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets[2] tourManagers:undefined travellers[1] travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#10 crm/travellers:listPage {"jobCardId":"jc-filter"} page=50",
+      "#15 crm/ticketing:listPnrs {"jobCardId":"jc-filter"} page=50",
+      "#16 crm/ticketing:listTickets {"jobCardId":"jc-filter","ticketStatus":"Issued"} page=50",
+      "#17 crm/ticketing:getTicketListRow {"ticketId":"tk-1"}",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: tour managers 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/ops:listTourManagers 50",
+    ],
+    "manualLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/ops:listTourManagers 50",
+      "crm/jobCards:listPage 50",
+      "crm/ops:listTourManagers 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers[1] travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#21 crm/ops:listTourManagers {"callingStatus":"Called","jobCardId":"jc-filter","status":"Pending"} page=50",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#21 crm/ops:listTourManagers {"callingStatus":"Called","jobCardId":"jc-filter","status":"Pending"} page=50",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/ops:listTourManagers 50",
+    ],
+    "manualLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/ops:listTourManagers 50",
+      "crm/jobCards:listPage 50",
+      "crm/ops:listTourManagers 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers[1] travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#21 crm/ops:listTourManagers {"callingStatus":"Called","jobCardId":"jc-filter","status":"Pending"} page=50",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: traveller deep link 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+    ],
+    "manualLoads": [
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers[2] travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#10 crm/travellers:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"callingStatus":"Called","jobCardId":"jc-filter","ticketStatus":"Issued","visaStatus":"Submitted"} page=50",
+      "#11 crm/travellers:getListRow {"travellerId":"t-1"}",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#10 crm/travellers:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"callingStatus":"Called","jobCardId":"jc-filter","ticketStatus":"Issued","visaStatus":"Submitted"} page=50",
+      "#11 crm/travellers:getListRow {"travellerId":"t-1"}",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+    ],
+    "manualLoads": [
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers[2] travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#10 crm/travellers:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"callingStatus":"Called","jobCardId":"jc-filter","ticketStatus":"Issued","visaStatus":"Submitted"} page=50",
+      "#11 crm/travellers:getListRow {"travellerId":"t-1"}",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: travellers searching 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+    ],
+    "manualLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/jobCards:listPage 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:true seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#0 crm/listSearch:getReadiness {"referenceNow":1779969600000}",
+      "#8 crm/jobCards:listPage {} page=50",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:true seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#0 crm/listSearch:getReadiness {"referenceNow":1779969600000}",
+      "#8 crm/jobCards:listPage {} page=50",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+    ],
+    "manualLoads": [
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers[1] travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#0 crm/listSearch:getReadiness {"referenceNow":1779969600000}",
+      "#8 crm/jobCards:listPage {} page=50",
+      "#10 crm/travellers:listPage {"createdAtFrom":1767225600000,"createdAtTo":1769903999999,"callingStatus":"Called","jobCardId":"jc-filter","search":"anna","ticketStatus":"Issued","visaStatus":"Submitted"} page=50",
+    ],
+  },
+}
+`;
+
+exports[`workspace subscriptions: visa create 1`] = `
+{
+  "loaded": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/visa:list 50",
+    ],
+    "manualLoads": [
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/visa:list 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/visa:list 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers[1] travellersWithoutVisa:set visas[1]",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#10 crm/travellers:listPage {"jobCardId":"jc-filter"} page=50",
+      "#13 crm/visa:list {"jobCardId":"jc-filter","status":"Approved"} page=50",
+      "#44 crm/visa:listTravellersWithoutVisa {}",
+    ],
+  },
+  "loading": {
+    "automaticLoads": [],
+    "manualLoads": [],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards:undefined leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers:undefined travellersWithoutVisa:undefined visas:undefined",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#10 crm/travellers:listPage {"jobCardId":"jc-filter"} page=50",
+      "#13 crm/visa:list {"jobCardId":"jc-filter","status":"Approved"} page=50",
+      "#44 crm/visa:listTravellersWithoutVisa {}",
+    ],
+  },
+  "searchReady": {
+    "automaticLoads": [
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/visa:list 50",
+    ],
+    "manualLoads": [
+      "crm/travellers:listPage 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/visa:list 50",
+      "crm/jobCards:listPage 50",
+      "crm/travellers:listPage 50",
+      "crm/visa:list 50",
+    ],
+    "returned": "accountsJobCardCreators:undefined activity:undefined approvals:undefined dropdowns:undefined emailDeliverySummaries:undefined expenses:undefined financeOverview:undefined flightItinerary:undefined focusedJobCard:undefined focusedProposal:undefined focusedQuery:undefined hotels:undefined invoices:undefined jobCardDeletionOperations:undefined jobCards[1] leaveBalances:undefined leaveHeadApproverCandidates:undefined leaves:undefined notifications:undefined pagination:set passengerExportOperations:undefined passengerImportOperations:undefined pnrs:undefined proposals:undefined queries:undefined queryDeepLinkDetail:null reports:undefined roomCountSummary:undefined searchPreparing:false seats:undefined staff:undefined team[0] ticketDashboard:undefined tickets:undefined tourManagers:undefined travellers[1] travellersWithoutVisa:set visas[1]",
+    "subscriptionCount": 45,
+    "subscriptions": [
+      "#8 crm/jobCards:listPage {} page=50",
+      "#10 crm/travellers:listPage {"jobCardId":"jc-filter"} page=50",
+      "#13 crm/visa:list {"jobCardId":"jc-filter","status":"Approved"} page=50",
+      "#44 crm/visa:listTravellersWithoutVisa {}",
+    ],
+  },
+}
+`;
