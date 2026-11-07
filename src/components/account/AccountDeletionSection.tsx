@@ -318,11 +318,11 @@ export function AccountDeletionSection({
   };
 
   const signInAgain = async () => {
-    try {
-      await signOut?.();
-    } finally {
-      navigate(SIGN_IN_PATH);
-    }
+    // Clearing this browser's session is best effort: a failed sign-out must still send the
+    // person to sign in. Settled with .catch rather than try/finally, which React Compiler
+    // cannot compile.
+    await signOut?.().catch(() => undefined);
+    navigate(SIGN_IN_PATH);
   };
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {

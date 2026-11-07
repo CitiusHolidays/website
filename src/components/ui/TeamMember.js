@@ -5,6 +5,60 @@ import Image from "next/image";
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { ChevronDownIcon, useAnimatedIconTrigger } from "./AnimatedLucideIcons";
 
+const QUOTE_EASE = [0.23, 1, 0.32, 1];
+
+function initialsOf(name) {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("");
+}
+
+/** The member's photo, or their initials on the brand gradient when there is none. */
+function TeamMemberPortrait({ member }) {
+  return (
+    <div className="relative h-80 bg-gradient-to-br from-citius-blue to-citius-orange">
+      {member.image ? (
+        <Image
+          alt={member.name}
+          className="object-cover object-center"
+          fill
+          sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
+          src={member.image}
+        />
+      ) : (
+        <div className="flex h-full items-center justify-center">
+          <div className="flex size-32 items-center justify-center rounded-full bg-white/20">
+            <span className="font-bold text-4xl text-brand-light">{initialsOf(member.name)}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ReadMoreButton({ biographyId, chevronRef, chevronTrigger, isExpanded, onToggle }) {
+  return (
+    <button
+      aria-controls={biographyId}
+      aria-expanded={isExpanded}
+      className="mt-3 flex items-center gap-1 font-medium text-citius-blue text-sm transition-colors duration-150 hover:text-public-orange-ink active:opacity-80"
+      onClick={onToggle}
+      type="button"
+      {...chevronTrigger}
+    >
+      <span>{isExpanded ? "Show Less" : "Read More"}</span>
+      <span
+        aria-hidden="true"
+        className="transition-transform duration-150 motion-reduce:transition-none"
+        style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}
+      >
+        <ChevronDownIcon ref={chevronRef} size={16} />
+      </span>
+    </button>
+  );
+}
+
 export default function TeamMember({ member, index }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [biographyHeight, setBiographyHeight] = useState(0);
@@ -14,6 +68,10 @@ export default function TeamMember({ member, index }) {
   const shouldReduceMotion = useReducedMotion();
   const biographyId = `${useId().replaceAll(":", "")}-biography`;
   const toggleExpanded = () => setIsExpanded((current) => !current);
+  const quoteHidden = {
+    opacity: 0,
+    transform: shouldReduceMotion ? "none" : "translate3d(0, 4px, 0) scaleY(0.98)",
+  };
 
   useLayoutEffect(() => {
     const node = biographyRef.current;
@@ -43,28 +101,7 @@ export default function TeamMember({ member, index }) {
       viewport={{ amount: 0.3, once: true }}
       whileInView={{ opacity: 1, y: 0 }}
     >
-      <div className="relative h-80 bg-gradient-to-br from-citius-blue to-citius-orange">
-        {member.image ? (
-          <Image
-            alt={member.name}
-            className="object-cover object-center"
-            fill
-            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 25vw"
-            src={member.image}
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center">
-            <div className="flex size-32 items-center justify-center rounded-full bg-white/20">
-              <span className="font-bold text-4xl text-brand-light">
-                {member.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")}
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
+      <TeamMemberPortrait member={member} />
 
       <div className="p-6">
         <m.h3
@@ -98,23 +135,13 @@ export default function TeamMember({ member, index }) {
           </div>
 
           {member.bio.length > 200 && (
-            <button
-              aria-controls={biographyId}
-              aria-expanded={isExpanded}
-              className="mt-3 flex items-center gap-1 font-medium text-citius-blue text-sm transition-colors duration-150 hover:text-public-orange-ink active:opacity-80"
-              onClick={toggleExpanded}
-              type="button"
-              {...chevronTrigger}
-            >
-              <span>{isExpanded ? "Show Less" : "Read More"}</span>
-              <span
-                aria-hidden="true"
-                className="transition-transform duration-150 motion-reduce:transition-none"
-                style={{ transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }}
-              >
-                <ChevronDownIcon ref={chevronRef} size={16} />
-              </span>
-            </button>
+            <ReadMoreButton
+              biographyId={biographyId}
+              chevronRef={chevronRef}
+              chevronTrigger={chevronTrigger}
+              isExpanded={isExpanded}
+              onToggle={toggleExpanded}
+            />
           )}
         </div>
 
@@ -123,16 +150,10 @@ export default function TeamMember({ member, index }) {
             <m.div
               animate={{ opacity: 1, transform: "translate3d(0, 0, 0) scaleY(1)" }}
               className="mt-4 overflow-hidden border-brand-border border-t pt-4"
-              exit={{
-                opacity: 0,
-                transform: shouldReduceMotion ? "none" : "translate3d(0, 4px, 0) scaleY(0.98)",
-              }}
-              initial={{
-                opacity: 0,
-                transform: shouldReduceMotion ? "none" : "translate3d(0, 4px, 0) scaleY(0.98)",
-              }}
+              exit={quoteHidden}
+              initial={quoteHidden}
               style={{ originY: 0 }}
-              transition={{ duration: shouldReduceMotion ? 0 : 0.16, ease: [0.23, 1, 0.32, 1] }}
+              transition={{ duration: shouldReduceMotion ? 0 : 0.16, ease: QUOTE_EASE }}
             >
               <p className="text-brand-muted text-sm italic">&quot;{member.quote}&quot;</p>
               {member.quoteAuthor ? (

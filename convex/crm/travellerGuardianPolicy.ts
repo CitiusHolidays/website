@@ -272,12 +272,13 @@ export function resolveGuardianReferences(
   candidatesFor: (reference: GuardianReference) => readonly GuardianCandidate[]
 ): GuardianReferenceResolution {
   const guardianIds: string[] = [];
+  const linked = new Set<string>();
   const unresolved: UnresolvedGuardianReference[] = [];
   for (const reference of references) {
     const resolution = resolveGuardianReference(minor, reference, candidatesFor(reference));
     if (resolution.kind !== "linked") {
       unresolved.push({ message: resolution.message, reference });
-    } else if (guardianIds.includes(resolution.guardianId)) {
+    } else if (linked.has(resolution.guardianId)) {
       unresolved.push({
         message: `Guardian ${displayName(reference)} not linked: already named as this minor's guardian.`,
         reference,
@@ -289,6 +290,7 @@ export function resolveGuardianReferences(
       });
     } else {
       guardianIds.push(resolution.guardianId);
+      linked.add(resolution.guardianId);
     }
   }
   return { guardianIds, unresolved };
