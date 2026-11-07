@@ -53,14 +53,16 @@ describe("Policy documents", () => {
       "Draft for legal and management review"
     );
     const markers = container.querySelectorAll("mark[data-review-marker]");
-    expect(markers.length).toBeGreaterThanOrEqual(15);
+    expect(markers.length).toBe(12);
     for (const marker of markers) {
       expect(marker.textContent).toMatch(REVIEW_MARKER_TEXT);
     }
     expect(tab("Privacy Policy")?.getAttribute("aria-current")).toBe("page");
     expect(tab("Privacy Policy")?.getAttribute("href")).toBe("/policies?view=privacy");
     expect(tab("Terms & Conditions")?.getAttribute("aria-current")).toBeNull();
-    expect(container.querySelector('a[href="/contact?intent=account-deletion"]')).not.toBeNull();
+    expect(
+      container.querySelector('a[href="/account?tab=settings#delete-account"]')
+    ).not.toBeNull();
   });
 
   test("Terms and Billing link their Privacy Policy references to the privacy view", () => {
