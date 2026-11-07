@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import { PortalConfirmProvider } from "@/components/portal/PortalConfirmDialog";
 import { PortalToastProvider } from "@/components/portal/PortalToast";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
+import { RoomCountView } from "./operations/RoomCountView";
 import { RoomingListView } from "./operations/RoomingListView";
 import { TourManagersView } from "./operations/TourManagersView";
 import { TravellersView } from "./operations/TravellersView";
@@ -268,6 +269,71 @@ describe("Mounted portal operations views", () => {
     expect(view.container.textContent).not.toContain("DBL");
 
     await view.unmount();
+  });
+
+  test("Room Count totals rooms by type and explains a partial Job Card breakdown", async () => {
+    const loadMore = mock(noop);
+    const summary = {
+      breakdownComplete: false,
+      complete: true,
+      jobBreakdown: [
+        {
+          assignments: 3,
+          clientName: "Acme",
+          id: "job-1",
+          jobCode: "JC-0001-NS",
+          roomTypes: [
+            { assignments: 2, roomType: "Twin" },
+            { assignments: 1, roomType: "Single" },
+          ],
+        },
+      ],
+      roomTypes: [
+        { assignments: 2, roomType: "Twin" },
+        { assignments: 1, roomType: "Single" },
+      ],
+      scope: "all-visible",
+      totalAssignments: 3,
+    };
+    const jobCards = [{ clientName: "Acme", id: "job-1", jobCode: "JC-0001-NS" }];
+    const view = await mount(
+      <RoomCountView
+        jobCardFilter=""
+        jobCards={jobCards}
+        pagination={{ canLoadMore: true, isLoadingMore: false, loadMore }}
+        setJobCardFilter={noop}
+        summary={summary}
+      />
+    );
+
+    const text = view.container.textContent;
+    expect(text).toContain("Rooming rows3");
+    expect(text).toContain("Est. rooms2");
+    expect(text).not.toContain("Room Count aggregates are preparing");
+    expect(text).toContain("Totals cover all records available to your role");
+    expect(text).toContain("Job Card Breakdown");
+    expect(text).toContain("Twin: 2, Single: 1");
+    const loadMoreButton = [...view.container.querySelectorAll("button")].find(
+      (node) => node.textContent === "Load more Job Cards"
+    );
+    await act(async () => loadMoreButton.click());
+    expect(loadMore).toHaveBeenCalledTimes(1);
+    await view.unmount();
+
+    const filtered = await mount(
+      <RoomCountView
+        jobCardFilter="job-1"
+        jobCards={jobCards}
+        setJobCardFilter={noop}
+        summary={{ ...summary, complete: false }}
+      />
+    );
+    const filteredText = filtered.container.textContent;
+    expect(filteredText).toContain("Showing room count for JC-0001-NS · Acme");
+    expect(filteredText).toContain("Room Count aggregates are preparing");
+    expect(filteredText).not.toContain("Job Card Breakdown");
+    expect(filteredText).not.toContain("Load more Job Cards");
+    await filtered.unmount();
   });
 
   test("Tour Managers preserves calling board travel batch and status actions", async () => {
