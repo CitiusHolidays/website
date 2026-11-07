@@ -1,9 +1,20 @@
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { ConvexError, v } from "convex/values";
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx, type QueryCtx, query } from "../_generated/server";
 import { requireAppPilotOn } from "./appPilot";
+import {
+  FIELD_PASSPORT_OPEN_LOOKUP_LIMIT,
+  type FieldPassportVariant,
+  fieldPassportOpenCutoff,
+  fieldPassportVariantValidator,
+  isPreviewableFieldPassportMimeType,
+  joinsFieldPassportOpen,
+  mergeFieldPassportVariants,
+  normalizeFieldPassportOpenId,
+} from "./fieldPassportOpenPolicy";
 import { hasRole, jobCardRecordGrant, PERMISSIONS, type PortalAccess, requireStaff } from "./lib";
+import { portalFileRateLimitedError } from "./lib/portalFileDownloadLimit";
 import {
   FIELD_PASSPORT_AUDIT_RETENTION_DAYS,
   RETENTION_DAY_MS,
@@ -11,6 +22,7 @@ import {
 } from "./lib/retentionSchedule";
 import { boundedPaginationOptions, loadRowsByIdInBatches } from "./paginationPolicy";
 import { canReadFieldPassportAccessLog } from "./passportPolicy";
+import { consumePortalFileDownloadWindow } from "./rateLimitMaintenance";
 import { assertReferenceNow } from "./referenceTimePolicy";
 import { loadTourManagerGroupScope, travellerInGroupScope } from "./tourManagerGroupScope";
 
@@ -103,15 +115,130 @@ async function loadFieldJobCard(
   return { job, scope };
 }
 
+/** The same actor's open of this traveller with this `openId`, still inside the open window. */
+async function findRecentOpen(
+  ctx: MutationCtx,
+  open: {
+    actorAuthUserId: string;
+    now: number;
+    openId: string;
+    travellerId: Id<"travellers">;
+  }
+) {
+  // Only the caller's own rows: another login reusing the openId can never touch this open.
+  // Newest first, so the latest open of this traveller is the one joined.
+  const rows = await ctx.db
+    .query("fieldPassportAccessAudit")
+    .withIndex("by_actorAuthUserId_and_openId_and_accessedAt", (q) =>
+      q
+        .eq("actorAuthUserId", open.actorAuthUserId)
+        .eq("openId", open.openId)
+        .gt("accessedAt", fieldPassportOpenCutoff(open.now))
+    )
+    .order("desc")
+    .take(FIELD_PASSPORT_OPEN_LOOKUP_LIMIT);
+  return (
+    rows.find(
+      (row) =>
+        row.travellerId === open.travellerId && joinsFieldPassportOpen(row.accessedAt, open.now)
+    ) ?? null
+  );
+}
+
+/** Counts against the portal file rate limit, or throws its refusal. */
+async function consumeFieldPassportDownload(ctx: MutationCtx, actorAuthUserId: string) {
+  const limit = await consumePortalFileDownloadWindow(ctx, actorAuthUserId);
+  if (!limit.allowed) {
+    throw portalFileRateLimitedError(limit.retryAfterSeconds);
+  }
+}
+
+/**
+ * Starts or joins the caller's open and returns its audit row. A new open counts once and writes
+ * the row; another variant of the same open is added to the row without counting; a variant the
+ * open already served counts again.
+ */
+async function recordFieldPassportOpen(
+  ctx: MutationCtx,
+  open: {
+    actorAuthUserId: string;
+    actorName: string;
+    actorStaffId: Id<"staffUsers">;
+    jobCardId: Id<"jobCards">;
+    now: number;
+    openId: string | undefined;
+    serve: FieldPassportVariant | "none";
+    travelBatchId: Id<"travelBatches"> | undefined;
+    travellerId: Id<"travellers">;
+    tripClosesAt: number;
+  }
+) {
+  const { openId, serve } = open;
+  const existing = openId
+    ? await findRecentOpen(ctx, {
+        actorAuthUserId: open.actorAuthUserId,
+        now: open.now,
+        openId,
+        travellerId: open.travellerId,
+      })
+    : null;
+  if (existing) {
+    if (serve === "none") {
+      return existing._id;
+    }
+    if (existing.variants?.includes(serve)) {
+      await consumeFieldPassportDownload(ctx, open.actorAuthUserId);
+    } else {
+      await ctx.db.patch("fieldPassportAccessAudit", existing._id, {
+        variants: mergeFieldPassportVariants(existing.variants, serve),
+      });
+    }
+    return existing._id;
+  }
+  await consumeFieldPassportDownload(ctx, open.actorAuthUserId);
+  return await ctx.db.insert("fieldPassportAccessAudit", {
+    accessedAt: open.now,
+    actorAuthUserId: open.actorAuthUserId,
+    actorName: open.actorName,
+    actorStaffId: open.actorStaffId,
+    jobCardId: open.jobCardId,
+    openId,
+    retainUntil: open.tripClosesAt + FIELD_PASSPORT_AUDIT_RETENTION_DAYS * RETENTION_DAY_MS,
+    travelBatchId: open.travelBatchId,
+    travellerId: open.travellerId,
+    tripClosesAt: open.tripClosesAt,
+    variants: serve === "none" ? [] : [serve],
+  });
+}
+
 /**
  * Authorizes one field passport read and writes its audit row in the same transaction.
  * Called by `crm/fieldPassportActions:getFieldPassportFile` with the caller's identity.
+ *
+ * Every call runs every check. A new open then counts once against the portal file rate limit
+ * and inserts its audit row; a later call of the same open (same actor, traveller and `openId`,
+ * under ten minutes after the open's first call: `joinsFieldPassportOpen`) adds its variant to
+ * that row without counting again.
+ * Serving a variant the open already served counts again, so one open cannot be replayed past
+ * the limit. A preview of a scan the server cannot downscale serves nothing (`serve: "none"`)
+ * but still starts or joins the open, so the full call that follows counts with it.
  */
 export const authorizeFieldPassportRead = internalMutation({
-  args: { travellerId: v.string() },
+  args: {
+    openId: v.optional(v.string()),
+    travellerId: v.string(),
+    variant: v.optional(fieldPassportVariantValidator),
+  },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx, PERMISSIONS.VIEW_TRAVELLERS);
     const actorStaffId = requireFieldTourManager(access);
+    // The portal file rate limit and the audit row are keyed by the auth user.
+    const actorAuthUserId = String(access.authUserId ?? "").trim();
+    if (!actorAuthUserId) {
+      throw new ConvexError("FORBIDDEN");
+    }
+    const openId = normalizeFieldPassportOpenId(args.openId);
+    const variant: FieldPassportVariant = args.variant ?? "full";
     const travellerId = ctx.db.normalizeId("travellers", args.travellerId);
     const traveller = travellerId ? await ctx.db.get("travellers", travellerId) : null;
     if (!traveller) {
@@ -142,28 +269,55 @@ export const authorizeFieldPassportRead = internalMutation({
     if (!passport?.storageId) {
       throw new ConvexError("Passport document not found for this traveller");
     }
-    await ctx.db.insert("fieldPassportAccessAudit", {
-      accessedAt: now,
-      actorAuthUserId: access.authUserId ?? access.email,
-      actorName: access.name,
-      actorStaffId,
-      jobCardId: job._id,
-      retainUntil: window.closesAt + FIELD_PASSPORT_AUDIT_RETENTION_DAYS * RETENTION_DAY_MS,
-      travelBatchId: traveller.travelBatchId,
-      travellerId: traveller._id,
-      tripClosesAt: window.closesAt,
-    });
-    return {
+    const grant = {
       fileName: passport.fileName || "passport.pdf",
       mimeType: passportMimeType(passport),
       storageId: passport.storageId,
     };
+    const serve =
+      variant === "preview" && !isPreviewableFieldPassportMimeType(grant.mimeType)
+        ? ("none" as const)
+        : variant;
+    const auditId = await recordFieldPassportOpen(ctx, {
+      actorAuthUserId,
+      actorName: access.name,
+      actorStaffId,
+      jobCardId: job._id,
+      now,
+      openId,
+      serve,
+      travelBatchId: traveller.travelBatchId,
+      travellerId: traveller._id,
+      tripClosesAt: window.closesAt,
+    });
+    return { ...grant, auditId, serve };
   },
   returns: v.object({
+    auditId: v.id("fieldPassportAccessAudit"),
     fileName: v.string(),
     mimeType: v.string(),
+    // What the action returns: the requested variant, or "none" for a preview it cannot make.
+    serve: v.union(v.literal("full"), v.literal("preview"), v.literal("none")),
     storageId: v.id("_storage"),
   }),
+});
+
+/**
+ * The action could not make a preview from a scan it read (an image sharp cannot decode), so the
+ * open's row no longer claims one. The row itself stays: the scan was read for this open.
+ */
+export const withdrawFieldPassportPreview = internalMutation({
+  args: { auditId: v.id("fieldPassportAccessAudit") },
+  handler: async (ctx, args) => {
+    const row = await ctx.db.get("fieldPassportAccessAudit", args.auditId);
+    if (row?.variants?.includes("preview")) {
+      await ctx.db.patch("fieldPassportAccessAudit", row._id, {
+        variants: row.variants.filter((variant) => variant !== "preview"),
+      });
+    }
+    return null;
+  },
+  returns: v.null(),
 });
 
 /**

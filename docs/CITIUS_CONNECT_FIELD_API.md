@@ -71,7 +71,7 @@ All functions require an active staff session. Ids are Convex ids as strings.
 | `crm/fieldSync:pushHeadcountStop` | mutation | `{ clientStopId, clientUpdatedAt?, day: "YYYY-MM-DD", jobCardId, label, presentTravellerIds: string[], startedAt: ms, travelBatchId? }` | `{ applied, id, ignoredTravellerIds }` | `view:travellers`, Job Card visible, batch inside the caller's group |
 | `crm/fieldSync:recordAnnouncement` | mutation | `{ body, clientAnnouncementId, clientUpdatedAt?, jobCardId, recipientTravellerIds, seenByTravellerIds, sharedAt: ms, travelBatchId? }` | `{ applied, id, ignoredTravellerIds }` | as above |
 | `crm/fieldPassports:listFieldPassports` | query | `{ jobCardId, referenceNow: ms }` | `{ timeZone, travellers: [{ travellerId, hasPassportScan, mimeType, opensAt, closesAt, available }] }`; `mimeType` is the scan's file type (`application/pdf`, `image/jpeg`, `image/png`, `image/webp`) from the same metadata the file read uses, or `null` without a scan | Tour Manager role, own staff assignment on the Job Card, own group only |
-| `crm/fieldPassportActions:getFieldPassportFile` | action | `{ travellerId }` | `{ bytes, fileName, mimeType }` | Tour Manager role, portal file rate limit, own staff assignment (no name match), own group, trip window; writes an audit row |
+| `crm/fieldPassportActions:getFieldPassportFile` | action | `{ travellerId, variant?: "preview" \| "full", openId?: string }` | without `variant`: `{ bytes, fileName, mimeType }` as before; `"full"`: `{ bytes, fileName, mimeType, variant: "full", width?, height? }`; `"preview"`: `{ bytes, fileName, mimeType: "image/jpeg", variant: "preview", fullMimeType, width, height }` or `{ variant: "none" }` (see [Fast preview](#fast-preview)) | Tour Manager role, portal file rate limit (per open), own staff assignment (no name match), own group, trip window, app pilot; one audit row per open |
 | `crm/finance:createExpense` | mutation | existing args plus optional `clientRef` | `{ id }` | unchanged, plus idempotent replay |
 
 Office readers (Operations, Operations Cement, Operations Head, Directors, Admin, Director Cement,
@@ -123,14 +123,15 @@ types it can render and never spends an audited read on a file it cannot show.
 
 The server cannot tell the app from a web session: `getFieldPassportFile` works for any session
 of a Tour Manager with an own staff assignment, inside the window, for their own group, and every
-call is audited.
+open is audited (one row per open, see [Fast preview](#fast-preview)).
 
 The field path keeps the existing storage and encryption: the scan stays encrypted at rest and is
 decrypted in the Node action for that one caller; no storage id or URL reaches the device. The
 internal mutation `crm/fieldPassports:authorizeFieldPassportRead` checks the Tour Manager role,
-the own-assignment grant, group scope and the window, then inserts the
-`fieldPassportAccessAudit` row (actor staff id, name and auth id, traveller, Job Card, batch,
-time) in the same transaction before the file is read.
+the own-assignment grant, group scope and the window, then, for a new open, counts it against
+the rate limit and inserts the `fieldPassportAccessAudit` row (actor staff id, name and auth id,
+traveller, Job Card, batch, time, `openId`, `variants`) in the same transaction before the file
+is read.
 
 **Trip window and time zone.** Citius stores no trip time zone, so the window uses the office
 time zone, India Standard Time (UTC+05:30, no daylight saving, as in leave lapse and office
@@ -157,6 +158,53 @@ series, newest first, 20 at a time, with the one-year retention note. Every othe
 logins included, gets no panel at all; the client rule `canViewFieldPassportAccessLog` in
 `src/lib/portal/permissions.js` mirrors `canReadFieldPassportAccessLog`, and the panel never
 subscribes to the log before `canListFieldPassportAccess` returns `true`.
+
+### Fast preview
+
+Tour managers often work on 3G, where a multi-MB scan takes many seconds before anything shows.
+The app opens a passport in two calls with the same `openId`: first `variant: "preview"` for a
+quick low-resolution image, then `variant: "full"` to swap in the full-quality scan.
+
+- **Arguments.** `variant` is `"preview"` or `"full"`; omitted means `"full"` with the original
+  response shape, so app builds that predate previews are unchanged. `openId` is an optional
+  client-generated id for one open (for example a UUID): 1 to 128 characters from letters,
+  digits, `_`, `-`, `.` and `:`, otherwise `INVALID_OPEN_ID`.
+- **Preview.** For an image scan (`image/jpeg`, `image/png`, `image/webp`) the server returns a
+  JPEG about 900 px on the long edge at quality 70, never enlarged: `{ bytes, fileName:
+  "<stem>-preview.jpg", mimeType: "image/jpeg", variant: "preview", fullMimeType, width, height }`.
+  `fullMimeType` is the stored scan's type; `width` and `height` are the preview's, upright, so
+  the app can reserve the aspect ratio. The EXIF orientation is applied and all metadata (EXIF,
+  GPS, ICC, XMP) is stripped. A synthetic 12 MP camera JPEG (3.1 MB) gives a 59 KB preview; a
+  12 MP pure-noise JPEG (10 MB, the worst case) gives 64 KB.
+- **No preview.** For a PDF, or an image sharp cannot read (or one over 60 MP), `"preview"`
+  returns `{ variant: "none" }` with no bytes, and the app loads the full file directly. The
+  call still runs every check and starts (or joins) the open, so the full call that follows
+  counts with it; the row records only what was actually served.
+- **Full.** `variant: "full"` returns the stored scan byte for byte with `variant: "full"`, plus
+  the upright `width` and `height` for an image scan, read from its header. A PDF has none.
+- **Nothing new is stored.** Previews are generated in memory in the Node action for each
+  request and never written to storage or a cache (sharp's operation cache is off), so a passport
+  never leaks into extra storage. A short-lived storage cache would save the downscale on a
+  repeat open (about 60-90 ms for 12 MP), but it would put a second copy of the passport at rest,
+  with its own encryption, expiry and deletion to get right; the transfer, not the downscale, is
+  what 3G pays for. It is not built.
+- **Same checks.** A preview is a passport read: the Tour Manager role, own staff assignment,
+  own group, trip window and app pilot apply exactly as for the full file, it is held to the
+  portal file rate limit, and it is audited.
+- **One audit row per open.** Calls with the same actor, traveller and `openId` less than 10
+  minutes after the open's first call (server clock, measured from the row's `accessedAt`) share
+  one `fieldPassportAccessAudit` row; at exactly 10 minutes or later the `openId` starts a new
+  open with its own row (`joinsFieldPassportOpen`). The first call writes the row and
+  later calls only add their variant to its `variants` (`["preview", "full"]`; `[]` while a
+  PDF's open has served nothing). The row keeps the first call's time. Only the caller's own
+  rows are matched, so another login sending the same `openId` gets its own open. Without an
+  `openId` every call writes its own row, as before. The office log (`listFieldPassportAccess`)
+  and its Passport views panel therefore list one entry per open; they do not show the variants.
+- **Rate limit per open.** The portal file rate limit (30 downloads a minute per login, shared
+  with other portal files) counts opens, not calls: the call that writes the row counts once,
+  and the other variant of that open does not. Serving a variant the open already served (a
+  retry) counts again, so an open cannot be replayed past the limit. A refused call still
+  counts, as before.
 
 ## External tour managers
 
@@ -379,6 +427,11 @@ rejects the new argument before then):
 - `fieldPassportAccessAudit` gains optional `retainUntil` and index `by_retainUntil`; rows written
   before it are purged by the same job once their trip is over. The new operational control
   `jobs.purge_field_passport_audit` is on by default.
+- Fast passport previews add optional `fieldPassportAccessAudit.openId` and `.variants` and the
+  index `fieldPassportAccessAudit.by_actorAuthUserId_and_openId_and_accessedAt`. No backfill; older rows have
+  neither. The new `getFieldPassportFile` arguments are optional, so current app builds keep
+  working; the app adopts previews by sending `variant: "preview"` then `variant: "full"` with
+  one `openId` per open.
 - The per-trip app pilot (7 Nov 2026) adds optional `jobCards.appPilot`. No index, no backfill.
   **Every existing Job Card starts with the pilot off, so on deploy tour managers lose the app for
   every trip until someone presses Start pilot on it.** That is intended. The Staff Workspace is
