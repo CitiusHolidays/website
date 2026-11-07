@@ -149,6 +149,7 @@
           "convex/crm/documentPreview.ts",
           "convex/crm/e2eSeedActions.ts",
           "convex/crm/externalTourManagerAccess.convex.integration.ts",
+          "convex/crm/fieldPassportPreview.convex.integration.ts",
           "convex/crm/invoiceOutstandingProjection.convex.integration.ts",
           "convex/crm/jobCards.convex.integration.ts",
           "convex/crm/leaveLapse.convex.integration.ts",

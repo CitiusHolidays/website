@@ -62,6 +62,14 @@ async function consumeDownloadWindow(ctx: MutationCtx, identityKey: string, limi
   };
 }
 
+/**
+ * The portal file download limit inside a caller's own transaction, for reads that decide in the
+ * same mutation whether a call is a new download (field passport opens).
+ */
+export function consumePortalFileDownloadWindow(ctx: MutationCtx, authUserId: string) {
+  return consumeDownloadWindow(ctx, authUserId, PORTAL_FILE_DOWNLOAD_LIMIT);
+}
+
 export const consumePortalFileDownload = internalMutation({
   args: { authUserId: v.string() },
   handler: (ctx, args) => consumeDownloadWindow(ctx, args.authUserId, PORTAL_FILE_DOWNLOAD_LIMIT),

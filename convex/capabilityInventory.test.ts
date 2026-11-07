@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "cdcddd561387098c3171bc913a60bf978b8680a3c50a134f332d7083b0d17d03";
+const EXPECTED_CAPABILITY_HASH = "742bf525e1819c00b9a062dca459657faf158952858170490fb5eb4de1b1a219";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_CAPABILITIES = new Set(["crm/postTourReports.archive"]);
@@ -136,8 +136,10 @@ describe("Convex capability inventory", () => {
     ).toEqual([
       "crm/fieldPassportActions.getFieldPassportFile:action:public-product",
       "crm/fieldPassports.authorizeFieldPassportRead:internalMutation:internal",
+      "crm/fieldPassports.canListFieldPassportAccess:query:public-product",
       "crm/fieldPassports.listFieldPassportAccess:query:public-product",
       "crm/fieldPassports.listFieldPassports:query:public-product",
+      "crm/fieldPassports.withdrawFieldPassportPreview:internalMutation:internal",
       "crm/fieldSync.listAnnouncements:query:public-product",
       "crm/fieldSync.listLatestHeadcounts:query:public-product",
       "crm/fieldSync.pushHeadcountStop:mutation:public-product",

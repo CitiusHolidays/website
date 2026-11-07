@@ -73,6 +73,9 @@ emails, the app pilot, connect field access, data retention, external tour manag
 manager job visibility, the tour manager legacy names migration, traveller guardian consent and
 traveller guardians were added to the same exception: each builds fixtures in a fixed order so ids,
 creation times and assertions stay deterministic.
+On 2026-11-07, with `0.9.22`, the field passport preview integration test (from main) joined the
+same exception: each case freezes the clock, seeds a traveller, stores a scan into that record and
+only then reads it back, so the awaits depend on each other.
 
 Each exception is a claim to re-check when the scoped code changes. New suppressions require the
 same source inspection and a focused behavior test; React Doctor output alone is a hypothesis, not
