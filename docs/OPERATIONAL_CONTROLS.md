@@ -14,7 +14,7 @@ Preview result, and a Production result are separate evidence.
 
 ## Live Feature Controls
 
-The catalog contains 30 independently recoverable controls:
+The catalog contains 37 independently recoverable controls:
 
 - public Sacred Bharat / 001 availability;
 - inbound CRM intake, Sales bell, Sales email, and `info@citius.in` mailbox email;
@@ -26,7 +26,8 @@ The catalog contains 30 independently recoverable controls:
   affects payment completion or invoice issue — see
   [Booking emails and invoices](BOOKING_EMAILS_AND_INVOICES.md);
 - document-preview preparation; and
-- fifteen individual scheduled jobs.
+- twenty-two individual scheduled jobs. The seven data retention jobs are off by default; see
+  [the data retention schedule](DATA_RETENTION.md).
 
 A control added to the catalog after the control plane was activated has no stored state on that
 target, so it resolves Paused until an Admin sets it or `migrateOperationalControlCatalog`
@@ -91,7 +92,7 @@ already has automated test coverage. The initial recipes are:
 - Razorpay new-order creation;
 - document-preview preparation;
 - Sacred Bharat publication; and
-- all fifteen scheduled-job registrations.
+- all twenty-two scheduled-job registrations.
 
 Effect v4 owns recipe sequencing, typed probe failures, controlled service layers, independent
 continuation, timeout/interruption, and cleanup. Each recipe checks the corresponding live gates,

@@ -26,6 +26,11 @@ interface ScheduledJobMutationArgs {
 }
 
 const EXPECTED_CRONS = {
+  "anonymise past travellers": {
+    args: [{}],
+    name: "operationalScheduledJobs:anonymisePastTravellers",
+    schedule: { cron: "15 22 * * 0", type: "cron" },
+  },
   "check cl-sl leave lapse": {
     args: [{}],
     name: "operationalScheduledJobs:checkClSlLeaveLapse",
@@ -56,6 +61,11 @@ const EXPECTED_CRONS = {
     name: "operationalScheduledJobs:issuePendingBookingInvoices",
     schedule: { hours: 1, type: "interval" },
   },
+  "purge activity logs after a year": {
+    args: [{}],
+    name: "operationalScheduledJobs:purgeActivityLogs",
+    schedule: { cron: "30 21 * * *", type: "cron" },
+  },
   "purge expired commercial files": {
     args: [{}],
     name: "operationalScheduledJobs:purgeCommercialFiles",
@@ -70,6 +80,26 @@ const EXPECTED_CRONS = {
     args: [{}],
     name: "operationalScheduledJobs:purgeFieldPassportAudit",
     schedule: { cron: "0 19 * * *", type: "cron" },
+  },
+  "purge inactive customer accounts": {
+    args: [{}],
+    name: "operationalScheduledJobs:purgeInactiveCustomerAccounts",
+    schedule: { cron: "45 22 * * 0", type: "cron" },
+  },
+  "purge old traveller feedback": {
+    args: [{}],
+    name: "operationalScheduledJobs:purgeOldFeedback",
+    schedule: { cron: "0 22 * * 0", type: "cron" },
+  },
+  "purge passport scans after trips": {
+    args: [{}],
+    name: "operationalScheduledJobs:purgePassportScans",
+    schedule: { cron: "15 19 * * *", type: "cron" },
+  },
+  "purge unconverted enquiries": {
+    args: [{}],
+    name: "operationalScheduledJobs:purgeUnconvertedEnquiries",
+    schedule: { cron: "45 21 * * *", type: "cron" },
   },
   "reconcile bounded crm metrics": {
     args: [{}],
@@ -96,6 +126,11 @@ const EXPECTED_CRONS = {
     name: "operationalScheduledJobs:reconcileQueryCommercial",
     schedule: { hours: 1, type: "interval" },
   },
+  "retire old bookings and invoices": {
+    args: [{}],
+    name: "operationalScheduledJobs:retireFinancialRecords",
+    schedule: { cron: "30 22 * * 0", type: "cron" },
+  },
   "run portal workflow nudges": {
     args: [{}],
     name: "operationalScheduledJobs:runWorkflowNudges",
@@ -104,7 +139,7 @@ const EXPECTED_CRONS = {
 } satisfies Record<string, SerializedCron>;
 
 describe("Convex cron registry", () => {
-  test("Registers the exact fifteen internal jobs, arguments, and schedules", () => {
+  test("Registers the exact twenty-two internal jobs, arguments, and schedules", () => {
     // SAFETY: Convex Crons stores its serializable registry on this runtime-owned field.
     const registry = fromPartial<typeof crons & { crons: Record<string, SerializedCron> }>(
       crons
@@ -112,7 +147,7 @@ describe("Convex cron registry", () => {
 
     expect(Object.keys(registry).sort()).toEqual(Object.keys(EXPECTED_CRONS).sort());
     expect(registry).toEqual(EXPECTED_CRONS);
-    expect(new Set(Object.keys(registry)).size).toBe(15);
+    expect(new Set(Object.keys(registry)).size).toBe(22);
     expect(Object.values(registry).every((job) => !job.name.startsWith("api."))).toBe(true);
   });
 
@@ -141,8 +176,8 @@ describe("Convex cron registry", () => {
       )
     );
 
-    expect(dispatches).toHaveLength(15);
-    expect(new Set(dispatches).size).toBe(15);
+    expect(dispatches).toHaveLength(22);
+    expect(new Set(dispatches).size).toBe(22);
     expect(dispatches.every((name) => name.includes(":"))).toBe(true);
   });
 
