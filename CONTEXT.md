@@ -128,6 +128,10 @@ _Avoid_: Child room type, infant fare type, treating an unrecorded age as adult
 An adult Traveller on the same Job Card responsible for a Minor; a Minor has up to two Guardians (for example both parents). The link is recorded on the Minor; it is not parental consent and grants no Customer Travel Account access by itself.
 _Avoid_: Guests travelling with, Client contact, a minor or a traveller on another Job Card as guardian
 
+**Parental Consent**:
+A separate, auditable fact that a parent or guardian consented for a Minor. Today Operations record it as the "Parental consent received" mark on the Minor's Traveller row; a future guardian tick at trip-invite acceptance will be a distinct source. It exists only while the Traveller is a Minor.
+_Avoid_: Inferring consent from a Guardian link, a matching email or Promotional email permission
+
 **Customer Document Intake**:
 The time-limited, customer-facing workflow through which one Traveller submits requested sensitive travel documents to the Citius CRM without receiving staff portal access.
 _Avoid_: Commercial Files upload, open public upload, granting a customer CRM credentials

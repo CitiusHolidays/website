@@ -27,6 +27,26 @@ export function travellerGuardianPayload(form) {
   return payload;
 }
 
+/**
+ * Operations' "Parental consent received" mark on a minor (ADR 0018), sent only when Operations
+ * changed it, so saving other fields never overwrites a mark recorded meanwhile. A traveller who
+ * is no longer a minor sends nothing: the server clears their mark.
+ */
+export function travellerParentalConsentPayload(form) {
+  if (form.ageGroup !== "minor") {
+    return {};
+  }
+  const initiallyReceived = form.initialParentalConsent === "received";
+  if (form.parentalConsent !== "received") {
+    return initiallyReceived ? { parentalConsentReceived: false } : {};
+  }
+  const note = form.parentalConsentNote || "";
+  if (initiallyReceived && note === (form.initialParentalConsentNote || "")) {
+    return {};
+  }
+  return { parentalConsentNote: note, parentalConsentReceived: true };
+}
+
 export function createOperationsModalCommands(deps) {
   return {
     hotel: async (form) => {
@@ -161,6 +181,7 @@ export function createOperationsModalCommands(deps) {
         travelHub: form.travelHub,
         visaRequired: form.visaRequired === "Yes",
         ...travellerGuardianPayload(form),
+        ...travellerParentalConsentPayload(form),
       };
       if (form.entityId) {
         await deps.updateTraveller({ travellerId: form.entityId, ...payload });

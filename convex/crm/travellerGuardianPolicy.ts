@@ -313,3 +313,91 @@ export function guardianSetProblem(
   }
   return null;
 }
+
+/** Upper bound on the optional note on the parental consent mark (ADR 0018). */
+export const PARENTAL_CONSENT_NOTE_MAX_LENGTH = 500;
+
+/** Operations' "Parental consent received" mark on a minor (ADR 0018). */
+export interface ParentalConsentMark<StaffId = string> {
+  note?: string;
+  receivedAt: number;
+  recordedByName: string;
+  recordedByStaffId?: StaffId;
+}
+
+/** A request to set (`received: true`) or clear the mark; an absent note keeps the stored one. */
+export interface ParentalConsentRequest {
+  note?: string;
+  received: boolean;
+}
+
+export type ParentalConsentChange = "cleared" | "cleared_not_minor" | "note_updated" | "recorded";
+
+export interface ParentalConsentDecision<StaffId> {
+  change: ParentalConsentChange | null;
+  /** The mark to store; undefined removes it. */
+  next: ParentalConsentMark<StaffId> | undefined;
+  /** True when consent was requested for a traveller who is not a known minor. */
+  refused: boolean;
+}
+
+/** The trimmed note, or undefined when it is empty. Check the length with the problem below. */
+export function normalizeParentalConsentNote(note: string | undefined) {
+  const trimmed = String(note ?? "").trim();
+  return trimmed || undefined;
+}
+
+export function parentalConsentNoteProblem(note: string | undefined): string | null {
+  const normalized = normalizeParentalConsentNote(note);
+  return normalized && normalized.length > PARENTAL_CONSENT_NOTE_MAX_LENGTH
+    ? `The parental consent note can be at most ${PARENTAL_CONSENT_NOTE_MAX_LENGTH} characters.`
+    : null;
+}
+
+/**
+ * The next consent mark. It exists only while the traveller is a known minor, so it is cleared
+ * whenever minor status ends, and a request to record it on anyone else is refused. Recording
+ * consent that is already recorded keeps who recorded it and when; only the note can change.
+ */
+export function decideParentalConsent<StaffId>(input: {
+  actor: { name: string; staffId?: StaffId };
+  current: ParentalConsentMark<StaffId> | undefined;
+  isMinor: boolean | undefined;
+  now: number;
+  request: ParentalConsentRequest | undefined;
+}): ParentalConsentDecision<StaffId> {
+  const { actor, current, request } = input;
+  if (input.isMinor !== true) {
+    return {
+      change: current ? "cleared_not_minor" : null,
+      next: undefined,
+      refused: request?.received === true,
+    };
+  }
+  if (!request) {
+    return { change: null, next: current, refused: false };
+  }
+  if (!request.received) {
+    return { change: current ? "cleared" : null, next: undefined, refused: false };
+  }
+  const note =
+    request.note === undefined ? current?.note : normalizeParentalConsentNote(request.note);
+  if (!current) {
+    const recorded: ParentalConsentMark<StaffId> = {
+      receivedAt: input.now,
+      recordedByName: actor.name,
+    };
+    if (note) {
+      recorded.note = note;
+    }
+    if (actor.staffId !== undefined) {
+      recorded.recordedByStaffId = actor.staffId;
+    }
+    return { change: "recorded", next: recorded, refused: false };
+  }
+  if (note === current.note) {
+    return { change: null, next: current, refused: false };
+  }
+  const { note: _previousNote, ...stamp } = current;
+  return { change: "note_updated", next: note ? { ...stamp, note } : stamp, refused: false };
+}

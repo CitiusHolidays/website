@@ -135,8 +135,17 @@ function travellerRow(row: PassengerExportRow, index: number): PassengerExportRo
     minorLabel(row.isMinor),
     row.guardianNames?.[0] || "",
     row.guardianNames?.[1] || "",
+    parentalConsentLabel(row),
     "",
   ];
+}
+
+/** Yes or No for a minor (the import reads it back); blank for anyone else. */
+function parentalConsentLabel(row: PassengerExportRow) {
+  if (row.isMinor !== true) {
+    return "";
+  }
+  return row.parentalConsentReceived === true ? "Yes" : "No";
 }
 
 function minorLabel(isMinor: boolean | null | undefined) {
