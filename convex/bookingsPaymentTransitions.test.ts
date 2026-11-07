@@ -51,6 +51,8 @@ function makeBookingsCtx(initialTables: Tables) {
       query(tableName: string) {
         let rows = tables[tableName] ?? [];
         return {
+          collect: () => Promise.resolve(rows),
+          first: () => Promise.resolve(rows[0] ?? null),
           take: (limit: number) => Promise.resolve(rows.slice(0, limit)),
           unique: () => Promise.resolve(rows[0] ?? null),
           withIndex(_indexName: string, callback: (q: TestIndexQuery) => TestIndexQuery) {
@@ -70,6 +72,7 @@ function makeBookingsCtx(initialTables: Tables) {
         };
       },
     },
+    scheduler: { runAfter: () => Promise.resolve() },
   };
 
   return { ctx, tables };

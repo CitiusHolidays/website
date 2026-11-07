@@ -565,3 +565,39 @@ worker so it could not collide with the office check-in section above).
   3. View mounted tests print React `act(...)` warnings (tests pass); not traced | test owner.
   4. Product: removing someone from an office leaves them unable to clock in (the checklist says
      so); an "unassigned staff" view may be wanted later | product.
+
+## Task: Journey payment and invoice card (2026-11-07)
+
+### Brief
+
+- **Outcome.** In the Customer Travel Account Journeys detail, a paid booking shows one
+  "Payment and invoice" card: amount paid, payment state (Received or Refunded), the GST tax
+  invoice number, and a "Download tax invoice (PDF)" link — or "Being prepared" with a note that an
+  email will follow. Unpaid bookings show nothing new.
+- **Audience.** The booking's purchaser, usually arriving from the confirmation or "invoice ready"
+  email; occasional.
+- **Constraints.** Refinement of the accepted Account baseline (DESIGN.md): no new layout system,
+  fonts, tokens or eyebrow text; Staff Workspace untouched; the link is a plain download to the
+  owner-checked API route.
+- **Scope.** Passes 2 (scoped), 3, 5, 6, 8, 9. Inspiration (1), typography/colour (4) and motion
+  (7) not applicable: the card reuses the existing `account-card`, `account-display` heading, the
+  `<dl>` fact grid from the Confirmed trip packet, and the outlined pill action from Settings.
+
+### Accepted direction
+
+- One card placed directly under the hero so a customer arriving from email finds it first.
+- Facts as a three-column `<dl>` (one column below `sm`), `tabular-nums` for amount and number.
+- Action: existing outlined pill (`min-h-11`, `account-focus`), label names the file type.
+
+### Pass records
+
+- **Layout (3).** Card sits between the hero and the itinerary; no width or grid change elsewhere.
+- **Accessibility (5).** Section labelled by its `h3`; `dt`/`dd` pairs; link text is
+  self-describing; 44 px target; focus ring from `account-focus`.
+- **Writing (6).** "Payment and invoice", "Amount paid", "Received"/"Refunded", "Being prepared",
+  "We will email you when your GST tax invoice is ready to download here."
+- **Implement (8).** `JourneyPaymentCard` in `src/components/account/AccountJourneysPanel.js`;
+  `formatAccountAmount` in `accountPresentation.js`; mounted tests in
+  `JourneyPaymentCard.mounted.test.jsx` (issued, preparing, refunded, unpaid).
+- **Verify (9).** Mounted tests pass. Not verified: a rendered browser screenshot against a live
+  Convex/auth session.

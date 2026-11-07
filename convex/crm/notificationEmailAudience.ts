@@ -218,6 +218,9 @@ async function recipientPurposeStillApplies(
   if (purpose.kind === "event") {
     return true;
   }
+  if (purpose.kind === "customer_booking") {
+    return false;
+  }
   if (purpose.kind === "work") {
     if (!(job.entityId && job.entityType)) {
       return false;
