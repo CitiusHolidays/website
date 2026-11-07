@@ -9,6 +9,7 @@ export const operationalControlKeyValidator = v.union(
   v.literal("email.auth.staff_setup"),
   v.literal("email.auth.verification"),
   v.literal("email.crm_workflow"),
+  v.literal("email.customer_booking"),
   v.literal("files.document_preview_preparation"),
   v.literal("inbound.crm_intake"),
   v.literal("inbound.info_mailbox_email"),
@@ -40,6 +41,7 @@ export type OperationalControlKey =
   | "email.auth.staff_setup"
   | "email.auth.verification"
   | "email.crm_workflow"
+  | "email.customer_booking"
   | "files.document_preview_preparation"
   | "inbound.crm_intake"
   | "inbound.info_mailbox_email"
@@ -260,6 +262,17 @@ export const OPERATIONAL_CONTROL_CATALOG = [
     enforcement: "New checkout order route through the Operational Control server gateway",
     key: "payments.razorpay_new_order",
     label: "New Razorpay orders",
+    standardEnabled: true,
+  },
+  {
+    availability: "available",
+    category: "Payments",
+    dependencies: [],
+    description:
+      "Send customers their booking confirmation, tax-invoice-ready and refund emails through Resend. Invoices are still issued and downloadable from the Customer Account while paused; a delivery claimed while paused is skipped, not resent later.",
+    enforcement: "Booking email outbox claim",
+    key: "email.customer_booking",
+    label: "Customer booking emails",
     standardEnabled: true,
   },
   {

@@ -15,7 +15,71 @@ import {
   TravelInfoCard,
   TravelInfoPlaceholder,
 } from "./AccountUi";
-import { formatAccountDateRange, getTripDestination, getTripNights } from "./accountPresentation";
+import {
+  formatAccountAmount,
+  formatAccountDateRange,
+  getTripDestination,
+  getTripNights,
+} from "./accountPresentation";
+
+const PAID_BOOKING_STATUSES = new Set(["confirmed", "refunded"]);
+
+export function JourneyPaymentCard({ booking, invoice }) {
+  if (!PAID_BOOKING_STATUSES.has(booking?.status)) {
+    return null;
+  }
+  const issued = invoice?.status === "issued";
+  const preparing = invoice?.status === "preparing";
+  return (
+    <section
+      aria-labelledby="journey-payment-heading"
+      className="account-card rounded-2xl p-6 sm:p-7"
+    >
+      <h3
+        className="account-display text-[var(--account-ink)] text-xl"
+        id="journey-payment-heading"
+      >
+        {invoice ? "Payment and invoice" : "Payment"}
+      </h3>
+      <dl className="mt-4 grid gap-4 border-[var(--account-border)] border-t pt-4 text-sm sm:grid-cols-3">
+        <div>
+          <dt className="text-[var(--account-muted)] text-xs">Amount paid</dt>
+          <dd className="mt-1 text-[var(--account-ink)] tabular-nums">
+            {formatAccountAmount(booking.totalAmount, booking.currency)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[var(--account-muted)] text-xs">Payment</dt>
+          <dd className="mt-1 text-[var(--account-ink)]">
+            {booking.status === "refunded" ? "Refunded" : "Received"}
+          </dd>
+        </div>
+        {invoice ? (
+          <div>
+            <dt className="text-[var(--account-muted)] text-xs">Tax invoice</dt>
+            <dd className="mt-1 text-[var(--account-ink)] tabular-nums">
+              {issued ? invoice.invoiceNumber : "Being prepared"}
+            </dd>
+          </div>
+        ) : null}
+      </dl>
+      {issued ? (
+        <a
+          className="account-focus mt-5 inline-flex min-h-11 items-center rounded-full border border-[var(--account-night)] px-4 font-semibold text-[var(--account-night)] text-sm transition-colors hover:bg-[var(--account-night)] hover:text-white"
+          download
+          href={invoice.downloadPath}
+        >
+          Download tax invoice (PDF)
+        </a>
+      ) : null}
+      {preparing ? (
+        <p className="mt-5 text-[var(--account-muted)] text-sm leading-6">
+          We will email you when your GST tax invoice is ready to download here.
+        </p>
+      ) : null}
+    </section>
+  );
+}
 
 function JourneyDetail({ booking, onBack }) {
   const { trip, booking: bookingData } = booking;
@@ -53,6 +117,7 @@ function JourneyDetail({ booking, onBack }) {
         </div>
       </section>
 
+      <JourneyPaymentCard booking={bookingData} invoice={booking.invoice} />
       <ItinerarySnapshot trip={trip} />
       <div className="grid gap-4 lg:grid-cols-2">
         <TravelInfoCard eyebrow="Flights & PNR" icon={<Plane size={18} />} title="Travel details">

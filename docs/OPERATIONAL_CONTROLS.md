@@ -14,7 +14,7 @@ Preview result, and a Production result are separate evidence.
 
 ## Live Feature Controls
 
-The first catalog contains 27 independently recoverable controls:
+The catalog contains 29 independently recoverable controls:
 
 - public Sacred Bharat / 001 availability;
 - inbound CRM intake, Sales bell, Sales email, and `info@citius.in` mailbox email;
@@ -22,8 +22,15 @@ The first catalog contains 27 independently recoverable controls:
 - Auth verification, password-reset, and staff-setup emails;
 - Citius Concierge and Journey Planner provider requests;
 - Razorpay new-order creation (not verification, webhooks, or in-flight completion);
+- customer booking emails (confirmation, tax-invoice-ready and refund); pausing them never
+  affects payment completion or invoice issue — see
+  [Booking emails and invoices](BOOKING_EMAILS_AND_INVOICES.md);
 - document-preview preparation; and
-- thirteen individual scheduled jobs.
+- fourteen individual scheduled jobs.
+
+A control added to the catalog after the control plane was activated has no stored state on that
+target, so it resolves Paused until an Admin sets it or `migrateOperationalControlCatalog`
+initialises it to Normal Behavior.
 
 The catalog shows **Configured State** separately from **Blocked Capability**. A control can be
 configured as Available while a paused dependency prevents the capability from running. The

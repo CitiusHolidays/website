@@ -1,6 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { officeCheckInTables } from "./crm/officeCheckInValidators";
+import { bookingInvoiceFields } from "./lib/bookingInvoiceValidators";
 import { boothAvailability, boothCounts, boothScene } from "./lib/eventPhotoBoothValidators";
 import {
   importFailureValidator,
@@ -398,6 +399,21 @@ export default defineSchema({
     .index("by_providerEventId", ["providerEventId"])
     .index("by_bookingId_createdAt", ["bookingId", "createdAt"]),
 
+  // One GST tax invoice per confirmed website booking payment. Issued rows are
+  // immutable; pending rows wait for the company's invoice configuration.
+  bookingInvoices: defineTable(bookingInvoiceFields)
+    .index("by_bookingId", ["bookingId"])
+    .index("by_status_createdAt", ["status", "createdAt"])
+    .index("by_invoiceNumber", ["invoiceNumber"]),
+
+  // Consecutive invoice serial per series prefix and Indian financial year.
+  bookingInvoiceSeries: defineTable({
+    financialYear: v.string(),
+    lastSequence: v.number(),
+    prefix: v.string(),
+    updatedAt: v.number(),
+  }).index("by_prefix_financialYear", ["prefix", "financialYear"]),
+
   bookings: defineTable({
     confirmedAt: v.optional(v.number()),
     createdAt: v.number(),
@@ -409,6 +425,9 @@ export default defineSchema({
     razorpayOrderId: v.string(),
     razorpayPaymentId: v.string(),
     razorpaySignature: v.optional(v.string()),
+    refundAmount: v.optional(v.number()),
+    refundedAt: v.optional(v.number()),
+    refundReference: v.optional(v.string()),
     status: bookingStatus,
     totalAmount: v.number(),
     travelerDetails: v.optional(v.any()),

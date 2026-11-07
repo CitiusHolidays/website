@@ -148,7 +148,7 @@ describe("Signed Razorpay webhook route", () => {
     const refund = await handleRazorpayWebhook(
       signedRequest({
         event: "refund.created",
-        payload: { refund: { entity: { id: "rfnd_1", payment_id: "pay_1" } } },
+        payload: { refund: { entity: { amount: 25_000, id: "rfnd_1", payment_id: "pay_1" } } },
       }),
       { deps }
     );
@@ -164,6 +164,8 @@ describe("Signed Razorpay webhook route", () => {
           paymentId: "pay_1",
           providerEventId: "razorpay:refund.created:rfnd_1",
           reason: "Razorpay refund.created webhook",
+          refundAmount: 25_000,
+          refundId: "rfnd_1",
           serverSecret: "payment-mutation-secret",
         },
       },
