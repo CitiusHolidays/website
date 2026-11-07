@@ -1,10 +1,23 @@
 "use client";
 
-import { ArrowRight, CreditCard, FileText, Mail, MapPin, Phone, Shield } from "lucide-react";
+import {
+  ArrowRight,
+  CreditCard,
+  FileText,
+  LockKeyhole,
+  Mail,
+  MapPin,
+  Phone,
+  Shield,
+} from "lucide-react";
 import { m, useReducedMotion, useScroll, useTransform } from "motion/react";
 import Link from "next/link";
 import { publicRevealMotion } from "@/lib/publicInteractionMotion";
+import { plainText, policyLink, richText } from "./policyText";
 import { POLICY_VIEW_HREFS, resolvePolicyView } from "./policyView";
+import { privacyPolicy, TO_CONFIRM_PATTERN } from "./privacyPolicy";
+
+const privacyPolicyLink = policyLink(POLICY_VIEW_HREFS.privacy, "Privacy Policy");
 
 const POLICY_TABS = [
   {
@@ -18,6 +31,12 @@ const POLICY_TABS = [
     icon: CreditCard,
     id: "billing",
     label: "Billing Policy",
+  },
+  {
+    href: POLICY_VIEW_HREFS.privacy,
+    icon: LockKeyhole,
+    id: "privacy",
+    label: "Privacy Policy",
   },
 ];
 
@@ -103,7 +122,7 @@ const billingPolicy = {
       list: [
         "All financial transactions are encrypted through PCI-DSS compliant payment gateways.",
         "Citius Holidays does not store card details on its servers.",
-        "Customer personal data is handled as per our Privacy Policy.",
+        richText("Customer personal data is handled as per our ", privacyPolicyLink, "."),
       ],
     },
     {
@@ -227,7 +246,7 @@ const termsPolicy = {
     {
       heading: "13. PRIVACY & DATA SECURITY",
       list: [
-        "Customer data is protected under our Privacy Policy.",
+        richText("Customer data is protected under our ", privacyPolicyLink, "."),
         "Payment details are handled securely via PCI-DSS compliant payment gateways.",
         "Citius does not store card information.",
       ],
@@ -251,11 +270,69 @@ const termsPolicy = {
   title: "Terms & Conditions",
 };
 
+function TextWithReviewMarkers({ text }) {
+  const parts = [];
+  let cursor = 0;
+  for (const match of text.matchAll(TO_CONFIRM_PATTERN)) {
+    if (match.index > cursor) {
+      parts.push(text.slice(cursor, match.index));
+    }
+    parts.push(
+      <mark
+        className="rounded bg-amber-100 px-1 font-medium text-amber-900"
+        data-review-marker=""
+        key={`${match.index}:${match[0]}`}
+      >
+        {match[0]}
+      </mark>
+    );
+    cursor = match.index + match[0].length;
+  }
+  if (cursor < text.length) {
+    parts.push(text.slice(cursor));
+  }
+  return parts;
+}
+
+function RichText({ value }) {
+  if (value.kind !== "rich") {
+    return <TextWithReviewMarkers text={value} />;
+  }
+  return value.parts.map((part) =>
+    part.kind === "link" ? (
+      <Link
+        className="font-medium text-citius-blue underline underline-offset-4 hover:text-citius-orange"
+        href={part.href}
+        key={part.href}
+      >
+        {part.label}
+      </Link>
+    ) : (
+      <TextWithReviewMarkers key={part.text} text={part.text} />
+    )
+  );
+}
+
 const Section = ({ data }) => (
   <div className="mb-10 last:mb-0">
     <h3 className="mb-4 font-heading font-semibold text-citius-blue text-xl">{data.heading}</h3>
     {data.text ? (
-      <p className="mb-4 font-content text-gray-700 leading-relaxed">{data.text}</p>
+      <p className="mb-4 font-content text-gray-700 leading-relaxed">
+        <RichText value={data.text} />
+      </p>
+    ) : null}
+
+    {data.list ? (
+      <ul className="mb-4 space-y-3">
+        {data.list.map((item) => (
+          <li className="group flex items-start gap-3" key={plainText(item)}>
+            <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-citius-blue transition-colors duration-300 group-hover:bg-citius-orange" />
+            <span className="font-content text-gray-700 transition-colors duration-300 group-hover:text-gray-900">
+              <RichText value={item} />
+            </span>
+          </li>
+        ))}
+      </ul>
     ) : null}
 
     {data.subsections ? (
@@ -268,9 +345,11 @@ const Section = ({ data }) => (
             <h4 className="mb-2 font-semibold text-gray-900">{sub.title}</h4>
             <ul className="space-y-2">
               {sub.list.map((item) => (
-                <li className="flex items-start gap-2 text-gray-700 text-sm" key={item}>
+                <li className="flex items-start gap-2 text-gray-700 text-sm" key={plainText(item)}>
                   <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-citius-orange" />
-                  <span>{item}</span>
+                  <span>
+                    <RichText value={item} />
+                  </span>
                 </li>
               ))}
             </ul>
@@ -279,22 +358,9 @@ const Section = ({ data }) => (
       </div>
     ) : null}
 
-    {data.list ? (
-      <ul className="mb-4 space-y-3">
-        {data.list.map((item) => (
-          <li className="group flex items-start gap-3" key={item}>
-            <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-citius-blue transition-colors duration-300 group-hover:bg-citius-orange" />
-            <span className="font-content text-gray-700 transition-colors duration-300 group-hover:text-gray-900">
-              {item}
-            </span>
-          </li>
-        ))}
-      </ul>
-    ) : null}
-
     {data.footer ? (
       <p className="border-gray-300 border-l-2 py-1 pl-4 text-gray-500 text-sm italic">
-        {data.footer}
+        <RichText value={data.footer} />
       </p>
     ) : null}
 
@@ -312,26 +378,66 @@ const Section = ({ data }) => (
               {data.contact.email}
             </a>
           </div>
-          <div className="flex items-center gap-3">
-            <Phone className="size-4 text-public-orange" />
-            <a
-              className="transition-colors hover:text-public-orange"
-              href={`tel:${data.contact.phone.replace(/\s/g, "")}`}
-            >
-              {data.contact.phone}
-            </a>
-          </div>
+          {data.contact.phone ? (
+            <div className="flex items-center gap-3">
+              <Phone className="size-4 text-public-orange" />
+              <a
+                className="transition-colors hover:text-public-orange"
+                href={`tel:${data.contact.phone.replace(/\s/g, "")}`}
+              >
+                {data.contact.phone}
+              </a>
+            </div>
+          ) : null}
           {data.contact.address ? (
             <div className="flex items-center gap-3">
               <MapPin className="size-4 text-public-orange" />
               <span>{data.contact.address}</span>
             </div>
           ) : null}
+          {data.contact.note ? <p className="text-white/80">{data.contact.note}</p> : null}
         </div>
       </div>
     ) : null}
   </div>
 );
+
+const POLICY_DOCUMENTS = {
+  billing: billingPolicy,
+  privacy: privacyPolicy,
+  terms: termsPolicy,
+};
+
+function PolicyDocument({ policy }) {
+  return (
+    <div className="space-y-8">
+      <div className="mb-8 border-gray-200 border-b pb-8">
+        <h2 className="mb-2 font-heading text-3xl text-brand-dark">{policy.title}</h2>
+        <p
+          className={`${policy.intro ? "mb-6" : ""}font-sans text-gray-500 text-sm uppercase tracking-widest`}
+        >
+          Last Updated: {policy.lastUpdated}
+        </p>
+        {policy.draftNotice ? (
+          <p
+            className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-amber-950 text-base"
+            role="note"
+          >
+            {policy.draftNotice}
+          </p>
+        ) : null}
+        {policy.intro ? (
+          <p className="text-gray-600 italic">
+            <RichText value={policy.intro} />
+          </p>
+        ) : null}
+      </div>
+      {policy.content.map((section) => (
+        <Section data={section} key={section.heading} />
+      ))}
+    </div>
+  );
+}
 
 function PolicyPage({ activeTab }) {
   const { scrollYProgress } = useScroll();
@@ -367,8 +473,8 @@ function PolicyPage({ activeTab }) {
             initial={{ opacity: 0 }}
             transition={{ delay: 0.2, duration: 0.8 }}
           >
-            These policies govern bookings, cancellations, and travel with Citius Holidays. Read
-            each section before you confirm a programme.
+            These policies govern bookings, payments, travel with Citius Holidays, and how we handle
+            your personal data. Read each section before you confirm a programme.
           </m.p>
         </div>
       </header>
@@ -378,12 +484,12 @@ function PolicyPage({ activeTab }) {
         className="material-structural sticky top-20 z-40 border-gray-200 border-b bg-[#FDFBF7]/90 shadow-sm backdrop-blur-md transition-[background-color,box-shadow] duration-300"
       >
         <div className="mx-auto max-w-4xl px-6">
-          <div className="flex justify-center gap-8 md:gap-16">
+          <div className="flex justify-center gap-5 sm:gap-8 md:gap-16">
             {POLICY_TABS.map((tab) => (
               <Link
                 aria-controls="policy-document"
                 aria-current={activeTab === tab.id ? "page" : undefined}
-                className={`group relative flex items-center gap-3 py-6 transition-colors duration-300 ${
+                className={`group relative flex items-center gap-3 py-5 text-center transition-colors duration-300 sm:py-6 ${
                   activeTab === tab.id ? "text-citius-blue" : "text-gray-400 hover:text-gray-600"
                 }`}
                 href={tab.href}
@@ -391,9 +497,9 @@ function PolicyPage({ activeTab }) {
                 scroll={false}
               >
                 <tab.icon
-                  className={`size-5 transition-transform duration-300 ${activeTab === tab.id ? "scale-110" : "fine-hover:group-hover:scale-110"}`}
+                  className={`hidden size-5 shrink-0 transition-transform duration-300 sm:block ${activeTab === tab.id ? "scale-110" : "fine-hover:group-hover:scale-110"}`}
                 />
-                <span className="font-semibold text-sm uppercase tracking-wide md:text-base">
+                <span className="font-semibold text-xs uppercase leading-tight tracking-wide sm:text-sm md:text-base">
                   {tab.label}
                 </span>
                 {activeTab === tab.id && (
@@ -417,36 +523,7 @@ function PolicyPage({ activeTab }) {
             key={activeTab}
             transition={contentMotion.transition}
           >
-            {activeTab === "billing" ? (
-              <div className="space-y-8">
-                <div className="mb-8 border-gray-200 border-b pb-8">
-                  <h2 className="mb-2 font-heading text-3xl text-brand-dark">
-                    {billingPolicy.title}
-                  </h2>
-                  <p className="font-sans text-gray-500 text-sm uppercase tracking-widest">
-                    Last Updated: {billingPolicy.lastUpdated}
-                  </p>
-                </div>
-                {billingPolicy.content.map((section) => (
-                  <Section data={section} key={section.heading} />
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-8">
-                <div className="mb-8 border-gray-200 border-b pb-8">
-                  <h2 className="mb-2 font-heading text-3xl text-brand-dark">
-                    {termsPolicy.title}
-                  </h2>
-                  <p className="mb-6 font-sans text-gray-500 text-sm uppercase tracking-widest">
-                    Last Updated: {termsPolicy.lastUpdated}
-                  </p>
-                  <p className="text-gray-600 italic">{termsPolicy.intro}</p>
-                </div>
-                {termsPolicy.content.map((section) => (
-                  <Section data={section} key={section.heading} />
-                ))}
-              </div>
-            )}
+            <PolicyDocument policy={POLICY_DOCUMENTS[activeTab]} />
           </m.div>
         </div>
       </section>

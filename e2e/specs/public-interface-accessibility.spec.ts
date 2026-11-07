@@ -91,6 +91,7 @@ test.describe("@smoke Public interface accessibility matrix", () => {
   for (const scenario of [
     { current: "Terms & Conditions", heading: "Terms & Conditions", view: "terms" },
     { current: "Billing Policy", heading: "Billing & Payment Policy", view: "billing" },
+    { current: "Privacy Policy", heading: "Privacy Policy", view: "privacy" },
     { current: "Terms & Conditions", heading: "Terms & Conditions", view: "unexpected" },
   ]) {
     test(`Policy ${scenario.view} renders truthful initial state`, async ({ page }) => {
