@@ -81,6 +81,16 @@ crons.interval(
   {}
 );
 
+// Issues GST invoices that were waiting for the company's invoice configuration,
+// so the Billing policy's 48-hour invoice promise holds without an operator. It
+// returns immediately while the configuration is incomplete.
+crons.interval(
+  "issue pending booking invoices",
+  { hours: 1 },
+  scheduledJob("operationalScheduledJobs:issuePendingBookingInvoices"),
+  {}
+);
+
 crons.cron(
   "purge expired commercial files",
   "15 4 * * *",

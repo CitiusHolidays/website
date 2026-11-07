@@ -26,6 +26,17 @@ const issuePending = makeFunctionReference<
   { issued: number; missingConfiguration: string[]; scanned: number; stillPending: number }
 >("bookingInvoices:issuePendingBookingInvoices");
 
+const runScheduledJob = makeFunctionReference<
+  "action",
+  Record<string, never>,
+  { executed: boolean }
+>("operationalScheduledJobs:issuePendingBookingInvoices");
+const issueWhenConfigured = makeFunctionReference<
+  "mutation",
+  Record<string, never>,
+  { configured: boolean; issued: number; scanned: number }
+>("bookingInvoices:issuePendingBookingInvoicesWhenConfigured");
+
 const INVOICE_ENV = {
   CITIUS_INVOICE_ADDRESS: "Fixture House | 1 Fixture Street | Kolkata 700001",
   CITIUS_INVOICE_GST_RATE_PERCENT: "5",
@@ -538,6 +549,99 @@ describe("GST tax invoice", () => {
       referenceNow: Date.now(),
     });
     expect(detail?.invoice).toBeUndefined();
+  });
+});
+
+describe("hourly pending-invoice job", () => {
+  test("stays silent and writes nothing while the company invoice details are missing", async () => {
+    const t = harness();
+    await seedBooking(t);
+    await confirmViaWebhook(t);
+    const before = await t.run((ctx) => ctx.db.query("bookingInvoices").collect());
+    const errors = vi.spyOn(console, "error");
+    const warnings = vi.spyOn(console, "warn");
+
+    vi.setSystemTime(Date.now() + 60 * 60 * 1000);
+    expect(await t.action(runScheduledJob, {})).toEqual({ executed: true });
+    expect(await t.mutation(issueWhenConfigured, {})).toEqual({
+      configured: false,
+      issued: 0,
+      scanned: 0,
+    });
+
+    expect(await t.run((ctx) => ctx.db.query("bookingInvoices").collect())).toEqual(before);
+    expect(errors).not.toHaveBeenCalled();
+    expect(warnings).not.toHaveBeenCalled();
+  });
+
+  test("issues waiting invoices once configured, then has nothing left to do", async () => {
+    const t = harness();
+    const requests = captureResend();
+    const first = await seedBooking(t, { orderId: "order_a" });
+    const second = await seedBooking(t, { orderId: "order_b" });
+    await confirmViaWebhook(t, "order_a", "pay_a");
+    await confirmViaWebhook(t, "order_b", "pay_b");
+    await dispatchAll(t);
+
+    stubInvoiceConfig();
+    expect(await t.action(runScheduledJob, {})).toEqual({ executed: true });
+    expect(await t.mutation(issueWhenConfigured, {})).toEqual({
+      configured: true,
+      issued: 0,
+      scanned: 0,
+    });
+
+    const invoices = await t.run((ctx) => ctx.db.query("bookingInvoices").collect());
+    expect(invoices.map((row) => [row.bookingId, row.invoiceNumber, row.status])).toEqual([
+      [first, "WEB/2627/00001", "issued"],
+      [second, "WEB/2627/00002", "issued"],
+    ]);
+    await dispatchAll(t);
+    expect(
+      requests.filter((request) => request.body.subject.startsWith("Your tax invoice"))
+    ).toHaveLength(2);
+  });
+
+  test("overlapping job and operator runs never issue a duplicate invoice or number", async () => {
+    const t = harness();
+    for (const order of ["order_a", "order_b", "order_c"]) {
+      await seedBooking(t, { orderId: order });
+      await confirmViaWebhook(t, order, `pay_${order}`);
+    }
+    stubInvoiceConfig();
+
+    await Promise.all([
+      t.mutation(issueWhenConfigured, {}),
+      t.mutation(issuePending, {}),
+      t.mutation(issueWhenConfigured, {}),
+    ]);
+
+    const invoices = await t.run((ctx) => ctx.db.query("bookingInvoices").collect());
+    expect(invoices).toHaveLength(3);
+    expect(invoices.map((row) => row.invoiceNumber).sort()).toEqual([
+      "WEB/2627/00001",
+      "WEB/2627/00002",
+      "WEB/2627/00003",
+    ]);
+    const readyJobs = (await customerJobs(t)).filter((job) =>
+      job.eventId.startsWith("booking_invoice_ready/")
+    );
+    expect(readyJobs).toHaveLength(3);
+  });
+
+  test("runs by default even on a target whose control plane is active and has no stored state", async () => {
+    const t = harness();
+    await t.run((ctx) =>
+      ctx.db.insert("operationalControlPlaneState", {
+        activatedAt: Date.now(),
+        activatedBy: "fixture",
+        activatedByName: "Fixture",
+        key: "global",
+        reason: "Synthetic activation",
+        revision: 1,
+      })
+    );
+    expect(await t.action(runScheduledJob, {})).toEqual({ executed: true });
   });
 });
 

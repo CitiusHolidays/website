@@ -227,6 +227,47 @@ export async function ensureBookingInvoice(
   return { invoiceNumber: snapshot.invoiceNumber, status: "issued" };
 }
 
+async function issuePendingBatch(ctx: MutationCtx, limit: number) {
+  const pending = await ctx.db
+    .query("bookingInvoices")
+    .withIndex("by_status_createdAt", (q) => q.eq("status", "pending_configuration"))
+    .take(limit);
+  let issued = 0;
+  let stillPending = 0;
+  let missingConfiguration: string[] = [];
+  for (const row of pending) {
+    // Sequential on purpose: each issue reads and increments the series counter, so
+    // concurrent issues inside one transaction would claim the same serial.
+    // biome-ignore lint/performance/noAwaitInLoops: consecutive invoice numbering requires serial issue.
+    const booking = await ctx.db.get("bookings", row.bookingId);
+    if (booking?.status !== "confirmed") {
+      await ctx.db.patch("bookingInvoices", row._id, {
+        missingConfiguration: undefined,
+        pendingReason: "booking_not_confirmed",
+        status: "manual_review",
+        updatedAt: Date.now(),
+      });
+      continue;
+    }
+    const outcome = await ensureBookingInvoice(ctx, booking);
+    if (outcome.status === "issued") {
+      issued += 1;
+      await queueBookingEmail(ctx, "booking_invoice_ready", booking);
+    } else if (outcome.status === "pending_configuration") {
+      stillPending += 1;
+      ({ missingConfiguration } = outcome);
+    }
+  }
+  return { issued, missingConfiguration, scanned: pending.length, stillPending };
+}
+
+const pendingBatchResult = v.object({
+  issued: v.number(),
+  missingConfiguration: v.array(v.string()),
+  scanned: v.number(),
+  stillPending: v.number(),
+});
+
 /**
  * Operator entrypoint, run after the invoice configuration is supplied: issue
  * every invoice still waiting for it (oldest first, bounded per call) and queue
@@ -234,46 +275,32 @@ export async function ensureBookingInvoice(
  */
 export const issuePendingBookingInvoices = internalMutation({
   args: { limit: v.optional(v.number()) },
-  handler: async (ctx, args) => {
-    const limit = Math.min(PENDING_BATCH_LIMIT, Math.max(1, Math.trunc(args.limit ?? 25)));
-    const pending = await ctx.db
-      .query("bookingInvoices")
-      .withIndex("by_status_createdAt", (q) => q.eq("status", "pending_configuration"))
-      .take(limit);
-    let issued = 0;
-    let stillPending = 0;
-    let missingConfiguration: string[] = [];
-    for (const row of pending) {
-      // Sequential on purpose: each issue reads and increments the series counter, so
-      // concurrent issues inside one transaction would claim the same serial.
-      // biome-ignore lint/performance/noAwaitInLoops: consecutive invoice numbering requires serial issue.
-      const booking = await ctx.db.get("bookings", row.bookingId);
-      if (booking?.status !== "confirmed") {
-        await ctx.db.patch("bookingInvoices", row._id, {
-          missingConfiguration: undefined,
-          pendingReason: "booking_not_confirmed",
-          status: "manual_review",
-          updatedAt: Date.now(),
-        });
-        continue;
-      }
-      const outcome = await ensureBookingInvoice(ctx, booking);
-      if (outcome.status === "issued") {
-        issued += 1;
-        await queueBookingEmail(ctx, "booking_invoice_ready", booking);
-      } else if (outcome.status === "pending_configuration") {
-        stillPending += 1;
-        ({ missingConfiguration } = outcome);
-      }
+  handler: async (ctx, args) =>
+    await issuePendingBatch(
+      ctx,
+      Math.min(PENDING_BATCH_LIMIT, Math.max(1, Math.trunc(args.limit ?? 25)))
+    ),
+  returns: pendingBatchResult,
+});
+
+/**
+ * The hourly `issue_pending_booking_invoices` job. While the company's invoice
+ * configuration is incomplete it returns at once: no reads of pending rows, no
+ * writes, no logs, so an unconfigured deployment stays quiet. Once configured it
+ * issues one bounded batch. Every write runs in this serializable transaction and
+ * an issued invoice is never reissued, so overlapping cron and operator runs
+ * cannot create a duplicate invoice, number, or email.
+ */
+export const issuePendingBookingInvoicesWhenConfigured = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    if (!readBookingInvoiceIssuer(process.env).ok) {
+      return { configured: false, issued: 0, scanned: 0 };
     }
-    return { issued, missingConfiguration, scanned: pending.length, stillPending };
+    const { issued, scanned } = await issuePendingBatch(ctx, PENDING_BATCH_LIMIT);
+    return { configured: true, issued, scanned };
   },
-  returns: v.object({
-    issued: v.number(),
-    missingConfiguration: v.array(v.string()),
-    scanned: v.number(),
-    stillPending: v.number(),
-  }),
+  returns: v.object({ configured: v.boolean(), issued: v.number(), scanned: v.number() }),
 });
 
 /** The account download path for a booking's invoice. */
