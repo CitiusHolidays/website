@@ -4,6 +4,7 @@ import { operationalControlKeyValidator } from "../crm/lib/operationalControls";
 export const notificationEmailMessageValidator = v.object({
   from: v.string(),
   html: v.string(),
+  replyTo: v.optional(v.string()),
   subject: v.string(),
   text: v.string(),
 });
@@ -24,6 +25,9 @@ export const notificationWorkKeyValidator = v.union(
 
 export const notificationEmailRecipientPurposeValidator = v.union(
   v.object({ kind: v.literal("event") }),
+  // The purchaser of a public website Booking. Never a staff member, even when
+  // the address happens to match one.
+  v.object({ kind: v.literal("customer_booking") }),
   v.object({ key: notificationWorkKeyValidator, kind: v.literal("work") }),
   v.object({ kind: v.literal("roles"), roles: v.array(v.string()) }),
   v.object({

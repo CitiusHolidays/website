@@ -50,6 +50,15 @@ addresses, recipient hashes, message content, provider status, or provider respo
 Department heads, Admin, Directors, and Director Cement receive this oversight permission; ordinary
 department roles do not.
 
+## Customer booking email
+
+The same outbox, ledger, idempotency keys and pacing deliver customer booking confirmation,
+tax-invoice-ready and refund emails. Those jobs carry the `customer_booking` recipient purpose and
+the `email.customer_booking` control. They never resolve their recipient to a staff member, are
+eligible only while their booking exists, and render their message from the booking rather than
+the staff notification template. Their event identities are `<kind>/<bookingId>`. See
+[Booking emails and invoices](BOOKING_EMAILS_AND_INVOICES.md).
+
 ## Environment transition
 
 `RESEND_API_KEY` is canonical in both Next.js and Convex environments.

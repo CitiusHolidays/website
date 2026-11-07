@@ -3,6 +3,8 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
+import { customerInvoiceSummary } from "./bookingInvoices";
+import { scheduleBookingPaymentFollowUp } from "./bookingPaymentFollowUps";
 import { assertReferenceNow } from "./crm/referenceTimePolicy";
 import {
   projectCustomerJourneyDetail,
@@ -382,13 +384,17 @@ export const getMyJourneyDetail = query({
     if (!entitlement) {
       return null;
     }
-    const trip = await ctx.db.get("trips", booking.tripId);
-    return projectCustomerJourneyDetail(
+    const [trip, invoice] = await Promise.all([
+      ctx.db.get("trips", booking.tripId),
+      entitlement.role === "purchaser" ? customerInvoiceSummary(ctx, booking) : undefined,
+    ]);
+    const detail = projectCustomerJourneyDetail(
       booking,
       trip,
       assertReferenceNow(args.referenceNow),
       entitlement
     );
+    return { ...detail, invoice };
   },
   returns: customerJourneyDetailResultValidator,
 });
@@ -400,6 +406,8 @@ interface BookingTransitionArgs {
   paymentId?: string;
   providerEventId: string;
   reason: string;
+  refundAmount?: number;
+  refundId?: string;
   signature?: string;
   transition: BookingTransition;
 }
@@ -513,8 +521,20 @@ async function applyRefundedTransition(
   if (booking.status !== "confirmed") {
     return await ignorePaymentTransition(ctx, args, booking);
   }
-  await ctx.db.patch("bookings", booking._id, { status: "refunded", updatedAt: timestamp });
+  await ctx.db.patch("bookings", booking._id, {
+    refundAmount:
+      args.refundAmount !== undefined && Number.isSafeInteger(args.refundAmount)
+        ? args.refundAmount
+        : undefined,
+    refundedAt: timestamp,
+    refundReference: args.refundId,
+    status: "refunded",
+    updatedAt: timestamp,
+  });
   await recordPaymentEvent(ctx, args, booking, booking.status, "refunded", "accepted");
+  // Only the accepted confirmed -> refunded transition reaches this line, so the
+  // refund email is scheduled once however often the provider repeats the event.
+  await scheduleBookingPaymentFollowUp(ctx, booking._id, "refunded");
   return { id: booking._id, status: "refunded" as const };
 }
 
@@ -562,6 +582,10 @@ async function applyConfirmedTransition(
   ]);
   await recordPaymentEvent(ctx, args, booking, booking.status, "confirmed", "accepted");
   const updated = await ctx.db.get("bookings", booking._id);
+  // Only the first accepted confirmation schedules the tax invoice and the
+  // confirmation email. Every later confirmation path (checkout verification,
+  // webhook capture, replays) takes the already-confirmed branch above.
+  await scheduleBookingPaymentFollowUp(ctx, booking._id, "confirmed");
   return {
     alreadyConfirmed: false,
     booking: updated ? toApiBooking(updated) : null,
@@ -665,6 +689,8 @@ export const markRefundedByPaymentId = mutation({
     paymentId: v.string(),
     providerEventId: v.string(),
     reason: v.string(),
+    refundAmount: v.optional(v.number()),
+    refundId: v.optional(v.string()),
     serverSecret: v.string(),
   },
   handler: async (ctx, args) => {

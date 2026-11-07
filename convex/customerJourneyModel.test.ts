@@ -65,8 +65,9 @@ function context({
       return bookings.find((row) => row._id === id) ?? trips.find((row) => row._id === id) ?? null;
     },
     query: (table: string) => {
-      if (table === "customerJourneyEntitlements") {
+      if (table === "customerJourneyEntitlements" || table === "bookingInvoices") {
         const emptyChain = {
+          first: async () => null,
           order: () => emptyChain,
           take: async () => [],
           withIndex: () => emptyChain,
