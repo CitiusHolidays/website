@@ -29,6 +29,7 @@ import {
   type CommercialFileSourceType,
   type CommercialFileTeamArea,
   commercialFileFilterSignature,
+  commercialFileListArgs,
   commercialFileRowsForPage,
   commercialFileSourceKey,
   createCommercialFileViewReducer,
@@ -481,6 +482,56 @@ function CommercialFileResults({
   );
 }
 
+function groupCommercialFileRows(rows: CommercialFileRow[]): CommercialFileGroup[] {
+  const groups = new Map<string, CommercialFileRow[]>();
+  for (const row of rows) {
+    const key = `${row.teamArea}:${row.sourceType}:${row.sourceId}`;
+    groups.set(key, [...(groups.get(key) || []), row]);
+  }
+  return Array.from(groups.entries()).map(([key, items]) => ({
+    items,
+    key,
+    label: `${items[0].teamLabel} · ${items[0].sourceLabel}`,
+  }));
+}
+
+function CommercialFileUploadArea({
+  entityId,
+  entryPoint,
+  sourceOptions,
+}: {
+  entityId: string;
+  entryPoint: CommercialFileSourceType;
+  sourceOptions: CommercialFileSourceOption[];
+}) {
+  return sourceOptions.length > 0 ? (
+    <CommercialFileUploadPanel
+      entityId={entityId}
+      entryPoint={entryPoint}
+      key={`${entryPoint}:${entityId}`}
+      sourceOptions={sourceOptions}
+    />
+  ) : (
+    <div className="mt-4 rounded-xl border border-brand-border bg-brand-light/40 px-4 py-3 text-brand-muted text-sm">
+      You have read-only access to the linked sources. Files can still be viewed or downloaded
+      below.
+    </div>
+  );
+}
+
+function CommercialFilesFooter({ close, total }: { close: () => void; total?: number }) {
+  return (
+    <div className="flex shrink-0 items-center justify-between gap-3 border-brand-border border-t bg-white px-5 py-3 text-brand-muted text-xs max-sm:px-4">
+      <span>
+        {total ?? 0} file{total === 1 ? "" : "s"} in this view
+      </span>
+      <Button className="portal-outline-btn" onClick={close} type="button">
+        Done
+      </Button>
+    </div>
+  );
+}
+
 function CommercialFilesModalInstance({
   close,
   form = EMPTY_FORM,
@@ -501,32 +552,14 @@ function CommercialFilesModalInstance({
     createCommercialFileViewState<CommercialFileRow>(entryPoint, entityId)
   );
   const { filters, pager } = view;
-  const { category, search, showDeleted, sourceFilter, teamArea } = filters;
-  const [rawSourceFilterType, rawSourceFilterId] = sourceFilter.split(":", 2);
-  const sourceFilterType: CommercialFileSourceType | undefined =
-    rawSourceFilterType === "query" ||
-    rawSourceFilterType === "proposal" ||
-    rawSourceFilterType === "jobCard"
-      ? rawSourceFilterType
-      : undefined;
-  const sourceFilterId = sourceFilterType ? rawSourceFilterId : undefined;
-
-  const queryArgs =
-    open && entityId
-      ? {
-          category: category || undefined,
-          cursor: pager.cursor,
-          entityId,
-          entryPoint,
-          includeDeleted: showDeleted,
-          includeHistory: true,
-          limit: 25,
-          search: search.trim() || undefined,
-          sourceId: sourceFilterId || undefined,
-          sourceType: sourceFilterType,
-          teamArea: teamArea || undefined,
-        }
-      : "skip";
+  const { showDeleted } = filters;
+  const queryArgs = commercialFileListArgs({
+    cursor: pager.cursor,
+    entityId,
+    entryPoint,
+    filters,
+    open,
+  });
   const result = useQuery(api.crm.commercialFiles.listForEntryPoint, queryArgs);
   const deleteFile = useMutation(api.crm.commercialFiles.deleteFile);
   const restoreFile = useMutation(api.crm.commercialFiles.restoreFile);
@@ -537,16 +570,7 @@ function CommercialFilesModalInstance({
   const sourceOptions = result?.writableSources ?? [];
   const allSourceOptions = result?.sourceOptions ?? [];
 
-  const groups = new Map<string, CommercialFileRow[]>();
-  for (const row of rows) {
-    const key = `${row.teamArea}:${row.sourceType}:${row.sourceId}`;
-    groups.set(key, [...(groups.get(key) || []), row]);
-  }
-  const groupedRows = Array.from(groups.entries()).map(([key, items]) => ({
-    items,
-    key,
-    label: `${items[0].teamLabel} · ${items[0].sourceLabel}`,
-  }));
+  const groupedRows = groupCommercialFileRows(rows);
   const handleFilterChange = (
     name: keyof CommercialFileFilters,
     value: CommercialFileFilters[keyof CommercialFileFilters]
@@ -662,19 +686,11 @@ function CommercialFilesModalInstance({
               onFilterChange={handleFilterChange}
             />
 
-            {sourceOptions.length > 0 ? (
-              <CommercialFileUploadPanel
-                entityId={entityId}
-                entryPoint={entryPoint}
-                key={`${entryPoint}:${entityId}`}
-                sourceOptions={sourceOptions}
-              />
-            ) : (
-              <div className="mt-4 rounded-xl border border-brand-border bg-brand-light/40 px-4 py-3 text-brand-muted text-sm">
-                You have read-only access to the linked sources. Files can still be viewed or
-                downloaded below.
-              </div>
-            )}
+            <CommercialFileUploadArea
+              entityId={entityId}
+              entryPoint={entryPoint}
+              sourceOptions={sourceOptions}
+            />
 
             <CommercialFileResults
               groups={groupedRows}
@@ -686,14 +702,7 @@ function CommercialFilesModalInstance({
               rows={rows}
             />
           </div>
-          <div className="flex shrink-0 items-center justify-between gap-3 border-brand-border border-t bg-white px-5 py-3 text-brand-muted text-xs max-sm:px-4">
-            <span>
-              {result?.total ?? 0} file{result?.total === 1 ? "" : "s"} in this view
-            </span>
-            <Button className="portal-outline-btn" onClick={close} type="button">
-              Done
-            </Button>
-          </div>
+          <CommercialFilesFooter close={close} total={result?.total} />
         </>
       ) : null}
     </ControlledDialog>
