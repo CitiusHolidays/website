@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import AuthLoginLoadingShell from "@/components/auth/AuthLoginLoadingShell";
 import AuthLoginPageClient from "@/components/auth/AuthLoginPageClient";
 import { formatAuthCallbackError } from "@/lib/auth-errors";
+import { resolveAuthReturnPath } from "@/lib/auth-return-path";
 import { getServerUser } from "@/lib/auth-server";
 import { getAuthVariant, getAuthVariantFromCallbackUrl } from "@/lib/auth-sign-in-targets";
 
@@ -26,15 +27,24 @@ async function AuthLoginBoundary({ variantId, searchParams }) {
   // not swallow token-exchange infrastructure failures as if the user logged
   // out; the route error boundary must offer a retry instead.
   const user = await getServerUser();
+  // Only a validated same-origin path in this variant's area; anything else falls back.
+  const returnTo = resolveAuthReturnPath(params?.returnTo, variant);
 
   if (user) {
-    redirect(variant.href);
+    redirect(returnTo ?? variant.href);
   }
 
   const error = formatAuthCallbackError(params?.error);
   const mode = params?.mode || "signin";
 
-  return <AuthLoginPageClient error={error} initialMode={mode} variantId={variantId} />;
+  return (
+    <AuthLoginPageClient
+      error={error}
+      initialMode={mode}
+      returnTo={returnTo}
+      variantId={variantId}
+    />
+  );
 }
 
 export async function createLegacyAuthRedirect({ searchParams }) {

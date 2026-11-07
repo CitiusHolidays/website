@@ -116,6 +116,21 @@ describe("ValidateModalForm", () => {
     ).not.toThrow();
   });
 
+  test("Bounds the parental consent note on a minor to 500 characters", () => {
+    const minor = {
+      ageGroup: "minor",
+      fullName: "Kavya Iyer",
+      jobCardId: "job_1",
+      parentalConsent: "received",
+    };
+    expect(() =>
+      validateModalForm("traveller", { ...minor, parentalConsentNote: "x".repeat(501) })
+    ).toThrow("Keep the consent note to 500 characters or fewer.");
+    expect(() =>
+      validateModalForm("traveller", { ...minor, parentalConsentNote: ` ${"x".repeat(500)} ` })
+    ).not.toThrow();
+  });
+
   test("Rejects missing visible required fields across operational modals", () => {
     expect(() => validateModalForm("traveller", { fullName: "", jobCardId: "job_1" })).toThrow(
       "Traveller name is required."

@@ -10,6 +10,8 @@
 
 import type * as _exportSurface from "../_exportSurface.js";
 import type * as _runtimeModules from "../_runtimeModules.js";
+import type * as accountDeletion from "../accountDeletion.js";
+import type * as accountDeletionEmail from "../accountDeletionEmail.js";
 import type * as aiRuntime from "../aiRuntime.js";
 import type * as auth from "../auth.js";
 import type * as authAccountLinking from "../authAccountLinking.js";
@@ -66,6 +68,7 @@ import type * as crm_expenseScope from "../crm/expenseScope.js";
 import type * as crm_externalTourManagerProfiles from "../crm/externalTourManagerProfiles.js";
 import type * as crm_fieldPassportActions from "../crm/fieldPassportActions.js";
 import type * as crm_fieldPassportAuditRetention from "../crm/fieldPassportAuditRetention.js";
+import type * as crm_fieldPassportOpenPolicy from "../crm/fieldPassportOpenPolicy.js";
 import type * as crm_fieldPassports from "../crm/fieldPassports.js";
 import type * as crm_fieldSync from "../crm/fieldSync.js";
 import type * as crm_fileReturnContracts from "../crm/fileReturnContracts.js";
@@ -265,6 +268,7 @@ import type * as crm_travelerFeedback from "../crm/travelerFeedback.js";
 import type * as crm_travelerFeedbackActions from "../crm/travelerFeedbackActions.js";
 import type * as crm_travelerFeedbackHttp from "../crm/travelerFeedbackHttp.js";
 import type * as crm_travelerFeedbackSecurity from "../crm/travelerFeedbackSecurity.js";
+import type * as crm_travellerGuardianConsent from "../crm/travellerGuardianConsent.js";
 import type * as crm_travellerGuardianPolicy from "../crm/travellerGuardianPolicy.js";
 import type * as crm_travellerGuardians from "../crm/travellerGuardians.js";
 import type * as crm_travellers from "../crm/travellers.js";
@@ -282,6 +286,9 @@ import type * as e2eDeploymentIdentity from "../e2eDeploymentIdentity.js";
 import type * as eventPhotoBooth from "../eventPhotoBooth.js";
 import type * as eventPhotoBoothArtwork from "../eventPhotoBoothArtwork.js";
 import type * as http from "../http.js";
+import type * as lib_accountDeletionContract from "../lib/accountDeletionContract.js";
+import type * as lib_accountDeletionReceipts from "../lib/accountDeletionReceipts.js";
+import type * as lib_accountErasure from "../lib/accountErasure.js";
 import type * as lib_aiRateLimit from "../lib/aiRateLimit.js";
 import type * as lib_authEmailDelivery from "../lib/authEmailDelivery.js";
 import type * as lib_authEmailHtml from "../lib/authEmailHtml.js";
@@ -292,6 +299,7 @@ import type * as lib_authSync from "../lib/authSync.js";
 import type * as lib_betterAuthEmail from "../lib/betterAuthEmail.js";
 import type * as lib_betterAuthLookup from "../lib/betterAuthLookup.js";
 import type * as lib_bookingEmailContent from "../lib/bookingEmailContent.js";
+import type * as lib_bookingTravellerDocuments from "../lib/bookingTravellerDocuments.js";
 import type * as lib_bookingInvoicePolicy from "../lib/bookingInvoicePolicy.js";
 import type * as lib_bookingInvoiceValidators from "../lib/bookingInvoiceValidators.js";
 import type * as lib_bootstrapAuthority from "../lib/bootstrapAuthority.js";
@@ -352,6 +360,8 @@ import type {
 declare const fullApi: ApiFromModules<{
   _exportSurface: typeof _exportSurface;
   _runtimeModules: typeof _runtimeModules;
+  accountDeletion: typeof accountDeletion;
+  accountDeletionEmail: typeof accountDeletionEmail;
   aiRuntime: typeof aiRuntime;
   auth: typeof auth;
   authAccountLinking: typeof authAccountLinking;
@@ -408,6 +418,7 @@ declare const fullApi: ApiFromModules<{
   "crm/externalTourManagerProfiles": typeof crm_externalTourManagerProfiles;
   "crm/fieldPassportActions": typeof crm_fieldPassportActions;
   "crm/fieldPassportAuditRetention": typeof crm_fieldPassportAuditRetention;
+  "crm/fieldPassportOpenPolicy": typeof crm_fieldPassportOpenPolicy;
   "crm/fieldPassports": typeof crm_fieldPassports;
   "crm/fieldSync": typeof crm_fieldSync;
   "crm/fileReturnContracts": typeof crm_fileReturnContracts;
@@ -607,6 +618,7 @@ declare const fullApi: ApiFromModules<{
   "crm/travelerFeedbackActions": typeof crm_travelerFeedbackActions;
   "crm/travelerFeedbackHttp": typeof crm_travelerFeedbackHttp;
   "crm/travelerFeedbackSecurity": typeof crm_travelerFeedbackSecurity;
+  "crm/travellerGuardianConsent": typeof crm_travellerGuardianConsent;
   "crm/travellerGuardianPolicy": typeof crm_travellerGuardianPolicy;
   "crm/travellerGuardians": typeof crm_travellerGuardians;
   "crm/travellers": typeof crm_travellers;
@@ -624,6 +636,9 @@ declare const fullApi: ApiFromModules<{
   eventPhotoBooth: typeof eventPhotoBooth;
   eventPhotoBoothArtwork: typeof eventPhotoBoothArtwork;
   http: typeof http;
+  "lib/accountDeletionContract": typeof lib_accountDeletionContract;
+  "lib/accountDeletionReceipts": typeof lib_accountDeletionReceipts;
+  "lib/accountErasure": typeof lib_accountErasure;
   "lib/aiRateLimit": typeof lib_aiRateLimit;
   "lib/authEmailDelivery": typeof lib_authEmailDelivery;
   "lib/authEmailHtml": typeof lib_authEmailHtml;
@@ -634,6 +649,7 @@ declare const fullApi: ApiFromModules<{
   "lib/betterAuthEmail": typeof lib_betterAuthEmail;
   "lib/betterAuthLookup": typeof lib_betterAuthLookup;
   "lib/bookingEmailContent": typeof lib_bookingEmailContent;
+  "lib/bookingTravellerDocuments": typeof lib_bookingTravellerDocuments;
   "lib/bookingInvoicePolicy": typeof lib_bookingInvoicePolicy;
   "lib/bookingInvoiceValidators": typeof lib_bookingInvoiceValidators;
   "lib/bootstrapAuthority": typeof lib_bootstrapAuthority;

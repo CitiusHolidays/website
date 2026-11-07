@@ -1,13 +1,15 @@
 import type { JsonValue } from "@/lib/jsonValue";
 import { isRuntimeString } from "@/lib/runtimeValues";
 export type ContactIntent =
-  | "account-deletion"
   | "event-photo-booth"
   | "mice-proposal"
   | "pilgrimage-callback"
   | "pilgrimage-enquiry";
 
-export const ACCOUNT_DELETION_CONTACT_HREF = "/contact?intent=account-deletion";
+/** Self-service deletion lives in Account settings (ADR 0019). */
+export const ACCOUNT_DELETION_HREF = "/account?tab=settings#delete-account";
+/** The retired contact intent. Old links keep working by forwarding to ACCOUNT_DELETION_HREF. */
+const LEGACY_ACCOUNT_DELETION_INTENT = "account-deletion";
 export const MICE_PROPOSAL_CONTACT_HREF = "/contact?intent=mice-proposal";
 
 export const PILGRIMAGE_CONTACT_HREFS = {
@@ -16,11 +18,6 @@ export const PILGRIMAGE_CONTACT_HREFS = {
 } as const;
 
 const CONTACT_INTENT_PREFILLS = {
-  "account-deletion": {
-    message:
-      "Please contact me about deleting my Citius account. I understand the team will first confirm any active journeys.",
-    subject: "Account deletion request",
-  },
   "event-photo-booth": {
     message: "I would like to plan a trip after trying the Citius Event Photo Booth.",
     subject: "Photo Booth travel enquiry",
@@ -40,9 +37,12 @@ const CONTACT_INTENT_PREFILLS = {
   },
 } satisfies Record<ContactIntent, { message: string; subject: string }>;
 
+export function isLegacyAccountDeletionIntent(value: JsonValue) {
+  return value === LEGACY_ACCOUNT_DELETION_INTENT;
+}
+
 export function resolveContactIntent(value: JsonValue): ContactIntent | null {
   return value === "event-photo-booth" ||
-    value === "account-deletion" ||
     value === "mice-proposal" ||
     value === "pilgrimage-callback" ||
     value === "pilgrimage-enquiry"

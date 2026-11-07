@@ -12,6 +12,7 @@ import { JobCardAppPilot } from "./JobCardAppPilot";
 import { JobCardCustomerInvites } from "./JobCardCustomerInvites";
 import { JobCardFeedbackMenu } from "./JobCardFeedbackMenu";
 import { JobCardFieldUpdates } from "./JobCardFieldUpdates";
+import { JobCardPassportViews } from "./JobCardPassportViews";
 import JobCardReadinessMap from "./JobCardReadinessMap";
 import JobCardTaskBoard from "./JobCardTaskBoard";
 
@@ -199,6 +200,7 @@ export default function JobCardCommandCenter({ jobCardId }) {
       <JobCardAppPilot jobCardId={String(jobCardId)} />
       <JobCardCustomerInvites jobCardId={String(jobCardId)} />
       <JobCardFieldUpdates jobCardId={String(jobCardId)} />
+      <JobCardPassportViews jobCardId={String(jobCardId)} />
       <JobCardReadinessMap sections={model.readinessSections} />
       <div className="grid items-start gap-4 lg:grid-cols-[1.4fr_0.8fr]">
         <section className="rounded-lg border border-brand-border bg-white">

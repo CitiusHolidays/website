@@ -1,5 +1,11 @@
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { resolveContactDestination, resolveContactIntent } from "@/lib/public/contactIntent";
+import {
+  ACCOUNT_DELETION_HREF,
+  isLegacyAccountDeletionIntent,
+  resolveContactDestination,
+  resolveContactIntent,
+} from "@/lib/public/contactIntent";
 import ContactPageClient from "./page.client";
 
 export const generateMetadata = () => ({
@@ -10,6 +16,9 @@ export const generateMetadata = () => ({
 
 async function ContactPageContent({ searchParams }) {
   const query = await searchParams;
+  if (isLegacyAccountDeletionIntent(query?.intent)) {
+    redirect(ACCOUNT_DELETION_HREF);
+  }
   const contactIntent = resolveContactIntent(query?.intent);
 
   const destination =

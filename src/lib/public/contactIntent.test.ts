@@ -1,8 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
-  ACCOUNT_DELETION_CONTACT_HREF,
+  ACCOUNT_DELETION_HREF,
   getContactIntentPrefill,
   getPhotoBoothContactHref,
+  isLegacyAccountDeletionIntent,
   MICE_PROPOSAL_CONTACT_HREF,
   PILGRIMAGE_CONTACT_HREFS,
   resolveContactDestination,
@@ -11,7 +12,6 @@ import {
 
 describe("Public contact intent", () => {
   test("Pilgrimage actions have distinct, durable contact destinations", () => {
-    expect(ACCOUNT_DELETION_CONTACT_HREF).toBe("/contact?intent=account-deletion");
     expect(PILGRIMAGE_CONTACT_HREFS).toEqual({
       callback: "/contact?intent=pilgrimage-callback",
       enquiry: "/contact?intent=pilgrimage-enquiry",
@@ -29,14 +29,11 @@ describe("Public contact intent", () => {
     });
   });
 
-  test("Prefills an actionable account deletion request", () => {
-    const intent = resolveContactIntent("account-deletion");
-    expect(intent).toBe("account-deletion");
-    expect(getContactIntentPrefill(intent)).toEqual({
-      message:
-        "Please contact me about deleting my Citius account. I understand the team will first confirm any active journeys.",
-      subject: "Account deletion request",
-    });
+  test("Account deletion is self-service and the retired contact intent forwards to it", () => {
+    expect(ACCOUNT_DELETION_HREF).toBe("/account?tab=settings#delete-account");
+    expect(isLegacyAccountDeletionIntent("account-deletion")).toBe(true);
+    expect(isLegacyAccountDeletionIntent("mice-proposal")).toBe(false);
+    expect(resolveContactIntent("account-deletion")).toBeNull();
   });
 
   test("Supported intents prefill an editable brief and unknown values safely fall back", () => {

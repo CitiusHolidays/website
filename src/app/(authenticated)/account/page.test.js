@@ -49,3 +49,15 @@ describe("Customer Travel Account request authentication", () => {
     expect(queryArgs).toContainEqual({ paginationOpts: { cursor: null, numItems: 20 } });
   });
 });
+
+describe("Customer Travel Account tab links", () => {
+  test("Opens Settings from the account-deletion link and ignores unknown tabs", async () => {
+    const settings = await AccountPage({ searchParams: Promise.resolve({ tab: "settings" }) });
+    const unknown = await AccountPage({ searchParams: Promise.resolve({ tab: "admin" }) });
+    const none = await AccountPage();
+
+    expect(settings.props.initialTab).toBe("settings");
+    expect(unknown.props.initialTab).toBe("journeys");
+    expect(none.props.initialTab).toBe("journeys");
+  });
+});

@@ -2,6 +2,7 @@ import type { UserIdentity } from "convex/server";
 import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
+import { assertAccountNotDeleted } from "./accountDeletionReceipts";
 import { type AuthIdentityLike, canonicalAuthUserId, legacyAuthUserId } from "./authIdentity";
 
 type IdentityCtx = QueryCtx | MutationCtx;
@@ -80,6 +81,7 @@ export async function establishCanonicalIdentityLink(ctx: MutationCtx, identity:
   if (!canonical) {
     throw new ConvexError("UNAUTHORIZED");
   }
+  await assertAccountNotDeleted(ctx, canonical);
   if (!(legacy && legacy !== canonical)) {
     return { authUserId: canonical, status: "linked" as const };
   }

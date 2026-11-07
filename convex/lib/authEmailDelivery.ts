@@ -9,8 +9,11 @@ import {
 import { AUTH_EMAIL_FROM } from "./emailConfig";
 import { isRuntimeNumber, propertiesWhen } from "./runtimeValues";
 
-export type AuthEmailPurpose = "password_reset" | "verification";
+/** Purposes whose email carries a Better Auth link and can be bound to a staff-setup intent. */
+export type AuthLinkEmailPurpose = "password_reset" | "verification";
+export type AuthEmailPurpose = AuthLinkEmailPurpose | "account_deleted";
 export type AuthEmailControlKey =
+  | "email.auth.account_deleted"
   | "email.auth.password_reset"
   | "email.auth.staff_setup"
   | "email.auth.verification";
@@ -99,7 +102,7 @@ const prepareIntentRef = makeFunctionReference<
     controlKey: "email.auth.staff_setup";
     correlationDigest: string;
     expiresAt: number;
-    purpose: AuthEmailPurpose;
+    purpose: AuthLinkEmailPurpose;
     recipientDigest: string;
   },
   { prepared: boolean }
@@ -110,7 +113,7 @@ const resolveIntentRef = makeFunctionReference<
   {
     at: number;
     correlationDigest: string;
-    purpose: AuthEmailPurpose;
+    purpose: AuthLinkEmailPurpose;
     recipientDigest: string;
   },
   AuthEmailControlKey | null
@@ -130,6 +133,13 @@ const resolveOperationalControlsRef = makeFunctionReference<
 >("crm/settings:resolveOperationalControlsInternal");
 
 const AUTH_DELIVERY_PARAM = "auth_delivery";
+
+function defaultAuthEmailControlKey(purpose: AuthEmailPurpose): AuthEmailControlKey {
+  if (purpose === "account_deleted") {
+    return "email.auth.account_deleted";
+  }
+  return purpose === "verification" ? "email.auth.verification" : "email.auth.password_reset";
+}
 export const AUTH_EMAIL_TOKEN_TTL_SECONDS = 60 * 60;
 
 function hex(bytes: ArrayBuffer) {
@@ -151,7 +161,7 @@ async function authEmailRecipientDigest(recipient: string) {
 
 export async function createTrustedAuthEmailCorrelation(
   ctx: ActionCtx,
-  purpose: AuthEmailPurpose,
+  purpose: AuthLinkEmailPurpose,
   callbackUrl: string,
   recipient: string,
   controlKey: AuthEmailControlKey
@@ -179,7 +189,7 @@ export async function resolveAuthEmailControlKey(
   ctx: ActionCtx,
   url: string,
   token: string,
-  purpose: AuthEmailPurpose,
+  purpose: AuthLinkEmailPurpose,
   recipient: string
 ) {
   const standardKey: AuthEmailControlKey =
@@ -318,9 +328,7 @@ export async function executeAuthEmailDeliveryOrchestration(
   const expiresAt = existing?.expiresAt ?? input.expiresAt;
   const base = { correlationDigest, expiresAt, purpose: input.purpose };
   if (!existing) {
-    const controlKey =
-      input.controlKey ??
-      (input.purpose === "verification" ? "email.auth.verification" : "email.auth.password_reset");
+    const controlKey = input.controlKey ?? defaultAuthEmailControlKey(input.purpose);
     if (!(await ports.resolveControl(controlKey))) {
       return await ports.recordStatus(base, {
         attempts: 0,

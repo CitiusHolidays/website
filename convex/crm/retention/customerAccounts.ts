@@ -3,6 +3,7 @@ import { components } from "../../_generated/api";
 import type { Doc } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { internalMutation, internalQuery } from "../../_generated/server";
+import { eraseCustomerAccount } from "../../lib/accountErasure";
 import {
   type RetentionDecision,
   type RetentionPlan,
@@ -27,9 +28,12 @@ import { normalizeEmail } from "../lib/staffAccess";
  * Never touched: staff accounts (a `staffUsers` row for any of the ids or the email), accounts
  * with any Sacred Bharat profile, visit or wishlist row (the Yatri context has no retention
  * period yet), archived
- * duplicate profiles, and accounts with more bookings or entitlements than one pass reviews. Deleting an account removes the Better Auth user, its sessions and sign-in
- * methods, the profile, the identity links and journey entitlements. Bookings stay for the
- * 8-year tax rule with their account link replaced by a placeholder. Run by
+ * duplicate profiles, and accounts with more bookings or entitlements than one pass reviews.
+ * Deleting an account uses the shared `eraseCustomerAccount` (also used by self-service deletion,
+ * ADR 0019): it removes the Better Auth user, its sessions, sign-in methods and live verification
+ * tokens, the profile and its archived duplicates, the identity links and journey entitlements.
+ * Bookings stay for the 8-year tax rule with their account link replaced by a placeholder, the
+ * purchaser's note removed and identity documents stripped from the traveller details. Run by
  * `jobs.purge_inactive_customer_accounts`, which is off until the owner switches it on.
  */
 export const DELETED_ACCOUNT_USER_ID = "retention:deleted-account";
@@ -181,43 +185,22 @@ async function hasSacredBharatData(ctx: QueryCtx, ids: string[]) {
   return rows.some((row) => row !== null);
 }
 
-async function deleteBetterAuthUser(ctx: MutationCtx, subject: string) {
-  await Promise.all(
-    (["session", "account"] as const).map((model) =>
-      ctx.runMutation(components.betterAuth.adapter.deleteMany, {
-        input: { model, where: [{ field: "userId", operator: "eq", value: subject }] },
-        paginationOpts: { cursor: null, numItems: LINK_LIMIT },
-      })
-    )
-  );
-  await ctx.runMutation(components.betterAuth.adapter.deleteOne, {
-    input: { model: "user", where: [{ field: "_id", operator: "eq", value: subject }] },
-  });
-}
-
 async function deleteAccount(ctx: MutationCtx, profile: Doc<"userProfiles">) {
-  const { ids, links, subjects } = await accountIdentity(ctx, profile);
-  const { bookings, entitlements } = await accountLinks(ctx, ids);
-  const now = Date.now();
-  await Promise.all([
-    ...bookings.map((booking) =>
-      ctx.db.patch("bookings", booking._id, { updatedAt: now, userId: DELETED_ACCOUNT_USER_ID })
-    ),
-    ...entitlements.map((entitlement) =>
-      ctx.db.delete("customerJourneyEntitlements", entitlement._id)
-    ),
-  ]);
-  if (bookings.length >= LINK_LIMIT || entitlements.length >= LINK_LIMIT) {
-    // More links than one pass handles: the profile stays and the next run continues.
-    return;
+  const { ids, subjects } = await accountIdentity(ctx, profile);
+  // The same erase as self-service deletion (ADR 0019), so the two cannot drift. `decide` has
+  // already kept accounts with too many links, so the erase stays within one transaction.
+  await eraseCustomerAccount(ctx, {
+    betterAuthUserIds: subjects,
+    entitlements: "delete",
+    identityIds: ids,
+    loginEmails: [profile.email],
+    now: Date.now(),
+    tombstone: DELETED_ACCOUNT_USER_ID,
+  });
+  // A profile without a live identity id is not reached by the identity lookups above.
+  if (await ctx.db.get("userProfiles", profile._id)) {
+    await ctx.db.delete("userProfiles", profile._id);
   }
-  await Promise.all([
-    ...Array.from(new Set(links.map((row) => row._id)), (id) =>
-      ctx.db.delete("authIdentityLinks", id)
-    ),
-    ...subjects.map((subject) => deleteBetterAuthUser(ctx, subject)),
-  ]);
-  await ctx.db.delete("userProfiles", profile._id);
 }
 
 async function decide(

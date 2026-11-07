@@ -164,12 +164,11 @@ describe("AccountProfilePanel", () => {
 });
 
 describe("AccountSettingsPanel", () => {
-  test("Separates planned settings from the actionable account contact", async () => {
+  test("Separates planned settings from the self-service deletion action", async () => {
     const view = await mount(<AccountSettingsPanel />);
 
     expect(view.container.textContent).toContain("Account Settings");
     expect(view.container.querySelector('[role="switch"]')).toBeNull();
-    expect(view.container.querySelector("button")).toBeNull();
     const plannedStatuses = [...view.container.querySelectorAll("span")].filter(
       (node) => node.textContent === "Planned"
     );
@@ -178,12 +177,10 @@ describe("AccountSettingsPanel", () => {
       "Email notifications. Planned",
       "Two-step verification. Planned",
     ]);
-    const contact = view.container.querySelector('a[href="/contact?intent=account-deletion"]');
-    expect(contact?.textContent).toBe("Contact team");
-    expect(contact?.getAttribute("aria-label")).toBe(
-      "Contact the Citius team about deleting your account"
-    );
-    expect(contact?.className).toContain("min-h-11");
+    expect(view.container.querySelector('a[href^="/contact"]')).toBeNull();
+    const buttons = [...view.container.querySelectorAll("button")];
+    expect(buttons.map((node) => node.textContent)).toEqual(["Delete my account"]);
+    expect(buttons[0].className).toContain("min-h-11");
 
     await view.unmount();
   });

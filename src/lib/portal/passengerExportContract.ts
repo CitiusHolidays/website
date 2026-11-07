@@ -40,6 +40,7 @@ export interface PassengerExportRow {
   guardianNames?: string[];
   hotelAllocation?: string;
   isMinor?: boolean | null;
+  parentalConsentReceived?: boolean | null;
   passport?: PassengerExportPassport;
   paymentType?: string;
   roomType?: string;
