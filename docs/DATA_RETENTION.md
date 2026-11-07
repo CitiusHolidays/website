@@ -51,7 +51,9 @@ panel.
   `foodPreference` and `roomType` are required fields that feed the Job Card's meal and room
   counts, so they stay. Tickets keep their number as a financial reference. A minor on a later
   Travel Batch keeps its link to an anonymised guardian until the minor's own trip is past the
-  period.
+  period. Customer app records go with the trip records they cover (ADR 0020): the parental
+  consents recorded for a minor and the app invites issued to a traveller are deleted when that
+  traveller is anonymised. A parent who deletes their account takes their consent records with it.
 - **Passport scans.** The whole `passportDetails` row goes: the encrypted payload, number hash,
   last four digits, expiry date and file name. The last four digits only help staff recognise the
   right passport while it is in use; once the scan is gone there is nothing to recognise. The

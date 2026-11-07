@@ -80,9 +80,10 @@ registration exist; it will use Better Auth's `phoneNumber` plugin.
 - Until Universal Links and App Links are set up, the `citius://` hand-off can be claimed by another
   app that registers the same scheme on the phone. The token is single-use and short-lived, and the
   website page never holds a session, which bounds the exposure; Universal Links remove it.
-- Account deletion ([ADR 0019](0019-self-service-customer-account-deletion.md)) revokes the
-  account's trip entitlements and writes the deletion tombstone into the invite it claimed
-  (`claimedByAuthUserId`) and the parental consents it recorded (`authUserId`). Both are kept as
-  Operations' and consent evidence, detached from the login, like the entitlement itself. How long
-  consent evidence is kept after a trip is a retention decision still to be made
-  (docs/DATA_RETENTION.md).
+- Consent records are kept exactly as long as the trip records they cover (owner decision, 7 Nov
+  2026). The traveller anonymisation job (`jobs.anonymise_past_travellers`, three years after the
+  trip) deletes the consents recorded for a minor and the app invites issued to a traveller when it
+  anonymises that Traveller. Account deletion
+  ([ADR 0019](0019-self-service-customer-account-deletion.md)) deletes the consents the account
+  recorded, revokes its trip entitlements and writes the deletion tombstone into the invite it
+  claimed (`claimedByAuthUserId`), which stays as Operations' record until the anonymisation job.

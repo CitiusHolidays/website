@@ -380,7 +380,7 @@ describe("customer app trip invites", () => {
     expect(marked?.isMinor).toBe(true);
   });
 
-  test("deleting the account detaches its invite claim and consent records from the login", async () => {
+  test("deleting the account detaches its invite claim and deletes its consent records", async () => {
     vi.useFakeTimers({ now: NOW });
     const t = harness();
     const ids = await seed(t);
@@ -411,7 +411,7 @@ describe("customer app trip invites", () => {
     expect(invites.map((row) => row.claimedByAuthUserId)).toEqual([tombstone]);
     expect(invites[0]?.status).toBe("claimed");
     const consents = await t.run((ctx) => ctx.db.query("customerParentalConsents").collect());
-    expect(consents.map((row) => [row.action, row.authUserId])).toEqual([["granted", tombstone]]);
+    expect(consents).toEqual([]);
     expect(await asha.query(api.customerApp.listMyTrips, { referenceNow: NOW })).toEqual([]);
   });
 

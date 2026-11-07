@@ -703,6 +703,81 @@ describe("traveller retention (anonymise 3 years after the trip)", () => {
     expect(second.counts).toEqual({ already_anonymised: 2, kept_trip_recent: 2, kept_undated: 1 });
   });
 
+  test("deletes the consents and invites of anonymised travellers; keeps those of later trips", async () => {
+    const t = harness();
+    const f = await seedTravellers(t);
+    const recentJob = await t.run(
+      async (ctx) => (await ctx.db.get("travellers", f.recent))?.jobCardId
+    );
+    await t.run(async (ctx) => {
+      const staffId = await ctx.db.insert("staffUsers", {
+        active: true,
+        authUserId: "synthetic-ops-auth",
+        createdAt: NOW,
+        email: "ops@example.test",
+        emailNormalized: "ops@example.test",
+        name: "Synthetic Ops",
+        roles: ["Operations"],
+        updatedAt: NOW,
+      });
+      const entitlementId = await ctx.db.insert("customerJourneyEntitlements", {
+        authUserId: "synthetic-parent-auth",
+        capabilities: ["view_confirmed_trip"],
+        createdAt: NOW,
+        jobCardId: f.endedJob,
+        role: "traveller",
+        source: "trip_invite",
+        travellerId: f.guardian,
+        updatedAt: NOW,
+      });
+      const invite = (
+        travellerId: Id<"travellers">,
+        jobCardId: Id<"jobCards">,
+        tokenHash: string
+      ) =>
+        ctx.db.insert("customerTripInvites", {
+          channel: "link",
+          claimedAt: NOW,
+          claimedByAuthUserId: "synthetic-parent-auth",
+          createdAt: NOW,
+          createdByName: "Synthetic Ops",
+          createdByStaffId: staffId,
+          entitlementId,
+          expiresAt: NOW + 30 * DAY,
+          jobCardId,
+          status: "claimed",
+          tokenHash,
+          travellerId,
+          updatedAt: NOW,
+        });
+      await invite(f.guardian, f.endedJob, "a".repeat(64));
+      await invite(f.recent, recentJob ?? f.endedJob, "b".repeat(64));
+      for (const minorTravellerId of [f.minor, f.laterMinor]) {
+        await ctx.db.insert("customerParentalConsents", {
+          action: "granted",
+          authUserId: "synthetic-parent-auth",
+          consentTextVersion: "2026-11-07",
+          entitlementId,
+          guardianTravellerId: f.guardian,
+          jobCardId: f.endedJob,
+          minorTravellerId,
+          recordedAt: NOW,
+          source: "guardian_invite",
+        });
+      }
+    });
+
+    await t.mutation(internal.crm.retention.travellers.purgeExpired, {});
+    await runScheduled(t);
+
+    const state = await t.run(async (ctx) => ({
+      consents: await ctx.db.query("customerParentalConsents").collect(),
+      invites: await ctx.db.query("customerTripInvites").collect(),
+    }));
+    expect(state.consents.map((row) => row.minorTravellerId)).toEqual([f.laterMinor]);
+    expect(state.invites.map((row) => row.travellerId)).toEqual([f.recent]);
+  });
+
   test("the dry run counts without changing a traveller", async () => {
     const t = harness();
     const f = await seedTravellers(t);

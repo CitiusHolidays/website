@@ -307,9 +307,10 @@ async function eraseSacredBharat(ctx: MutationCtx, target: AccountErasureTarget)
 }
 
 /**
- * Customer app trips (ADR 0020): the invite an Account Holder claimed and the parental consents
- * they recorded stay as Operations' and consent evidence, detached from the login like the
- * entitlement they hang off. The Traveller rows are the operation's and are not touched.
+ * Customer app trips (ADR 0020): the invite an Account Holder claimed stays as Operations' record,
+ * detached from the login like the entitlement it hangs off. The parental consents they recorded
+ * are deleted with the account (owner decision, 7 Nov 2026). The Traveller rows are the
+ * operation's and are not touched.
  */
 async function detachTripRecords(
   ctx: MutationCtx,
@@ -355,9 +356,7 @@ async function detachTripRecords(
         updatedAt: target.now,
       })
     ),
-    ...consents.map((row) =>
-      ctx.db.patch("customerParentalConsents", row._id, { authUserId: target.tombstone })
-    ),
+    ...consents.map((row) => ctx.db.delete("customerParentalConsents", row._id)),
   ]);
 }
 
