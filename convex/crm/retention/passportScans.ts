@@ -2,9 +2,10 @@ import { makeFunctionReference } from "convex/server";
 import type { Doc } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { internalMutation, internalQuery } from "../../_generated/server";
+import { invalidateDocumentPreviewSource } from "../documentPreviewLifecycle";
 import { scheduleCrmMetricSync } from "../financeMetricSync";
-import { deleteStorageFile } from "../lib/codes";
 import {
+  deleteStorageWhenUnreferenced,
   type RetentionDecision,
   type RetentionPlan,
   reportRetentionPage,
@@ -24,7 +25,8 @@ import { tripEndLookup } from "../lib/retentionTrips";
  * four digits exist so staff can recognise the right passport while it is in use; with the scan
  * gone there is nothing to recognise, so they go too. The traveller keeps the content-free
  * status word (`passportStatus`, for example "Received") so the trip history still shows that
- * the passport was collected; `hasPassportScan` and the expiry date copy are cleared.
+ * the passport was collected; `hasPassportScan` and the expiry date copy are cleared. A rendered
+ * document preview of the scan is deleted too, and the file is deleted once nothing references it.
  *
  * A traveller whose trip has no dates, whose Job Card is gone, or who no longer exists is kept
  * and counted. Run by `jobs.purge_passport_scans`, which is off until the owner switches it on.
@@ -36,8 +38,10 @@ const continuePurgeRef = makeFunctionReference<"mutation", { asOf: number; curso
 );
 
 async function deletePassport(ctx: MutationCtx, passport: Doc<"passportDetails">) {
-  await deleteStorageFile(ctx, passport.storageId, "passport scan");
+  // The rendered preview of the scan is a copy and goes with it.
+  await invalidateDocumentPreviewSource(ctx, "passport", String(passport.travellerId));
   await ctx.db.delete("passportDetails", passport._id);
+  await deleteStorageWhenUnreferenced(ctx, passport.storageId);
   await ctx.db.patch("travellers", passport.travellerId, {
     hasPassportScan: false,
     passportExpiryDate: undefined,
@@ -72,18 +76,23 @@ async function plan(ctx: QueryCtx, asOf: number, cursor: string | null): Promise
   return { continueCursor: page.isDone ? null : page.continueCursor, decisions };
 }
 
+const JOB = {
+  continueRef: continuePurgeRef,
+  controlKey: "jobs.purge_passport_scans",
+  planner: plan,
+} as const;
+
 /** Entrypoint dispatched by the `jobs.purge_passport_scans` scheduled job. */
 export const purgeExpired = internalMutation({
   args: {},
-  handler: async (ctx) => await runRetentionPage(ctx, plan, continuePurgeRef, Date.now(), null),
+  handler: async (ctx) => await runRetentionPage(ctx, JOB, Date.now(), null),
   returns: retentionRunResult,
 });
 
 /** Continues one run in a fresh transaction with the run's fixed `asOf`. */
 export const continuePurge = internalMutation({
   args: retentionContinuationArgs,
-  handler: async (ctx, args) =>
-    await runRetentionPage(ctx, plan, continuePurgeRef, args.asOf, args.cursor),
+  handler: async (ctx, args) => await runRetentionPage(ctx, JOB, args.asOf, args.cursor),
   returns: retentionRunResult,
 });
 

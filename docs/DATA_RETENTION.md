@@ -31,6 +31,10 @@ Only the Operations Head and Admin read the field passport view log
   `kept_undated`.
 - **Bounded runs.** Each run reads one page, applies it, and schedules the next page with the
   run's fixed time (`asOf`), following `crm/officeCheckInRetention`. No step scans unbounded.
+  Each next page re-checks the job's control, so pausing a job stops a run in progress.
+- **Files.** Storage files (passport scans, feedback photos and thumbnails) are deleted after
+  their row, through `crm/storageReferences:deleteIfUnreferenced`, so a file another record
+  still uses is never removed.
 - **Same logic for the report and the job.** The dry run and the job plan the same page with the
   same code (`convex/crm/lib/retentionRun.ts`); the report only counts.
 
@@ -39,29 +43,34 @@ Only the Operations Head and Admin read the field passport view log
 - **Travellers.** The row stays, so passenger, room and meal counts, tickets, visa outcomes and
   invoices still add up. The name becomes `Anonymised traveller`. Removed: contact number, email,
   gender, given name and surname, special requests, companions, hotel allocation, biometric
-  appointment, guardian links in both directions, the minor flag and unresolved guardian names,
+  appointment, the traveller's own guardian links, the minor flag and unresolved guardian names,
   import key and import names (dealer, RSO, SO, description), the marketing consent note, and the
   passport expiry copy. Passport details and scans still left are deleted; meal preference rows are
   deleted; rooming, seat and visa notes are cleared; the traveller's bell rows are deleted.
   `foodPreference` and `roomType` are required fields that feed the Job Card's meal and room
-  counts, so they stay. Tickets keep their number as a financial reference.
+  counts, so they stay. Tickets keep their number as a financial reference. A minor on a later
+  Travel Batch keeps its link to an anonymised guardian until the minor's own trip is past the
+  period.
 - **Passport scans.** The whole `passportDetails` row goes: the encrypted payload, number hash,
   last four digits, expiry date and file name. The last four digits only help staff recognise the
   right passport while it is in use; once the scan is gone there is nothing to recognise. The
-  traveller keeps the content-free status word (`passportStatus`, such as `Received`).
+  traveller keeps the content-free status word (`passportStatus`, such as `Received`). A rendered
+  document preview of the scan is deleted with it.
 - **Bookings.** Amounts, status, currency, traveller count, the trip and the Razorpay order and
   payment ids stay as the payment record. Removed: traveller details, notes, the payment
   signature, the account link (replaced by `retention:anonymised`) and the booking's journey
   entitlements. A booking is past the period when both its booking date and its trip's end are.
 - **Invoices.** They hold amounts and a number but no personal data. One is deleted when both its
   creation date and its Job Card's trip end are more than 8 years ago; an undated Job Card keeps
-  its invoices. The CRM finance metrics are told about each deletion.
+  its invoices, and so does an invoice whose Job Card is gone (its dates are unknown). A booking
+  whose trip is gone is kept for the same reason. The CRM finance metrics are told about each
+  deletion.
 - **Customer accounts.** Activity is the latest of the profile's `updatedAt` (rewritten at every
   sign-in by `authSync.syncFromIdentity`), the Better Auth user's dates, any session, and any
   booking or journey entitlement, across every identity id of the account (canonical and legacy
-  ids from `authIdentityLinks`). Never touched: staff accounts (matched by id or email), accounts
-  with a Sacred Bharat profile, archived duplicate profiles, and accounts with 50 or more bookings
-  or entitlements (left for a person to review). Bookings stay for the 8-year rule
+  ids from `authIdentityLinks`, and the old-site user id). Never touched: staff accounts (matched
+  by id or email), accounts with any Sacred Bharat profile, visit or wishlist row, archived duplicate profiles, and accounts with 50 or more bookings
+  or entitlements or 50 or more sessions (left for a person to review). Bookings stay for the 8-year rule
   with their account link replaced by `retention:deleted-account`.
 - **Enquiries.** Converted intents are never touched. The `crmHandoffEvents` row holds no personal
   data and stays for the handoff counts.
@@ -97,7 +106,7 @@ pages (default 50, at most 200). If `isDone` is false, run it again with the ret
 | `purge_activity_logs` | `crm/retention/activityLogs:dryRun` | 200 | `deleted` |
 | `purge_unconverted_enquiries` | `crm/retention/enquiries:dryRun` | 100 | `deleted`, `kept_converted` |
 | `purge_inactive_customer_accounts` | `crm/retention/customerAccounts:dryRun` | 20 | `deleted_account`, `kept_active`, `kept_staff`, `kept_sacred_bharat`, `kept_archived_duplicate`, `kept_too_many_links` |
-| `retire_financial_records` | `crm/retention/financialRecords:dryRun` | 50 | `anonymised_booking`, `already_anonymised_booking`, `kept_booking_recent`, `kept_booking_undated`, `deleted_invoice`, `kept_invoice_trip_recent`, `kept_invoice_undated` |
+| `retire_financial_records` | `crm/retention/financialRecords:dryRun` | 50 | `anonymised_booking`, `already_anonymised_booking`, `kept_booking_recent`, `kept_booking_undated`, `kept_booking_no_trip`, `deleted_invoice`, `kept_invoice_trip_recent`, `kept_invoice_undated`, `kept_invoice_no_job_card` |
 | `anonymise_past_travellers` | `crm/retention/travellers:dryRun` | 25 | `anonymised`, `already_anonymised`, `kept_trip_recent`, `kept_undated`, `kept_no_job_card` |
 | `purge_passport_scans` | `crm/retention/passportScans:dryRun` | 50 | `deleted`, `kept_trip_recent`, `kept_undated`, `kept_no_job_card`, `kept_no_traveller` |
 | `purge_old_feedback` | `crm/retention/feedback:dryRun` | 50 | `deleted_traveller_feedback` |
@@ -119,7 +128,8 @@ report. Record the counts and the deployment identity, never record contents.
    bookings and invoices 04:00, customer accounts 04:15.
 4. Run the dry-run summary again; the `deleted` and `anonymised` counts should now be zero (or only
    records that became due since).
-5. To stop a job, set it to **Paused**. A run that has already started finishes its current page.
+5. To stop a job, set it to **Paused**. A run that has already started stops before its next page;
+   the page in progress (one transaction) completes.
 
 The Production Test Lab lists a recipe for each job. While a job is off its recipe reports
 *Skipped*; it never executes writes either way.

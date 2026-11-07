@@ -35,7 +35,8 @@ import { workDateFor } from "../officeCheckInVerification";
  * details, notes, payment signature and the link to the customer account go, and so do the
  * account's journey entitlements for the booking. CRM invoices hold amounts and an invoice
  * number but no personal data; one past the period is deleted with its bell rows, and the CRM
- * metrics are told. A trip without dates keeps its records. Run by
+ * metrics are told. A trip without dates, a booking whose trip is gone, and an invoice whose Job
+ * Card is gone keep their records. Run by
  * `jobs.retire_financial_records`, which is off until the owner switches it on.
  */
 export const ANONYMISED_BOOKING_USER_ID = "retention:anonymised";
@@ -78,17 +79,18 @@ async function decideBooking(
     return { outcome: "kept_booking_recent" };
   }
   const trip = await ctx.db.get("trips", booking.tripId);
-  if (trip) {
-    const verdict = tripRetentionVerdict(
-      tripEndDate({ travelEndDate: trip.endDate, travelStartDate: trip.startDate }),
-      cutoff
-    );
-    if (verdict === "kept_undated") {
-      return { outcome: "kept_booking_undated" };
-    }
-    if (verdict === "kept_trip_recent") {
-      return { outcome: "kept_booking_recent" };
-    }
+  if (!trip) {
+    return { outcome: "kept_booking_no_trip" };
+  }
+  const verdict = tripRetentionVerdict(
+    tripEndDate({ travelEndDate: trip.endDate, travelStartDate: trip.startDate }),
+    cutoff
+  );
+  if (verdict === "kept_undated") {
+    return { outcome: "kept_booking_undated" };
+  }
+  if (verdict === "kept_trip_recent") {
+    return { outcome: "kept_booking_recent" };
   }
   return {
     apply: async (writer) => await anonymiseBooking(writer, booking),
@@ -123,7 +125,10 @@ async function plan(ctx: QueryCtx, asOf: number, cursor: string | null): Promise
   const decisions = await Promise.all(
     page.page.map(async (invoice): Promise<RetentionDecision> => {
       const end = await trips.forJobCard(invoice.jobCardId);
-      const verdict = end === "missing" ? "expired" : tripRetentionVerdict(end, cutoff);
+      if (end === "missing") {
+        return { outcome: "kept_invoice_no_job_card" };
+      }
+      const verdict = tripRetentionVerdict(end, cutoff);
       if (verdict === "kept_undated") {
         return { outcome: "kept_invoice_undated" };
       }
@@ -139,18 +144,23 @@ async function plan(ctx: QueryCtx, asOf: number, cursor: string | null): Promise
   return { continueCursor: nextPhaseCursor(PHASES, position.phase, page), decisions };
 }
 
+const JOB = {
+  continueRef: continuePurgeRef,
+  controlKey: "jobs.retire_financial_records",
+  planner: plan,
+} as const;
+
 /** Entrypoint dispatched by the `jobs.retire_financial_records` scheduled job. */
 export const purgeExpired = internalMutation({
   args: {},
-  handler: async (ctx) => await runRetentionPage(ctx, plan, continuePurgeRef, Date.now(), null),
+  handler: async (ctx) => await runRetentionPage(ctx, JOB, Date.now(), null),
   returns: retentionRunResult,
 });
 
 /** Continues one run in a fresh transaction with the run's fixed `asOf`. */
 export const continuePurge = internalMutation({
   args: retentionContinuationArgs,
-  handler: async (ctx, args) =>
-    await runRetentionPage(ctx, plan, continuePurgeRef, args.asOf, args.cursor),
+  handler: async (ctx, args) => await runRetentionPage(ctx, JOB, args.asOf, args.cursor),
   returns: retentionRunResult,
 });
 

@@ -25,7 +25,8 @@ import { normalizeEmail } from "../lib/staffAccess";
  * canonical or legacy id from `authIdentityLinks`.
  *
  * Never touched: staff accounts (a `staffUsers` row for any of the ids or the email), accounts
- * with a Sacred Bharat profile (the Yatri context has no retention period yet), archived
+ * with any Sacred Bharat profile, visit or wishlist row (the Yatri context has no retention
+ * period yet), archived
  * duplicate profiles, and accounts with more bookings or entitlements than one pass reviews. Deleting an account removes the Better Auth user, its sessions and sign-in
  * methods, the profile, the identity links and journey entitlements. Bookings stay for the
  * 8-year tax rule with their account link replaced by a placeholder. Run by
@@ -91,10 +92,29 @@ async function betterAuthActivity(ctx: QueryCtx, subjects: string[]) {
       ]);
       // SAFETY: Better Auth rows carry numeric createdAt/updatedAt per the component schema.
       const rows = [user, ...sessions.page].filter(Boolean) as AuthTimestamps[];
-      return latest(rows);
+      return { latest: latest(rows), sessions: sessions.page.length };
     })
   );
-  return Math.max(Number.NEGATIVE_INFINITY, ...results);
+  return {
+    latest: Math.max(Number.NEGATIVE_INFINITY, ...results.map((result) => result.latest)),
+    tooManySessions: results.some((result) => result.sessions >= LINK_LIMIT),
+  };
+}
+
+/** Every identity id of the profile, the identity links, and the Better Auth user ids. */
+async function accountIdentity(ctx: QueryCtx, profile: Doc<"userProfiles">) {
+  const linked = profile.authUserId
+    ? await identityIds(ctx, profile.authUserId)
+    : { ids: [], links: [] };
+  // Bookings migrated from the old site may still carry the old user id.
+  const ids = Array.from(
+    new Set([...linked.ids, ...(profile.legacyUserId ? [profile.legacyUserId] : [])])
+  );
+  return {
+    ids,
+    links: linked.links,
+    subjects: Array.from(new Set(linked.ids.map(betterAuthUserId))),
+  };
 }
 
 async function accountLinks(ctx: QueryCtx, ids: string[]) {
@@ -140,14 +160,23 @@ async function isStaff(ctx: QueryCtx, profile: Doc<"userProfiles">, ids: string[
   return matches.some((row) => row !== null);
 }
 
-async function hasSacredBharatProfile(ctx: QueryCtx, ids: string[]) {
+/** Any Sacred Bharat profile, visit or wishlist row for the account. */
+async function hasSacredBharatData(ctx: QueryCtx, ids: string[]) {
   const rows = await Promise.all(
-    ids.map((id) =>
+    ids.flatMap((id) => [
       ctx.db
         .query("sacredBharatProfiles")
         .withIndex("by_authUserId", (q) => q.eq("authUserId", id))
-        .first()
-    )
+        .first(),
+      ctx.db
+        .query("sacredBharatVisits")
+        .withIndex("by_authUserId", (q) => q.eq("authUserId", id))
+        .first(),
+      ctx.db
+        .query("sacredBharatWishlist")
+        .withIndex("by_authUserId", (q) => q.eq("authUserId", id))
+        .first(),
+    ])
   );
   return rows.some((row) => row !== null);
 }
@@ -166,12 +195,8 @@ async function deleteBetterAuthUser(ctx: MutationCtx, subject: string) {
   });
 }
 
-async function deleteAccount(ctx: MutationCtx, profile: Doc<"userProfiles">, authUserId: string) {
-  const identity = await identityIds(ctx, authUserId);
-  const { links } = identity;
-  const ids = Array.from(
-    new Set([...identity.ids, ...(profile.legacyUserId ? [profile.legacyUserId] : [])])
-  );
+async function deleteAccount(ctx: MutationCtx, profile: Doc<"userProfiles">) {
+  const { ids, links, subjects } = await accountIdentity(ctx, profile);
   const { bookings, entitlements } = await accountLinks(ctx, ids);
   const now = Date.now();
   await Promise.all([
@@ -190,9 +215,7 @@ async function deleteAccount(ctx: MutationCtx, profile: Doc<"userProfiles">, aut
     ...Array.from(new Set(links.map((row) => row._id)), (id) =>
       ctx.db.delete("authIdentityLinks", id)
     ),
-    ...Array.from(new Set(identity.ids.map(betterAuthUserId)), (subject) =>
-      deleteBetterAuthUser(ctx, subject)
-    ),
+    ...subjects.map((subject) => deleteBetterAuthUser(ctx, subject)),
   ]);
   await ctx.db.delete("userProfiles", profile._id);
 }
@@ -208,38 +231,31 @@ async function decide(
   if (Math.max(profile.createdAt, profile.updatedAt) >= cutoff.startMs) {
     return { outcome: "kept_active" };
   }
-  const { authUserId } = profile;
-  const linked = authUserId ? (await identityIds(ctx, authUserId)).ids : [];
-  // Bookings migrated from the old site may still carry the old user id.
-  const ids = Array.from(
-    new Set([...linked, ...(profile.legacyUserId ? [profile.legacyUserId] : [])])
-  );
+  const { ids, subjects } = await accountIdentity(ctx, profile);
   if (await isStaff(ctx, profile, ids)) {
     return { outcome: "kept_staff" };
   }
-  const [authActivity, links] = await Promise.all([
-    betterAuthActivity(ctx, Array.from(new Set(linked.map(betterAuthUserId)))),
+  const [auth, links] = await Promise.all([
+    betterAuthActivity(ctx, subjects),
     accountLinks(ctx, ids),
   ]);
-  if (links.bookings.length >= LINK_LIMIT || links.entitlements.length >= LINK_LIMIT) {
+  if (
+    auth.tooManySessions ||
+    links.bookings.length >= LINK_LIMIT ||
+    links.entitlements.length >= LINK_LIMIT
+  ) {
     // Too many links to review in one pass; left for a person to look at.
     return { outcome: "kept_too_many_links" };
   }
   const linkActivity = latest([...links.bookings, ...links.entitlements]);
-  if (Math.max(authActivity, linkActivity) >= cutoff.startMs) {
+  if (Math.max(auth.latest, linkActivity) >= cutoff.startMs) {
     return { outcome: "kept_active" };
   }
-  if (await hasSacredBharatProfile(ctx, ids)) {
+  if (await hasSacredBharatData(ctx, ids)) {
     return { outcome: "kept_sacred_bharat" };
   }
   return {
-    apply: async (writer) => {
-      if (authUserId) {
-        await deleteAccount(writer, profile, authUserId);
-      } else {
-        await writer.db.delete("userProfiles", profile._id);
-      }
-    },
+    apply: async (writer) => await deleteAccount(writer, profile),
     outcome: "deleted_account",
   };
 }
@@ -257,18 +273,23 @@ async function plan(ctx: QueryCtx, asOf: number, cursor: string | null): Promise
   };
 }
 
+const JOB = {
+  continueRef: continuePurgeRef,
+  controlKey: "jobs.purge_inactive_customer_accounts",
+  planner: plan,
+} as const;
+
 /** Entrypoint dispatched by the `jobs.purge_inactive_customer_accounts` scheduled job. */
 export const purgeExpired = internalMutation({
   args: {},
-  handler: async (ctx) => await runRetentionPage(ctx, plan, continuePurgeRef, Date.now(), null),
+  handler: async (ctx) => await runRetentionPage(ctx, JOB, Date.now(), null),
   returns: retentionRunResult,
 });
 
 /** Continues one run in a fresh transaction with the run's fixed `asOf`. */
 export const continuePurge = internalMutation({
   args: retentionContinuationArgs,
-  handler: async (ctx, args) =>
-    await runRetentionPage(ctx, plan, continuePurgeRef, args.asOf, args.cursor),
+  handler: async (ctx, args) => await runRetentionPage(ctx, JOB, args.asOf, args.cursor),
   returns: retentionRunResult,
 });
 

@@ -2,10 +2,11 @@ import { makeFunctionReference } from "convex/server";
 import type { Doc } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { internalMutation, internalQuery } from "../../_generated/server";
+import { invalidateDocumentPreviewSource } from "../documentPreviewLifecycle";
 import { scheduleCrmMetricSync } from "../financeMetricSync";
-import { deleteStorageFile } from "../lib/codes";
 import { deleteEntityNotifications } from "../lib/notifications";
 import {
+  deleteStorageWhenUnreferenced,
   type RetentionDecision,
   type RetentionPlan,
   reportRetentionPage,
@@ -18,18 +19,19 @@ import {
 import { RETENTION_PERIODS, retentionCutoff, tripRetentionVerdict } from "../lib/retentionSchedule";
 import { tripEndLookup } from "../lib/retentionTrips";
 import { buildTravellerListSearchText, markListSearchDirty } from "../listSearch";
-import { clearGuardianLinksTo } from "../travellerGuardians";
 
 /**
  * Traveller records (director decision, 7 Nov 2026) are anonymised three years after the trip
  * ends, never deleted: the row stays so the Job Card's passenger, room and meal counts, tickets,
  * visa outcomes and invoices still add up. The name becomes a placeholder; contact details,
- * gender, special requests, companions, hotel allocation, guardian links (both directions),
+ * gender, special requests, companions, hotel allocation, the traveller's own guardian links,
  * minor flag, import names and notes are removed; passport details and scans still left are
  * deleted; meal preference rows are deleted; rooming, seat and visa notes are cleared.
  *
  * `foodPreference` and `roomType` are required fields that feed the Job Card's meal and room
- * counts, so they stay; without a name or contact they no longer identify anyone. Tickets keep
+ * counts, so they stay; without a name or contact they no longer identify anyone. A minor whose
+ * own trip is not yet past the period keeps its link to an anonymised guardian until the minor's
+ * own turn. Tickets keep
  * their number (a financial reference). `retentionAnonymisedAt` marks a finished traveller.
  * Run by `jobs.anonymise_past_travellers`, which is off until the owner switches it on.
  */
@@ -67,8 +69,9 @@ async function stripDependents(ctx: MutationCtx, traveller: Doc<"travellers">) {
   ]);
   await Promise.all([
     ...passports.map(async (passport) => {
-      await deleteStorageFile(ctx, passport.storageId, "passport scan");
+      await invalidateDocumentPreviewSource(ctx, "passport", String(traveller._id));
       await ctx.db.delete("passportDetails", passport._id);
+      await deleteStorageWhenUnreferenced(ctx, passport.storageId);
     }),
     ...meals.map((meal) => ctx.db.delete("mealPreferences", meal._id)),
     ...rooming.map((entry) =>
@@ -82,7 +85,6 @@ async function stripDependents(ctx: MutationCtx, traveller: Doc<"travellers">) {
 
 async function anonymiseTraveller(ctx: MutationCtx, traveller: Doc<"travellers">) {
   const complete = await stripDependents(ctx, traveller);
-  await clearGuardianLinksTo(ctx, traveller._id, { authUserId: null });
   const job = await ctx.db.get("jobCards", traveller.jobCardId);
   const now = Date.now();
   const patch = {
@@ -141,7 +143,7 @@ async function plan(ctx: QueryCtx, asOf: number, cursor: string | null): Promise
         return { outcome: verdict };
       }
       return {
-        // Re-read: an earlier decision on this page may have cleared a guardian link.
+        // Re-read the row at apply time; the plan may have been made from an older read.
         apply: async (writer) => {
           const current = await writer.db.get("travellers", traveller._id);
           if (current) {
@@ -155,18 +157,23 @@ async function plan(ctx: QueryCtx, asOf: number, cursor: string | null): Promise
   return { continueCursor: page.isDone ? null : page.continueCursor, decisions };
 }
 
+const JOB = {
+  continueRef: continuePurgeRef,
+  controlKey: "jobs.anonymise_past_travellers",
+  planner: plan,
+} as const;
+
 /** Entrypoint dispatched by the `jobs.anonymise_past_travellers` scheduled job. */
 export const purgeExpired = internalMutation({
   args: {},
-  handler: async (ctx) => await runRetentionPage(ctx, plan, continuePurgeRef, Date.now(), null),
+  handler: async (ctx) => await runRetentionPage(ctx, JOB, Date.now(), null),
   returns: retentionRunResult,
 });
 
 /** Continues one run in a fresh transaction with the run's fixed `asOf`. */
 export const continuePurge = internalMutation({
   args: retentionContinuationArgs,
-  handler: async (ctx, args) =>
-    await runRetentionPage(ctx, plan, continuePurgeRef, args.asOf, args.cursor),
+  handler: async (ctx, args) => await runRetentionPage(ctx, JOB, args.asOf, args.cursor),
   returns: retentionRunResult,
 });
 

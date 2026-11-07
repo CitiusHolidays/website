@@ -27,6 +27,41 @@ function istMidnight(date: string) {
   return Date.parse(`${date}T00:00:00+05:30`);
 }
 
+/** Switches a retention job on the way an Admin change set would leave it. */
+async function setJobControl(t: Harness, key: string, state: "disabled" | "enabled") {
+  await t.run(async (ctx) => {
+    if (!(await ctx.db.query("operationalControlPlaneState").first())) {
+      await ctx.db.insert("operationalControlPlaneState", {
+        activatedAt: NOW,
+        activatedBy: "synthetic-admin",
+        activatedByName: "Synthetic Admin",
+        key: "global",
+        reason: "Synthetic activation for retention tests.",
+        revision: 1,
+      });
+    }
+    const existing = await ctx.db
+      .query("operationalControlStates")
+      .withIndex("by_key", (q) => q.eq("key", key))
+      .first();
+    if (existing) {
+      await ctx.db.patch("operationalControlStates", existing._id, { state });
+      return;
+    }
+    await ctx.db.insert("operationalControlStates", {
+      key,
+      reason: "Synthetic owner decision for retention tests.",
+      revision: 2,
+      state,
+      updatedAt: NOW,
+      updatedBy: "synthetic-admin",
+      updatedByName: "Synthetic Admin",
+    });
+  });
+}
+
+const runScheduled = (t: Harness) => t.finishAllScheduledFunctions(() => vi.runAllTimers());
+
 beforeEach(() => {
   vi.useFakeTimers();
   vi.setSystemTime(NOW);
@@ -141,9 +176,10 @@ describe("unconverted enquiry retention (2 years)", () => {
   test("deletes pending and dismissed enquiries after 2 years; keeps converted ones", async () => {
     const t = harness();
     await seedIntents(t);
+    await setJobControl(t, "jobs.purge_unconverted_enquiries", "enabled");
     const result = await t.mutation(internal.crm.retention.enquiries.purgeExpired, {});
     // Each status range is its own page.
-    await t.finishAllScheduledFunctions(() => vi.runAllTimers());
+    await runScheduled(t);
     expect(result.counts).toEqual({ deleted: 1 });
     const remaining = await t.run(async (ctx) => ({
       handoffEvents: (await ctx.db.query("crmHandoffEvents").collect()).length,
@@ -157,6 +193,20 @@ describe("unconverted enquiry retention (2 years)", () => {
       "New enquiry from Kept Pending",
       "New enquiry from Old Converted",
     ]);
+  });
+
+  test("pausing the job stops a run that is already in progress", async () => {
+    const t = harness();
+    await seedIntents(t);
+    await setJobControl(t, "jobs.purge_unconverted_enquiries", "enabled");
+    const first = await t.mutation(internal.crm.retention.enquiries.purgeExpired, {});
+    expect(first).toEqual({ counts: { deleted: 1 }, scheduledContinuation: true });
+    await setJobControl(t, "jobs.purge_unconverted_enquiries", "disabled");
+    await runScheduled(t);
+    const names = await t.run(async (ctx) =>
+      (await ctx.db.query("inboundQueryIntents").collect()).map((row) => row.clientName).sort()
+    );
+    expect(names).toEqual(["Kept Pending", "Old Converted", "Old Dismissed"]);
   });
 
   test("the dry run walks both status ranges without deleting", async () => {
@@ -284,6 +334,8 @@ describe("feedback retention (3 years)", () => {
       counts: { deleted_traveller_feedback: 1 },
       scheduledContinuation: false,
     });
+    // Files go once nothing references them, in their own transaction.
+    await runScheduled(t);
     const state = await t.run(async (ctx) => ({
       keptFile: (await ctx.storage.get(f.kept.storageId)) !== null,
       oldFile: (await ctx.storage.get(f.old.storageId)) !== null,
@@ -430,6 +482,7 @@ describe("passport scan retention (90 days after the trip)", () => {
       counts: { deleted: 3, kept_trip_recent: 1, kept_undated: 1 },
       scheduledContinuation: false,
     });
+    await runScheduled(t);
     const state = await t.run(async (ctx) => {
       const passports = await ctx.db.query("passportDetails").collect();
       const travellers = await ctx.db.query("travellers").collect();
@@ -505,6 +558,16 @@ describe("traveller retention (anonymise 3 years after the trip)", () => {
       isMinor: true,
     });
     const recent = await insertTraveller(t, recentJob, "Synthetic Recent");
+    // Same Job Card, a later Travel Batch: kept, and keeps its link to the guardian.
+    const laterBatch = await insertBatch(t, endedJob, "B-LATER", {
+      travelEndDate: "2026-01-10",
+      travelStartDate: "2026-01-01",
+    });
+    const laterMinor = await insertTraveller(t, endedJob, "Synthetic Later Minor", {
+      firstGuardianTravellerId: guardian,
+      isMinor: true,
+      travelBatchId: laterBatch,
+    });
     const undated = await insertTraveller(t, undatedJob, "Synthetic Undated");
     const scan = await withPassport(t, guardian);
     const ids = await t.run(async (ctx) => {
@@ -565,7 +628,7 @@ describe("traveller retention (anonymise 3 years after the trip)", () => {
       });
       return { invoiceId, roomingId, ticketId, visaId };
     });
-    return { endedJob, guardian, ids, minor, recent, scan, undated };
+    return { endedJob, guardian, ids, laterMinor, minor, recent, scan, undated };
   }
 
   test("strips personal fields but keeps the row, the counts and the financial links", async () => {
@@ -573,13 +636,15 @@ describe("traveller retention (anonymise 3 years after the trip)", () => {
     const f = await seedTravellers(t);
     const result = await t.mutation(internal.crm.retention.travellers.purgeExpired, {});
     expect(result).toEqual({
-      counts: { anonymised: 2, kept_trip_recent: 1, kept_undated: 1 },
+      counts: { anonymised: 2, kept_trip_recent: 2, kept_undated: 1 },
       scheduledContinuation: false,
     });
+    await runScheduled(t);
     const state = await t.run(async (ctx) => ({
       guardian: await ctx.db.get("travellers", f.guardian),
       invoice: await ctx.db.get("invoices", f.ids.invoiceId),
       job: await ctx.db.get("jobCards", f.endedJob),
+      laterMinor: await ctx.db.get("travellers", f.laterMinor),
       meals: await ctx.db.query("mealPreferences").collect(),
       minor: await ctx.db.get("travellers", f.minor),
       notifications: await ctx.db.query("notifications").collect(),
@@ -617,6 +682,10 @@ describe("traveller retention (anonymise 3 years after the trip)", () => {
     expect(state.minor?.guardianImportReferences).toBeUndefined();
     expect(state.minor?.isMinor).toBeUndefined();
     expect(state.recent).toMatchObject({ fullName: "Synthetic Recent" });
+    expect(state.laterMinor).toMatchObject({
+      firstGuardianTravellerId: f.guardian,
+      fullName: "Synthetic Later Minor",
+    });
     expect(state.passports).toEqual([]);
     expect(state.scan).toBe(false);
     expect(state.meals).toEqual([]);
@@ -631,7 +700,7 @@ describe("traveller retention (anonymise 3 years after the trip)", () => {
     expect(state.notifications).toEqual([]);
 
     const second = await t.mutation(internal.crm.retention.travellers.purgeExpired, {});
-    expect(second.counts).toEqual({ already_anonymised: 2, kept_trip_recent: 1, kept_undated: 1 });
+    expect(second.counts).toEqual({ already_anonymised: 2, kept_trip_recent: 2, kept_undated: 1 });
   });
 
   test("the dry run counts without changing a traveller", async () => {
@@ -645,7 +714,7 @@ describe("traveller retention (anonymise 3 years after the trip)", () => {
       })
     ).toEqual({
       continueCursor: null,
-      counts: { anonymised: 2, kept_trip_recent: 1, kept_undated: 1 },
+      counts: { anonymised: 2, kept_trip_recent: 2, kept_undated: 1 },
       isDone: true,
     });
     expect(await t.run((ctx) => ctx.db.get("travellers", f.guardian))).toMatchObject({
@@ -666,6 +735,10 @@ describe("booking and invoice retention (8 years)", () => {
       travelStartDate: "2019-01-20",
     });
     const undatedJob = await insertJobCard(t, "JC-UNDATED-INVOICE", {});
+    const goneJob = await insertJobCard(t, "JC-GONE", {
+      travelEndDate: "2017-01-10",
+      travelStartDate: "2017-01-01",
+    });
     return await t.run(async (ctx) => {
       const trip = (slug: string, startDate: string, endDate: string) =>
         ctx.db.insert("trips", {
@@ -683,6 +756,7 @@ describe("booking and invoice retention (8 years)", () => {
         });
       const oldTrip = await trip("old-trip", "2018-02-01", "2018-02-05");
       const lateTrip = await trip("late-trip", "2018-12-01", "2018-12-05");
+      const goneTrip = await trip("gone-trip", "2017-02-01", "2017-02-05");
       const booking = async (createdAt: number, tripId: Id<"trips">, userId: string) => {
         const id = await ctx.db.insert("bookings", {
           createdAt,
@@ -732,13 +806,20 @@ describe("booking and invoice retention (8 years)", () => {
           status: "Paid",
           updatedAt: createdAt,
         });
+      const goneBooking = await booking(istMidnight("2017-01-05"), goneTrip, "synthetic-user-gone");
+      const goneInvoice = await invoice(goneJob, "INV-GONE", istMidnight("2017-01-05"));
+      // A trip or Job Card that no longer exists has unknown dates: its records stay.
+      await ctx.db.delete("trips", goneTrip);
+      await ctx.db.delete("jobCards", goneJob);
       return {
         bookings: {
+          gone: goneBooking,
           late: await booking(istMidnight("2018-06-01"), lateTrip, "synthetic-user-late"),
           old: await booking(istMidnight("2018-01-05"), oldTrip, "synthetic-user-old"),
           recent: await booking(istMidnight("2018-11-07"), oldTrip, "synthetic-user-recent"),
         },
         invoices: {
+          gone: goneInvoice,
           lateTrip: await invoice(laterTripJob, "INV-LATE-TRIP", istMidnight("2018-01-05")),
           old: await invoice(oldJob, "INV-OLD", istMidnight("2018-01-05")),
           recent: await invoice(oldJob, "INV-RECENT", istMidnight("2018-11-07")),
@@ -749,8 +830,9 @@ describe("booking and invoice retention (8 years)", () => {
   }
 
   async function runAll(t: Harness) {
+    await setJobControl(t, "jobs.retire_financial_records", "enabled");
     const first = await t.mutation(internal.crm.retention.financialRecords.purgeExpired, {});
-    await t.finishAllScheduledFunctions(() => vi.runAllTimers());
+    await runScheduled(t);
     return first;
   }
 
@@ -762,6 +844,7 @@ describe("booking and invoice retention (8 years)", () => {
       entitlements: (await ctx.db.query("customerJourneyEntitlements").collect()).map(
         (row) => row.authUserId
       ),
+      gone: await ctx.db.get("bookings", f.bookings.gone),
       invoices: (await ctx.db.query("invoices").collect()).map((row) => row.invoiceNumber),
       late: await ctx.db.get("bookings", f.bookings.late),
       old: await ctx.db.get("bookings", f.bookings.old),
@@ -782,9 +865,19 @@ describe("booking and invoice retention (8 years)", () => {
     // The trip ended after the cutoff, and the booking was made on the first kept day.
     expect(state.late).toMatchObject({ userId: "synthetic-user-late" });
     expect(state.recent).toMatchObject({ userId: "synthetic-user-recent" });
-    expect(state.entitlements.sort()).toEqual(["synthetic-user-late", "synthetic-user-recent"]);
-    expect(state.paymentEvents).toBe(3);
-    expect(state.invoices.sort()).toEqual(["INV-LATE-TRIP", "INV-RECENT", "INV-UNDATED"]);
+    expect(state.gone).toMatchObject({ userId: "synthetic-user-gone" });
+    expect(state.entitlements.sort()).toEqual([
+      "synthetic-user-gone",
+      "synthetic-user-late",
+      "synthetic-user-recent",
+    ]);
+    expect(state.paymentEvents).toBe(4);
+    expect(state.invoices.sort()).toEqual([
+      "INV-GONE",
+      "INV-LATE-TRIP",
+      "INV-RECENT",
+      "INV-UNDATED",
+    ]);
   });
 
   test("the dry run reports both record kinds without writing", async () => {
@@ -809,11 +902,13 @@ describe("booking and invoice retention (8 years)", () => {
     expect(totals).toEqual({
       anonymised_booking: 1,
       deleted_invoice: 1,
+      kept_booking_no_trip: 1,
       kept_booking_recent: 2,
+      kept_invoice_no_job_card: 1,
       kept_invoice_trip_recent: 1,
       kept_invoice_undated: 1,
     });
-    expect(await t.run(async (ctx) => (await ctx.db.query("invoices").collect()).length)).toBe(4);
+    expect(await t.run(async (ctx) => (await ctx.db.query("invoices").collect()).length)).toBe(5);
   });
 });
 

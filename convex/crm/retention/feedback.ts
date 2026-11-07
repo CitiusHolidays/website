@@ -2,8 +2,8 @@ import { makeFunctionReference } from "convex/server";
 import type { Doc } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { internalMutation, internalQuery } from "../../_generated/server";
-import { deleteStorageFile } from "../lib/codes";
 import {
+  deleteStorageWhenUnreferenced,
   type RetentionPlan,
   reportRetentionPage,
   retentionContinuationArgs,
@@ -36,9 +36,9 @@ async function deleteResponse(ctx: MutationCtx, response: Doc<"travelerFeedbackR
     .take(PHOTO_LIMIT);
   await Promise.all(
     photos.map(async (photo) => {
-      await deleteStorageFile(ctx, photo.storageId, "feedback photo");
-      await deleteStorageFile(ctx, photo.thumbnailStorageId, "feedback photo thumbnail");
       await ctx.db.delete("travelerFeedbackPhotos", photo._id);
+      await deleteStorageWhenUnreferenced(ctx, photo.storageId);
+      await deleteStorageWhenUnreferenced(ctx, photo.thumbnailStorageId);
     })
   );
   await ctx.db.delete("travelerFeedbackResponses", response._id);
@@ -59,18 +59,23 @@ async function plan(ctx: QueryCtx, asOf: number, cursor: string | null): Promise
   };
 }
 
+const JOB = {
+  continueRef: continuePurgeRef,
+  controlKey: "jobs.purge_old_feedback",
+  planner: plan,
+} as const;
+
 /** Entrypoint dispatched by the `jobs.purge_old_feedback` scheduled job. */
 export const purgeExpired = internalMutation({
   args: {},
-  handler: async (ctx) => await runRetentionPage(ctx, plan, continuePurgeRef, Date.now(), null),
+  handler: async (ctx) => await runRetentionPage(ctx, JOB, Date.now(), null),
   returns: retentionRunResult,
 });
 
 /** Continues one run in a fresh transaction with the run's fixed `asOf`. */
 export const continuePurge = internalMutation({
   args: retentionContinuationArgs,
-  handler: async (ctx, args) =>
-    await runRetentionPage(ctx, plan, continuePurgeRef, args.asOf, args.cursor),
+  handler: async (ctx, args) => await runRetentionPage(ctx, JOB, args.asOf, args.cursor),
   returns: retentionRunResult,
 });
 

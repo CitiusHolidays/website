@@ -40,18 +40,23 @@ async function plan(ctx: QueryCtx, asOf: number, cursor: string | null): Promise
   };
 }
 
+const JOB = {
+  continueRef: continuePurgeRef,
+  controlKey: "jobs.purge_activity_logs",
+  planner: plan,
+} as const;
+
 /** Entrypoint dispatched by the `jobs.purge_activity_logs` scheduled job. */
 export const purgeExpired = internalMutation({
   args: {},
-  handler: async (ctx) => await runRetentionPage(ctx, plan, continuePurgeRef, Date.now(), null),
+  handler: async (ctx) => await runRetentionPage(ctx, JOB, Date.now(), null),
   returns: retentionRunResult,
 });
 
 /** Continues one run in a fresh transaction with the run's fixed `asOf`. */
 export const continuePurge = internalMutation({
   args: retentionContinuationArgs,
-  handler: async (ctx, args) =>
-    await runRetentionPage(ctx, plan, continuePurgeRef, args.asOf, args.cursor),
+  handler: async (ctx, args) => await runRetentionPage(ctx, JOB, args.asOf, args.cursor),
   returns: retentionRunResult,
 });
 

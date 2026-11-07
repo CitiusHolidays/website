@@ -1,7 +1,10 @@
 import type { FunctionReference, FunctionVisibility } from "convex/server";
 import { v } from "convex/values";
+import { internal } from "../../_generated/api";
+import type { Id } from "../../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../../_generated/server";
 import { assertMigrationSecret } from "../../migrationAuth";
+import { type OperationalControlKey, resolveOperationalControl } from "./operationalControls";
 
 /**
  * One retention rule plans a bounded page of decisions; the scheduled job applies them and the
@@ -64,18 +67,44 @@ type ContinuationRef = FunctionReference<
 
 /**
  * One page of a scheduled retention run: plan at the run's fixed `asOf`, apply, and schedule
- * `continueRef` for the next page in a fresh transaction.
+ * `continueRef` for the next page in a fresh transaction. A continuation (`cursor` set) first
+ * re-checks the job's Live Feature Control, so pausing a job also stops a run in progress; the
+ * first page is already gated by the scheduled-job action.
  */
 export async function runRetentionPage(
   ctx: MutationCtx,
-  planner: RetentionPlanner,
-  continueRef: ContinuationRef,
+  job: {
+    continueRef: ContinuationRef;
+    controlKey: OperationalControlKey;
+    planner: RetentionPlanner;
+  },
   asOf: number,
   cursor: string | null
 ) {
-  return await applyRetentionPlan(ctx, await planner(ctx, asOf, cursor), async (next) => {
-    await ctx.scheduler.runAfter(0, continueRef, { asOf, cursor: next });
+  if (cursor !== null) {
+    const control = await resolveOperationalControl(ctx, job.controlKey, { at: Date.now() });
+    if (!control.enabled) {
+      return { counts: {}, scheduledContinuation: false };
+    }
+  }
+  return await applyRetentionPlan(ctx, await job.planner(ctx, asOf, cursor), async (next) => {
+    await ctx.scheduler.runAfter(0, job.continueRef, { asOf, cursor: next });
   });
+}
+
+/**
+ * Deletes a storage blob once no record references it any more. Call after the owning row is
+ * deleted; the shared reference check runs in its own transaction.
+ */
+export async function deleteStorageWhenUnreferenced(
+  ctx: MutationCtx,
+  storageId: Id<"_storage"> | undefined
+) {
+  if (storageId) {
+    await ctx.scheduler.runAfter(0, internal.crm.storageReferences.deleteIfUnreferenced, {
+      storageId,
+    });
+  }
 }
 
 /** A dry-run page: counts only, behind the deployment's migration secret, checked first. */
