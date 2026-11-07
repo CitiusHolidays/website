@@ -45,23 +45,31 @@ function shouldLoadEntityModalBridge(modal: string | null) {
   return modal !== null && modal !== "commercialFiles" && !isSpreadsheetModal(modal);
 }
 
+/** Collections the entity modal bridge expects, defaulted while queries are still loading. */
+function entityModalCollections(workspace: PortalSpreadsheetModalWorkspaceSlice) {
+  return {
+    access: workspace.access ?? {},
+    jobCards: workspace.jobCards ?? [],
+    leaveHeadApproverCandidates: workspace.leaveHeadApproverCandidates ?? [],
+    pnrs: workspace.pnrs ?? [],
+    proposals: workspace.proposals ?? [],
+    queries: workspace.queries ?? [],
+    team: workspace.team ?? [],
+    travellers: workspace.travellers ?? [],
+    travellersWithoutVisa: workspace.travellersWithoutVisa ?? [],
+    visas: workspace.visas ?? [],
+  };
+}
+
 export function PortalWorkspaceSpreadsheetModals({
   workspace,
 }: {
   workspace: PortalSpreadsheetModalWorkspaceSlice;
 }) {
   const { modal } = workspace;
-  const access = workspace.access ?? {};
+  const collections = entityModalCollections(workspace);
+  const { jobCards } = collections;
   const flightItinerary = workspace.flightItinerary ?? [];
-  const jobCards = workspace.jobCards ?? [];
-  const leaveHeadApproverCandidates = workspace.leaveHeadApproverCandidates ?? [];
-  const pnrs = workspace.pnrs ?? [];
-  const proposals = workspace.proposals ?? [];
-  const queries = workspace.queries ?? [];
-  const team = workspace.team ?? [];
-  const travellers = workspace.travellers ?? [];
-  const travellersWithoutVisa = workspace.travellersWithoutVisa ?? [];
-  const visas = workspace.visas ?? [];
 
   return (
     <>
@@ -71,19 +79,7 @@ export function PortalWorkspaceSpreadsheetModals({
       {shouldLoadEntityModalBridge(modal) ? (
         <TravelBatchEntityModalBridge
           key={travelBatchEntityModalKey(modal, workspace.form)}
-          workspace={{
-            ...workspace,
-            access,
-            jobCards,
-            leaveHeadApproverCandidates,
-            pnrs,
-            proposals,
-            queries,
-            team,
-            travellers,
-            travellersWithoutVisa,
-            visas,
-          }}
+          workspace={{ ...workspace, ...collections }}
         />
       ) : null}
       {PASSENGER_IMPORT_MODAL_CONFIGS.map((config) =>

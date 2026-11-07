@@ -42,12 +42,13 @@ const queryResult = {
   writableSources: [sourceOption],
 };
 const asyncNoop = async () => undefined;
+let currentQueryResult = queryResult;
 
 mock.module("convex/react", () => ({
   useAction: () => asyncNoop,
   useMutation: () => asyncNoop,
   usePaginatedQuery: () => ({ results: [], status: "Exhausted" }),
-  useQuery: () => queryResult,
+  useQuery: () => currentQueryResult,
 }));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
@@ -95,7 +96,10 @@ beforeAll(async () => {
   ({ CommercialFilesModal } = await import("./CommercialFilesModal"));
 });
 
-afterEach(() => document.body.replaceChildren());
+afterEach(() => {
+  currentQueryResult = queryResult;
+  document.body.replaceChildren();
+});
 afterAll(() => dom.window.close());
 
 const flushDialog = () => act(async () => new Promise((resolve) => setTimeout(resolve, 350)));
@@ -212,6 +216,49 @@ describe("CommercialFilesModal", () => {
       'input[aria-label="Upload note (optional)"]'
     );
     expect(reopenedUploadNote.value).toBe("");
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("Groups files by team and source and explains read-only access", async () => {
+    currentQueryResult = {
+      items: [
+        fileRow,
+        { ...fileRow, fileName: "rates.xlsx", id: "file-2" },
+        {
+          ...fileRow,
+          fileName: "contract.pdf",
+          id: "file-3",
+          sourceId: "proposal-1",
+          sourceLabel: "P-0012",
+          sourceType: "proposal",
+          teamArea: "contracting",
+          teamLabel: "Contracting",
+        },
+      ],
+      nextCursor: null,
+      sourceOptions: [sourceOption],
+      total: 3,
+      writableSources: [],
+    };
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => root.render(<Harness onClose={() => undefined} />));
+    await act(async () => container.querySelector('[data-testid="commercial-opener"]').click());
+    await flushDialog();
+
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog?.textContent).toContain(
+      "You have read-only access to the linked sources. Files can still be viewed or downloaded below."
+    );
+    expect(dialog?.querySelector('input[aria-label="Upload note (optional)"]')).toBeNull();
+    expect([...dialog.querySelectorAll("h3")].map((heading) => heading.textContent)).toEqual([
+      "Sales · Q-0043",
+      "Contracting · P-0012",
+    ]);
+    expect(dialog?.textContent).toContain("3 files in this view");
 
     await act(async () => root.unmount());
     container.remove();

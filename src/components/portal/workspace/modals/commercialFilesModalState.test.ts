@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   type CommercialFileSourceOption,
   commercialFileFilterSignature,
+  commercialFileListArgs,
   commercialFilePagerReducer,
   commercialFileRowsForPage,
   createCommercialFilePagerState,
@@ -102,5 +103,60 @@ describe("Commercial Files modal state owners", () => {
       source: proposalSource,
       teamArea: "ticketing",
     });
+  });
+
+  test("Skips the file list until the modal is open on a linked record", () => {
+    const base = {
+      entityId: "query-1",
+      entryPoint: "query" as const,
+      filters: INITIAL_COMMERCIAL_FILE_FILTERS,
+    };
+    expect(commercialFileListArgs({ ...base, open: false })).toBe("skip");
+    expect(commercialFileListArgs({ ...base, entityId: "", open: true })).toBe("skip");
+    expect(commercialFileListArgs({ ...base, open: true })).toEqual({
+      category: undefined,
+      cursor: undefined,
+      entityId: "query-1",
+      entryPoint: "query",
+      includeDeleted: false,
+      includeHistory: true,
+      limit: 25,
+      search: undefined,
+      sourceId: undefined,
+      sourceType: undefined,
+      teamArea: undefined,
+    });
+  });
+
+  test("Sends trimmed filters and only a recognised source filter", () => {
+    const args = (sourceFilter: string) =>
+      commercialFileListArgs({
+        cursor: "cursor-2",
+        entityId: "proposal-1",
+        entryPoint: "proposal",
+        filters: {
+          category: "proposalDoc",
+          search: "  itinerary ",
+          showDeleted: true,
+          sourceFilter,
+          teamArea: "contracting",
+        },
+        open: true,
+      });
+    expect(args("jobCard:job-1")).toEqual({
+      category: "proposalDoc",
+      cursor: "cursor-2",
+      entityId: "proposal-1",
+      entryPoint: "proposal",
+      includeDeleted: true,
+      includeHistory: true,
+      limit: 25,
+      search: "itinerary",
+      sourceId: "job-1",
+      sourceType: "jobCard",
+      teamArea: "contracting",
+    });
+    expect(args("invoice:inv-1")).toMatchObject({ sourceId: undefined, sourceType: undefined });
+    expect(args("query:")).toMatchObject({ sourceId: undefined, sourceType: "query" });
   });
 });
