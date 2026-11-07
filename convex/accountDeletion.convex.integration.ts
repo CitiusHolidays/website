@@ -740,7 +740,12 @@ async function sentSignInLink(t: Harness, email: string, token: string, expiresA
   });
 }
 
-async function verificationRows(t: Harness) {
+interface VerificationRow {
+  identifier: string;
+  value: string;
+}
+
+async function verificationRows(t: Harness): Promise<VerificationRow[]> {
   const page = await t.query(components.betterAuth.adapter.findMany, {
     model: "verification",
     paginationOpts: { cursor: null, numItems: 100 },
