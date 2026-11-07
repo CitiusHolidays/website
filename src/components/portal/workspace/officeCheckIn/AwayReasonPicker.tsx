@@ -12,16 +12,18 @@ const PROMPT_ID = "office-check-in-away-prompt";
 const SAVE_FAILED = "Your answer wasn't saved. Try again.";
 
 /** Server refusals, in words; anything else shows as the server sent it. */
-const REFUSALS: Readonly<Record<string, string>> = {
-  ALREADY_REVIEWED: "A manager has already reviewed this check-in, so the answer can't change.",
-  AWAY_REASON_NOT_NEEDED:
+const REFUSALS = new Map([
+  ["ALREADY_REVIEWED", "A manager has already reviewed this check-in, so the answer can't change."],
+  [
+    "AWAY_REASON_NOT_NEEDED",
     "Your check-in now places you at the office, so there's nothing to choose.",
-  CHECK_IN_NOT_FOUND: "This check-in no longer exists. Reload the page.",
-};
+  ],
+  ["CHECK_IN_NOT_FOUND", "This check-in no longer exists. Reload the page."],
+]);
 
 function describeFailure<Problem>(problem: Problem) {
   const text = formatConvexError(problem, SAVE_FAILED);
-  return REFUSALS[text] ?? text;
+  return REFUSALS.get(text) ?? text;
 }
 
 /**

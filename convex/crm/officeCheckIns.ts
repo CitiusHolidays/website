@@ -267,12 +267,16 @@ export const clockInViaGateway = mutation({
       // A retry re-evaluates the open record's evidence. The original clock-in
       // time stands; each attempt's evidence stays in the audit trail. A retry
       // that passes places the person at the office, so any away reason goes.
-      await ctx.db.patch("officeCheckIns", existing._id, {
+      const retry: Partial<CheckInDoc> = {
         admission: evaluation.admitted ? "admitted" : existing.admission,
-        ...(clockIn.outcome === "pass" ? { awayReason: undefined } : {}),
         clockIn,
         updatedAt: now,
-      });
+      };
+      if (clockIn.outcome === "pass") {
+        // Patching a field to undefined removes it from the document.
+        retry.awayReason = undefined;
+      }
+      await ctx.db.patch("officeCheckIns", existing._id, retry);
       await audit(ctx, {
         ...actorFields(access),
         at: now,
