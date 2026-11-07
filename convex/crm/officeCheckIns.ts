@@ -16,17 +16,20 @@ import {
 } from "./officeCheckInAccess";
 import { retainedWorkDateFrom } from "./officeCheckInRetention";
 import {
+  awayReasonValidator,
   checkInRequirementValidator,
   enforcementModeValidator,
   locationReadingValidator,
   officeCheckInTables,
 } from "./officeCheckInValidators";
 import {
+  type AwayReason,
   type CheckInEvaluation,
   type CheckInRequirement,
   DEFAULT_OFFICE_TIME_ZONE,
   evaluateCheckIn,
   type LocationReading,
+  needsAwayReason,
   requiresLocation,
   workDateFor,
 } from "./officeCheckInVerification";
@@ -262,9 +265,11 @@ export const clockInViaGateway = mutation({
     const clockIn = verificationRecord(evaluation, now, rule?.version);
     if (existing) {
       // A retry re-evaluates the open record's evidence. The original clock-in
-      // time stands; each attempt's evidence stays in the audit trail.
+      // time stands; each attempt's evidence stays in the audit trail. A retry
+      // that passes places the person at the office, so any away reason goes.
       await ctx.db.patch("officeCheckIns", existing._id, {
         admission: evaluation.admitted ? "admitted" : existing.admission,
+        ...(clockIn.outcome === "pass" ? { awayReason: undefined } : {}),
         clockIn,
         updatedAt: now,
       });
@@ -366,6 +371,62 @@ export const clockOutViaGateway = mutation({
     return { checkIn, replayed: false };
   },
   returns: v.object({ checkIn: checkInDocValidator, replayed: v.boolean() }),
+});
+
+const AWAY_REASON_WORDS = {
+  market_visit: "on market visit",
+  on_tour: "on tour",
+  out_of_office: "out of office",
+} satisfies Record<AwayReason, string>;
+
+/**
+ * The person says where they are working when their own clock-in check didn't
+ * pass: on tour, on a market visit, or out of office. It is their statement,
+ * recorded beside the evidence, and it never changes admission: a pending
+ * check-in still waits for a manager. They may change it until a manager has
+ * reviewed the session.
+ */
+export const chooseAwayReason = mutation({
+  args: { checkInId: v.id("officeCheckIns"), reason: awayReasonValidator },
+  handler: async (ctx, args) => {
+    const access = await requireStaff(ctx);
+    if (!access.staffId) {
+      throw new ConvexError("NO_STAFF_PROFILE");
+    }
+    const checkIn = await ctx.db.get("officeCheckIns", args.checkInId);
+    // Someone else's session reads as missing, so ids can't be probed.
+    if (!checkIn || checkIn.staffId !== access.staffId) {
+      throw new ConvexError("CHECK_IN_NOT_FOUND");
+    }
+    if (!needsAwayReason(checkIn)) {
+      throw new ConvexError("AWAY_REASON_NOT_NEEDED");
+    }
+    if (checkIn.review) {
+      throw new ConvexError("ALREADY_REVIEWED");
+    }
+    if (checkIn.awayReason === args.reason) {
+      return null;
+    }
+    const now = Date.now();
+    await ctx.db.patch("officeCheckIns", checkIn._id, {
+      awayReason: args.reason,
+      updatedAt: now,
+    });
+    const previous = checkIn.awayReason;
+    await audit(ctx, {
+      ...actorFields(access),
+      at: now,
+      checkInId: checkIn._id,
+      kind: "away_reason_set",
+      officeId: checkIn.officeId,
+      subjectStaffId: checkIn.staffId,
+      summary: previous
+        ? `working ${AWAY_REASON_WORDS[args.reason]} (was ${AWAY_REASON_WORDS[previous]})`
+        : `working ${AWAY_REASON_WORDS[args.reason]}`,
+    });
+    return null;
+  },
+  returns: v.null(),
 });
 
 const ruleSummaryValidator = v.object({

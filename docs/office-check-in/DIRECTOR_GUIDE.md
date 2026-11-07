@@ -56,9 +56,14 @@ When they reply, open the office rule:
 
 ## Each week
 
-Look at **Today in the office** for **Fail** or **Uncertain**. Ask the person what happened, then
-use **Review**, **Correct times** or **Add entry**. A result is a prompt to ask, not proof someone
-was absent.
+When someone's clock-in check doesn't pass, they are asked where they're working: **On tour**,
+**On market visit** or **Out of office**. Their answer shows in **Today in the office** in place of
+**Fail** or **Uncertain**, and when you open them. It is what they told us, not something the
+system checked, and it doesn't approve the check-in.
+
+Look at **Today in the office** for **Fail** or **Uncertain** (no answer given) and for answers you
+didn't expect. Ask the person what happened, then use **Review**, **Correct times** or **Add
+entry**. A result is a prompt to ask, not proof someone was absent.
 
 After clocking out, anyone can press **Clock in again** the same day. To remove a wrong session,
 open the person and press **Delete session**: Admin's delete removes it completely, and a

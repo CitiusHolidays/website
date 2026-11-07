@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "9ec1aa970a0cff81b9c780082e2d04772dc2a08a0dbbf5b32874b2516b2282bc";
+const EXPECTED_CAPABILITY_HASH = "de3b1639df6a52e323928024e30a69f8260fe5525345fca11c6ff8ea7e7487c5";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_CAPABILITIES = new Set(["crm/postTourReports.archive"]);
@@ -943,7 +943,7 @@ describe("Convex capability inventory", () => {
   test("Classifies office check-in gateways as server-only and rule administration as admin-only", () => {
     const capabilities = discoverCapabilities();
     const checkIns = capabilities.filter(({ module }) => module.startsWith("crm/officeCheckIn"));
-    expect(checkIns).toHaveLength(15);
+    expect(checkIns).toHaveLength(16);
     for (const name of ["clockInViaGateway", "clockOutViaGateway"]) {
       expect(checkIns).toContainEqual({
         classification: "server-only",
@@ -957,6 +957,8 @@ describe("Convex capability inventory", () => {
       ["teamDay", "query"],
       ["history", "query"],
       ["review", "mutation"],
+      // Own session only, checked in the handler.
+      ["chooseAwayReason", "mutation"],
       ["correctTimes", "mutation"],
       ["recordManualEntry", "mutation"],
       // Role-gated in the handler: Admin erases, Directors delete with a trail.

@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
+import { needsAwayReason } from "@convex/crm/officeCheckInVerification";
 import { useMutation } from "convex/react";
 import {
   type ChangeEvent,
@@ -14,6 +15,7 @@ import {
 import { usePortalToast } from "@/components/portal/PortalToast";
 import { ControlledDialogClose, ControlledDialogTitle } from "@/components/ui/application-dialog";
 import {
+  AWAY_REASON_LABELS,
   formatOfficeDateTime,
   formatOfficeTime,
   formatSessionSpan,
@@ -65,6 +67,16 @@ function initialMode(row: TeamDayRow): Mode {
   return DETAILS;
 }
 
+/** The person's own answer to where they were working, when their check didn't pass. */
+function awayNote(record: CheckInRecord) {
+  if (!needsAwayReason(record)) {
+    return null;
+  }
+  return record.awayReason
+    ? `They said they're working: ${AWAY_REASON_LABELS[record.awayReason]}.`
+    : "They haven't said where they're working.";
+}
+
 function reviewNote(record: CheckInRecord) {
   if (record.source === "manager_entry") {
     return record.review
@@ -110,6 +122,7 @@ function RecordHistory({
 /** What happened that day, in plain words: status, times, each signal, any review. */
 function RecordSummary({ record, timeZone }: { record: CheckInRecord; timeZone: string }) {
   const status = teamStatusFor(record);
+  const away = awayNote(record);
   const note = reviewNote(record);
   return (
     <div className="grid gap-3 rounded-xl bg-brand-light/60 p-4">
@@ -121,6 +134,7 @@ function RecordSummary({ record, timeZone }: { record: CheckInRecord; timeZone: 
         <ToneBadge label={status.label} tone={status.tone} />
       </div>
       {record.source === "self" ? <SignalList record={record.clockIn} /> : null}
+      {away ? <p className="font-medium text-brand-dark text-sm">{away}</p> : null}
       {record.clockOut && record.clockOut.outcome !== "pass" ? (
         <div className="grid gap-2">
           <p className="font-medium text-brand-dark text-sm">At clock-out</p>

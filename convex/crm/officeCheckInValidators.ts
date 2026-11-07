@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import {
+  AWAY_REASONS,
   CHECK_IN_REQUIREMENTS,
   DISTANCE_BANDS,
   ENFORCEMENT_MODES,
@@ -18,6 +19,7 @@ export const checkInRequirementValidator = literals(CHECK_IN_REQUIREMENTS);
 export const enforcementModeValidator = literals(ENFORCEMENT_MODES);
 export const signalOutcomeValidator = literals(SIGNAL_OUTCOMES);
 export const networkEntryKindValidator = literals(NETWORK_ENTRY_KINDS);
+export const awayReasonValidator = literals(AWAY_REASONS);
 
 export const networkEntryValidator = v.object({
   cidr: v.string(),
@@ -93,6 +95,7 @@ export const checkInAuditKindValidator = v.union(
   v.literal("clock_in"),
   v.literal("clock_in_retry"),
   v.literal("clock_out"),
+  v.literal("away_reason_set"),
   v.literal("review_accepted"),
   v.literal("review_rejected"),
   v.literal("times_corrected"),
@@ -128,6 +131,8 @@ export const officeCheckInTables = {
   },
   officeCheckIns: {
     admission: checkInAdmissionValidator,
+    /** Where the person says they are when the clock-in check didn't pass. */
+    awayReason: v.optional(awayReasonValidator),
     clockIn: verificationRecordValidator,
     clockInAt: v.number(),
     clockOut: v.optional(verificationRecordValidator),
