@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
+import { type AppSurface, requireAppPilotForSurface } from "./appPilot";
 import { loadCommercialChainFilesForEntryPoint } from "./commercialRecordChainReads";
 import { getChecklistTasksWithFallback } from "./jobCardChecklist";
 import { isExternalTourManagerAccess, PERMISSIONS, publicJobCard, requireStaff } from "./lib";
@@ -43,6 +44,7 @@ export async function handleGetCommandCenter(
   ctx: QueryCtx,
   args: {
     jobCardId: string;
+    surface?: AppSurface;
   }
 ) {
   const access = await requireStaff(ctx, PERMISSIONS.VIEW_JOB_CARDS);
@@ -59,6 +61,7 @@ export async function handleGetCommandCenter(
   if (!travellerScope) {
     throw new ConvexError("FORBIDDEN");
   }
+  requireAppPilotForSurface(job, args.surface);
   const linkedProposalId = job.proposalId;
   const [
     proposal,

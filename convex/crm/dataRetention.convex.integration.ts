@@ -1,3 +1,4 @@
+import type { WithoutSystemFields } from "convex/server";
 import { convexTest } from "convex-test";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { components, internal } from "../_generated/api";
@@ -98,15 +99,19 @@ describe("unconverted enquiry retention (2 years)", () => {
         clientName: string,
         status: "converted" | "dismissed" | "pending"
       ) => {
-        const id = await ctx.db.insert("inboundQueryIntents", {
+        const record: WithoutSystemFields<Doc<"inboundQueryIntents">> = {
           clientName,
           consentAt: createdAt,
           contactEmail: `${clientName.toLowerCase().replaceAll(" ", ".")}@enquiry.test`,
           createdAt,
           source: "Website",
           status,
-          ...(status === "converted" ? { convertedAt: createdAt, convertedQueryId: "q1" } : {}),
-        });
+        };
+        if (status === "converted") {
+          record.convertedAt = createdAt;
+          record.convertedQueryId = "q1";
+        }
+        const id = await ctx.db.insert("inboundQueryIntents", record);
         const handoffEventId = await ctx.db.insert("crmHandoffEvents", {
           createdAt,
           inboundIntentId: id,
@@ -1031,6 +1036,25 @@ describe("inactive customer account retention (3 years)", () => {
     for (const kept of [f.recentSession, f.staff, f.sacredBharat]) {
       expect(await authRows(t, kept.subject)).toEqual({ accounts: 1, sessions: 1, user: true });
     }
+  });
+
+  test("leaves an account with too many bookings to review for a person", async () => {
+    const t = accountHarness();
+    const f = await seedAccount(t, "many-bookings");
+    await t.run(async (ctx) => {
+      const booking = await ctx.db.get("bookings", f.bookingId);
+      if (!booking) {
+        throw new Error("seeded booking missing");
+      }
+      const { _creationTime, _id, ...copy } = booking;
+      for (let index = 0; index < 50; index += 1) {
+        await ctx.db.insert("bookings", { ...copy, razorpayOrderId: `order_many_${index}` });
+      }
+    });
+    expect(
+      (await t.mutation(internal.crm.retention.customerAccounts.purgeExpired, {})).counts
+    ).toEqual({ kept_too_many_links: 1 });
+    expect(await authRows(t, f.subject)).toEqual({ accounts: 1, sessions: 1, user: true });
   });
 
   test("the dry run counts without deleting", async () => {

@@ -22,7 +22,7 @@ export interface RetentionPlan {
 
 export type RetentionCounts = Record<string, number>;
 
-export function tallyRetentionOutcomes(decisions: RetentionDecision[]): RetentionCounts {
+export function tallyRetentionOutcomes(decisions: RetentionDecision[]) {
   const counts: RetentionCounts = {};
   for (const { outcome } of decisions) {
     counts[outcome] = (counts[outcome] ?? 0) + 1;
@@ -34,7 +34,7 @@ export function tallyRetentionOutcomes(decisions: RetentionDecision[]): Retentio
 export async function applyRetentionPlan(
   ctx: MutationCtx,
   plan: RetentionPlan,
-  continueWith: (cursor: string) => Promise<unknown>
+  continueWith: (cursor: string) => Promise<void>
 ) {
   for (const decision of plan.decisions) {
     if (decision.apply) {
@@ -73,9 +73,9 @@ export async function runRetentionPage(
   asOf: number,
   cursor: string | null
 ) {
-  return await applyRetentionPlan(ctx, await planner(ctx, asOf, cursor), (next) =>
-    ctx.scheduler.runAfter(0, continueRef, { asOf, cursor: next })
-  );
+  return await applyRetentionPlan(ctx, await planner(ctx, asOf, cursor), async (next) => {
+    await ctx.scheduler.runAfter(0, continueRef, { asOf, cursor: next });
+  });
 }
 
 /** A dry-run page: counts only, behind the deployment's migration secret, checked first. */
@@ -122,10 +122,16 @@ export function encodePhaseCursor(phase: string, cursor: string | null) {
   return `${phase}:${cursor ?? ""}`;
 }
 
+/** A decoded phased cursor: the phase and the page cursor within it (null at its start). */
+export interface PhaseCursor<Phase extends string> {
+  cursor: string | null;
+  phase: Phase;
+}
+
 export function decodePhaseCursor<Phase extends string>(
   value: string | null,
   phases: readonly Phase[]
-): { cursor: string | null; phase: Phase } {
+): PhaseCursor<Phase> {
   const [first] = phases;
   if (first === undefined) {
     throw new Error("A phased retention scan needs at least one phase");

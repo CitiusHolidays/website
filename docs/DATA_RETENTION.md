@@ -60,7 +60,8 @@ Only the Operations Head and Admin read the field passport view log
   sign-in by `authSync.syncFromIdentity`), the Better Auth user's dates, any session, and any
   booking or journey entitlement, across every identity id of the account (canonical and legacy
   ids from `authIdentityLinks`). Never touched: staff accounts (matched by id or email), accounts
-  with a Sacred Bharat profile, and archived duplicate profiles. Bookings stay for the 8-year rule
+  with a Sacred Bharat profile, archived duplicate profiles, and accounts with 50 or more bookings
+  or entitlements (left for a person to review). Bookings stay for the 8-year rule
   with their account link replaced by `retention:deleted-account`.
 - **Enquiries.** Converted intents are never touched. The `crmHandoffEvents` row holds no personal
   data and stays for the handoff counts.
@@ -95,7 +96,7 @@ pages (default 50, at most 200). If `isDone` is false, run it again with the ret
 | --- | --- | --- | --- |
 | `purge_activity_logs` | `crm/retention/activityLogs:dryRun` | 200 | `deleted` |
 | `purge_unconverted_enquiries` | `crm/retention/enquiries:dryRun` | 100 | `deleted`, `kept_converted` |
-| `purge_inactive_customer_accounts` | `crm/retention/customerAccounts:dryRun` | 20 | `deleted_account`, `kept_active`, `kept_staff`, `kept_sacred_bharat`, `kept_archived_duplicate` |
+| `purge_inactive_customer_accounts` | `crm/retention/customerAccounts:dryRun` | 20 | `deleted_account`, `kept_active`, `kept_staff`, `kept_sacred_bharat`, `kept_archived_duplicate`, `kept_too_many_links` |
 | `retire_financial_records` | `crm/retention/financialRecords:dryRun` | 50 | `anonymised_booking`, `already_anonymised_booking`, `kept_booking_recent`, `kept_booking_undated`, `deleted_invoice`, `kept_invoice_trip_recent`, `kept_invoice_undated` |
 | `anonymise_past_travellers` | `crm/retention/travellers:dryRun` | 25 | `anonymised`, `already_anonymised`, `kept_trip_recent`, `kept_undated`, `kept_no_job_card` |
 | `purge_passport_scans` | `crm/retention/passportScans:dryRun` | 50 | `deleted`, `kept_trip_recent`, `kept_undated`, `kept_no_job_card`, `kept_no_traveller` |

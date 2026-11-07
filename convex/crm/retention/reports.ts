@@ -72,8 +72,8 @@ export const summarize = internalAction({
       for (const [outcome, count] of Object.entries(page.counts)) {
         counts[outcome] = (counts[outcome] ?? 0) + count;
       }
+      ({ isDone } = page);
       cursor = page.continueCursor;
-      isDone = page.isDone;
       pagesRead += 1;
     }
     return { asOf, continueCursor: cursor, counts, isDone, pagesRead };

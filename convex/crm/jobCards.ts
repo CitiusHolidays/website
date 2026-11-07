@@ -7,6 +7,12 @@ import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import {
+  appPilotStateValidator,
+  appSurfaceValidator,
+  handleGetAppPilot,
+  handleSetAppPilot,
+} from "./appPilot";
+import {
   handleCreateChecklistTask,
   handleRemoveChecklistTask,
   handleUpdateChecklist,
@@ -29,6 +35,7 @@ import {
   queryRequiresTicketingWork as queryRequiresTicketingWorkImplementation,
 } from "./jobCardNotifications";
 import {
+  handleJobCardGetDetail,
   handleJobCardGetListRow,
   handleJobCardListPage,
   handleListTravelBatches,
@@ -101,8 +108,9 @@ export const getDetail = query({
   args: {
     jobCardId: v.optional(v.string()),
     queryId: v.optional(v.string()),
+    surface: appSurfaceValidator,
   },
-  handler: handleJobCardGetListRow,
+  handler: handleJobCardGetDetail,
   returns: jobCardGetListRowResultValidator,
 });
 
@@ -110,15 +118,33 @@ export const listTravelBatches = query({
   args: {
     jobCardId: v.string(),
     paginationOpts: paginationOptsValidator,
+    surface: appSurfaceValidator,
   },
   handler: handleListTravelBatches,
   returns: travelBatchListPageResultValidator,
 });
 
 export const getCommandCenter = query({
-  args: { jobCardId: v.string() },
+  args: { jobCardId: v.string(), surface: appSurfaceValidator },
   handler: handleGetCommandCenter,
   returns: jobCardCommandCenterResultValidator,
+});
+
+/** The Job Card's tour manager app pilot, for a caller who can see the Job Card; else null. */
+export const getAppPilot = query({
+  args: { jobCardId: v.string() },
+  handler: handleGetAppPilot,
+  returns: v.union(v.null(), appPilotStateValidator),
+});
+
+/**
+ * Starts (`enabled: true`) or stops the tour manager app pilot for one Job Card. Operations Head,
+ * Directors, Director Cement, Admin and the Job Card's Operations owner; `FORBIDDEN` otherwise.
+ */
+export const setAppPilot = mutation({
+  args: { enabled: v.boolean(), jobCardId: v.string() },
+  handler: handleSetAppPilot,
+  returns: appPilotStateValidator,
 });
 
 export const listMyDeletionOperations = query({

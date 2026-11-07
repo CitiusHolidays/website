@@ -4,6 +4,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { mutation, query } from "../_generated/server";
 import type { RuntimeObject } from "../lib/runtimeValues";
+import { appSurfaceValidator, requireConnectTrip } from "./appPilot";
 import { getExternalTourManagerProfile } from "./externalTourManagerProfiles";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
@@ -317,6 +318,7 @@ export const listTourManagers = query({
     jobCardId: v.optional(v.string()),
     paginationOpts: paginationOptsValidator,
     status: v.optional(v.string()),
+    surface: appSurfaceValidator,
   },
   handler: async (ctx, args) => {
     const access = await requireStaffSession(ctx);
@@ -328,6 +330,10 @@ export const listTourManagers = query({
       }
     } else if (!access.permissions.includes(PERMISSIONS.VIEW_TOUR_MANAGERS)) {
       throw new ConvexError("FORBIDDEN");
+    }
+    if (args.surface) {
+      // The tour manager app names one trip; it must be visible and its pilot on.
+      await requireConnectTrip(ctx, access, args.jobCardId);
     }
     const page = await applyCrmCursorFilters(
       ctx.db.query("tourManagerAssignments").withIndex("by_createdAt").order("desc"),
