@@ -2,6 +2,7 @@ import { afterEach, describe, expect, mock, test } from "bun:test";
 import { LOCATION_REQUEST_OPTIONS, readLocation } from "./location";
 import { pageBlocksLocation, shouldReloadForLocation } from "./pagePolicy";
 import {
+  checkBadgeFor,
   dayStatusFor,
   describeLocationProblem,
   describeRule,
@@ -286,5 +287,22 @@ describe("Page location policy", () => {
     expect(shouldReloadForLocation(1000, 30_000)).toBe(false);
     expect(shouldReloadForLocation(1000, 62_000)).toBe(true);
     expect(shouldReloadForLocation(Number.POSITIVE_INFINITY, 62_000)).toBe(false);
+  });
+});
+
+describe("Check badges with an away answer", () => {
+  test("Says Under review or Not in office instead of Fail, and leaves a pass alone", () => {
+    expect(checkBadgeFor("fail", "on_tour")).toEqual({ label: "Under review", tone: "amber" });
+    expect(checkBadgeFor("uncertain", "market_visit")).toEqual({
+      label: "Under review",
+      tone: "amber",
+    });
+    expect(checkBadgeFor("fail", "out_of_office")).toEqual({
+      label: "Not in office",
+      tone: "gray",
+    });
+    expect(checkBadgeFor("fail")).toEqual({ label: "Fail", tone: "red" });
+    expect(checkBadgeFor("uncertain")).toEqual({ label: "Uncertain", tone: "amber" });
+    expect(checkBadgeFor("pass", "on_tour")).toEqual({ label: "Pass", tone: "green" });
   });
 });

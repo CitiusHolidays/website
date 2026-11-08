@@ -412,6 +412,30 @@ describe("Office check-in: my day", () => {
     await view.unmount();
   });
 
+  test("Labels a failed check by the person's answer instead of Fail", async () => {
+    const failed = verification("fail", "outside_allowlist");
+    const badgeFor = async (overrides) => {
+      state.status = myStatus({ today: checkIn("staff_me", { clockIn: failed, ...overrides }) });
+      const view = await mount();
+      const text = view.container.textContent;
+      await view.unmount();
+      return text;
+    };
+    const touring = await badgeFor({ awayReason: "on_tour" });
+    expect(touring).toContain("Clock-in checkUnder review");
+    expect(touring).toContain("Office internet: Not connected through the office internet.");
+    expect(touring).not.toContain("Fail");
+    expect(touring).not.toContain(": fail.");
+    expect(await badgeFor({ awayReason: "market_visit" })).toContain("Clock-in checkUnder review");
+    expect(await badgeFor({ awayReason: "out_of_office" })).toContain(
+      "Clock-in checkNot in office"
+    );
+    // Without an answer the check still says what happened.
+    const unanswered = await badgeFor({});
+    expect(unanswered).toContain("Clock-in checkFail");
+    expect(unanswered).toContain("Office internet: fail.");
+  });
+
   test("Explains a check that didn't pass in plain words", async () => {
     state.status = myStatus({
       today: checkIn("staff_me", { clockIn: verification("fail", "outside_allowlist") }),

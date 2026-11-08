@@ -109,11 +109,29 @@ export const OUTCOME_LABELS = {
   uncertain: "Uncertain",
 } satisfies Record<SignalOutcome, string>;
 
-export const OUTCOME_TONES = {
+const OUTCOME_TONES = {
   fail: "red",
   pass: "green",
   uncertain: "amber",
 } satisfies Record<SignalOutcome, "green" | "red" | "amber">;
+
+/**
+ * A check that didn't pass reads Fail or Uncertain only while the person hasn't said where they
+ * are. Once they have, the badge says what the answer means: On tour and On market visit wait for
+ * a manager to check, and Out of office simply wasn't at the office. The evidence is unchanged.
+ */
+const AWAY_CHECK_BADGES = {
+  market_visit: { label: "Under review", tone: "amber" },
+  on_tour: { label: "Under review", tone: "amber" },
+  out_of_office: { label: "Not in office", tone: "gray" },
+} satisfies Record<AwayReason, { label: string; tone: "amber" | "gray" }>;
+
+export function checkBadgeFor(outcome: SignalOutcome, awayReason?: AwayReason) {
+  if (outcome !== "pass" && awayReason) {
+    return AWAY_CHECK_BADGES[awayReason];
+  }
+  return { label: OUTCOME_LABELS[outcome], tone: OUTCOME_TONES[outcome] };
+}
 
 export function describeNetworkReason(reason: NetworkReason, matchedLabel?: string | null) {
   switch (reason) {

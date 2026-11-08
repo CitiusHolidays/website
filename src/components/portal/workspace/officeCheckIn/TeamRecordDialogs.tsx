@@ -134,13 +134,15 @@ function RecordSummary({ record, timeZone }: { record: CheckInRecord; timeZone: 
         </span>
         <ToneBadge label={status.label} tone={status.tone} />
       </div>
-      {record.source === "self" ? <SignalList record={record.clockIn} /> : null}
+      {record.source === "self" ? (
+        <SignalList awayReason={record.awayReason} record={record.clockIn} />
+      ) : null}
       {away ? <p className="font-medium text-brand-dark text-sm">{away}</p> : null}
       <AwayLocationNote record={record} timeZone={timeZone} viewer="reviewer" />
       {record.clockOut && record.clockOut.outcome !== "pass" ? (
         <div className="grid gap-2">
           <p className="font-medium text-brand-dark text-sm">At clock-out</p>
-          <SignalList record={record.clockOut} />
+          <SignalList awayReason={record.awayReason} record={record.clockOut} />
         </div>
       ) : null}
       {note ? <p className="text-brand-dark text-sm">{note}</p> : null}
