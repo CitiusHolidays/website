@@ -315,6 +315,36 @@ describe("per-trip app pilot", () => {
     ).toEqual([]);
   });
 
+  test("the command center carries the trip's destination photo, or null, on every surface", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(NOW);
+    const t = harness();
+    const f = await seed(t);
+    await f.setPilot("ops-head", true);
+    const { jobCardId } = f.ids;
+    const covers = async () => [
+      (
+        await f
+          .actor("tm")
+          .query(api.crm.jobCards.getCommandCenter, { jobCardId, surface: "connect" })
+      ).destinationCover,
+      (await f.actor("tm").query(api.crm.jobCards.getCommandCenter, { jobCardId }))
+        .destinationCover,
+      (await f.actor("ops-head").query(api.crm.jobCards.getCommandCenter, { jobCardId }))
+        .destinationCover,
+    ];
+
+    // "Goa" has no destination photo yet.
+    expect(await covers()).toEqual([null, null, null]);
+
+    await t.run((ctx) => ctx.db.patch("jobCards", jobCardId, { destination: "Bali, Indonesia" }));
+    const bali = {
+      path: "/images/event-photo-booth/bali.webp",
+      placeholder: "UjHoE?t6V@oKL4NHn~fP?dRlaxj@x^ayaya#",
+    };
+    expect(await covers()).toEqual([bali, bali, bali]);
+  });
+
   test("the Operations Head, directors, admins and the Operations owner may switch it", async () => {
     const t = harness();
     const f = await seed(t);

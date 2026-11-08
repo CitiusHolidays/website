@@ -1,5 +1,6 @@
 import { paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
+import { destinationCoverValidator } from "../lib/customerAppCovers";
 import { JOB_CARD_STATUS } from "./jobCardConstants";
 import {
   contractingStatusValidator,
@@ -374,6 +375,8 @@ const commercialChainFileValidator = v.object({
 export const jobCardCommandCenterResultValidator = v.object({
   checklistTasks: v.array(checklistTaskOutputValidator),
   commercialFiles: v.array(commercialChainFileValidator),
+  /** The trip's destination photo (website path and BlurHash), or null when none matches. */
+  destinationCover: destinationCoverValidator,
   hotels: v.array(v.object({ id: v.id("hotels") })),
   invoices: v.array(v.object({ balanceAmount: v.number(), id: v.id("invoices") })),
   jobCard: jobCardDetailRowValidator,
