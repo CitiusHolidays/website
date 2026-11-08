@@ -218,6 +218,33 @@ async function press(button) {
   });
 }
 
+/** Lets a press that reads the location and then saves run to the end. */
+async function settle() {
+  await act(async () => {
+    // Four microtask turns: the location callback, its promise, the save, and its settle.
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+function givePosition() {
+  getCurrentPosition.mockImplementation((success) =>
+    success({
+      coords: { accuracy: 18, latitude: 19.076_001, longitude: 72.877_656 },
+      timestamp: 1_762_300_000_000,
+    })
+  );
+}
+
+const SHARED_POINT = {
+  accuracyMeters: 18,
+  capturedAt: Date.UTC(2026, 10, 5, 6, 30),
+  latitude: 19.076_001,
+  longitude: 72.877_656,
+};
+
 function postedBody() {
   const [, init] = fetchMock.mock.calls[0];
   return JSON.parse(init.body);
@@ -405,11 +432,80 @@ describe("Office check-in: my day", () => {
     const labels = [...group.querySelectorAll("button")].map((button) => button.textContent);
     expect(labels).toEqual(["On tour", "On market visit", "Out of office"]);
 
+    expect(group.textContent).toContain(
+      "On tour and On market visit share your location at that moment with the people who oversee you"
+    );
+
+    givePosition();
     await press(findButton(group, "On market visit"));
+    await settle();
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
     expect(chooseAwayReason).toHaveBeenCalledWith({
       checkInId: "officeCheckIns_staff_me",
+      location: {
+        accuracyMeters: 18,
+        capturedAt: 1_762_300_000_000,
+        kind: "position",
+        latitude: 19.076_001,
+        longitude: 72.877_656,
+      },
       reason: "market_visit",
     });
+    await view.unmount();
+  });
+
+  test("Out of office saves without asking for a location", async () => {
+    state.status = myStatus({
+      today: checkIn("staff_me", { clockIn: verification("fail", "outside_allowlist") }),
+    });
+    const view = await mount();
+    const group = view.container.querySelector("fieldset[aria-labelledby]");
+    await press(findButton(group, "Out of office"));
+    await settle();
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+    expect(chooseAwayReason).toHaveBeenCalledWith({
+      checkInId: "officeCheckIns_staff_me",
+      reason: "out_of_office",
+    });
+    await view.unmount();
+  });
+
+  test("Doesn't save On tour without a location, and shows how to turn it on", async () => {
+    state.status = myStatus({
+      today: checkIn("staff_me", { clockIn: verification("fail", "outside_allowlist") }),
+    });
+    getCurrentPosition.mockImplementation((_success, error) => error({ code: 1 }));
+    const view = await mount();
+    const group = view.container.querySelector("fieldset[aria-labelledby]");
+    await press(findButton(group, "On tour"));
+    await settle();
+    expect(chooseAwayReason).not.toHaveBeenCalled();
+    expect(group.querySelector('[role="alert"]').textContent).toBe(
+      "Not saved: On tour and On market visit need your location. Your browser or device blocked location. The steps below turn it on."
+    );
+    expect(group.textContent).toContain("How to turn location on");
+    expect(findButton(group, "On tour").getAttribute("aria-disabled")).toBeNull();
+    await view.unmount();
+  });
+
+  test("Shows the person the location they shared, with a map link", async () => {
+    state.status = myStatus({
+      today: checkIn("staff_me", {
+        awayLocation: SHARED_POINT,
+        awayReason: "on_tour",
+        clockIn: verification("fail", "outside_allowlist"),
+      }),
+    });
+    const view = await mount();
+    expect(view.container.textContent).toContain(
+      "Shared with the people who oversee you. Location at 12:00, accurate to about 18 m."
+    );
+    const link = [...view.container.querySelectorAll("a")].find(
+      (anchor) => anchor.textContent === "Open in Google Maps"
+    );
+    expect(link.getAttribute("href")).toBe("https://www.google.com/maps?q=19.076001,72.877656");
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toBe("noopener noreferrer");
     await view.unmount();
   });
 
@@ -443,15 +539,18 @@ describe("Office check-in: my day", () => {
     chooseAwayReason.mockImplementationOnce(() =>
       Promise.reject(Object.assign(new Error("refused"), { data: "ALREADY_REVIEWED" }))
     );
+    givePosition();
     const view = await mount();
     const group = view.container.querySelector("fieldset[aria-labelledby]");
     await press(findButton(group, "On tour"));
+    await settle();
     expect(group.querySelector('[role="alert"]').textContent).toBe(
       "A manager has already reviewed this check-in, so the answer can't change."
     );
     const button = findButton(group, "On tour");
     expect(button.getAttribute("aria-disabled")).toBeNull();
     await press(button);
+    await settle();
     expect(chooseAwayReason).toHaveBeenCalledTimes(2);
     await view.unmount();
   });
@@ -519,6 +618,37 @@ describe("Office check-in: team today", () => {
     // One office: no office filter, and no department or office sublines.
     expect(view.container.querySelector("#office-check-in-team-office")).toBeNull();
     expect(table.textContent).not.toContain("Sales");
+    await view.unmount();
+  });
+
+  test("Lets a reviewer open the location someone shared in Google Maps", async () => {
+    state.status = myStatus({ canOversee: true });
+    state.team = team();
+    state.team.rows = state.team.rows.map((row) =>
+      row.name === "Rhea Kapoor"
+        ? teamRow(row.staffId, row.name, { ...row.checkIn, awayLocation: SHARED_POINT })
+        : row
+    );
+    const view = await mount();
+    await press(findButton(view.container, "Open Rhea Kapoor"));
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog.textContent).toContain("They said they're working: On tour.");
+    expect(dialog.textContent).toContain("Location at 12:00, accurate to about 18 m.");
+    const link = [...dialog.querySelectorAll("a")].find(
+      (anchor) => anchor.textContent === "Open in Google Maps"
+    );
+    expect(link.getAttribute("href")).toBe("https://www.google.com/maps?q=19.076001,72.877656");
+    await view.unmount();
+  });
+
+  test("Tells a reviewer when an older answer has no saved location", async () => {
+    state.status = myStatus({ canOversee: true });
+    state.team = team();
+    const view = await mount();
+    await press(findButton(view.container, "Open Rhea Kapoor"));
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog.textContent).toContain("No location was saved with this answer.");
+    expect(dialog.textContent).not.toContain("Open in Google Maps");
     await view.unmount();
   });
 

@@ -1411,16 +1411,37 @@ describe("Several sessions a day", () => {
 });
 
 describe("Where someone says they are working", () => {
+  type ChooseArgs = FunctionArgs<typeof api.crm.officeCheckIns.chooseAwayReason>;
+
+  /** A synthetic reading from a client site, taken a second before the answer. */
+  function onTheRoad(overrides: Partial<Extract<LocationArg, { kind: "position" }>> = {}) {
+    return {
+      accuracyMeters: 18.4,
+      capturedAt: Date.now() - 1000,
+      kind: "position" as const,
+      latitude: 19.076_001_234_5,
+      longitude: 72.877_655_987_6,
+      ...overrides,
+    };
+  }
+
+  /**
+   * Tour and market visit send a fresh reading unless the test passes its own `location`
+   * (`null` sends none); Out of office sends none.
+   */
   function choose(
     t: Harness,
     subject: string,
     checkInId: Id<"officeCheckIns">,
-    reason: FunctionArgs<typeof api.crm.officeCheckIns.chooseAwayReason>["reason"]
+    reason: ChooseArgs["reason"],
+    location?: LocationArg | null
   ) {
-    return as(t, subject).mutation(api.crm.officeCheckIns.chooseAwayReason, {
-      checkInId,
-      reason,
-    });
+    const args: ChooseArgs = { checkInId, reason };
+    const reading = location === undefined && reason !== "out_of_office" ? onTheRoad() : location;
+    if (reading) {
+      args.location = reading;
+    }
+    return as(t, subject).mutation(api.crm.officeCheckIns.chooseAwayReason, args);
   }
 
   async function storedRecord(t: Harness, checkInId: Id<"officeCheckIns">) {
@@ -1449,9 +1470,11 @@ describe("Where someone says they are working", () => {
         actorStaffId: staff.delhiRep,
         checkInId: checkIn._id,
         subjectStaffId: staff.delhiRep,
-        summary: "working on tour",
+        summary: "working on tour, location shared",
       }),
-      expect.objectContaining({ summary: "working on market visit (was on tour)" }),
+      expect.objectContaining({
+        summary: "working on market visit, location shared (was on tour)",
+      }),
     ]);
     const [row] = (await teamDay(t, "hr")).rows.filter((entry) => entry.name === "delhi_rep");
     expect(row?.checkIn?.awayReason).toBe("market_visit");
@@ -1521,11 +1544,85 @@ describe("Where someone says they are working", () => {
       kind: "error",
     });
     expect(stillDenied.checkIn.awayReason).toBe("market_visit");
+    expect(stillDenied.checkIn.awayLocation).toBeDefined();
 
     vi.setSystemTime(NOW.getTime() + 60_000);
     const passed = await clockIn(t, "delhi_rep", IN_OFFICE_IP, IN_FENCE);
     expect(passed.checkIn.clockIn.outcome).toBe("pass");
     expect(passed.checkIn.awayReason).toBeUndefined();
+    expect(passed.checkIn.awayLocation).toBeUndefined();
+  });
+
+  test("Tour and market visit keep the exact point shared, for the person's overseers only", async () => {
+    const t = createHarness();
+    const { offices } = await seed(t);
+    await seedRule(t, offices.delhi);
+    const { checkIn } = await clockIn(t, "delhi_rep", HOME_IP);
+    await choose(t, "delhi_rep", checkIn._id, "on_tour");
+    const expected = {
+      accuracyMeters: 18,
+      capturedAt: NOW.getTime() - 1000,
+      latitude: 19.076_001,
+      longitude: 72.877_656,
+    };
+    expect((await storedRecord(t, checkIn._id))?.awayLocation).toEqual(expected);
+    const forHr = (await teamDay(t, "hr")).rows.find((row) => row.name === "delhi_rep");
+    expect(forHr?.checkIn?.awayLocation).toEqual(expected);
+    // Someone who doesn't oversee them never sees the row, so never sees the point.
+    expect(namesIn(await teamDay(t, "mumbai_rep"))).not.toContain("delhi_rep");
+    // The audit trail says a location was shared, never where.
+    const trail = JSON.stringify(await auditFor(t, "away_reason_set"));
+    expect(trail).toContain("location shared");
+    expect(trail).not.toContain("19.07");
+    expect(trail).not.toContain("72.87");
+  });
+
+  test("Tour and market visit aren't saved without a usable, fresh location", async () => {
+    const t = createHarness();
+    const { offices } = await seed(t);
+    await seedRule(t, offices.delhi);
+    const { checkIn } = await clockIn(t, "delhi_rep", HOME_IP);
+    await expect(choose(t, "delhi_rep", checkIn._id, "on_tour", null)).rejects.toThrow(
+      "AWAY_LOCATION_REQUIRED"
+    );
+    await expect(
+      choose(t, "delhi_rep", checkIn._id, "market_visit", LOCATION_DENIED)
+    ).rejects.toThrow("AWAY_LOCATION_REQUIRED");
+    // A reading from ten minutes ago can't stand in for where they are now.
+    await expect(
+      choose(
+        t,
+        "delhi_rep",
+        checkIn._id,
+        "on_tour",
+        onTheRoad({ capturedAt: NOW.getTime() - 600_000 })
+      )
+    ).rejects.toThrow("AWAY_LOCATION_INVALID");
+    await expect(
+      choose(t, "delhi_rep", checkIn._id, "on_tour", onTheRoad({ latitude: 123 }))
+    ).rejects.toThrow("AWAY_LOCATION_INVALID");
+    await expect(
+      choose(t, "delhi_rep", checkIn._id, "on_tour", onTheRoad({ accuracyMeters: 0 }))
+    ).rejects.toThrow("AWAY_LOCATION_INVALID");
+    const record = await storedRecord(t, checkIn._id);
+    expect(record?.awayReason).toBeUndefined();
+    expect(record?.awayLocation).toBeUndefined();
+    expect(await auditFor(t, "away_reason_set")).toHaveLength(0);
+  });
+
+  test("Out of office keeps no location and drops an earlier one", async () => {
+    const t = createHarness();
+    const { offices } = await seed(t);
+    await seedRule(t, offices.delhi);
+    const { checkIn } = await clockIn(t, "delhi_rep", HOME_IP);
+    await choose(t, "delhi_rep", checkIn._id, "on_tour");
+    expect((await storedRecord(t, checkIn._id))?.awayLocation).toBeDefined();
+    await choose(t, "delhi_rep", checkIn._id, "out_of_office");
+    const record = await storedRecord(t, checkIn._id);
+    expect(record?.awayReason).toBe("out_of_office");
+    expect(record?.awayLocation).toBeUndefined();
+    const [, latest] = await auditFor(t, "away_reason_set");
+    expect(latest?.summary).toBe("working out of office (was on tour)");
   });
 });
 

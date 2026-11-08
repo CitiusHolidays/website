@@ -53,6 +53,67 @@ export function needsAwayReason(checkIn: {
   );
 }
 
+/**
+ * On tour and On market visit carry the person's location at the moment they answer, so the
+ * person who oversees them can see where they were (owner decision 2026-11-07). Out of office
+ * carries none. This is the one place check-in keeps an exact point; it is deleted with the
+ * check-in at the end of the retention period.
+ */
+export function awayReasonNeedsLocation(reason: AwayReason) {
+  return reason === "on_tour" || reason === "market_visit";
+}
+
+export interface AwayLocation {
+  accuracyMeters: number;
+  capturedAt: number;
+  latitude: number;
+  longitude: number;
+}
+
+/** Six decimal places is about 0.1 m: the reading as the device gave it, without float noise. */
+function roundCoordinate(value: number) {
+  return Math.round(value * 1_000_000) / 1_000_000;
+}
+
+/**
+ * The location stored with an away answer, or why the reading can't be used. The reading must be
+ * a real position, inside the valid coordinate ranges, and fresh by the server's clock, so an old
+ * or replayed reading can't stand in for where the person is now.
+ */
+export function awayLocationFrom(
+  reading: LocationReading,
+  serverNow: number
+): { location: AwayLocation } | { problem: "missing" | "invalid" | "stale" } {
+  if (reading.kind !== "position") {
+    return { problem: "missing" };
+  }
+  if (
+    !(
+      isLatitude(reading.latitude) &&
+      isLongitude(reading.longitude) &&
+      Number.isFinite(reading.accuracyMeters) &&
+      reading.accuracyMeters > 0 &&
+      Number.isFinite(reading.capturedAt)
+    )
+  ) {
+    return { problem: "invalid" };
+  }
+  if (
+    serverNow - reading.capturedAt > MAX_LOCATION_AGE_MS ||
+    reading.capturedAt - serverNow > MAX_LOCATION_CLOCK_LEAD_MS
+  ) {
+    return { problem: "stale" };
+  }
+  return {
+    location: {
+      accuracyMeters: Math.max(1, Math.round(reading.accuracyMeters)),
+      capturedAt: reading.capturedAt,
+      latitude: roundCoordinate(reading.latitude),
+      longitude: roundCoordinate(reading.longitude),
+    },
+  };
+}
+
 export interface NetworkEntry {
   cidr: string;
   kind: NetworkEntryKind;

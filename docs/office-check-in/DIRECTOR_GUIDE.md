@@ -63,6 +63,11 @@ When someone's clock-in check doesn't pass, they are asked where they're working
 **Fail** or **Uncertain**, and when you open them. It is what they told us, not something the
 system checked, and it doesn't approve the check-in.
 
+**On tour** and **On market visit** also save where the person was when they answered. Open the
+person and press **Open in Google Maps** to see the exact point, with the time and how accurate the
+reading was. Those two answers can't be chosen without sharing a location; **Out of office** saves
+none.
+
 Look at **Today in the office** for **Fail** or **Uncertain** (no answer given) and for answers you
 didn't expect. Ask the person what happened, then use **Review**, **Correct times** or **Add
 entry**. A result is a prompt to ask, not proof someone was absent.
@@ -73,5 +78,6 @@ director's delete needs a reason, which is kept with a record of the deletion.
 
 Don't switch **Mode** to **Enforce** without talking to the development team first.
 
-Location is only asked for when someone presses Clock in or Clock out. Exact locations and full
-internet addresses are never stored, and records are deleted after 3 months.
+Location is only asked for when someone presses Clock in or Clock out, or answers On tour or On
+market visit. Only those two answers keep an exact location, visible to the person and the people
+who oversee them. Full internet addresses are never stored, and records are deleted after 3 months.
