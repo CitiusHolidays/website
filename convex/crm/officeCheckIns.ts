@@ -390,8 +390,8 @@ const AWAY_REASON_WORDS = {
  * The person says where they are working when their own clock-in check didn't
  * pass: on tour, on a market visit, or out of office. It is their statement,
  * recorded beside the evidence, and it never changes admission: a pending
- * check-in still waits for a manager. They may change it until a manager has
- * reviewed the session.
+ * check-in still waits for a manager. They may change it while clocked in, until
+ * a manager has reviewed the session.
  */
 export const chooseAwayReason = mutation({
   args: {
@@ -415,6 +415,10 @@ export const chooseAwayReason = mutation({
     }
     if (checkIn.review) {
       throw new ConvexError("ALREADY_REVIEWED");
+    }
+    // The answer is about where they are while clocked in; after clock-out it can't change.
+    if (checkIn.status === "closed") {
+      throw new ConvexError("SESSION_CLOSED");
     }
     if (checkIn.awayReason === args.reason) {
       return null;
@@ -626,13 +630,20 @@ export const teamDay = query({
       }
     }
     const overseen = staff.filter((member) => canOversee(access, actor, member));
+    // Someone who oversees others also sees their own row, read-only: nobody reviews or
+    // corrects their own record, so it never gets canReview.
+    const self =
+      (isOverseer(access) || overseen.length > 0) && actor?.active
+        ? [{ canReview: false, member: actor }]
+        : [];
+    const listed = [...overseen.map((member) => ({ canReview: true, member })), ...self];
     const visibleOfficeIds = new Set(
       canOverseeAllOffices(access)
         ? offices.map((office) => office._id)
-        : overseen.flatMap((member) => (member.officeId ? [member.officeId] : []))
+        : listed.flatMap(({ member }) => (member.officeId ? [member.officeId] : []))
     );
-    const rows = overseen
-      .flatMap((member) => {
+    const rows = listed
+      .flatMap(({ canReview, member }) => {
         if (args.officeId && member.officeId !== args.officeId) {
           return [];
         }
@@ -644,7 +655,7 @@ export const teamDay = query({
         const officeId = checkIn?.officeId ?? member.officeId ?? null;
         return [
           {
-            canReview: true,
+            canReview,
             checkIn,
             department: member.department ?? null,
             name: member.name,

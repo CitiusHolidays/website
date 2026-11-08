@@ -734,7 +734,11 @@ describe("Team day scoping", () => {
       "unassigned",
     ];
     const hrView = await teamDay(t, "hr");
-    expect(namesIn(hrView)).toEqual(sorted(everyone.filter((name) => name !== "hr")));
+    // Their own row is listed too, read-only: nobody reviews their own record.
+    expect(namesIn(hrView)).toEqual(sorted(everyone));
+    expect(
+      hrView.rows.map((row) => [row.name, row.canReview]).filter(([, canReview]) => !canReview)
+    ).toEqual([["hr", false]]);
     expect(sorted(hrView.offices.map((office) => office.id))).toEqual(
       sorted([offices.delhi, offices.mumbai])
     );
@@ -745,7 +749,29 @@ describe("Team day scoping", () => {
     expect(managerSignals.length).toBeGreaterThan(0);
     expect(managerSignals.some((signal) => "observedPrefix" in signal)).toBe(false);
     const adminView = await teamDay(t, "admin");
-    expect(namesIn(adminView)).toEqual(sorted(everyone.filter((name) => name !== "admin")));
+    expect(namesIn(adminView)).toEqual(sorted(everyone));
+    expect(adminView.rows.find((row) => row.name === "admin")?.canReview).toBe(false);
+  });
+
+  test("Admin sees other Admins and can review them, but not themselves", async () => {
+    const t = createHarness();
+    const { offices, staff } = await seedDay(t);
+    await insertStaff(t, { officeId: offices.mumbai, roles: ["Admin"], subject: "admin_two" });
+    const rows = new Map((await teamDay(t, "admin")).rows.map((row) => [row.name, row]));
+    expect(rows.get("admin_two")?.canReview).toBe(true);
+    expect(rows.get("admin")?.canReview).toBe(false);
+    const fromOther = new Map((await teamDay(t, "admin_two")).rows.map((row) => [row.name, row]));
+    expect(fromOther.get("admin")?.canReview).toBe(true);
+    // Listing your own row never lets you change it.
+    await expect(
+      as(t, "admin").mutation(api.crm.officeCheckIns.recordManualEntry, {
+        clockInAt: NOW.getTime() - 3_600_000,
+        clockOutAt: null,
+        reason: "Testing self entry",
+        staffId: staff.admin,
+        workDate: WORK_DATE,
+      })
+    ).rejects.toThrow();
   });
 
   test("A view:team head sees only same-office staff in their own department", async () => {
@@ -775,12 +801,17 @@ describe("Team day scoping", () => {
     });
     const delhiView = await teamDay(t, "delhi_head");
     // Sales by role or department; never Admin/HR/Directors, other departments or offices.
-    expect(namesIn(delhiView)).toEqual(["delhi_rep", "delhi_report", "delhi_sales_dept"]);
+    expect(namesIn(delhiView)).toEqual([
+      "delhi_head",
+      "delhi_rep",
+      "delhi_report",
+      "delhi_sales_dept",
+    ]);
     expect(delhiView.offices).toEqual([
       { id: offices.delhi, name: "Delhi HQ", timeZone: "Asia/Kolkata" },
     ]);
     const mumbaiView = await teamDay(t, "mumbai_head");
-    expect(namesIn(mumbaiView)).toEqual(["mumbai_ops"]);
+    expect(namesIn(mumbaiView)).toEqual(["mumbai_head", "mumbai_ops"]);
     // Filtering by another office cannot widen the scope.
     expect((await teamDay(t, "mumbai_head", offices.delhi)).rows).toEqual([]);
   });
@@ -789,10 +820,10 @@ describe("Team day scoping", () => {
     const t = createHarness();
     const { offices } = await seedDay(t);
     const view = await teamDay(t, "mumbai_manager");
-    expect(namesIn(view)).toEqual(["delhi_report"]);
-    expect(view.offices).toEqual([
-      { id: offices.delhi, name: "Delhi HQ", timeZone: "Asia/Kolkata" },
-    ]);
+    expect(namesIn(view)).toEqual(["delhi_report", "mumbai_manager"]);
+    expect(sorted(view.offices.map((office) => office.id))).toEqual(
+      sorted([offices.delhi, offices.mumbai])
+    );
   });
 
   test("A head in another office still sees a Sales direct report via the manager path", async () => {
@@ -810,7 +841,12 @@ describe("Team day scoping", () => {
       subject: "delhi_report_of_mumbai_head",
     });
     const view = await teamDay(t, "mumbai_sales_head");
-    expect(namesIn(view)).toEqual(["delhi_report_of_mumbai_head", "mumbai_manager", "mumbai_rep"]);
+    expect(namesIn(view)).toEqual([
+      "delhi_report_of_mumbai_head",
+      "mumbai_manager",
+      "mumbai_rep",
+      "mumbai_sales_head",
+    ]);
     expect(sorted(view.offices.map((office) => office.id))).toEqual(
       sorted([offices.delhi, offices.mumbai])
     );
@@ -1608,6 +1644,20 @@ describe("Where someone says they are working", () => {
     expect(record?.awayReason).toBeUndefined();
     expect(record?.awayLocation).toBeUndefined();
     expect(await auditFor(t, "away_reason_set")).toHaveLength(0);
+  });
+
+  test("The answer can't be given or changed after clocking out", async () => {
+    const t = createHarness();
+    const { offices } = await seed(t);
+    await seedRule(t, offices.delhi);
+    const { checkIn } = await clockIn(t, "delhi_rep", HOME_IP);
+    await choose(t, "delhi_rep", checkIn._id, "on_tour");
+    await clockOut(t, "delhi_rep", HOME_IP);
+    await expect(choose(t, "delhi_rep", checkIn._id, "out_of_office")).rejects.toThrow(
+      "SESSION_CLOSED"
+    );
+    expect((await storedRecord(t, checkIn._id))?.awayReason).toBe("on_tour");
+    expect(await auditFor(t, "away_reason_set")).toHaveLength(1);
   });
 
   test("Out of office keeps no location and drops an earlier one", async () => {

@@ -181,6 +181,11 @@ function CheckResult({ label, record }: { label: string; record: CheckInRecord["
   );
 }
 
+/** The away question shows only while clocked in, and until a manager has reviewed the session. */
+function asksWhereWorking(record: CheckInRecord) {
+  return record.status === "open" && needsAwayReason(record) && !record.review;
+}
+
 function TodayRecord({ record, timeZone }: { record: CheckInRecord; timeZone: string }) {
   const note = reviewNote(record);
   return (
@@ -386,7 +391,7 @@ export function MyDayPanel({ status }: { status: MyCheckInStatus }) {
               {clock.feedback.message}
             </p>
           ) : null}
-          {status.today && needsAwayReason(status.today) && !status.today.review ? (
+          {status.today && asksWhereWorking(status.today) ? (
             <AwayReasonPicker session={status.today} />
           ) : null}
           {clock.feedback?.locationHelp ? (

@@ -488,6 +488,37 @@ describe("Office check-in: my day", () => {
     await view.unmount();
   });
 
+  test("Stops asking where you're working once you've clocked out", async () => {
+    state.status = myStatus({
+      today: checkIn("staff_me", {
+        clockIn: verification("fail", "outside_allowlist"),
+        clockOutAt: Date.UTC(2026, 10, 5, 12, 30),
+        status: "closed",
+      }),
+    });
+    const view = await mount();
+    expect(view.container.querySelector("fieldset[aria-labelledby]")).toBeNull();
+    expect(view.container.textContent).not.toContain("Where are you working today?");
+    await view.unmount();
+  });
+
+  test("Lists you in Team today, but only to look at", async () => {
+    state.status = myStatus({ canOversee: true });
+    state.team = team();
+    state.team.rows = [
+      ...state.team.rows,
+      { ...teamRow("staff_me", "Nishit Test", checkIn("staff_me")), canReview: false },
+    ];
+    const view = await mount();
+    await press(findButton(view.container, "Open Nishit Test"));
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(dialog.textContent).toContain("You can't change this record.");
+    for (const label of ["Review", "Correct times", "Add a session", "Delete session"]) {
+      expect(findButton(dialog, label)).toBeUndefined();
+    }
+    await view.unmount();
+  });
+
   test("Shows the person the location they shared, with a map link", async () => {
     state.status = myStatus({
       today: checkIn("staff_me", {
