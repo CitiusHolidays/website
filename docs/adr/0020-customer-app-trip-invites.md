@@ -128,9 +128,13 @@ registration exist; it will use Better Auth's `phoneNumber` plugin.
   entitlement, not the account. An operator grant that a claim only linked to the Traveller keeps
   its access and loses the Traveller link. The owner's rule that access is never fully removed is kept by
   Operations practice: the control exists for wrong-person claims.
-- Until Universal Links and App Links are set up, the `citius://` hand-off can be claimed by another
-  app that registers the same scheme on the phone. The token is single-use and short-lived, and the
-  website page never holds a session, which bounds the exposure; Universal Links remove it.
+- On a phone with the app, the sign-in and invite links open the app directly (Universal Links on
+  iOS, App Links on Android): the website serves `/.well-known/apple-app-site-association` and
+  `/.well-known/assetlinks.json` for `/app/sign-in` and `/app/invite`, built from
+  `CUSTOMER_APP_APPLE_TEAM_ID` and `CUSTOMER_APP_ANDROID_CERT_SHA256`. Until those are configured
+  the files are not served and the links open the page, whose `citius://` hand-off can be claimed by
+  another app that registers the same scheme. The token is single-use and short-lived, and the
+  website page never holds a session, which bounds that exposure; the verified links remove it.
 - Consent records are kept exactly as long as the trip records they cover (owner decision, 7 Nov
   2026). The traveller anonymisation job (`jobs.anonymise_past_travellers`, three years after the
   trip) deletes the consents recorded for a minor and the app invites issued to a traveller when it
