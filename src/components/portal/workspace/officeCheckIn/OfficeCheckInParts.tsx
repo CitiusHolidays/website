@@ -1,17 +1,17 @@
 "use client";
 
-import type { SignalOutcome } from "@convex/crm/officeCheckInVerification";
+import type { AwayReason, SignalOutcome } from "@convex/crm/officeCheckInVerification";
 import { MapPin, Wifi } from "lucide-react";
 import { type ChangeEvent, type ReactNode, type RefObject, useId } from "react";
 import { ControlledDialog } from "@/components/ui/application-dialog";
 import {
+  checkBadgeFor,
   DAY_STATUS_LABELS,
   DAY_STATUS_TONES,
   type DayStatus,
   describeGeofenceReason,
   describeNetworkReason,
   OUTCOME_LABELS,
-  OUTCOME_TONES,
   type StatusTone,
 } from "@/lib/officeCheckIn/presentation";
 import { PORTAL_Z } from "@/lib/portal/zIndex";
@@ -30,8 +30,15 @@ export function ToneBadge({ label, tone }: { label: string; tone: StatusTone }) 
   );
 }
 
-export function OutcomeBadge({ outcome }: { outcome: SignalOutcome }) {
-  return <ToneBadge label={OUTCOME_LABELS[outcome]} tone={OUTCOME_TONES[outcome]} />;
+export function OutcomeBadge({
+  awayReason,
+  outcome,
+}: {
+  awayReason?: AwayReason;
+  outcome: SignalOutcome;
+}) {
+  const badge = checkBadgeFor(outcome, awayReason);
+  return <ToneBadge label={badge.label} tone={badge.tone} />;
 }
 
 export function DayStatusBadge({ status }: { status: DayStatus }) {
@@ -46,7 +53,8 @@ function SignalRow({
 }: {
   icon: "location" | "network";
   label: string;
-  outcome: SignalOutcome;
+  /** Left out once the person has said where they are: then it's evidence, not a verdict. */
+  outcome: SignalOutcome | null;
   reason: string;
 }) {
   const Icon = icon === "network" ? Wifi : MapPin;
@@ -54,15 +62,26 @@ function SignalRow({
     <li className="flex items-start gap-2.5">
       <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-brand-muted" />
       <p className="min-w-0 text-pretty text-brand-dark text-sm">
-        <span className="font-medium">{label}:</span> {OUTCOME_LABELS[outcome].toLowerCase()}.{" "}
+        <span className="font-medium">{label}:</span>{" "}
+        {outcome ? `${OUTCOME_LABELS[outcome].toLowerCase()}. ` : null}
         <span className="text-brand-muted">{reason}</span>
       </p>
     </li>
   );
 }
 
-/** Each signal of one clock-in or clock-out, one plain sentence per line. */
-export function SignalList({ record }: { record: VerificationRecord }) {
+/**
+ * Each signal of one clock-in or clock-out, one plain sentence per line. With an away answer the
+ * lines say what the device reported without calling it a pass or a fail.
+ */
+export function SignalList({
+  awayReason,
+  record,
+}: {
+  awayReason?: AwayReason;
+  record: VerificationRecord;
+}) {
+  const verdict = (outcome: SignalOutcome) => (awayReason && outcome !== "pass" ? null : outcome);
   if (record.requirement === "not_configured") {
     return (
       <p className={FIELD_HINT}>
@@ -76,7 +95,7 @@ export function SignalList({ record }: { record: VerificationRecord }) {
         <SignalRow
           icon="network"
           label="Office internet"
-          outcome={record.network.outcome}
+          outcome={verdict(record.network.outcome)}
           reason={describeNetworkReason(record.network.reason, record.network.matchedLabel)}
         />
       ) : null}
@@ -84,7 +103,7 @@ export function SignalList({ record }: { record: VerificationRecord }) {
         <SignalRow
           icon="location"
           label="Location"
-          outcome={record.geofence.outcome}
+          outcome={verdict(record.geofence.outcome)}
           reason={describeGeofenceReason(record.geofence.reason, record.geofence.accuracyMeters)}
         />
       ) : null}

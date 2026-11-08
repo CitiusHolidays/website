@@ -169,14 +169,22 @@ function TimeFigure({ label, value }: { label: string; value: string }) {
 }
 
 /** One check's result: a badge, and the reasons only when it didn't pass. */
-function CheckResult({ label, record }: { label: string; record: CheckInRecord["clockIn"] }) {
+function CheckResult({
+  awayReason,
+  label,
+  record,
+}: {
+  awayReason: CheckInRecord["awayReason"];
+  label: string;
+  record: CheckInRecord["clockIn"];
+}) {
   return (
     <div className="grid gap-2">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-brand-dark text-sm">{label}</span>
-        <OutcomeBadge outcome={record.outcome} />
+        <OutcomeBadge awayReason={awayReason} outcome={record.outcome} />
       </div>
-      {record.outcome === "pass" ? null : <SignalList record={record} />}
+      {record.outcome === "pass" ? null : <SignalList awayReason={awayReason} record={record} />}
     </div>
   );
 }
@@ -195,9 +203,19 @@ function TodayRecord({ record, timeZone }: { record: CheckInRecord; timeZone: st
         <TimeFigure label="Clocked out" value={formatOfficeTime(record.clockOutAt, timeZone)} />
       </dl>
       {record.source === "self" ? (
-        <CheckResult label="Clock-in check" record={record.clockIn} />
+        <CheckResult
+          awayReason={record.awayReason}
+          label="Clock-in check"
+          record={record.clockIn}
+        />
       ) : null}
-      {record.clockOut ? <CheckResult label="Clock-out check" record={record.clockOut} /> : null}
+      {record.clockOut ? (
+        <CheckResult
+          awayReason={record.awayReason}
+          label="Clock-out check"
+          record={record.clockOut}
+        />
+      ) : null}
       <AwayLocationNote record={record} timeZone={timeZone} viewer="self" />
       {note ? <p className="text-brand-muted text-xs">{note}</p> : null}
       {record.correctedAt ? (

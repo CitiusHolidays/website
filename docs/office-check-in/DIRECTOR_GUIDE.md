@@ -69,6 +69,10 @@ person and press **Open in Google Maps** to see the exact point, with the time a
 reading was. Those two answers can't be chosen without sharing a location; **Out of office** saves
 none.
 
+Once someone has answered, their check no longer says **Fail**: On tour and On market visit read
+**Under review**, and Out of office reads **Not in office**. **Fail** or **Uncertain** means they
+haven't said where they are.
+
 Look at **Today in the office** for **Fail** or **Uncertain** (no answer given) and for answers you
 didn't expect. Ask the person what happened, then use **Review**, **Correct times** or **Add
 entry**. A result is a prompt to ask, not proof someone was absent.
