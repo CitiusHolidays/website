@@ -182,7 +182,7 @@ export default async function Footer() {
       <div className="bg-brand-dark/20 py-4">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between px-4 text-brand-muted-on-dark text-sm sm:flex-row">
           <p>© {currentYear} Citius. All Rights Reserved.</p>
-          <div className="mt-2 flex gap-4 sm:mt-0 sm:gap-6">
+          <div className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-2 sm:mt-0 sm:gap-6">
             <Link
               className="transition-colors hover:text-citius-orange"
               href="/policies?view=terms"
@@ -196,6 +196,13 @@ export default async function Footer() {
               target="_blank"
             >
               Billing Policy
+            </Link>
+            <Link
+              className="transition-colors hover:text-citius-orange"
+              href="/policies?view=privacy"
+              target="_blank"
+            >
+              Privacy Policy
             </Link>
           </div>
         </div>

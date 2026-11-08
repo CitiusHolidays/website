@@ -25,15 +25,18 @@ describe("Public destinations", () => {
       expect(office.address.footer.length).toBeGreaterThan(0);
     }
   });
-  test("Policy URL values resolve billing explicitly and default every other state to Terms", () => {
+  test("Policy URL values resolve billing and privacy explicitly and default every other state to Terms", () => {
     expect(POLICY_VIEW_HREFS).toEqual({
       billing: "/policies?view=billing",
+      privacy: "/policies?view=privacy",
       terms: "/policies?view=terms",
     });
     expect(resolvePolicyView("billing")).toBe("billing");
+    expect(resolvePolicyView("privacy")).toBe("privacy");
     expect(resolvePolicyView("terms")).toBe("terms");
     expect(resolvePolicyView(undefined)).toBe("terms");
     expect(resolvePolicyView("")).toBe("terms");
-    expect(resolvePolicyView("privacy")).toBe("terms");
+    expect(resolvePolicyView("Privacy")).toBe("terms");
+    expect(resolvePolicyView("cookies")).toBe("terms");
   });
 });
