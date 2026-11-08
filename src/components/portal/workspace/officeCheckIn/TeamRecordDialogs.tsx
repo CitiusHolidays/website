@@ -698,7 +698,8 @@ function RecordDialogContent({
   const mode = "sessionId" in chosen && !session ? DETAILS : chosen;
   const office = row.officeName ? ` · ${row.officeName}` : "";
   const context: DialogContext = {
-    deletion,
+    // On your own row only Admin's erase applies; Directors never delete their own sessions.
+    deletion: row.canReview || deletion === "erase" ? deletion : null,
     heading: {
       subtitle: `${formatWorkDate(workDate)}${office} · times in ${row.timeZone}`,
       title: firstMode.kind === "manual" ? `Add an entry for ${row.name}` : row.name,

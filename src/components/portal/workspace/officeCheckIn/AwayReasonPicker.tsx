@@ -35,6 +35,7 @@ const REFUSALS = new Map([
   ["AWAY_LOCATION_REQUIRED", "This answer needs your location. Try again and allow location."],
   ["AWAY_LOCATION_INVALID", "Your location reading couldn't be used. Try again."],
   ["CHECK_IN_NOT_FOUND", "This check-in no longer exists. Reload the page."],
+  ["SESSION_CLOSED", "You've clocked out, so the answer can't change."],
 ]);
 
 function describeFailure<Problem>(problem: Problem) {
@@ -60,7 +61,7 @@ function busyLabel(phase: Phase, reason: AwayReason) {
  * Asks where the person is working when their clock-in check didn't place them at the office.
  * On tour and On market visit read the device's location once, when pressed, and save it with
  * the answer for the people who oversee them; without a location those two can't be saved. The
- * answer can be changed until a manager has reviewed the session.
+ * answer can be changed while clocked in, until a manager has reviewed the session.
  */
 export function AwayReasonPicker({ session }: { session: CheckInRecord }) {
   const chooseAwayReason = useMutation(api.crm.officeCheckIns.chooseAwayReason);

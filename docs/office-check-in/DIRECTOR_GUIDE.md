@@ -40,7 +40,8 @@ Open **Citius Connect → Me → Office check-in** and scroll to **Office rules*
 - If location is blocked (most often on a laptop whose Mac or Windows location setting is off for
   the browser), the page shows the steps to turn it on for that device.
 - Press **Clock out**. Your time appears.
-- Scroll to **Today in the office**. Your team is listed.
+- Scroll to **Today in the office**. Your team is listed, and so are you, to look at only: your
+  own record is reviewed by someone else.
 
 ## 3. Add the office internet (when IT replies)
 
