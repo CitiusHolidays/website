@@ -5,7 +5,7 @@ import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { mutation, query } from "./_generated/server";
 import { isAppPilotOn } from "./crm/appPilot";
 import { canonicalAuthUserId } from "./lib/authIdentity";
-import { destinationCover } from "./lib/customerAppCovers";
+import { destinationCover, destinationCoverValidator } from "./lib/customerAppCovers";
 import {
   authorizedCustomerIdentityIds,
   ensureCanonicalIdentityLink,
@@ -40,11 +40,9 @@ const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
 
 const phaseValidator = v.union(v.literal("upcoming"), v.literal("ongoing"), v.literal("past"));
 
-const coverValidator = v.union(v.null(), v.object({ path: v.string(), placeholder: v.string() }));
-
 const tripSummaryValidator = v.object({
   /** The destination's photo (website path and BlurHash), or null: the app draws a cover. */
-  cover: coverValidator,
+  cover: destinationCoverValidator,
   destination: v.string(),
   groupName: v.string(),
   jobCode: v.string(),
@@ -531,7 +529,7 @@ export const previewInvite = query({
       trip: v.union(
         v.null(),
         v.object({
-          cover: coverValidator,
+          cover: destinationCoverValidator,
           destination: v.string(),
           travelEndDate: v.union(v.string(), v.null()),
           travelStartDate: v.union(v.string(), v.null()),

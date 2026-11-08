@@ -333,6 +333,10 @@ describe("Job card return contracts", () => {
         },
       ],
       commercialFiles: [],
+      destinationCover: {
+        path: "/images/event-photo-booth/bali.webp",
+        placeholder: "UjHoE?t6V@oKL4NHn~fP?dRlaxj@x^ayaya#",
+      },
       hotels: [{ id: "hotels_1" }],
       invoices: [{ balanceAmount: 1000, id: "invoices_1" }],
       // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -356,6 +360,12 @@ describe("Job card return contracts", () => {
         ],
       })
     ).toContain("return.travellers[0]");
+    expect(
+      expectReturnContractFailure(jobCardCommandCenterResultValidator, {
+        ...payload,
+        destinationCover: undefined,
+      })
+    ).toContain("destinationCover");
   });
 });
 
