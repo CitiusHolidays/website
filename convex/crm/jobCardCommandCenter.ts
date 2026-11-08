@@ -1,6 +1,7 @@
 import { ConvexError } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
+import { destinationCover } from "../lib/customerAppCovers";
 import { type AppSurface, requireAppPilotForSurface } from "./appPilot";
 import { loadCommercialChainFilesForEntryPoint } from "./commercialRecordChainReads";
 import { getChecklistTasksWithFallback } from "./jobCardChecklist";
@@ -62,6 +63,8 @@ export async function handleGetCommandCenter(
     throw new ConvexError("FORBIDDEN");
   }
   requireAppPilotForSurface(job, args.surface);
+  // Citius Connect shows the trip on the same destination photo as the customer app.
+  const cover = destinationCover(job.destination);
   const linkedProposalId = job.proposalId;
   const [
     proposal,
@@ -121,6 +124,7 @@ export async function handleGetCommandCenter(
     return {
       checklistTasks: [],
       commercialFiles: [],
+      destinationCover: cover,
       hotels: [],
       invoices: [],
       jobCard: publicJobCard(job),
@@ -159,6 +163,7 @@ export async function handleGetCommandCenter(
       return { ...fields, _id: task._id };
     }),
     commercialFiles,
+    destinationCover: cover,
     hotels: hotels.map((hotel) => ({ id: hotel._id })),
     invoices: invoices.map((invoice) => ({
       balanceAmount: invoice.balanceAmount,

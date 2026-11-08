@@ -350,6 +350,8 @@ describe("what an external tour manager with access can reach", () => {
     expect(center.invoices).toEqual([]);
     expect(center.commercialFiles).toEqual([]);
     expect(center.query).toBeNull();
+    // The trip's destination photo is the trip, not the commercial chain: it stays.
+    expect(center.destinationCover?.path).toBe("/images/event-photo-booth/bali.webp");
 
     // The legacy name match never applies to an external login.
     await expect(

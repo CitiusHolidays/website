@@ -1,3 +1,5 @@
+import { v } from "convex/values";
+
 /**
  * The customer app shows each trip on a photo of its destination (ADR 0020). Job Cards carry no
  * image, so the cover comes from Citius's own destination photos on the website, matched by a
@@ -102,6 +104,12 @@ const COVERS: readonly (DestinationCover & { words: readonly string[] })[] = [
     words: ["bangalore", "bengaluru"],
   },
 ];
+
+/** A destination photo or null, as the customer app and Citius Connect receive it. */
+export const destinationCoverValidator = v.union(
+  v.null(),
+  v.object({ path: v.string(), placeholder: v.string() })
+);
 
 const NON_LETTER = /[^a-z]+/g;
 
