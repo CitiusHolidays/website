@@ -1,11 +1,25 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
-import { AWAY_REASONS, type AwayReason } from "@convex/crm/officeCheckInVerification";
+import {
+  AWAY_REASONS,
+  type AwayReason,
+  awayReasonNeedsLocation,
+  type GeolocationErrorCode,
+  type LocationReading,
+} from "@convex/crm/officeCheckInVerification";
 import { useMutation } from "convex/react";
 import { useState } from "react";
-import { AWAY_REASON_LABELS } from "@/lib/officeCheckIn/presentation";
+import { readLocation } from "@/lib/officeCheckIn/location";
+import {
+  AWAY_REASON_LABELS,
+  describeAwayLocationProblem,
+  type LocationHelpPlatform,
+  locationHelpPlatform,
+  needsLocationHelp,
+} from "@/lib/officeCheckIn/presentation";
 import { formatConvexError } from "../portalWorkspaceListHelpers";
+import { LocationHelp } from "./LocationHelp";
 import type { CheckInRecord } from "./officeCheckInTypes";
 
 const PROMPT_ID = "office-check-in-away-prompt";
@@ -18,6 +32,8 @@ const REFUSALS = new Map([
     "AWAY_REASON_NOT_NEEDED",
     "Your check-in now places you at the office, so there's nothing to choose.",
   ],
+  ["AWAY_LOCATION_REQUIRED", "This answer needs your location. Try again and allow location."],
+  ["AWAY_LOCATION_INVALID", "Your location reading couldn't be used. Try again."],
   ["CHECK_IN_NOT_FOUND", "This check-in no longer exists. Reload the page."],
 ]);
 
@@ -26,29 +42,59 @@ function describeFailure<Problem>(problem: Problem) {
   return REFUSALS.get(text) ?? text;
 }
 
+type Phase = { kind: "idle" } | { kind: "locating" | "saving"; reason: AwayReason };
+
+interface LocationProblem {
+  code: GeolocationErrorCode;
+  platform: LocationHelpPlatform | null;
+}
+
+function busyLabel(phase: Phase, reason: AwayReason) {
+  if (phase.kind === "idle" || phase.reason !== reason) {
+    return AWAY_REASON_LABELS[reason];
+  }
+  return phase.kind === "locating" ? "Getting your location…" : "Saving…";
+}
+
 /**
- * Asks where the person is working when their clock-in check didn't place
- * them at the office. Their answer is saved on the session for their manager;
- * it can be changed until a manager has reviewed the session.
+ * Asks where the person is working when their clock-in check didn't place them at the office.
+ * On tour and On market visit read the device's location once, when pressed, and save it with
+ * the answer for the people who oversee them; without a location those two can't be saved. The
+ * answer can be changed until a manager has reviewed the session.
  */
 export function AwayReasonPicker({ session }: { session: CheckInRecord }) {
   const chooseAwayReason = useMutation(api.crm.officeCheckIns.chooseAwayReason);
-  const [saving, setSaving] = useState<AwayReason | null>(null);
+  const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [error, setError] = useState("");
+  const [locationProblem, setLocationProblem] = useState<LocationProblem | null>(null);
   const chosen = session.awayReason;
 
   const choose = async (reason: AwayReason) => {
-    if (saving || reason === chosen) {
+    if (phase.kind !== "idle" || reason === chosen) {
       return;
     }
-    setSaving(reason);
     setError("");
-    // Settle first so every path clears the saving state; React Compiler can't compile try/finally.
-    const failure = await chooseAwayReason({ checkInId: session._id, reason }).then(
-      () => "",
-      describeFailure
-    );
-    setSaving(null);
+    setLocationProblem(null);
+    let location: LocationReading | null = null;
+    if (awayReasonNeedsLocation(reason)) {
+      setPhase({ kind: "locating", reason });
+      const reading = await readLocation();
+      if (reading.kind !== "position") {
+        const code = reading.kind === "error" ? reading.code : "position_unavailable";
+        setPhase({ kind: "idle" });
+        setError(describeAwayLocationProblem(code));
+        setLocationProblem({ code, platform: locationHelpPlatform(navigator) });
+        return;
+      }
+      location = reading;
+    }
+    setPhase({ kind: "saving", reason });
+    const args = location
+      ? { checkInId: session._id, location, reason }
+      : { checkInId: session._id, reason };
+    // Settle first so every path clears the busy state; React Compiler can't compile try/finally.
+    const failure = await chooseAwayReason(args).then(() => "", describeFailure);
+    setPhase({ kind: "idle" });
     setError(failure);
   };
 
@@ -68,15 +114,20 @@ export function AwayReasonPicker({ session }: { session: CheckInRecord }) {
             ? "Your manager sees this with your check-in. You can change it."
             : "We couldn't confirm you're at the office. Choose one so your manager knows."}
         </p>
+        <p className="text-brand-muted text-xs">
+          On tour and On market visit share your location at that moment with the people who oversee
+          you, so they can check it. It is kept with this check-in for 3 months.
+        </p>
       </div>
       <div className="flex flex-wrap gap-2">
         {AWAY_REASONS.map((reason) => {
           const selected = reason === chosen;
+          const busy = phase.kind !== "idle" && phase.reason === reason;
           const pressed = () => choose(reason);
           return (
             <button
-              aria-busy={saving === reason || undefined}
-              aria-disabled={Boolean(saving) || undefined}
+              aria-busy={busy || undefined}
+              aria-disabled={phase.kind !== "idle" || undefined}
               aria-pressed={selected}
               className={`${
                 selected ? "portal-primary-btn" : "portal-outline-btn"
@@ -85,7 +136,7 @@ export function AwayReasonPicker({ session }: { session: CheckInRecord }) {
               onClick={pressed}
               type="button"
             >
-              {saving === reason ? "Saving…" : AWAY_REASON_LABELS[reason]}
+              {busyLabel(phase, reason)}
             </button>
           );
         })}
@@ -94,6 +145,9 @@ export function AwayReasonPicker({ session }: { session: CheckInRecord }) {
         <p className="text-red-700 text-sm" role="alert">
           {error}
         </p>
+      ) : null}
+      {locationProblem && needsLocationHelp(locationProblem.code) ? (
+        <LocationHelp platform={locationProblem.platform} />
       ) : null}
     </fieldset>
   );

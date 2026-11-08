@@ -29,6 +29,7 @@ import {
 } from "@/lib/officeCheckIn/presentation";
 import { useTrackedQuery as useQuery } from "@/lib/portal/trackedConvexSubscriptions";
 import { formatConvexError } from "../portalWorkspaceListHelpers";
+import { AwayLocationNote } from "./AwayLocationNote";
 import { DeleteSessionForm } from "./DeleteSessionForm";
 import {
   DialogBody,
@@ -135,6 +136,7 @@ function RecordSummary({ record, timeZone }: { record: CheckInRecord; timeZone: 
       </div>
       {record.source === "self" ? <SignalList record={record.clockIn} /> : null}
       {away ? <p className="font-medium text-brand-dark text-sm">{away}</p> : null}
+      <AwayLocationNote record={record} timeZone={timeZone} viewer="reviewer" />
       {record.clockOut && record.clockOut.outcome !== "pass" ? (
         <div className="grid gap-2">
           <p className="font-medium text-brand-dark text-sm">At clock-out</p>

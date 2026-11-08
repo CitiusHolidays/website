@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
+  awayLocationFrom,
+  awayReasonNeedsLocation,
   type BranchRule,
   type CheckInRequirement,
   cidrContains,
@@ -814,5 +816,63 @@ describe("Work date", () => {
     expect(workDateFor(instant, "UTC")).toBe("2026-03-30");
     expect(workDateFor(instant, "Asia/Dubai")).toBe("2026-03-30");
     expect(workDateFor(instant, "Asia/Kolkata")).toBe("2026-03-31");
+  });
+});
+
+const SERVER_NOW = 1_762_300_000_000;
+
+describe("Away answer locations", () => {
+  const reading = (overrides = {}) => ({
+    accuracyMeters: 18.4,
+    capturedAt: SERVER_NOW - 1000,
+    kind: "position" as const,
+    latitude: 19.076_001_234_5,
+    longitude: 72.877_655_987_6,
+    ...overrides,
+  });
+
+  test("Only On tour and On market visit carry a location", () => {
+    expect(awayReasonNeedsLocation("on_tour")).toBe(true);
+    expect(awayReasonNeedsLocation("market_visit")).toBe(true);
+    expect(awayReasonNeedsLocation("out_of_office")).toBe(false);
+  });
+
+  test("Keeps the point to six decimals and the accuracy in whole metres", () => {
+    expect(awayLocationFrom(reading(), SERVER_NOW)).toEqual({
+      location: {
+        accuracyMeters: 18,
+        capturedAt: SERVER_NOW - 1000,
+        latitude: 19.076_001,
+        longitude: 72.877_656,
+      },
+    });
+    // A sub-metre reading still reports at least 1 m.
+    expect(awayLocationFrom(reading({ accuracyMeters: 0.4 }), SERVER_NOW)).toMatchObject({
+      location: { accuracyMeters: 1 },
+    });
+  });
+
+  test("Refuses a missing, impossible or out-of-date reading", () => {
+    expect(awayLocationFrom({ kind: "not_requested" }, SERVER_NOW)).toEqual({ problem: "missing" });
+    expect(awayLocationFrom({ code: "timeout", kind: "error" }, SERVER_NOW)).toEqual({
+      problem: "missing",
+    });
+    expect(awayLocationFrom(reading({ latitude: 91 }), SERVER_NOW)).toEqual({ problem: "invalid" });
+    expect(awayLocationFrom(reading({ longitude: -181 }), SERVER_NOW)).toEqual({
+      problem: "invalid",
+    });
+    expect(awayLocationFrom(reading({ accuracyMeters: 0 }), SERVER_NOW)).toEqual({
+      problem: "invalid",
+    });
+    expect(awayLocationFrom(reading({ capturedAt: SERVER_NOW - 121_000 }), SERVER_NOW)).toEqual({
+      problem: "stale",
+    });
+    // A device clock slightly ahead is fine; far ahead is not.
+    expect(
+      awayLocationFrom(reading({ capturedAt: SERVER_NOW + 20_000 }), SERVER_NOW)
+    ).toHaveProperty("location");
+    expect(awayLocationFrom(reading({ capturedAt: SERVER_NOW + 31_000 }), SERVER_NOW)).toEqual({
+      problem: "stale",
+    });
   });
 });

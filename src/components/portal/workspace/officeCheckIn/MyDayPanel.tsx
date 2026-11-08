@@ -23,6 +23,7 @@ import {
 } from "@/lib/officeCheckIn/presentation";
 import { submitOfficeCheckIn } from "@/lib/officeCheckIn/submit";
 import { Panel } from "../portalWorkspaceListUi";
+import { AwayLocationNote } from "./AwayLocationNote";
 import { AwayReasonPicker } from "./AwayReasonPicker";
 import { DeleteSessionForm } from "./DeleteSessionForm";
 import { LocationHelp } from "./LocationHelp";
@@ -192,6 +193,7 @@ function TodayRecord({ record, timeZone }: { record: CheckInRecord; timeZone: st
         <CheckResult label="Clock-in check" record={record.clockIn} />
       ) : null}
       {record.clockOut ? <CheckResult label="Clock-out check" record={record.clockOut} /> : null}
+      <AwayLocationNote record={record} timeZone={timeZone} viewer="self" />
       {note ? <p className="text-brand-muted text-xs">{note}</p> : null}
       {record.correctedAt ? (
         <p className="text-brand-muted text-xs">A manager corrected these times.</p>

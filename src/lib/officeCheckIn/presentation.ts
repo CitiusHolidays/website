@@ -178,6 +178,29 @@ export function describeGeofenceReason(reason: GeofenceReason, accuracyMeters?: 
 }
 
 /**
+ * Why On tour or On market visit couldn't be saved: both need the person's location, so unlike a
+ * clock-in, nothing is recorded without it.
+ */
+export function describeAwayLocationProblem(code: GeolocationErrorCode) {
+  const cause = {
+    not_supported: "This browser can't share location. Try your phone, or choose Out of office.",
+    permission_denied: "Your browser or device blocked location. The steps below turn it on.",
+    position_unavailable:
+      "Your device couldn't work out where it is. The steps below check that location is on.",
+    timeout: "Your device took too long to find its location. Try again.",
+  } satisfies Record<GeolocationErrorCode, string>;
+  return `Not saved: On tour and On market visit need your location. ${cause[code]}`;
+}
+
+/** "Location at 12:34, accurate to about 20 m" in the office time zone. */
+export function describeAwayLocation(
+  location: { accuracyMeters: number; capturedAt: number },
+  timeZone: string
+) {
+  return `Location at ${formatOfficeTime(location.capturedAt, timeZone)}, accurate to about ${location.accuracyMeters} m`;
+}
+
+/**
  * What the person sees right after the browser declines to give a location.
  * The check-in is still sent; the server records the location as uncertain.
  */

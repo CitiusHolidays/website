@@ -21,6 +21,14 @@ export const signalOutcomeValidator = literals(SIGNAL_OUTCOMES);
 export const networkEntryKindValidator = literals(NETWORK_ENTRY_KINDS);
 export const awayReasonValidator = literals(AWAY_REASONS);
 
+/** The exact point stored with an On tour or On market visit answer (see `awayLocationFrom`). */
+export const awayLocationValidator = v.object({
+  accuracyMeters: v.number(),
+  capturedAt: v.number(),
+  latitude: v.number(),
+  longitude: v.number(),
+});
+
 export const networkEntryValidator = v.object({
   cidr: v.string(),
   kind: networkEntryKindValidator,
@@ -131,6 +139,11 @@ export const officeCheckInTables = {
   },
   officeCheckIns: {
     admission: checkInAdmissionValidator,
+    /**
+     * Where the person was when they answered On tour or On market visit. Only the person and
+     * those who oversee them read it; it is deleted with the check-in.
+     */
+    awayLocation: v.optional(awayLocationValidator),
     /** Where the person says they are when the clock-in check didn't pass. */
     awayReason: v.optional(awayReasonValidator),
     clockIn: verificationRecordValidator,

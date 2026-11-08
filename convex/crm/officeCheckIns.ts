@@ -24,6 +24,8 @@ import {
 } from "./officeCheckInValidators";
 import {
   type AwayReason,
+  awayLocationFrom,
+  awayReasonNeedsLocation,
   type CheckInEvaluation,
   type CheckInRequirement,
   DEFAULT_OFFICE_TIME_ZONE,
@@ -275,6 +277,7 @@ export const clockInViaGateway = mutation({
       if (clockIn.outcome === "pass") {
         // Patching a field to undefined removes it from the document.
         retry.awayReason = undefined;
+        retry.awayLocation = undefined;
       }
       await ctx.db.patch("officeCheckIns", existing._id, retry);
       await audit(ctx, {
@@ -391,7 +394,12 @@ const AWAY_REASON_WORDS = {
  * reviewed the session.
  */
 export const chooseAwayReason = mutation({
-  args: { checkInId: v.id("officeCheckIns"), reason: awayReasonValidator },
+  args: {
+    checkInId: v.id("officeCheckIns"),
+    /** Required for On tour and On market visit: the device's reading when the person answered. */
+    location: v.optional(locationReadingValidator),
+    reason: awayReasonValidator,
+  },
   handler: async (ctx, args) => {
     const access = await requireStaff(ctx);
     if (!access.staffId) {
@@ -412,10 +420,20 @@ export const chooseAwayReason = mutation({
       return null;
     }
     const now = Date.now();
-    await ctx.db.patch("officeCheckIns", checkIn._id, {
-      awayReason: args.reason,
-      updatedAt: now,
-    });
+    const answer: Partial<CheckInDoc> = { awayReason: args.reason, updatedAt: now };
+    if (awayReasonNeedsLocation(args.reason)) {
+      const located = awayLocationFrom(args.location ?? { kind: "not_requested" }, now);
+      if ("problem" in located) {
+        throw new ConvexError(
+          located.problem === "missing" ? "AWAY_LOCATION_REQUIRED" : "AWAY_LOCATION_INVALID"
+        );
+      }
+      answer.awayLocation = located.location;
+    } else {
+      // Out of office carries no location; drop any point from an earlier answer.
+      answer.awayLocation = undefined;
+    }
+    await ctx.db.patch("officeCheckIns", checkIn._id, answer);
     const previous = checkIn.awayReason;
     await audit(ctx, {
       ...actorFields(access),
@@ -424,9 +442,12 @@ export const chooseAwayReason = mutation({
       kind: "away_reason_set",
       officeId: checkIn.officeId,
       subjectStaffId: checkIn.staffId,
-      summary: previous
-        ? `working ${AWAY_REASON_WORDS[args.reason]} (was ${AWAY_REASON_WORDS[previous]})`
-        : `working ${AWAY_REASON_WORDS[args.reason]}`,
+      // The audit line says a location was shared, never where.
+      summary: [
+        `working ${AWAY_REASON_WORDS[args.reason]}`,
+        answer.awayLocation ? ", location shared" : "",
+        previous ? ` (was ${AWAY_REASON_WORDS[previous]})` : "",
+      ].join(""),
     });
     return null;
   },

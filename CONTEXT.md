@@ -185,8 +185,8 @@ A staff member's clock-in and clock-out for one work date at their assigned offi
 _Avoid_: Attendance system, proof of presence, tracking, treating a failed or uncertain signal as proof of absence
 
 **Away Reason**:
-What a staff member says they are doing when their own clock-in check did not pass: On tour, On market visit, or Out of office. It is their statement, shown to their overseers beside the evidence; it is not verified and never admits a held check-in.
-_Avoid_: Treating the answer as verification, asking when the office has no rule, answering for someone else
+What a staff member says they are doing when their own clock-in check did not pass: On tour, On market visit, or Out of office. It is their statement, shown to their overseers beside the evidence; it never admits a held check-in. On tour and On market visit carry an Away Location: the exact point read from their device when they answered, which overseers can open in Google Maps to check.
+_Avoid_: Treating the answer or its location as proof, saving On tour or On market visit without a fresh location, writing the point into the audit trail, asking when the office has no rule, answering for someone else
 
 **Branch Verification Rule**:
 The Admin-configured rule for one office naming which signals a check-in must satisfy (office network, location, both, or either) and whether the office is in Report only or Enforce mode. The server evaluates every named signal; the staff member does not choose a method.

@@ -43,6 +43,16 @@ payroll, continuous location tracking or a general attendance system.
   job (`jobs.purge_office_check_ins`) deletes check-ins whose work date (office default time zone)
   is older than 92 days and attendance audit events older than 92 days. Configuration history
   (`rule_saved`, `office_created`) is kept; `office_assigned` names a person and is deleted.
+- **Exception: away answers that carry a location.** Decision 2026-11-07 (owner): when someone whose
+  clock-in check did not pass answers **On tour** or **On market visit**, the device's location is
+  read once at that moment and stored exactly (latitude, longitude to six decimals, accuracy in
+  metres, reading time), so the people who oversee them can open the point in Google Maps and check
+  it. This is the only exact point check-in keeps. Those two answers cannot be saved without a
+  fresh location (read within the same freshness window as clock-in); **Out of office** carries
+  none and clears any earlier point. The point is readable only by the person and their overseers
+  (the existing team scope), is never written to the audit trail (which records only that a
+  location was shared), and is deleted with the check-in after 92 days. Staff are told on screen,
+  before choosing, that these answers share their location and for how long.
 
 ## Consequences
 
