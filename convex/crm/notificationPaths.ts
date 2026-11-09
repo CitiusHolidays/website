@@ -77,6 +77,8 @@ export function getNotificationHref(args: NotificationPathInput) {
       return entityPath("/portal/approvals", "approval", args.entityId);
     case "inboundQueryIntent":
       return entityPath("/portal/inbound-leads", "inboundIntent", args.entityId);
+    case "postTourReport":
+      return `/portal/post-tour-feedback?reportId=${encodeURIComponent(args.entityId)}&view=report`;
     default:
       return "/portal/activity";
   }

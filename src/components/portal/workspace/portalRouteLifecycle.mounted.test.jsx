@@ -161,7 +161,17 @@ describe("Mounted portal route lifecycle", () => {
     );
     expect(denied.container.textContent).toContain("You do not have access to this page");
     expect(denied.container.textContent).not.toContain("Ready route");
+    expect(denied.container.querySelector('a[href="/portal"]')?.textContent).toBe(
+      "Go to your workspace"
+    );
     await denied.unmount();
+
+    // A denied dashboard redirects to the login's first page, so it offers no link back to itself.
+    const deniedDashboard = await mount(
+      <RouteLifecycleHarness gate="denied" pagination={PAGINATION} view="dashboard" />
+    );
+    expect(deniedDashboard.container.querySelector('a[href="/portal"]')).toBeNull();
+    await deniedDashboard.unmount();
   });
 
   test("Renders a ready lifecycle for every route family and exposes its lazy component identity", async () => {

@@ -9,7 +9,7 @@ export const instant = false;
 
 export const metadata = {
   description: "Manage your bookings and profile settings.",
-  title: "My Account | Citius Holidays",
+  title: "My Account",
 };
 
 const ACCOUNT_TABS = new Set(["journeys", "profile", "settings"]);

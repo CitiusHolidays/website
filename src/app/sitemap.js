@@ -55,12 +55,6 @@ export default async function sitemap() {
       changeFrequency: "monthly",
       lastModified: new Date(),
       priority: 0.5,
-      url: `${baseUrl}/account`,
-    },
-    {
-      changeFrequency: "monthly",
-      lastModified: new Date(),
-      priority: 0.5,
       url: `${baseUrl}/contact`,
     },
     {

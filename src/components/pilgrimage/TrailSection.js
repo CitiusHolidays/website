@@ -77,7 +77,7 @@ export default function TrailSection({
 
         {embedded && isComingSoon ? (
           <p className="mx-auto mb-8 max-w-xl rounded-full border border-amber-100 bg-amber-50 px-4 py-2 text-center text-amber-800 text-sm">
-            This programme is not yet open for booking , explore the overview and register your
+            This programme is not yet open for booking. Explore the overview and register your
             interest below.
           </p>
         ) : null}

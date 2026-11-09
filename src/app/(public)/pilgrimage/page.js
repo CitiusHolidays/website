@@ -5,7 +5,7 @@ import PilgrimagePageClient from "./page.client";
 export const generateMetadata = () => ({
   description:
     "2026 Kailash Mansarovar yatra and aerial darshan programmes. Route details, dates, inclusions, and booking from Citius Spiritual Trails.",
-  title: "Spiritual Trails - Kailash Mansarovar Yatra | Citius Holidays",
+  title: "Spiritual Trails - Kailash Mansarovar Yatra",
 });
 
 const IMAGE_ASSET = `asset->{
