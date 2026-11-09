@@ -1,4 +1,4 @@
-export const CAPACITY_THRESHOLDS = {
+const CAPACITY_THRESHOLDS = {
   busy: 6,
   overloaded: 10,
   staleHours: 24,

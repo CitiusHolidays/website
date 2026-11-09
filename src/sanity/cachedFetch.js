@@ -1,7 +1,7 @@
 import { cacheLife, cacheTag } from "next/cache";
 import { client } from "@/sanity/client";
 
-export const SANITY_PUBLIC_CACHE_POLICY = Object.freeze({
+const SANITY_PUBLIC_CACHE_POLICY = Object.freeze({
   expire: 60 * 60,
   revalidate: 5 * 60,
   stale: 5 * 60,

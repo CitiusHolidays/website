@@ -5,7 +5,8 @@ import {
   isRuntimeObject,
   isRuntimeString,
 } from "../runtimeValues";
-export const PASSENGER_IMPORT_CLIENT_BATCH_SIZE = 50;
+
+const PASSENGER_IMPORT_CLIENT_BATCH_SIZE = 50;
 
 interface PassengerImportBatchResult {
   accepted: number;

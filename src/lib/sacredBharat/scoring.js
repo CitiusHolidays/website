@@ -10,7 +10,7 @@ import {
 import { TRAILS } from "../../data/sacredBharat/trails.js";
 import { getChallengeBadgeAwards, getChallengeProgress } from "./challenges.js";
 
-export const getTemplePoints = resolveTemplePoints;
+const getTemplePoints = resolveTemplePoints;
 
 /**
  * @param {string[] | Set<string>} templeIds
@@ -99,7 +99,7 @@ export function computeTemplePointsTotal(visitedSet) {
  * @param {Set<string>} visitedSet
  * @param {ReturnType<typeof buildTrailSummaries>} trails
  */
-export function computeChallengeBonus(visitedSet, trails) {
+function computeChallengeBonus(visitedSet, trails) {
   const progress = { trails, visitedTempleIds: [...visitedSet] };
   return SACRED_BHARAT_CHALLENGES.reduce((sum, challenge) => {
     if (getChallengeProgress(challenge, progress).complete) {

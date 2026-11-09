@@ -10,7 +10,7 @@ export const HOTEL_ROOMING_TABS = [
   { id: "room-count", label: "Room Count" },
 ] as const;
 
-export const ROOM_TYPE_CAPACITY = {
+const ROOM_TYPE_CAPACITY = {
   "Child with Bed": 1,
   Double: 2,
   "Family Room": 4,
@@ -81,11 +81,11 @@ export function estimateRoomCount(roomType: string, assignments: number) {
   return Math.ceil(assignments / capacity);
 }
 
-export function normalizeTravelBatchId(travelBatchId: string | undefined | null) {
+function normalizeTravelBatchId(travelBatchId: string | undefined | null) {
   return travelBatchId || "";
 }
 
-export function tourManagerAssignmentKey(jobCardId: Key, travelBatchId: string | undefined | null) {
+function tourManagerAssignmentKey(jobCardId: Key, travelBatchId: string | undefined | null) {
   return `${String(jobCardId)}:${normalizeTravelBatchId(travelBatchId)}`;
 }
 

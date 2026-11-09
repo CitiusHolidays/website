@@ -1,6 +1,6 @@
 "use client";
 
-export const ENTITY_MODAL_SECTION_META = {
+const ENTITY_MODAL_SECTION_META = {
   addJobCardCollaborator: { description: "Choose a staff member for this Job Card." },
   addProposalCollaborator: { description: "Choose a staff member for this Proposal." },
   approvalDecide: { description: "Record the decision and add notes when needed." },

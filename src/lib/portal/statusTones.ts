@@ -289,27 +289,4 @@ export function getStatusPresentation(
   return fallbackPresentation(normalized);
 }
 
-export function getStatusBadgeTone(
-  domain: StatusDomain,
-  status: string | null | undefined
-): BadgeTone {
-  return getStatusPresentation(domain, status).badgeTone;
-}
-
-export function getStatusAttentionTone(
-  domain: StatusDomain,
-  status: string | null | undefined
-): "danger" | "info" | "warning" | undefined {
-  const { semanticTone } = getStatusPresentation(domain, status);
-  if (semanticTone === "danger") {
-    return "danger";
-  }
-  if (semanticTone === "warning") {
-    return "warning";
-  }
-  if (semanticTone === "info") {
-    return "info";
-  }
-}
-
 import { hasOwnKey } from "../runtimeValues";

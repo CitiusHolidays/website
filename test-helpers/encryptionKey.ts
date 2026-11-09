@@ -1,5 +1,5 @@
 /** Deterministic ENCRYPTION_KEY for import/passport contract tests — not for production. */
-export const TEST_ENCRYPTION_KEY = "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=";
+const TEST_ENCRYPTION_KEY = "BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc=";
 
 export async function withTestEncryptionKey<T>(fn: () => T | Promise<T>): Promise<T> {
   const previousKey = process.env.ENCRYPTION_KEY;

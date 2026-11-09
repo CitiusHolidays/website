@@ -7,7 +7,7 @@ export interface ModShortcutLabelOptions {
 
 const MAC_PLATFORM_RE = /Mac|iPhone|iPad|iPod/;
 
-export function isMacPlatform(): boolean {
+function isMacPlatform(): boolean {
   if (!("navigator" in globalThis)) {
     return false;
   }

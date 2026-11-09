@@ -1,6 +1,6 @@
-export const LEAVE_POLICY_YEAR_START_MONTH = 3; // April, zero-based month.
+const LEAVE_POLICY_YEAR_START_MONTH = 3; // April, zero-based month.
 
-export const LEAVE_POLICY = {
+const LEAVE_POLICY = {
   Bereavement: {
     maxAtOnce: 5,
   },
@@ -39,7 +39,7 @@ export const LEAVE_POLICY = {
   },
 };
 
-export function inclusiveLeaveDays(startDate, endDate) {
+function inclusiveLeaveDays(startDate, endDate) {
   const start = Date.parse(`${startDate}T12:00:00`);
   const end = Date.parse(`${endDate}T12:00:00`);
   if (!(Number.isFinite(start) && Number.isFinite(end)) || end < start) {
@@ -65,7 +65,7 @@ function monthsElapsedInPolicyYear(value) {
   );
 }
 
-export function defaultLeaveEntitlement(leaveType, employmentStatus = "Confirmed", startDate = "") {
+function defaultLeaveEntitlement(leaveType, employmentStatus = "Confirmed", startDate = "") {
   const isProbationer = employmentStatus === "Probationer";
   if (leaveType === "Leave Without Pay") {
     return Number.POSITIVE_INFINITY;

@@ -1,6 +1,7 @@
 import { isRuntimeNumber } from "./runtimeValues";
+
 /** Day/month/year display (DD/MM/YYYY) for portal and site UI. */
-export const DISPLAY_DATE_LOCALE = "en-GB";
+const DISPLAY_DATE_LOCALE = "en-GB";
 
 const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const ISO_DATE_PREFIX_PATTERN = /^(\d{4}-\d{2}-\d{2})/;
