@@ -15,8 +15,9 @@ import {
   upsertBookingEntitlement,
 } from "./lib/customerIdentityAccess";
 import { boundedMigrationLimit } from "./lib/migrationBatch";
+import { migrationRegistryState, startedMigrationRegistry } from "./lib/migrationRegistry";
 import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
-import { isRuntimeString, propertiesWhen } from "./lib/runtimeValues";
+import { isRuntimeString } from "./lib/runtimeValues";
 import { sacredBharatLeaderboardRanks } from "./lib/sacredBharatLeaderboardRank";
 import { assertMigrationSecret } from "./migrationAuth";
 
@@ -312,16 +313,9 @@ export const runAuthIdentityMigrationPage = internalMutation({
     }
     if (!registry) {
       const id = await ctx.db.insert("dataMigrationRegistry", {
-        converted: 0,
-        cursor: null,
         key,
-        legacyRemaining: 0,
-        processed: 0,
+        ...startedMigrationRegistry(args.dryRun ? "inventory" : "backfill", timestamp),
         quarantined: 0,
-        stage: args.dryRun ? "inventory" : "backfill",
-        startedAt: timestamp,
-        status: "running",
-        updatedAt: timestamp,
       });
       registry = await ctx.db.get("dataMigrationRegistry", id);
     }
@@ -363,14 +357,12 @@ export const runAuthIdentityMigrationPage = internalMutation({
     const cursor = page.isDone ? null : page.continueCursor;
     await ctx.db.patch("dataMigrationRegistry", registry._id, {
       converted,
-      cursor,
-      legacyRemaining,
       processed,
       quarantined,
-      stage: state.stage,
-      status: state.status,
-      updatedAt: timestamp,
-      ...propertiesWhen(state.status === "verified", () => ({ verifiedAt: timestamp })),
+      ...migrationRegistryState(
+        { cursor, legacyRemaining, stage: state.stage, status: state.status },
+        timestamp
+      ),
     });
     return {
       converted: pageConverted,

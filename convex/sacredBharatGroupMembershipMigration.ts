@@ -3,6 +3,7 @@ import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { boundedMigrationLimit } from "./lib/migrationBatch";
+import { migrationRegistryState, startedMigrationRegistry } from "./lib/migrationRegistry";
 import {
   MAX_SACRED_BHARAT_GROUP_MEMBERS,
   SACRED_BHARAT_GROUP_COUNT_MIGRATION_KEY,
@@ -86,30 +87,15 @@ export const backfillGroupMemberCounts = internalMutation({
     }
     if (!registry) {
       const registryId = await ctx.db.insert("dataMigrationRegistry", {
-        converted: 0,
-        cursor: null,
         key: SACRED_BHARAT_GROUP_COUNT_MIGRATION_KEY,
-        legacyRemaining: 0,
-        processed: 0,
+        ...startedMigrationRegistry("backfill", timestamp),
         quarantined: 0,
-        stage: "backfill",
-        startedAt: timestamp,
-        status: "running",
-        updatedAt: timestamp,
       });
       registry = await ctx.db.get("dataMigrationRegistry", registryId);
     } else if (registry.status === "failed") {
       await ctx.db.patch("dataMigrationRegistry", registry._id, {
-        converted: 0,
-        cursor: null,
-        legacyRemaining: 0,
-        processed: 0,
+        ...startedMigrationRegistry("backfill", timestamp),
         quarantined: 0,
-        stage: "backfill",
-        startedAt: timestamp,
-        status: "running",
-        updatedAt: timestamp,
-        verifiedAt: undefined,
       });
       registry = await ctx.db.get("dataMigrationRegistry", registry._id);
     }
@@ -148,13 +134,12 @@ export const backfillGroupMemberCounts = internalMutation({
     const status: "failed" | "running" = page.isDone && totalOversized > 0 ? "failed" : "running";
     await ctx.db.patch("dataMigrationRegistry", registry._id, {
       converted: registry.converted + converted,
-      cursor,
-      legacyRemaining: totalOversized,
       processed: registry.processed + page.page.length,
       quarantined: totalOversized,
-      stage,
-      status,
-      updatedAt: timestamp,
+      ...migrationRegistryState(
+        { cursor, legacyRemaining: totalOversized, stage, status },
+        timestamp
+      ),
     });
     return {
       converted,
@@ -202,13 +187,11 @@ export const verifyGroupMemberCounts = internalMutation({
       status = "failed";
     }
     await ctx.db.patch("dataMigrationRegistry", registry._id, {
-      cursor,
-      legacyRemaining: totalMismatches,
       processed: registry.processed + page.page.length,
-      stage,
-      status,
-      updatedAt: timestamp,
-      verifiedAt: verified ? timestamp : undefined,
+      ...migrationRegistryState(
+        { cursor, legacyRemaining: totalMismatches, stage, status },
+        timestamp
+      ),
     });
     return {
       converted: 0,

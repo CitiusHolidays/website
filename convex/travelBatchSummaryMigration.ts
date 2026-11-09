@@ -3,7 +3,7 @@ import { ConvexError, v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { boundedMigrationLimit } from "./lib/migrationBatch";
-import { propertiesWhen } from "./lib/runtimeValues";
+import { migrationRegistryState, startedMigrationRegistry } from "./lib/migrationRegistry";
 import {
   assertRecognizedTravelBatchSummaries,
   travelBatchCountFromSummaries,
@@ -147,28 +147,13 @@ export async function backfillTravelBatchSummariesHandler(
   }
   if (!registry) {
     const id = await ctx.db.insert("dataMigrationRegistry", {
-      converted: 0,
-      cursor: null,
       key: TRAVEL_BATCH_SUMMARY_MIGRATION_KEY,
-      legacyRemaining: 0,
-      processed: 0,
-      stage: "backfill",
-      startedAt: now,
-      status: "running",
-      updatedAt: now,
+      ...startedMigrationRegistry("backfill", now),
     });
     registry = await ctx.db.get("dataMigrationRegistry", id);
   } else if (registry.status === "failed") {
     await ctx.db.patch("dataMigrationRegistry", registry._id, {
-      converted: 0,
-      cursor: null,
-      legacyRemaining: 0,
-      processed: 0,
-      stage: "backfill",
-      startedAt: now,
-      status: "running",
-      updatedAt: now,
-      verifiedAt: undefined,
+      ...startedMigrationRegistry("backfill", now),
     });
     registry = await ctx.db.get("dataMigrationRegistry", registry._id);
   }
@@ -206,12 +191,8 @@ export async function backfillTravelBatchSummariesHandler(
   const cursor = page.isDone ? null : page.continueCursor;
   await ctx.db.patch("dataMigrationRegistry", registry._id, {
     converted: registry.converted + converted,
-    cursor,
-    legacyRemaining: 0,
     processed: page.isDone ? 0 : registry.processed + page.page.length,
-    stage,
-    status: "running",
-    updatedAt: now,
+    ...migrationRegistryState({ cursor, legacyRemaining: 0, stage, status: "running" }, now),
   });
   return {
     converted,
@@ -265,13 +246,8 @@ export async function verifyTravelBatchSummariesHandler(
   const cursor = page.isDone ? null : page.continueCursor;
   const now = Date.now();
   await ctx.db.patch("dataMigrationRegistry", registry._id, {
-    cursor,
-    legacyRemaining,
     processed: registry.processed + page.page.length,
-    stage,
-    status,
-    updatedAt: now,
-    ...propertiesWhen(status === "verified", () => ({ verifiedAt: now })),
+    ...migrationRegistryState({ cursor, legacyRemaining, stage, status }, now),
   });
   return {
     converted: 0,
