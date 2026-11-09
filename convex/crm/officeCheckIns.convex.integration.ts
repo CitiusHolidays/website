@@ -1462,8 +1462,8 @@ describe("Where someone says they are working", () => {
   }
 
   /**
-   * Tour and market visit send a fresh reading unless the test passes its own `location`
-   * (`null` sends none); Out of office sends none.
+   * Tour and sales call send a fresh reading unless the test passes its own `location`
+   * (`null` sends none); Work from home sends none.
    */
   function choose(
     t: Harness,
@@ -1509,7 +1509,7 @@ describe("Where someone says they are working", () => {
         summary: "working on tour, location shared",
       }),
       expect.objectContaining({
-        summary: "working on market visit, location shared (was on tour)",
+        summary: "on a sales call, location shared (was working on tour)",
       }),
     ]);
     const [row] = (await teamDay(t, "hr")).rows.filter((entry) => entry.name === "delhi_rep");
@@ -1589,7 +1589,7 @@ describe("Where someone says they are working", () => {
     expect(passed.checkIn.awayLocation).toBeUndefined();
   });
 
-  test("Tour and market visit keep the exact point shared, for the person's overseers only", async () => {
+  test("Tour and sales call keep the exact point shared, for the person's overseers only", async () => {
     const t = createHarness();
     const { offices } = await seed(t);
     await seedRule(t, offices.delhi);
@@ -1613,7 +1613,7 @@ describe("Where someone says they are working", () => {
     expect(trail).not.toContain("72.87");
   });
 
-  test("Tour and market visit aren't saved without a usable, fresh location", async () => {
+  test("Tour and sales call aren't saved without a usable, fresh location", async () => {
     const t = createHarness();
     const { offices } = await seed(t);
     await seedRule(t, offices.delhi);
@@ -1660,7 +1660,7 @@ describe("Where someone says they are working", () => {
     expect(await auditFor(t, "away_reason_set")).toHaveLength(1);
   });
 
-  test("Out of office keeps no location and drops an earlier one", async () => {
+  test("Work from home keeps no location and drops an earlier one", async () => {
     const t = createHarness();
     const { offices } = await seed(t);
     await seedRule(t, offices.delhi);
@@ -1672,7 +1672,7 @@ describe("Where someone says they are working", () => {
     expect(record?.awayReason).toBe("out_of_office");
     expect(record?.awayLocation).toBeUndefined();
     const [, latest] = await auditFor(t, "away_reason_set");
-    expect(latest?.summary).toBe("working out of office (was on tour)");
+    expect(latest?.summary).toBe("working from home (was working on tour)");
   });
 });
 

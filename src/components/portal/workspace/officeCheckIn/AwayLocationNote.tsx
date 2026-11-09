@@ -9,7 +9,7 @@ const COPY = {
 } as const;
 
 /**
- * The location saved with an On tour or On market visit answer, with a link that opens the exact
+ * The location saved with an On tour or Sales call answer, with a link that opens the exact
  * point in Google Maps. Answers saved before locations were kept say so to the reviewer.
  */
 export function AwayLocationNote({

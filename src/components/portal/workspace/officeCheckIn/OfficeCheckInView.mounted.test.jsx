@@ -454,14 +454,14 @@ describe("Office check-in: my day", () => {
     expect(group.textContent).toContain("Where are you working today?");
     expect(group.textContent).toContain("We couldn't confirm you're at the office.");
     const labels = [...group.querySelectorAll("button")].map((button) => button.textContent);
-    expect(labels).toEqual(["On tour", "On market visit", "Out of office"]);
+    expect(labels).toEqual(["On tour", "Sales call", "Work from home"]);
 
     expect(group.textContent).toContain(
-      "On tour and On market visit share your location at that moment with the people who oversee you"
+      "On tour and Sales call share your location at that moment with the people who oversee you"
     );
 
     givePosition();
-    await press(findButton(group, "On market visit"));
+    await press(findButton(group, "Sales call"));
     await settle();
     expect(getCurrentPosition).toHaveBeenCalledTimes(1);
     expect(chooseAwayReason).toHaveBeenCalledWith({
@@ -478,13 +478,13 @@ describe("Office check-in: my day", () => {
     await view.unmount();
   });
 
-  test("Out of office saves without asking for a location", async () => {
+  test("Work from home saves without asking for a location", async () => {
     state.status = myStatus({
       today: checkIn("staff_me", { clockIn: verification("fail", "outside_allowlist") }),
     });
     const view = await mount();
     const group = view.container.querySelector("fieldset[aria-labelledby]");
-    await press(findButton(group, "Out of office"));
+    await press(findButton(group, "Work from home"));
     await settle();
     expect(getCurrentPosition).not.toHaveBeenCalled();
     expect(chooseAwayReason).toHaveBeenCalledWith({
@@ -505,7 +505,7 @@ describe("Office check-in: my day", () => {
     await settle();
     expect(chooseAwayReason).not.toHaveBeenCalled();
     expect(group.querySelector('[role="alert"]').textContent).toBe(
-      "Not saved: On tour and On market visit need your location. Your browser or device blocked location. The steps below turn it on."
+      "Not saved: On tour and Sales call need your location. Your browser or device blocked location. The steps below turn it on."
     );
     expect(group.textContent).toContain("How to turn location on");
     expect(findButton(group, "On tour").getAttribute("aria-disabled")).toBeNull();
@@ -575,7 +575,7 @@ describe("Office check-in: my day", () => {
     const group = chosen.container.querySelector("fieldset[aria-labelledby]");
     expect(group.textContent).toContain("Your manager sees this with your check-in.");
     expect(findButton(group, "On tour").getAttribute("aria-pressed")).toBe("true");
-    expect(findButton(group, "Out of office").getAttribute("aria-pressed")).toBe("false");
+    expect(findButton(group, "Work from home").getAttribute("aria-pressed")).toBe("false");
     // Pressing the chosen answer again sends nothing.
     await press(findButton(group, "On tour"));
     expect(chooseAwayReason).not.toHaveBeenCalled();

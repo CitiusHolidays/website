@@ -60,17 +60,17 @@ When they reply, open the office rule:
 ## Each week
 
 When someone's clock-in check doesn't pass, they are asked where they're working: **On tour**,
-**On market visit** or **Out of office**. Their answer shows in **Today in the office** in place of
+**Sales call** or **Work from home**. Their answer shows in **Today in the office** in place of
 **Fail** or **Uncertain**, and when you open them. It is what they told us, not something the
 system checked, and it doesn't approve the check-in.
 
-**On tour** and **On market visit** also save where the person was when they answered. Open the
+**On tour** and **Sales call** also save where the person was when they answered. Open the
 person and press **Open in Google Maps** to see the exact point, with the time and how accurate the
-reading was. Those two answers can't be chosen without sharing a location; **Out of office** saves
+reading was. Those two answers can't be chosen without sharing a location; **Work from home** saves
 none.
 
-Once someone has answered, their check no longer says **Fail**: On tour and On market visit read
-**Under review**, and Out of office reads **Not in office**. **Fail** or **Uncertain** means they
+Once someone has answered, their check no longer says **Fail**: On tour and Sales call read
+**Under review**, and Work from home reads **Not in office**. **Fail** or **Uncertain** means they
 haven't said where they are.
 
 Look at **Today in the office** for **Fail** or **Uncertain** (no answer given) and for answers you
@@ -83,6 +83,6 @@ director's delete needs a reason, which is kept with a record of the deletion.
 
 Don't switch **Mode** to **Enforce** without talking to the development team first.
 
-Location is only asked for when someone presses Clock in or Clock out, or answers On tour or On
-market visit. Only those two answers keep an exact location, visible to the person and the people
+Location is only asked for when someone presses Clock in or Clock out, or answers On tour or Sales
+call. Only those two answers keep an exact location, visible to the person and the people
 who oversee them. Full internet addresses are never stored, and records are deleted after 3 months.
