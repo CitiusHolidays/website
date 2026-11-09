@@ -2,9 +2,11 @@
 
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect } from "react";
 import AuthShell, { BRAND_NAME } from "@/components/auth/AuthShell";
+import { resolveAuthReturnPath } from "@/lib/auth-return-path";
+import { getAuthVariant } from "@/lib/auth-sign-in-targets";
 import citiusConnectLogo from "@/static/logos/citiusconnect.png";
 
 const PRIMARY_ACTION_CLASS =
@@ -12,9 +14,12 @@ const PRIMARY_ACTION_CLASS =
 
 // Verification emails carry `?from=`: staff invitations use Citius Connect copy (also the default,
 // for links sent before `from` existed); traveller verification uses Travel Account copy.
+// A traveller's link has already signed them in, so the page sends them on to their Travel Account
+// (`?next=`, limited to the guest area); "Sign in" stays as the way in if that session is missing.
 const AUDIENCES = {
   guest: {
     action: { href: "/auth/guest", label: "Sign in" },
+    continuing: "Opening your Travel Account…",
     expired:
       "Verification links work once and expire. Sign in with your email and password and we’ll send you a fresh link.",
     logo: undefined,
@@ -39,11 +44,28 @@ const AUDIENCES = {
   },
 };
 
+function travellerDestination(searchParams) {
+  return resolveAuthReturnPath(searchParams.get("next"), getAuthVariant("guest"));
+}
+
 function EmailVerifiedContent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const audience = AUDIENCES[searchParams.get("from") === "guest" ? "guest" : "staff"];
+  const isGuest = searchParams.get("from") === "guest";
+  const audience = AUDIENCES[isGuest ? "guest" : "staff"];
   // Better Auth redirects here with `?error=` when the link is expired, used or invalid.
   const failed = Boolean(searchParams.get("error"));
+  const destination = isGuest && !failed ? travellerDestination(searchParams) : null;
+
+  useEffect(() => {
+    if (destination) {
+      router.replace(destination);
+    }
+  }, [destination, router]);
+
+  if (destination) {
+    return <AuthShell description={audience.verified} title={audience.continuing} />;
+  }
 
   return (
     <AuthShell

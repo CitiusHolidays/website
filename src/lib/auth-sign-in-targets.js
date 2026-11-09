@@ -100,3 +100,18 @@ export function authRecoveryHref(path, variant) {
   const area = variant?.authPath?.split("/").at(-1);
   return area ? `${path}?${new URLSearchParams({ from: area })}` : path;
 }
+
+/**
+ * Where a verification email lands. Travellers are signed in by the link (Better Auth
+ * `autoSignInAfterVerification`), so the guest page sends them on to `destination`, their Travel
+ * Account; other areas keep the page's own next step.
+ */
+export function verificationCallbackHref(variant, destination) {
+  const href = authRecoveryHref("/auth/email-verified", variant);
+  if (variant?.id !== "guest" || !destination) {
+    return href;
+  }
+  const url = new URL(href, "https://callback.invalid");
+  url.searchParams.set("next", destination);
+  return `${url.pathname}${url.search}`;
+}

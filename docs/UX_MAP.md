@@ -320,15 +320,24 @@ Fixed in the UX gaps pass (each with a test):
 - Eyebrow labels removed from the surfaces listed in the previous version of this table.
 - The unused `BookingCard` and the `PastJourneyCard` link to `/services/{slug}` are gone.
 
+Decided by the owner (9 November 2026), no change needed:
+
+- Staff may open the customer Account: a staff member who goes on a trip uses it like any traveller,
+  next to their Staff Workspace.
+- `/vendor` stays public as a coming-soon page.
+- Google sign-in stays on the staff and vendor pages: only whitelisted email addresses get access.
+
+Fixed after the owner's decisions:
+
+- A traveller's verification email (sign-up, or sign-in before verifying) signs them in and opens
+  their Travel Account (`autoSignInAfterVerification`, `verificationCallbackHref`); an expired link
+  still shows the expired state, and staff and vendor links keep their own next step.
+- `global-error`, root and public error boundaries (`src/app/global-error.js`, `src/app/error.js`)
+  and `robots.js` listing the real private prefixes landed in the platform follow-ups.
+
 Open, needing an owner or another workstream:
 
 | Gap | Where | Why it is open |
 | --- | --- | --- |
-| Staff can open the customer Account, which creates a customer profile for the staff login | `account/page.js` | Account policy decision |
-| Customers can open `/vendor` | `vendor/page.js:15` | Vendor portal is a placeholder; access rules not decided |
-| Google sign-in shows on the staff and vendor sign-in pages | `src/lib/auth-sign-in-targets.js`, `AuthLoginCredentials.js` | Whether staff and vendors may use Google is an access decision |
-| No `global-error`, no public error boundaries; Sanity failures fall to Next's default page | `src/app/` | Public error design decision; another workstream |
-| No privacy policy page | `/policies` | Legal content |
-| `robots.js` disallows `/admin`, which does not exist | `src/app/robots.js:9` | Which private prefixes to list is an SEO decision; another workstream |
+| No privacy policy page | `/policies` | Legal content; the owner will do it later (draft in PR #308) |
 | A Tour Manager allocation notification opens the Job Card list, not the card | `convex/crm/ops.ts` (`entityType: "tourManager"`) | The notification carries the assignment id; linking the card needs the Job Card id on the notification |
-| A traveller's verification email from sign-up or sign-in lands on `/` (Better Auth's default) rather than `/auth/email-verified?from=guest` | `src/lib/auth-client.js` (`signUpWithEmail`, `signInWithEmail` pass no `callbackURL`) | Where a new traveller should land after verifying is a product decision |

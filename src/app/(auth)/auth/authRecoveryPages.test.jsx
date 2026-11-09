@@ -3,7 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 let searchParams = new URLSearchParams();
 mock.module("next/navigation", () => ({
-  useRouter: () => ({ push: () => undefined }),
+  useRouter: () => ({ push: () => undefined, replace: () => undefined }),
   useSearchParams: () => searchParams,
 }));
 
@@ -55,6 +55,29 @@ describe("Email verified page", () => {
     const markup = renderWith(EmailVerifiedPage, "from=connect");
     expect(markup).toContain("Set your password");
     expect(markup).toContain('href="/auth/connect"');
+  });
+
+  test("Sends a signed-in traveller on to their Travel Account", () => {
+    const markup = renderWith(EmailVerifiedPage, "from=guest&next=%2Faccount%3Ftab%3Dtrips");
+    expect(markup).toContain("Opening your Travel Account");
+    expect(markup).not.toContain("You can sign in now");
+  });
+
+  test("Ignores a next destination outside the Travel Account", () => {
+    for (const next of ["/portal", "https://evil.example/account", "//evil.example"]) {
+      const markup = renderWith(EmailVerifiedPage, `from=guest&next=${encodeURIComponent(next)}`);
+      expect(markup).toContain("You can sign in now");
+      expect(markup).not.toContain("Opening your Travel Account");
+    }
+  });
+
+  test("Never forwards staff or an expired link", () => {
+    expect(renderWith(EmailVerifiedPage, "from=connect&next=%2Faccount")).toContain(
+      "Set your password"
+    );
+    expect(
+      renderWith(EmailVerifiedPage, "from=guest&next=%2Faccount&error=TOKEN_EXPIRED")
+    ).toContain("This link has expired");
   });
 
   test("Explains an expired link instead of claiming the email is verified", () => {

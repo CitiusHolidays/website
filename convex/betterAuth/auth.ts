@@ -226,6 +226,10 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
           console.error(JSON.stringify({ event: "staff_password_setup_queue_failed" }));
         }
       },
+      // Opening the link proves the inbox, so it signs the person in: a traveller lands in their
+      // Travel Account. Staff verify once, from an invitation; pending setup still removes a
+      // password the link did not set (crm/staffPasswordSetup).
+      autoSignInAfterVerification: true,
       expiresIn: AUTH_EMAIL_TOKEN_TTL_SECONDS,
       sendOnSignIn: true,
       sendOnSignUp: true,

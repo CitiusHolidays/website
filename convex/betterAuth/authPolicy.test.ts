@@ -10,6 +10,11 @@ describe("Better Auth sign-in policy", () => {
     expect(linking.requireLocalEmailVerified).toBe(true);
   });
 
+  test("signs the person in when they open their verification link", () => {
+    expect(options.emailVerification.autoSignInAfterVerification).toBe(true);
+    expect(options.emailAndPassword.requireEmailVerification).toBe(true);
+  });
+
   test("signs out every existing session when a password is reset", () => {
     expect(options.emailAndPassword.revokeSessionsOnPasswordReset).toBe(true);
   });
