@@ -8,7 +8,7 @@ export const RETURN_PATH_HEADER = "x-citius-return-path";
 // Next's own request markers; they must never end up in a post-sign-in URL.
 const INTERNAL_SEARCH_PARAMS = ["_rsc"];
 
-export function requestReturnPath(requestUrl) {
+function requestReturnPath(requestUrl) {
   const url = new URL(requestUrl);
   for (const name of INTERNAL_SEARCH_PARAMS) {
     url.searchParams.delete(name);
