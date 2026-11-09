@@ -247,6 +247,7 @@ Every sidebar `href` has a route (code-verified).
 | Page | Gate | Wrong role sees | Loading / empty | Bad link |
 | --- | --- | --- | --- | --- |
 | `/portal/job-cards/[jobCardId]` (`JobCardCommandCenter.js`) | Convex `getCommandCenter`: `view:jobCards` plus record scope (`convex/crm/jobCardCommandCenter.ts:51-64`) | "You do not have access to this" (seen locally as Sales) | Unlabelled pulse box (`JobCardCommandCenter.js:152-154`) | "This record could not be found" for an invalid id or deleted card (seen locally for `abc` as Operations) |
+| `/portal/job-cards/tour-manager/[assignmentId]` (server page, `TourManagerAllocationUnavailable.tsx`) | Convex `getJobCardIdForTourManagerAssignment`: `view:jobCards` plus record scope on the assignment's Job Card (`convex/crm/jobCardReads.ts`) | "This Job Card is not available" with Go to Job Cards; the query returns null, never an error | Resolved on the server, which replaces the address with `/portal/job-cards/[jobCardId]` | Same panel for a removed allocation, an allocation with no Job Card, a Tour Manager whose allocation is no longer active, or a malformed id |
 | `/portal/travel-schedule` (`StaffTravelWorkspace.tsx`) | Convex `requireStaff()` | External logins: "You do not have access to this" | "Loading travel..."; "You have no trips recorded." (`:407-411`) | Trip rows link to the Job Card only when the server returns it, which needs `view:jobCards` and record scope (`convex/crm/staffTravel.ts:36-49`) |
 | `/portal/external-tour-managers` (`ExternalTourManagersWorkspace.tsx`) | Convex `view:tourManagers` | "You do not have access to this" (seen locally as Sales) | "Loading profiles..."; "No external tour-manager profiles yet." (`:765-767`) | "This profile is no longer available." (`:654`) |
 | `/portal/post-tour-feedback` (`PostTourFeedbackWorkspace.tsx`) | Convex `requireStaffSession`, open to every login | — | "Loading post-tour feedback..." (`page.tsx:23`) | "This Job Card is no longer available. Choose another Job Card." (`:260-263`) |
@@ -272,9 +273,9 @@ Two builders produce portal links: `src/lib/portal/notificationPaths.js` (in-app
 `convex/crm/notificationPaths.ts` (email). They agree for query, proposal, job card, ticket, leave,
 approval, inbound lead and post-tour report (`convex/crm/dashboardPaths.test.ts` checks the pair).
 The email change takes effect once the Convex functions are deployed. Expense-approval
-notifications open `/portal/expenses` and Tour Manager allocation notifications open
-`/portal/job-cards` in both builders; the notification does not carry the Job Card id, so it
-cannot open the card itself.
+notifications open `/portal/expenses`. Tour Manager allocation notifications carry the assignment
+id and open `/portal/job-cards/tour-manager/<assignmentId>` in both builders, so notifications
+already in the bell get the new link too.
 
 ## HTTP API (for orientation)
 
@@ -320,6 +321,12 @@ Fixed in the UX gaps pass (each with a test):
 - Eyebrow labels removed from the surfaces listed in the previous version of this table.
 - The unused `BookingCard` and the `PastJourneyCard` link to `/services/{slug}` are gone.
 
+Fixed in the follow-up pass (each with a test):
+
+- Tour Manager allocation notifications open the allocated Job Card, not the Job Card list, through
+  `/portal/job-cards/tour-manager/<assignmentId>`; a caller who cannot open that card gets a way
+  to the list instead.
+
 Open, needing an owner or another workstream:
 
 | Gap | Where | Why it is open |
@@ -330,5 +337,4 @@ Open, needing an owner or another workstream:
 | No `global-error`, no public error boundaries; Sanity failures fall to Next's default page | `src/app/` | Public error design decision; another workstream |
 | No privacy policy page | `/policies` | Legal content |
 | `robots.js` disallows `/admin`, which does not exist | `src/app/robots.js:9` | Which private prefixes to list is an SEO decision; another workstream |
-| A Tour Manager allocation notification opens the Job Card list, not the card | `convex/crm/ops.ts` (`entityType: "tourManager"`) | The notification carries the assignment id; linking the card needs the Job Card id on the notification |
 | A traveller's verification email from sign-up or sign-in lands on `/` (Better Auth's default) rather than `/auth/email-verified?from=guest` | `src/lib/auth-client.js` (`signUpWithEmail`, `signInWithEmail` pass no `callbackURL`) | Where a new traveller should land after verifying is a product decision |
