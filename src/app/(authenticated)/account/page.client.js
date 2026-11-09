@@ -3,6 +3,7 @@
 import { AnimatePresence } from "motion/react";
 import { useState } from "react";
 import { AccountJourneysPanel } from "@/components/account/AccountJourneysPanel";
+import AccountPortalNotice from "@/components/account/AccountPortalNotice";
 import { AccountProfilePanel } from "@/components/account/AccountProfilePanel";
 import { AccountSettingsPanel } from "@/components/account/AccountSettingsPanel";
 import { AccountHeader } from "@/components/account/AccountSidebar";
@@ -33,6 +34,7 @@ export default function AccountClient({
   journeys = EMPTY_JOURNEYS,
   confirmedTripPage = EMPTY_CONFIRMED_TRIP_PAGE,
   initialTab = "journeys",
+  portalUnauthorized = false,
 }) {
   const [activeTab, setActiveTab] = useState(initialTab);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -65,6 +67,7 @@ export default function AccountClient({
       />
       <div className="mx-auto min-h-[calc(100vh-5rem)] max-w-[1440px] px-5 py-8 sm:px-8 sm:py-10 lg:px-12 lg:py-12">
         <main className="scroll-mt-24 outline-none" id="account-main" tabIndex={-1}>
+          {portalUnauthorized ? <AccountPortalNotice /> : null}
           {activeTab === "journeys" && <AccountHero user={user} />}
           <AnimatePresence initial={false} mode="sync">
             {activeTab === "journeys" && (
