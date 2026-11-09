@@ -9,14 +9,15 @@
 import { anyApi } from "convex/server";
 import { NextResponse } from "next/server";
 import { fetchAuthMutation } from "@/lib/auth-server";
+import type { JsonValue } from "@/lib/jsonValue";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
 import { getPaymentMutationSecret } from "@/lib/paymentVerification";
 import { verifyWebhookSignature } from "@/lib/razorpay";
 import {
   mapRazorpayWebhookProcessingError,
+  parseRazorpayWebhookPayload,
   processRazorpayWebhookEvent,
   type RazorpayWebhookDeps,
-  type RazorpayWebhookPayload,
 } from "@/lib/razorpayWebhook";
 import { isRuntimeString } from "../../../../lib/runtimeValues";
 
@@ -65,8 +66,8 @@ export async function handleRazorpayWebhook(
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
 
-    // SAFETY: the raw body is authenticated by Razorpay's HMAC before its provider-owned payload is consumed.
-    const payload = JSON.parse(rawBody) as RazorpayWebhookPayload;
+    const body: JsonValue = JSON.parse(rawBody);
+    const payload = parseRazorpayWebhookPayload(body);
     const event = isRuntimeString(payload.event) ? payload.event : "unknown";
     console.log(`Razorpay webhook received: ${event}`);
 

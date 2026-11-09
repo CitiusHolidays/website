@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   mapRazorpayWebhookProcessingError,
+  parseRazorpayWebhookPayload,
   processRazorpayWebhookEvent,
   RazorpayWebhookConfigurationError,
   RazorpayWebhookMutationError,
@@ -152,6 +153,47 @@ describe("ProcessRazorpayWebhookEvent", () => {
         recordPaymentAuthorized: () => Promise.resolve({}),
       })
     ).rejects.toThrow("event is required");
+  });
+});
+
+describe("ParseRazorpayWebhookPayload", () => {
+  test("Keeps only the string identities the handlers read", () => {
+    expect(
+      parseRazorpayWebhookPayload({
+        event: "refund.created",
+        payload: {
+          payment: { entity: { id: 42, order_id: "order_1" } },
+          refund: { entity: { amount: 500, id: "rfnd_1", payment_id: ["pay_1"] } },
+        },
+      })
+    ).toEqual({
+      event: "refund.created",
+      payload: {
+        payment: { entity: { error_description: undefined, id: undefined, order_id: "order_1" } },
+        refund: { entity: { amount: 500, id: "rfnd_1", payment_id: undefined } },
+      },
+    });
+  });
+
+  test("Turns non-object bodies and containers into absent fields", () => {
+    expect(parseRazorpayWebhookPayload(null)).toEqual({});
+    expect(parseRazorpayWebhookPayload(["payment.captured"])).toEqual({});
+    expect(parseRazorpayWebhookPayload({ event: "payment.captured", payload: "x" })).toEqual({
+      event: "payment.captured",
+      payload: { payment: { entity: undefined }, refund: { entity: undefined } },
+    });
+  });
+
+  test("Rejects a signed null body as an invalid payload instead of a property-access crash", async () => {
+    await expect(
+      processRazorpayWebhookEvent(parseRazorpayWebhookPayload(null), {
+        confirmBookingByOrderId: () => Promise.resolve({ success: true }),
+        getServerSecret: () => "server-secret",
+        markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
+        markRefundedByPaymentId: () => Promise.resolve({}),
+        recordPaymentAuthorized: () => Promise.resolve({}),
+      })
+    ).rejects.toBeInstanceOf(RazorpayWebhookPayloadError);
   });
 });
 
