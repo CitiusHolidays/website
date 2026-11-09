@@ -14,9 +14,12 @@ import {
   recordIdentityQuarantine,
   upsertBookingEntitlement,
 } from "./lib/customerIdentityAccess";
+import { boundedMigrationLimit } from "./lib/migrationBatch";
+import { migrationRegistryState, startedMigrationRegistry } from "./lib/migrationRegistry";
 import type { RuntimeObject, RuntimeValue } from "./lib/runtimeValues";
-import { isRuntimeString, propertiesWhen } from "./lib/runtimeValues";
+import { isRuntimeString } from "./lib/runtimeValues";
 import { sacredBharatLeaderboardRanks } from "./lib/sacredBharatLeaderboardRank";
+import { assertMigrationSecret } from "./migrationAuth";
 
 const MAX_PAGE_SIZE = 50;
 
@@ -66,17 +69,6 @@ const migrationResultValidator = v.object({
   status: migrationStatusValidator,
   table: v.string(),
 });
-
-function assertMigrationSecret(secret: string) {
-  const expected = process.env.MIGRATION_SECRET;
-  if (!expected || secret !== expected) {
-    throw new ConvexError("Invalid migration secret");
-  }
-}
-
-function boundedLimit(value?: number) {
-  return Math.min(Math.max(Math.trunc(value ?? MAX_PAGE_SIZE), 1), MAX_PAGE_SIZE);
-}
 
 function specForTable(table: string): AuthIdentityFieldSpec | null {
   return AUTH_IDENTITY_FIELD_SPECS.find((spec) => spec.table === table) ?? null;
@@ -321,16 +313,9 @@ export const runAuthIdentityMigrationPage = internalMutation({
     }
     if (!registry) {
       const id = await ctx.db.insert("dataMigrationRegistry", {
-        converted: 0,
-        cursor: null,
         key,
-        legacyRemaining: 0,
-        processed: 0,
+        ...startedMigrationRegistry(args.dryRun ? "inventory" : "backfill", timestamp),
         quarantined: 0,
-        stage: args.dryRun ? "inventory" : "backfill",
-        startedAt: timestamp,
-        status: "running",
-        updatedAt: timestamp,
       });
       registry = await ctx.db.get("dataMigrationRegistry", id);
     }
@@ -342,7 +327,10 @@ export const runAuthIdentityMigrationPage = internalMutation({
     const page = await db
       .query(spec.table)
       .order("asc")
-      .paginate({ cursor: registry.cursor, numItems: boundedLimit(args.limit) });
+      .paginate({
+        cursor: registry.cursor,
+        numItems: boundedMigrationLimit(args.limit, MAX_PAGE_SIZE),
+      });
     const results = await Promise.all(
       page.page.map((row) =>
         processRow(ctx, db, row, spec, args.dryRun || registry?.stage === "verify")
@@ -369,14 +357,12 @@ export const runAuthIdentityMigrationPage = internalMutation({
     const cursor = page.isDone ? null : page.continueCursor;
     await ctx.db.patch("dataMigrationRegistry", registry._id, {
       converted,
-      cursor,
-      legacyRemaining,
       processed,
       quarantined,
-      stage: state.stage,
-      status: state.status,
-      updatedAt: timestamp,
-      ...propertiesWhen(state.status === "verified", () => ({ verifiedAt: timestamp })),
+      ...migrationRegistryState(
+        { cursor, legacyRemaining, stage: state.stage, status: state.status },
+        timestamp
+      ),
     });
     return {
       converted: pageConverted,

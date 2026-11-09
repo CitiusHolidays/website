@@ -13,11 +13,13 @@ import { executeRazorpayNewOrderOrchestration } from "@convex/crm/lib/majorCapab
 import { anyApi } from "convex/server";
 import { NextResponse } from "next/server";
 import { fetchAuthMutation, fetchAuthQuery } from "@/lib/auth-server";
+import { isCrossSiteBrowserRequest } from "@/lib/http/crossSiteRequest";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
 import {
   type OperationalControlDecision,
   resolveOperationalControl,
 } from "@/lib/operationalControls/runtimeService";
+import { getPaymentMutationSecret } from "@/lib/paymentVerification";
 import { createOrder, razorpayKeyId } from "@/lib/razorpay";
 import { isRuntimeNumber, isRuntimeObject, isRuntimeString } from "../../../lib/runtimeValues";
 
@@ -71,6 +73,7 @@ export interface CreateOrderDependencies {
   createProviderOrder: (args: ProviderCreateOrderArgs) => Promise<JsonValue>;
   ensureProfile: () => Promise<JsonValue>;
   establishIdentity: () => Promise<JsonValue>;
+  getServerSecret: () => string | null;
   prepareCheckout: (args: JsonObject) => Promise<JsonValue>;
   providerKeyId?: string;
   resolvePaymentControl: () => Promise<OperationalControlDecision>;
@@ -153,6 +156,7 @@ function defaultDependencies(): CreateOrderDependencies {
     },
     ensureProfile: () => fetchAuthMutation(anyApi.userProfiles.ensureMyProfile, {}),
     establishIdentity: () => fetchAuthMutation(anyApi.userProfiles.establishMyIdentity, {}),
+    getServerSecret: () => getPaymentMutationSecret(),
     prepareCheckout: (args) => fetchAuthQuery(anyApi.bookings.prepareCheckout, args),
     providerKeyId: razorpayKeyId,
     resolvePaymentControl: () => resolveOperationalControl("payments.razorpay_new_order"),
@@ -270,6 +274,10 @@ function parsePendingBooking(value: JsonValue): PendingBookingResult {
 
 export async function handleCreateOrder(request: Request, options: CreateOrderOptions = {}) {
   const deps = { ...defaultDependencies(), ...options.deps };
+  // Cookie-authenticated state change: refuse a forged cross-site browser request.
+  if (isCrossSiteBrowserRequest(request)) {
+    return NextResponse.json({ error: "Request origin not allowed." }, { status: 403 });
+  }
   try {
     let body: CreateOrderBody;
     try {
@@ -326,6 +334,11 @@ export async function handleCreateOrder(request: Request, options: CreateOrderOp
     if (!(isRuntimeString(deps.providerKeyId) && deps.providerKeyId.trim())) {
       throw new CreateOrderDomainError("invalid_configuration");
     }
+    // createPendingBooking is server-only; without the secret no Razorpay order is created.
+    const serverSecret = deps.getServerSecret();
+    if (!serverSecret) {
+      throw new CreateOrderDomainError("invalid_configuration");
+    }
     const { pendingBooking: booking, providerOrder: razorpayOrder } =
       await executeRazorpayNewOrderOrchestration<RazorpayOrder, PendingBookingResult>(
         {
@@ -339,9 +352,11 @@ export async function handleCreateOrder(request: Request, options: CreateOrderOp
             parsePendingBooking(
               await runDependency("mutation_unavailable", () =>
                 deps.createPendingBooking({
+                  amount: providerOrder.amount,
                   currency: normalizedCurrency,
                   notes: isRuntimeString(notes) ? notes : "",
                   razorpayOrderId: providerOrder.id,
+                  serverSecret,
                   travelerDetails:
                     Array.isArray(travelerDetails) && travelerDetails.length > 0
                       ? travelerDetails

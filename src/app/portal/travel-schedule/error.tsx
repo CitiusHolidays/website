@@ -1,5 +1,5 @@
 "use client";
-import TravelWorkspaceError from "@/components/portal/travel/TravelWorkspaceError";
-export default function WorkspaceError({ reset }: { reset: () => void }) {
-  return <TravelWorkspaceError reset={reset} />;
+import PortalRouteError from "@/components/portal/PortalRouteError";
+export default function WorkspaceError({ error, retry }: { error: unknown; retry: () => void }) {
+  return <PortalRouteError error={error} retry={retry} />;
 }

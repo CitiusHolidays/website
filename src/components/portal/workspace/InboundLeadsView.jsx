@@ -5,6 +5,7 @@ import { useMutation } from "convex/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { PortalSearchField } from "@/components/portal/PortalSearchField";
+import { PortalViewLoading } from "@/components/portal/workspace/portalAdminHelpers";
 import { Select } from "@/components/ui/application-select";
 import {
   useTrackedPaginatedQuery as usePaginatedQuery,
@@ -327,6 +328,8 @@ function InboundLeadListPane({
   source,
   status,
 }) {
+  // Until the first page arrives the list is unknown, not empty.
+  const firstPageLoading = page.status === "LoadingFirstPage";
   return (
     <div className="rounded-2xl border border-brand-border bg-white shadow-sm">
       <div className="flex flex-wrap items-end gap-3 border-brand-border border-b p-4">
@@ -365,33 +368,42 @@ function InboundLeadListPane({
             value={search}
           />
         </div>
-        <span className="pb-2 text-brand-muted text-xs">{rows.length} loaded</span>
+        {renderWhen(
+          !firstPageLoading,
+          <span className="pb-2 text-brand-muted text-xs">{rows.length} loaded</span>
+        )}
       </div>
       {renderEither(
-        rows.length === 0,
-        <p className="p-8 text-brand-muted text-sm">No inbound leads match these filters.</p>,
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
-            <thead className="bg-brand-light/50 text-brand-muted text-xs uppercase tracking-wide">
-              <tr>
-                <th className="px-4 py-3 font-semibold">Lead</th>
-                <th className="px-4 py-3 font-semibold">Trip</th>
-                <th className="px-4 py-3 font-semibold">Received</th>
-                <th className="px-4 py-3 font-semibold">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-brand-border/70">
-              {rows.map((row) => (
-                <InboundLeadRow
-                  key={row._id}
-                  onSelect={setSelectedId}
-                  row={row}
-                  selected={row._id === selectedId}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
+        firstPageLoading,
+        <div className="p-4">
+          <PortalViewLoading />
+        </div>,
+        renderEither(
+          rows.length === 0,
+          <p className="p-8 text-brand-muted text-sm">No inbound leads match these filters.</p>,
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-brand-light/50 text-brand-muted text-xs uppercase tracking-wide">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Lead</th>
+                  <th className="px-4 py-3 font-semibold">Trip</th>
+                  <th className="px-4 py-3 font-semibold">Received</th>
+                  <th className="px-4 py-3 font-semibold">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-brand-border/70">
+                {rows.map((row) => (
+                  <InboundLeadRow
+                    key={row._id}
+                    onSelect={setSelectedId}
+                    row={row}
+                    selected={row._id === selectedId}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
       )}
       {renderWhen(
         page.status === "CanLoadMore",

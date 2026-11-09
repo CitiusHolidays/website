@@ -4,11 +4,11 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import {
   buildTravellerMatchIndex,
   findTravellerMatchInIndex,
-  getVisibleJob,
   processImportRows,
   summarizeRoomTypesFromRows,
 } from "./importProcessor";
 import type { internalPassengerImportRow } from "./importRowValidators";
+import { getVisibleJob } from "./jobCardVisibility";
 import type { PortalAccess } from "./lib";
 import { canManagePassengerKinds } from "./passengerKindPolicy";
 
@@ -50,6 +50,8 @@ export const passengerImportBatchResultValidator = v.object({
   status: importBatchStatusValidator,
   updated: v.number(),
 });
+
+export type PassengerImportPreview = Awaited<ReturnType<typeof previewPassengerImportRowsHandler>>;
 
 export async function previewPassengerImportRowsHandler(
   ctx: QueryCtx,

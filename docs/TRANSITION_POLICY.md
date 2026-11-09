@@ -57,6 +57,17 @@ These exceptions are preservation boundaries, not approval to copy the patterns:
 Each owning repair should remove its listed debt. Do not add new layout, root-variable, or
 permanent-layer promotion occurrences.
 
+## Public first-paint content
+
+Above-the-fold public content (page headings, intros, primary CTAs, the contact form, policy text)
+must be readable from the server-rendered first paint. Give it the `.public-enter` CSS entrance
+(opacity plus a 12px rise, 360ms, optional `--public-enter-delay` of at most 120ms) instead of a
+Motion `initial={{ opacity: 0 }}` that waits for hydration. The global reduced-motion rule removes
+the entrance. Below-the-fold `AnimatedSection` reveals use a transform string, last 0.45s, and
+render in place for reduced-motion visitors; scroll-linked parallax is disabled for them too. Do not
+nest a second delayed section reveal inside an `AnimatedSection`, and keep blur filters off
+full-card stage transitions.
+
 ## Portal CRM motion
 
 Portal toasts, entity/import modals, confirm dialogs, and list-toolbar filter expand use Motion with **GPU `transform` strings** only — not `x`, `y`, `scale`, or `scaleY` shorthand props on `animate` / `initial` / `exit`. Toasts enter and exit from the same bottom edge (`translateY(100%)`). JS-driven portal motion must branch on `useReducedMotion()`; do not rely on the global 1ms CSS override alone.

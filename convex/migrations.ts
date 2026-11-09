@@ -4,16 +4,13 @@ import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { normalizeEmail } from "./crm/lib/staffAccess";
-import {
-  isLegacyRoomCode,
-  resolveRoomingEntryRoomType,
-  resolveTravellerRoomFields,
-} from "./lib/roomTypes";
+import { boundedMigrationLimit } from "./lib/migrationBatch";
+import { migrationRegistryState, startedMigrationRegistry } from "./lib/migrationRegistry";
+import { isLegacyRoomCode, resolveRoomCategory, resolveTravellerRoomFields } from "./lib/roomTypes";
 import {
   isRuntimeBigInt,
   isRuntimeNumber,
   isRuntimeString,
-  propertiesWhen,
   type RuntimeObject,
   type RuntimeValue,
 } from "./lib/runtimeValues";
@@ -161,28 +158,13 @@ export const backfillSacredBharatLeaderboard = internalMutation({
 
     if (!registry) {
       const id = await ctx.db.insert("dataMigrationRegistry", {
-        converted: 0,
-        cursor: null,
         key: SACRED_BHARAT_LEADERBOARD_MIGRATION_KEY,
-        legacyRemaining: 0,
-        processed: 0,
-        stage: "backfill",
-        startedAt: timestamp,
-        status: "running",
-        updatedAt: timestamp,
+        ...startedMigrationRegistry("backfill", timestamp),
       });
       registry = await ctx.db.get("dataMigrationRegistry", id);
     } else if (registry.status === "failed") {
       await ctx.db.patch("dataMigrationRegistry", registry._id, {
-        converted: 0,
-        cursor: null,
-        legacyRemaining: 0,
-        processed: 0,
-        stage: "backfill",
-        startedAt: timestamp,
-        status: "running",
-        updatedAt: timestamp,
-        verifiedAt: undefined,
+        ...startedMigrationRegistry("backfill", timestamp),
       });
       registry = await ctx.db.get("dataMigrationRegistry", registry._id);
     }
@@ -205,12 +187,11 @@ export const backfillSacredBharatLeaderboard = internalMutation({
     const cursor = page.isDone ? null : page.continueCursor;
     await ctx.db.patch("dataMigrationRegistry", registry._id, {
       converted: registry.converted + authUserIds.length,
-      cursor,
-      legacyRemaining: 0,
       processed: page.isDone ? 0 : registry.processed + page.page.length,
-      stage,
-      status: "running",
-      updatedAt: timestamp,
+      ...migrationRegistryState(
+        { cursor, legacyRemaining: 0, stage, status: "running" },
+        timestamp
+      ),
     });
     return {
       cursor,
@@ -274,13 +255,8 @@ export const verifySacredBharatLeaderboard = internalMutation({
     const stage = status === "verified" ? ("complete" as const) : ("verify" as const);
     const cursor = page.isDone ? null : page.continueCursor;
     await ctx.db.patch("dataMigrationRegistry", registry._id, {
-      cursor,
-      legacyRemaining,
       processed: registry.processed + page.page.length,
-      stage,
-      status,
-      updatedAt: timestamp,
-      ...propertiesWhen(status === "verified", () => ({ verifiedAt: timestamp })),
+      ...migrationRegistryState({ cursor, legacyRemaining, stage, status }, timestamp),
     });
     return {
       cursor,
@@ -556,7 +532,7 @@ async function migrateRoomingEntryRoomType(
   now: number
 ): Promise<RoomTypePageCounts> {
   const legacyRoomingRoomTypes = isLegacyRoomCode(row.roomType) ? 1 : 0;
-  const roomType = resolveRoomingEntryRoomType(row.roomType);
+  const roomType = resolveRoomCategory(row.roomType);
   if (!(roomType && String(row.roomType) !== roomType)) {
     return { ...EMPTY_ROOM_TYPE_PAGE_COUNTS, legacyRoomingRoomTypes };
   }
@@ -663,35 +639,29 @@ async function ensureRoomTypeMigrationRegistry(
   existing: Doc<"dataMigrationRegistry"> | null,
   restarting: boolean,
   stage: RoomTypeMigrationStage,
-  startedAt: number,
   now: number
 ) {
   if (!existing) {
     return await ctx.db.insert("dataMigrationRegistry", {
-      converted: 0,
-      cursor: null,
       key: ROOM_TYPE_MIGRATION_KEY,
-      legacyRemaining: 0,
-      processed: 0,
-      stage,
-      startedAt,
-      status: "running",
-      updatedAt: now,
+      ...startedMigrationRegistry(stage, now),
     });
   }
-  if (restarting || existing.status !== "running") {
+  if (restarting) {
     await ctx.db.patch("dataMigrationRegistry", existing._id, {
-      ...propertiesWhen(restarting, () => ({
-        converted: 0,
-        cursor: null,
-        legacyRemaining: 0,
-        processed: 0,
-        stage: "travellers",
-        startedAt: now,
-        verifiedAt: undefined,
-      })),
-      status: "running",
-      updatedAt: now,
+      ...startedMigrationRegistry("travellers", now),
+    });
+  } else if (existing.status !== "running") {
+    await ctx.db.patch("dataMigrationRegistry", existing._id, {
+      ...migrationRegistryState(
+        {
+          cursor: existing.cursor,
+          legacyRemaining: existing.legacyRemaining,
+          stage: existing.stage,
+          status: "running" as const,
+        },
+        now
+      ),
     });
   }
   return existing._id;
@@ -824,7 +794,7 @@ export const migrateRoomTypes = internalMutation({
   },
   handler: async (ctx, args) => {
     assertMigrationSecret(args.secret);
-    const limit = Math.min(Math.max(Math.trunc(args.limit ?? ROOM_TYPE_MIGRATION_LIMIT), 1), 100);
+    const limit = boundedMigrationLimit(args.limit, ROOM_TYPE_MIGRATION_LIMIT, 100);
     const now = Date.now();
     const existing = await ctx.db
       .query("dataMigrationRegistry")
@@ -839,7 +809,6 @@ export const migrateRoomTypes = internalMutation({
     const initialStage =
       !restarting && existing?.stage === "roomingListEntries" ? "roomingListEntries" : "travellers";
     const initialCursor = restarting ? null : (existing?.cursor ?? null);
-    const startedAt = existing?.startedAt ?? now;
     let converted = restarting ? 0 : (existing?.converted ?? 0);
     const initialProcessed = restarting ? 0 : (existing?.processed ?? 0);
     const initialLegacyRemaining = restarting ? 0 : (existing?.legacyRemaining ?? 0);
@@ -848,7 +817,6 @@ export const migrateRoomTypes = internalMutation({
       existing,
       restarting,
       initialStage,
-      startedAt,
       now
     );
 
@@ -882,13 +850,19 @@ export const migrateRoomTypes = internalMutation({
       page.continueCursor
     );
     const status = "running" as const;
-    const registryPatch = {
+    await ctx.db.patch("dataMigrationRegistry", registryId, {
       converted,
-      ...pageState,
-      status,
-      updatedAt: now,
-    };
-    await ctx.db.patch("dataMigrationRegistry", registryId, registryPatch);
+      processed: pageState.processed,
+      ...migrationRegistryState(
+        {
+          cursor: pageState.cursor,
+          legacyRemaining: pageState.legacyRemaining,
+          stage: pageState.stage,
+          status,
+        },
+        now
+      ),
+    });
 
     // A page is intentionally the unit of work. The next call resumes only
     // from the server-owned registry cursor; caller-supplied cursors are not
@@ -918,7 +892,7 @@ export const verifyRoomTypes = internalMutation({
   },
   handler: async (ctx, args) => {
     assertMigrationSecret(args.secret);
-    const limit = Math.min(Math.max(Math.trunc(args.limit ?? ROOM_TYPE_MIGRATION_LIMIT), 1), 100);
+    const limit = boundedMigrationLimit(args.limit, ROOM_TYPE_MIGRATION_LIMIT, 100);
     const now = Date.now();
     const registry = await ctx.db
       .query("dataMigrationRegistry")
@@ -984,13 +958,8 @@ export const verifyRoomTypes = internalMutation({
       cursor = null;
     }
     await ctx.db.patch("dataMigrationRegistry", registry._id, {
-      cursor,
-      legacyRemaining,
       processed: registry.processed + page.page.length,
-      stage,
-      status,
-      updatedAt: now,
-      ...propertiesWhen(status === "verified", () => ({ verifiedAt: now })),
+      ...migrationRegistryState({ cursor, legacyRemaining, stage, status }, now),
     });
     return {
       converted: 0,

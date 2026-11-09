@@ -1,9 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import {
-  canMovePipelineCard,
-  getAllowedSalesPipelineBoardTargets,
-  isSalesPipelineBoardLocked,
-} from "./salesPipelinePolicy";
+import { getAllowedSalesPipelineBoardTargets } from "@convex/crm/salesPipelinePolicy";
+import { canMovePipelineCard, isSalesPipelineBoardLocked } from "./salesPipelinePolicy";
 
 describe("Sales Pipeline client affordance policy", () => {
   test("Matches adjacent routine stages and excludes Sales Decision outcomes", () => {

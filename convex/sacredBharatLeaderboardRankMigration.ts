@@ -2,12 +2,15 @@ import { ConvexError, v } from "convex/values";
 import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { internalMutation, internalQuery } from "./_generated/server";
+import { boundedMigrationLimit } from "./lib/migrationBatch";
+import { migrationRegistryState, startedMigrationRegistry } from "./lib/migrationRegistry";
 import { SACRED_BHARAT_LEADERBOARD_MIGRATION_KEY } from "./lib/sacredBharatLeaderboard";
 import {
   leaderboardSummaryIsEligible,
   SACRED_BHARAT_LEADERBOARD_RANK_MIGRATION_KEY,
   sacredBharatLeaderboardRanks,
 } from "./lib/sacredBharatLeaderboardRank";
+import { assertMigrationSecret } from "./migrationAuth";
 
 const PAGE_SIZE = 40;
 const migrationStatusValidator = v.union(
@@ -38,17 +41,6 @@ const migrationStatusResultValidator = v.object({
   verified: v.boolean(),
   verifiedAt: v.union(v.number(), v.null()),
 });
-
-function assertMigrationSecret(secret: string) {
-  const expected = process.env.MIGRATION_SECRET;
-  if (!expected || secret !== expected) {
-    throw new ConvexError("Invalid migration secret");
-  }
-}
-
-function boundedPageSize(limit?: number) {
-  return Math.min(Math.max(Math.trunc(limit ?? PAGE_SIZE), 1), PAGE_SIZE);
-}
 
 async function getRegistry(ctx: QueryCtx | MutationCtx, key: string) {
   return await ctx.db
@@ -99,30 +91,15 @@ export const backfillLeaderboardRanks = internalMutation({
     }
     if (!registry) {
       const id = await ctx.db.insert("dataMigrationRegistry", {
-        converted: 0,
-        cursor: null,
         key: SACRED_BHARAT_LEADERBOARD_RANK_MIGRATION_KEY,
-        legacyRemaining: 0,
-        processed: 0,
+        ...startedMigrationRegistry("backfill", timestamp),
         quarantined: 0,
-        stage: "backfill",
-        startedAt: timestamp,
-        status: "running",
-        updatedAt: timestamp,
       });
       registry = await ctx.db.get("dataMigrationRegistry", id);
     } else if (registry.status === "failed") {
       await ctx.db.patch("dataMigrationRegistry", registry._id, {
-        converted: 0,
-        cursor: null,
-        legacyRemaining: 0,
-        processed: 0,
+        ...startedMigrationRegistry("backfill", timestamp),
         quarantined: 0,
-        stage: "backfill",
-        startedAt: timestamp,
-        status: "running",
-        updatedAt: timestamp,
-        verifiedAt: undefined,
       });
       registry = await ctx.db.get("dataMigrationRegistry", registry._id);
     }
@@ -133,7 +110,10 @@ export const backfillLeaderboardRanks = internalMutation({
     const page = await ctx.db
       .query("sacredBharatLeaderboardSummaries")
       .order("asc")
-      .paginate({ cursor: registry.cursor, numItems: boundedPageSize(args.limit) });
+      .paginate({
+        cursor: registry.cursor,
+        numItems: boundedMigrationLimit(args.limit, PAGE_SIZE),
+      });
     await Promise.all(
       page.page.map((summary) => sacredBharatLeaderboardRanks.insertIfDoesNotExist(ctx, summary))
     );
@@ -143,13 +123,12 @@ export const backfillLeaderboardRanks = internalMutation({
     const stage: "backfill" | "verify" = page.isDone ? "verify" : "backfill";
     await ctx.db.patch("dataMigrationRegistry", registry._id, {
       converted: page.isDone ? 0 : registry.converted + eligibleProcessed,
-      cursor,
-      legacyRemaining: 0,
       processed: page.isDone ? 0 : registry.processed + page.page.length,
       quarantined: page.isDone ? 0 : (registry.quarantined ?? 0) + hiddenProcessed,
-      stage,
-      status: "running",
-      updatedAt: timestamp,
+      ...migrationRegistryState(
+        { cursor, legacyRemaining: 0, stage, status: "running" },
+        timestamp
+      ),
     });
     return {
       cursor,
@@ -192,7 +171,10 @@ export const verifyLeaderboardRanks = internalMutation({
     const page = await ctx.db
       .query("sacredBharatLeaderboardSummaries")
       .order("asc")
-      .paginate({ cursor: registry.cursor, numItems: boundedPageSize(args.limit) });
+      .paginate({
+        cursor: registry.cursor,
+        numItems: boundedMigrationLimit(args.limit, PAGE_SIZE),
+      });
     const exactRows = await Promise.all(
       page.page.map((summary) => summaryExistsAtExactRank(ctx, summary))
     );
@@ -220,14 +202,9 @@ export const verifyLeaderboardRanks = internalMutation({
     }
     await ctx.db.patch("dataMigrationRegistry", registry._id, {
       converted: eligibleTotal,
-      cursor,
-      legacyRemaining,
       processed: registry.processed + page.page.length,
       quarantined: hiddenTotal,
-      stage,
-      status,
-      updatedAt: timestamp,
-      verifiedAt: verified ? timestamp : undefined,
+      ...migrationRegistryState({ cursor, legacyRemaining, stage, status }, timestamp),
     });
     return {
       cursor,

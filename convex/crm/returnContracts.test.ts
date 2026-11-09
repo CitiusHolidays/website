@@ -616,7 +616,6 @@ describe("Pilot API registrations", () => {
       queryApi.assignQueryTeams,
       queryApi.assignJobCardCreator,
       queryApi.submitToContracting,
-      queryApi.updateStatus,
       queryApi.remove,
     ];
     const jobCardFunctions = [

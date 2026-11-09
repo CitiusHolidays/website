@@ -1,0 +1,8 @@
+{
+  "detectiveOptions": {
+    "es6": { "skipAsyncImports": true },
+    "ts": { "skipAsyncImports": true, "skipTypeImports": true },
+    "tsx": { "skipAsyncImports": true, "skipTypeImports": true }
+  },
+  "excludeRegExp": ["_generated"]
+}

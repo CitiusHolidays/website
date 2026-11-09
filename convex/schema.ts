@@ -1,7 +1,20 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { fieldPassportVariantValidator } from "./crm/fieldPassportOpenPolicy";
+import { leaveTypeValidator } from "./crm/leavePolicy";
+import { staffRoleValidator } from "./crm/lib/rolePolicy";
 import { officeCheckInTables } from "./crm/officeCheckInValidators";
+import {
+  contractingStatusValidator,
+  inboundSourceValidator,
+  leadStageStorageValidator,
+  lostReasonValidator,
+  querySourceValidator,
+  queryTypeValidator,
+  salesStatusValidator,
+  ticketingScopeValidator,
+  travelTypeValidator,
+} from "./crm/queryValidators";
 import { bookingInvoiceFields } from "./lib/bookingInvoiceValidators";
 import { boothAvailability, boothCounts, boothScene } from "./lib/eventPhotoBoothValidators";
 import {
@@ -10,6 +23,7 @@ import {
   travelBatchSummaryTransitionValidator,
 } from "./lib/importContractValidators";
 import { notificationEmailOutboxFields } from "./lib/notificationEmailValidators";
+import { operationalEffectReceiptFields } from "./lib/operationalEffectReceiptValidators";
 import {
   postTourCategoryValidator,
   postTourRatingValidator,
@@ -28,92 +42,6 @@ const bookingStatus = v.union(
   v.literal("failed"),
   v.literal("cancelled"),
   v.literal("refunded")
-);
-
-const staffRole = v.union(
-  v.literal("Admin"),
-  v.literal("Directors"),
-  v.literal("Sales"),
-  v.literal("Sales Head"),
-  v.literal("Contracting"),
-  v.literal("Contracting Head"),
-  v.literal("Accounts"),
-  v.literal("Accounts Head"),
-  v.literal("Operations"),
-  v.literal("Operations Head"),
-  v.literal("Ticketing"),
-  v.literal("Head of Ticketing"),
-  v.literal("Tour Manager"),
-  v.literal("Finance"),
-  v.literal("HR"),
-  v.literal("Contracting Cement"),
-  v.literal("Operations Cement"),
-  v.literal("Sales Cement"),
-  v.literal("Director Cement")
-);
-
-const queryType = v.union(
-  v.literal("MICE"),
-  v.literal("MICE Bidding"),
-  v.literal("Cement"),
-  v.literal("Cement Bidding"),
-  v.literal("FIT"),
-  v.literal("Family Group"),
-  v.literal("B2B"),
-  v.literal("Spiritual")
-);
-
-const travelType = v.union(v.literal("Domestic Travel"), v.literal("International Travel"));
-
-const ticketingScope = v.union(
-  v.literal("Domestic"),
-  v.literal("International"),
-  v.literal("Both"),
-  v.literal("Not required")
-);
-
-const salesStatus = v.union(
-  v.literal("Proposal in discussion"),
-  v.literal("Change in destination"),
-  v.literal("Date/Destination Change Required"),
-  v.literal("Order Confirmed"),
-  v.literal("Order Lost")
-);
-
-const leadStage = v.union(
-  v.literal("Inquiry"),
-  v.literal("Proposal"),
-  v.literal("Negotiation"),
-  v.literal("Confirmation"),
-  v.literal("Lost"),
-  v.literal("Closed")
-);
-
-const querySource = v.union(
-  v.literal("Website"),
-  v.literal("WhatsApp"),
-  v.literal("Email"),
-  v.literal("Client"),
-  v.literal("Referral"),
-  v.literal("Citius Concierge"),
-  v.literal("Sacred Bharat")
-);
-
-const contractingStatus = v.union(
-  v.literal("Query Received"),
-  v.literal("Proposal in progress"),
-  v.literal("Proposal sent"),
-  v.literal("Change in destination"),
-  v.literal("Date/Destination Change Required"),
-  v.literal("Order Confirmed"),
-  v.literal("Order Lost")
-);
-
-const lostReason = v.union(
-  v.literal("Price"),
-  v.literal("Competition"),
-  v.literal("Not travelling"),
-  v.literal("Other")
 );
 
 const visaStatus = v.union(
@@ -176,17 +104,6 @@ const approvalStatus = v.union(
   v.literal("Approved"),
   v.literal("Rejected"),
   v.literal("Needs Info")
-);
-
-const leaveType = v.union(
-  v.literal("Privilege"),
-  v.literal("Casual"),
-  v.literal("Sick"),
-  v.literal("Maternity"),
-  v.literal("Paternity"),
-  v.literal("Bereavement"),
-  v.literal("Marriage"),
-  v.literal("Leave Without Pay")
 );
 
 const reviewStatus = v.union(v.literal("Pending"), v.literal("Approved"), v.literal("Rejected"));
@@ -425,6 +342,9 @@ export default defineSchema({
     bookingId: v.id("bookings"),
     createdAt: v.number(),
     outcome: v.string(),
+    // What the provider says was paid, for confirmation events (minor units, ISO currency).
+    paidAmount: v.optional(v.number()),
+    paidCurrency: v.optional(v.string()),
     paymentId: v.optional(v.string()),
     providerEventId: v.string(),
     reason: v.string(),
@@ -463,6 +383,19 @@ export default defineSchema({
     inventoryDebitedEventId: v.optional(v.string()),
     legacyBookingId: v.optional(v.string()),
     notes: v.optional(v.string()),
+    // The latest captured payment whose amount or currency did not match what the booking
+    // owes. The booking stays unconfirmed; staff reconcile or refund it with Razorpay.
+    paymentMismatch: v.optional(
+      v.object({
+        detectedAt: v.number(),
+        expectedAmount: v.number(),
+        expectedCurrency: v.string(),
+        paidAmount: v.optional(v.number()),
+        paidCurrency: v.optional(v.string()),
+        paymentId: v.optional(v.string()),
+        providerEventId: v.string(),
+      })
+    ),
     razorpayOrderId: v.string(),
     razorpayPaymentId: v.string(),
     razorpaySignature: v.optional(v.string()),
@@ -590,7 +523,7 @@ export default defineSchema({
     createdBy: v.string(),
     dueDate: v.optional(v.string()),
     jobCardId: v.id("jobCards"),
-    ownerRole: v.optional(staffRole),
+    ownerRole: v.optional(staffRoleValidator),
     title: v.string(),
     updatedAt: v.number(),
   })
@@ -866,7 +799,7 @@ export default defineSchema({
     proposalRevision: v.optional(v.number()),
     queryId: v.id("queries"),
     sellingPricePerPax: v.number(),
-    source: v.optional(querySource),
+    source: v.optional(querySourceValidator),
     sourceConsentAt: v.optional(v.number()),
     sourceInboundIntentId: v.optional(v.id("inboundQueryIntents")),
     taxRate: v.optional(v.number()),
@@ -885,7 +818,7 @@ export default defineSchema({
     ownerId: v.optional(v.string()),
     ownerName: v.string(),
     queryId: v.id("queries"),
-    status: contractingStatus,
+    status: contractingStatusValidator,
     updatedAt: v.number(),
   })
     .index("by_queryId", ["queryId"])
@@ -896,11 +829,7 @@ export default defineSchema({
     createdAt: v.number(),
     inboundIntentId: v.optional(v.id("inboundQueryIntents")),
     isSynthetic: v.optional(v.boolean()),
-    source: v.union(
-      v.literal("Citius Concierge"),
-      v.literal("Sacred Bharat"),
-      v.literal("Website")
-    ),
+    source: inboundSourceValidator,
   })
     .index("by_createdAt", ["createdAt"])
     .index("by_inboundIntentId_createdAt", {
@@ -1461,11 +1390,7 @@ export default defineSchema({
         trailSlug: v.optional(v.string()),
       })
     ),
-    source: v.union(
-      v.literal("Citius Concierge"),
-      v.literal("Sacred Bharat"),
-      v.literal("Website")
-    ),
+    source: inboundSourceValidator,
     status: v.union(v.literal("pending"), v.literal("converted"), v.literal("dismissed")),
     submissionKeyHash: v.optional(v.string()),
     syntheticTestSessionId: v.optional(v.id("operationalControlTestSessions")),
@@ -1639,7 +1564,7 @@ export default defineSchema({
     profitPerPax: v.optional(v.number()),
     proposalId: v.optional(v.id("proposals")),
     queryId: v.optional(v.id("queries")),
-    queryType: v.optional(queryType),
+    queryType: v.optional(queryTypeValidator),
     roomCount: v.optional(v.number()),
     sellingPricePerPax: v.optional(v.number()),
     status: v.union(
@@ -1904,7 +1829,7 @@ export default defineSchema({
     projectionTargetKey: v.optional(v.string()),
     projectionVersion: v.optional(v.number()),
     readAt: v.optional(v.number()),
-    recipientRole: v.optional(staffRole),
+    recipientRole: v.optional(staffRoleValidator),
     recipientStaffId: v.optional(v.id("staffUsers")),
     recipientUserId: v.optional(v.string()),
     title: v.string(),
@@ -2093,38 +2018,7 @@ export default defineSchema({
     .index("by_tokenHash", ["tokenHash"])
     .index("by_expiresAt", ["expiresAt"]),
 
-  operationalEffectReceipts: defineTable({
-    controlKey: v.string(),
-    createdAt: v.number(),
-    disposition: v.union(
-      v.literal("created"),
-      v.literal("duplicate"),
-      v.literal("failed"),
-      v.literal("not_applicable"),
-      v.literal("queued"),
-      v.literal("suppressed"),
-      v.literal("throttled")
-    ),
-    effectId: v.string(),
-    entityId: v.optional(v.string()),
-    entityType: v.optional(v.string()),
-    payloadFingerprint: v.optional(v.string()),
-    reason: v.union(
-      v.literal("configured_default"),
-      v.literal("corrupt_safe_default"),
-      v.literal("explicit_disabled"),
-      v.literal("explicit_enabled"),
-      v.literal("expired_safe_default"),
-      v.literal("missing_safe_default"),
-      v.literal("no_recipients"),
-      v.literal("pre_activation_standard"),
-      v.literal("prerequisite_disabled"),
-      v.literal("test_override")
-    ),
-    recipientCount: v.optional(v.number()),
-    synthetic: v.optional(v.boolean()),
-    testSessionId: v.optional(v.id("operationalControlTestSessions")),
-  })
+  operationalEffectReceipts: defineTable(operationalEffectReceiptFields)
     .index("by_effectId", ["effectId"])
     .index("by_controlKey_createdAt", ["controlKey", "createdAt"])
     .index("by_createdAt", ["createdAt"])
@@ -2267,7 +2161,7 @@ export default defineSchema({
     label: v.string(),
     maxAdvancePercent: v.number(),
     minAdvancePercent: v.number(),
-    queryType,
+    queryType: queryTypeValidator,
     updatedAt: v.number(),
   }).index("by_queryType", ["queryType"]),
 
@@ -2299,7 +2193,7 @@ export default defineSchema({
     ownerAuthUserId: v.optional(v.string()),
     ownerStaffId: v.optional(v.id("staffUsers")),
     pathname: v.string(),
-    sharedRole: v.optional(staffRole),
+    sharedRole: v.optional(staffRoleValidator),
     updatedAt: v.number(),
     view: v.string(),
   })
@@ -2375,7 +2269,7 @@ export default defineSchema({
     createdAt: v.number(),
     enabled: v.boolean(),
     key: v.string(),
-    recipientRole: v.optional(staffRole),
+    recipientRole: v.optional(staffRoleValidator),
     thresholdHours: v.optional(v.number()),
     updatedAt: v.number(),
   }).index("by_key", ["key"]),
@@ -2648,7 +2542,7 @@ export default defineSchema({
     contractingLandCost: v.optional(v.number()),
     contractingOwnerId: v.optional(v.string()),
     contractingOwnerName: v.optional(v.string()),
-    contractingStatus,
+    contractingStatus: contractingStatusValidator,
     contractingVisaCost: v.optional(v.number()),
     createdAt: v.number(),
     createdBy: v.string(),
@@ -2662,9 +2556,9 @@ export default defineSchema({
         jobCardId: v.id("jobCards"),
       })
     ),
-    leadStage: v.optional(leadStage),
+    leadStage: v.optional(leadStageStorageValidator),
     listSearchText: v.optional(v.string()),
-    lostReason: v.optional(lostReason),
+    lostReason: v.optional(lostReasonValidator),
     lostReasonOther: v.optional(v.string()),
     notes: v.optional(v.string()),
     paxCount: v.number(),
@@ -2687,21 +2581,21 @@ export default defineSchema({
       })
     ),
     queryCode: v.string(),
-    queryType,
+    queryType: queryTypeValidator,
     reassignToTeams: v.optional(v.boolean()),
     salesOwnerId: v.optional(v.string()),
     salesOwnerName: v.optional(v.string()),
-    salesStatus,
-    source: v.optional(querySource),
+    salesStatus: salesStatusValidator,
+    source: v.optional(querySourceValidator),
     sourceConsentAt: v.optional(v.number()),
     submittedToContractingAt: v.optional(v.number()),
     ticketingOwnerId: v.optional(v.string()),
     ticketingOwnerName: v.optional(v.string()),
-    ticketingScope: v.optional(ticketingScope),
+    ticketingScope: v.optional(ticketingScopeValidator),
     travelEndDate: v.optional(v.string()),
     travelInBatches: v.optional(v.boolean()),
     travelStartDate: v.optional(v.string()),
-    travelType,
+    travelType: travelTypeValidator,
     updatedAt: v.number(),
   })
     .index("by_queryCode", ["queryCode"])
@@ -2787,7 +2681,7 @@ export default defineSchema({
     createdAt: v.number(),
     description: v.optional(v.string()),
     permissions: v.array(v.string()),
-    role: staffRole,
+    role: staffRoleValidator,
     updatedAt: v.number(),
   }).index("by_role", ["role"]),
 
@@ -2966,7 +2860,7 @@ export default defineSchema({
     carriedForwardDays: v.number(),
     encashableDays: v.number(),
     fiscalYear: v.string(),
-    leaveType,
+    leaveType: leaveTypeValidator,
     openingDays: v.number(),
     staffId: v.id("staffUsers"),
     updatedAt: v.number(),
@@ -2991,7 +2885,7 @@ export default defineSchema({
     ),
     fiscalYear: v.string(),
     leaveRecordId: v.optional(v.id("staffLeaveRecords")),
-    leaveType,
+    leaveType: leaveTypeValidator,
     note: v.optional(v.string()),
     staffId: v.id("staffUsers"),
   })
@@ -3056,7 +2950,7 @@ export default defineSchema({
     headReviewedAt: v.optional(v.number()),
     headReviewedBy: v.optional(v.string()),
     headReviewedByName: v.optional(v.string()),
-    headReviewerRole: v.optional(staffRole),
+    headReviewerRole: v.optional(staffRoleValidator),
     headReviewStatus: v.optional(reviewStatus),
     hrCopyName: v.optional(v.string()),
     hrCopyStaffId: v.optional(v.id("staffUsers")),
@@ -3064,7 +2958,7 @@ export default defineSchema({
     hrReviewedBy: v.optional(v.string()),
     hrReviewedByName: v.optional(v.string()),
     hrReviewStatus: v.optional(reviewStatus),
-    leaveType: v.optional(leaveType),
+    leaveType: v.optional(leaveTypeValidator),
     reason: v.string(),
     staffId: v.id("staffUsers"),
     startDate: v.string(),
@@ -3125,7 +3019,7 @@ export default defineSchema({
     createdAt: v.number(),
     department: v.optional(v.string()),
     email: v.string(),
-    emailAlertRoles: v.optional(v.array(staffRole)),
+    emailAlertRoles: v.optional(v.array(staffRoleValidator)),
     emailNormalized: v.string(),
     employmentStatus: v.optional(v.union(v.literal("Probationer"), v.literal("Confirmed"))),
     // Set only for an external tour manager's login: access narrows to assigned trips and the
@@ -3152,11 +3046,14 @@ export default defineSchema({
     mobile: v.optional(v.string()),
     name: v.string(),
     officeId: v.optional(v.id("offices")),
+    // When the staff member last set their password through an emailed setup or reset link.
+    // A password without one is not theirs to keep: staffPasswordSetup removes it.
+    passwordSetByLinkAt: v.optional(v.number()),
     paternityEventsUsed: v.optional(v.number()),
     pendingPasswordSetup: v.optional(v.boolean()),
     reportingManagerName: v.optional(v.string()),
     reportingManagerStaffId: v.optional(v.id("staffUsers")),
-    roles: v.array(staffRole),
+    roles: v.array(staffRoleValidator),
     updatedAt: v.number(),
   })
     .index("by_emailNormalized", ["emailNormalized"])
@@ -3239,7 +3136,7 @@ export default defineSchema({
     operationsOwnerName: v.optional(v.string()),
     paymentTerms: v.optional(v.any()),
     preDepartureChecklist: v.optional(v.any()),
-    queryType: v.optional(queryType),
+    queryType: v.optional(queryTypeValidator),
     roomCount: v.optional(v.number()),
     status: v.union(
       v.literal("Open"),

@@ -200,10 +200,7 @@ export default function MicePageClient({ images = [] }) {
         />
         <div className="relative mx-auto grid max-w-7xl gap-14 lg:grid-cols-12 lg:items-center">
           <div className="lg:col-span-5">
-            <p className="text-public-lime text-sm uppercase tracking-[0.2em]">
-              The operating model
-            </p>
-            <h2 className="mt-4 font-heading font-semibold text-4xl leading-tight md:text-5xl">
+            <h2 className="font-heading font-semibold text-4xl leading-tight md:text-5xl">
               From first brief to on-ground delivery.
             </h2>
             <div className="mt-10 space-y-8">
@@ -240,10 +237,7 @@ export default function MicePageClient({ images = [] }) {
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
             <div>
-              <p className="text-public-orange-ink text-sm uppercase tracking-[0.2em]">
-                The evidence
-              </p>
-              <h2 className="mt-4 font-heading font-semibold text-4xl text-public-ink md:text-5xl">
+              <h2 className="font-heading font-semibold text-4xl text-public-ink md:text-5xl">
                 A glimpse into our events.
               </h2>
             </div>
@@ -269,8 +263,7 @@ export default function MicePageClient({ images = [] }) {
       >
         <PublicGrain />
         <div className="relative z-10 mx-auto max-w-3xl">
-          <p className="text-public-lime text-sm uppercase tracking-[0.2em]">The next step</p>
-          <h2 className="mt-5 font-heading font-semibold text-4xl leading-tight md:text-6xl">
+          <h2 className="font-heading font-semibold text-4xl leading-tight md:text-6xl">
             Bring us the brief. We&apos;ll shape the proposal.
           </h2>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-white/75 leading-8">

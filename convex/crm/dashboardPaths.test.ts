@@ -17,10 +17,30 @@ describe("Dashboard notification path parity", () => {
       title: "Order confirmed",
     },
     {
+      entityId: "report_1",
+      entityType: "postTourReport",
+      href: "/portal/post-tour-feedback?reportId=report_1&view=report",
+      title: "Post-tour report submitted",
+    },
+    {
       entityId: "ticket_1",
       entityType: "ticket",
       href: "/portal/tickets?open=ticket&id=ticket_1",
       title: "",
+    },
+    // The approving manager and the submitter both act from the Expenses page.
+    {
+      entityId: "expense_1",
+      entityType: "expense",
+      href: "/portal/expenses",
+      title: "Expense manager approval requested",
+    },
+    // The id is the Tour Manager assignment; that page opens the assignment's Job Card.
+    {
+      entityId: "assignment_1",
+      entityType: "tourManager",
+      href: "/portal/job-cards/tour-manager/assignment_1",
+      title: "Tour Manager allocated",
     },
   ];
 

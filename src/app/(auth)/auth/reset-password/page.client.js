@@ -8,6 +8,12 @@ import AuthRecoveryLayout from "@/components/auth/AuthRecoveryLayout";
 import { AuthRecoveryTransition } from "@/components/auth/AuthRecoveryTransition";
 import { authClient } from "@/lib/auth-client";
 import { formatAuthRecoveryError } from "@/lib/auth-errors";
+import { authRecoveryHref, getAuthVariantFromArea } from "@/lib/auth-sign-in-targets";
+
+const RECOVERY_LINK_CLASS =
+  "inline-flex min-h-11 items-center gap-2 rounded-sm font-medium text-auth-accent-ink text-sm transition-colors hover:text-auth-accent-ink/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-2";
+const RECOVERY_PRIMARY_CLASS =
+  "group flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-[#0B1026] px-4 py-3 font-medium text-lg text-white transition-[background-color,transform] duration-150 hover:bg-[#1a2c4e] focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-2 active:scale-[0.99]";
 
 const initialFormState = {
   confirmPassword: "",
@@ -44,16 +50,7 @@ function formReducer(state, action) {
   return reduce ? reduce(state, action) : state;
 }
 
-function resetPasswordIssue({ confirmPassword, password, token }) {
-  if (!token) {
-    return {
-      status: {
-        message: "Reset token is missing or invalid. Please request a new link.",
-        type: "error",
-      },
-      type: "status",
-    };
-  }
+function resetPasswordIssue({ confirmPassword, password }) {
   if (password !== confirmPassword) {
     return {
       invalidField: "confirmPassword",
@@ -176,10 +173,8 @@ function ResetPasswordFields({
   );
 }
 
-function ResetPasswordForm() {
+function ResetPasswordForm({ token, variant }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const token = searchParams.get("token");
   const [state, dispatch] = useReducer(formReducer, initialFormState);
   const { password, confirmPassword, showPassword, isLoading, invalidField, status } = state;
   const passwordRef = useRef(null);
@@ -197,10 +192,10 @@ function ResetPasswordForm() {
       return;
     }
     const redirectTimer = setTimeout(() => {
-      router.push("/auth/guest");
+      router.push(variant.authPath);
     }, 3000);
     return () => clearTimeout(redirectTimer);
-  }, [router, status.type]);
+  }, [router, status.type, variant.authPath]);
 
   const updatePassword = (event) => {
     dispatch({ name: "password", type: "field", value: event.target.value });
@@ -211,7 +206,7 @@ function ResetPasswordForm() {
   const togglePassword = () => dispatch({ type: "togglePassword" });
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const issue = resetPasswordIssue({ confirmPassword, password, token });
+    const issue = resetPasswordIssue({ confirmPassword, password });
     if (issue) {
       dispatch(issue);
       return;
@@ -274,10 +269,7 @@ function ResetPasswordForm() {
 
         {status.type === "success" ? (
           <div className="text-center">
-            <Link
-              className="inline-flex min-h-11 items-center rounded-sm font-medium text-auth-accent-ink text-sm transition-colors hover:text-auth-accent-ink/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-2"
-              href="/auth/guest"
-            >
+            <Link className={RECOVERY_LINK_CLASS} href={variant.authPath}>
               Redirecting to sign in…
             </Link>
           </div>
@@ -301,8 +293,8 @@ function ResetPasswordForm() {
       {status.type === "success" ? null : (
         <div className="mt-8 text-center">
           <Link
-            className="inline-flex min-h-11 items-center gap-2 rounded-sm font-medium text-auth-accent-ink text-sm transition-colors hover:text-auth-accent-ink/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-2"
-            href="/auth/forgot-password"
+            className={RECOVERY_LINK_CLASS}
+            href={authRecoveryHref("/auth/forgot-password", variant)}
           >
             <ArrowLeft aria-hidden="true" className="size-4" />
             Request a new link
@@ -313,15 +305,61 @@ function ResetPasswordForm() {
   );
 }
 
-export default function ResetPasswordPage() {
+/** Opened without a token (a cut-off or hand-typed link): offer a new link instead of a form. */
+function ResetLinkMissing({ variant }) {
+  return (
+    <AuthRecoveryLayout
+      formDescription="This link is missing its reset code. Password links work once and expire, so request a new one and we’ll email it to you."
+      formTitle="This reset link is incomplete"
+    >
+      <Link
+        className={RECOVERY_PRIMARY_CLASS}
+        href={authRecoveryHref("/auth/forgot-password", variant)}
+      >
+        <span>Request a new link</span>
+        <ArrowRight
+          aria-hidden="true"
+          className="size-5 transition-transform fine-hover:group-hover:translate-x-1"
+        />
+      </Link>
+      <div className="mt-8 text-center">
+        <Link className={RECOVERY_LINK_CLASS} href={variant.authPath}>
+          <ArrowLeft aria-hidden="true" className="size-4" />
+          Back to sign in
+        </Link>
+      </div>
+    </AuthRecoveryLayout>
+  );
+}
+
+function ResetPasswordContent() {
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token");
+  // Reset emails carry the sign-in page they belong to; older links without it go to guest sign-in.
+  const variant = getAuthVariantFromArea(searchParams.get("from"));
+  if (!token) {
+    return <ResetLinkMissing variant={variant} />;
+  }
   return (
     <AuthRecoveryLayout
       formDescription="Choose a new password with at least eight characters."
       formTitle="Set new password"
     >
-      <Suspense fallback={<p className="text-[#0B1026]/60">Loading…</p>}>
-        <ResetPasswordForm />
-      </Suspense>
+      <ResetPasswordForm token={token} variant={variant} />
     </AuthRecoveryLayout>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthRecoveryLayout formTitle="Set new password">
+          <p className="text-[#0B1026]/60">Loading…</p>
+        </AuthRecoveryLayout>
+      }
+    >
+      <ResetPasswordContent />
+    </Suspense>
   );
 }

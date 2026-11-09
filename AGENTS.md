@@ -25,6 +25,22 @@ settled rules without loading an implementation-history cache into every task.
 - Use `DESIGN.md` for UI ownership and `docs/VERIFICATION.md` for command/proof
   vocabulary. Shared foundations never authorize cross-surface convergence.
 
+## When to ask and when to act
+
+- Take reversible steps without asking, then show the result: edits on a
+  branch, local builds, tests, a local dev server, a pull request. When running
+  something would answer a question, run it rather than asking. Do not ask for a
+  rubber stamp.
+- Verify on a local dev server, not on Vercel previews. Previews sit behind
+  Vercel Authentication and cannot sign in to the portal.
+- Stop before one-way steps: production data or users, secrets, anything
+  published outside the repository, and merging a pull request (a merge to
+  `main` deploys to Production). Save questions for those and for product or
+  taste calls. Ask one question at a time, with a recommendation.
+- An approved one-way step covers that work, including subagents; quote the
+  approval to them. Come back only when the step turns out different from what
+  was approved.
+
 ## Task routing
 
 Use the trigger matrix and root-rule trace in

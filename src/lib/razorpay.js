@@ -9,7 +9,6 @@ import crypto from "node:crypto";
 import Razorpay from "razorpay";
 import { isRuntimeString } from "./runtimeValues";
 
-// Validate environment variables
 const keyId = process.env.RAZORPAY_KEY_ID;
 const keySecret = process.env.RAZORPAY_KEY_SECRET;
 
@@ -20,8 +19,7 @@ if (!(keyId && keySecret)) {
   );
 }
 
-// Initialize Razorpay instance
-// Note: We create this lazily to avoid errors during build when env vars aren't available
+// Created lazily so a build without Razorpay credentials does not fail.
 let razorpayInstance = null;
 
 export function getRazorpay() {

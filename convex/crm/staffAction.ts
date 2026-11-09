@@ -14,10 +14,7 @@ import { resolveAuthOrigin } from "../lib/authOriginPolicy";
 import { sendPasswordSetupEmail, sendVerificationEmail } from "../lib/betterAuthEmail";
 import { findAuthUserByEmail } from "../lib/betterAuthLookup";
 import { isRuntimeObject } from "../lib/runtimeValues";
-import {
-  staffOnboardingResultValidator,
-  successResultValidator,
-} from "./staffSettingsReturnContracts";
+import { staffOnboardingResultValidator } from "./staffSettingsReturnContracts";
 
 function isExistingUserError(cause: unknown) {
   let message = String(cause);
@@ -97,6 +94,13 @@ async function recoverExistingStaffAuth(
       step: "error",
     };
   }
+  if (existing?._id) {
+    // The account was there before the office added this person: its password is not theirs.
+    await ctx.runMutation(internal.crm.staffPasswordSetup.discardPasswordNotSetByLink, {
+      authUserId: String(existing._id),
+      staffId: args.staffId,
+    });
+  }
   const [, , authUser] = await Promise.all([
     ctx.runMutation(internal.crm.staff.markPendingOnboarding, {
       staffId: args.staffId,
@@ -173,6 +177,15 @@ async function provisionStaffCore(
       staffId: args.staffId,
     });
 
+    if (authUserId !== result.user.id) {
+      // Better Auth answered a sign-up for an address that already had an account as if it had
+      // created one: that account's password was chosen by whoever signed up, not this person.
+      await ctx.runMutation(internal.crm.staffPasswordSetup.discardPasswordNotSetByLink, {
+        authUserId,
+        staffId: args.staffId,
+      });
+    }
+
     await ctx.runMutation(internal.crm.staff.markPendingOnboarding, {
       staffId: args.staffId,
     });
@@ -229,7 +242,20 @@ export const sendPasswordSetupAfterVerification = internalAction({
       return { reason: "staff_not_pending" as const, sent: false };
     }
 
-    await ensureStaffAuthLink(ctx, staff.staffId, staff.email, staff.name, staff.authUserId);
+    const authUserId = await ensureStaffAuthLink(
+      ctx,
+      staff.staffId,
+      staff.email,
+      staff.name,
+      staff.authUserId
+    );
+    if (authUserId) {
+      // Verified now, so a password set at sign-up would start to work: only the link sets it.
+      await ctx.runMutation(internal.crm.staffPasswordSetup.discardPasswordNotSetByLink, {
+        authUserId,
+        staffId: staff.staffId,
+      });
+    }
 
     const auth = createAuth(ctx);
     const delivery = await sendPasswordSetupEmail(ctx, auth, args.email, "email.auth.staff_setup");
@@ -361,27 +387,4 @@ export const startStaffOnboarding = action({
     };
   },
   returns: staffOnboardingResultValidator,
-});
-
-/** @deprecated Use startStaffOnboarding — kept for compatibility */
-export const adminSendResetEmail = action({
-  args: {
-    email: v.string(),
-    name: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!(access?.allowed && access.permissions.includes("manage:staff"))) {
-      throw new ConvexError("FORBIDDEN");
-    }
-
-    const auth = createAuth(ctx);
-    const delivery = await sendPasswordSetupEmail(ctx, auth, args.email, "email.auth.staff_setup");
-    if (!delivery.sent) {
-      throw new ConvexError("Failed to send reset password email");
-    }
-
-    return { success: true as const };
-  },
-  returns: successResultValidator,
 });

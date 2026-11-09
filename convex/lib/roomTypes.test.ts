@@ -1,9 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  normalizeLegacyRoomType,
-  resolveRoomCategory,
-  resolveTravellerRoomFields,
-} from "./roomTypes";
+import { resolveRoomCategory, resolveTravellerRoomFields } from "./roomTypes";
 
 describe("RoomTypes migration helpers", () => {
   test("ResolveRoomCategory maps legacy codes", () => {
@@ -11,13 +7,6 @@ describe("RoomTypes migration helpers", () => {
     expect(resolveRoomCategory("DBL")).toBe("Double");
     expect(resolveRoomCategory("TPL")).toBe("Triple");
     expect(resolveRoomCategory("Twin")).toBe("Twin");
-  });
-
-  test("NormalizeLegacyRoomType maps legacy codes", () => {
-    expect(normalizeLegacyRoomType("SGL")).toBe("Single");
-    expect(normalizeLegacyRoomType("DBL")).toBe("Double");
-    expect(normalizeLegacyRoomType("TPL")).toBe("Triple");
-    expect(normalizeLegacyRoomType("Twin")).toBe("Twin");
   });
 
   test("ResolveTravellerRoomFields syncs room type from migrated hotel allocation", () => {

@@ -19,7 +19,6 @@ import {
   handleAssignJobCardCreator,
   handleQueryCreate,
   handleQueryUpdate,
-  handleQueryUpdateStatus,
   handleSubmitToContracting,
   handleUpdateContractingProgress,
 } from "./queryCommands";
@@ -68,6 +67,7 @@ import {
   getAllowedSalesPipelineBoardTargets as getAllowedSalesPipelineBoardTargetsImplementation,
   isSalesPipelineBoardLocked as isSalesPipelineBoardLockedImplementation,
   resolveSalesPipelineStage as resolveSalesPipelineStageImplementation,
+  salesPipelineBoardStageValidator,
 } from "./salesPipelinePolicy";
 
 export const assertConfirmedQueryIsTerminal = assertConfirmedQueryIsTerminalImplementation;
@@ -246,12 +246,6 @@ export const submitToContracting = mutation({
   returns: queryIdResultValidator,
 });
 
-const salesPipelineBoardStageValidator = v.union(
-  v.literal("Inquiry"),
-  v.literal("Proposal"),
-  v.literal("Negotiation")
-);
-
 export const moveSalesPipelineStage = mutation({
   args: {
     expectedLeadStage: leadStageValidator,
@@ -260,33 +254,6 @@ export const moveSalesPipelineStage = mutation({
   },
   handler: handleMoveSalesPipelineStage,
   returns: salesPipelineMoveResultValidator,
-});
-
-export const updateStatus = mutation({
-  args: {
-    airfarePerPax: v.optional(v.number()),
-    approxMargin: v.optional(v.number()),
-    commandId: v.optional(v.string()),
-    confirmedPax: v.optional(v.number()),
-    contractingAirlinesCost: v.optional(v.number()),
-    contractingLandCost: v.optional(v.number()),
-    contractingStatus: v.optional(contractingStatusValidator),
-    contractingVisaCost: v.optional(v.number()),
-    destination: v.optional(v.string()),
-    landCostPerPax: v.optional(v.number()),
-    leadStage: v.optional(leadStageValidator),
-    lostReason: v.optional(lostReasonValidator),
-    lostReasonOther: v.optional(v.string()),
-    proposalId: v.optional(v.string()),
-    queryId: v.string(),
-    salesStatus: v.optional(salesStatusValidator),
-    sellingPricePerPax: v.optional(v.number()),
-    travelEndDate: v.optional(v.string()),
-    travelStartDate: v.optional(v.string()),
-    visaCostPerPax: v.optional(v.number()),
-  },
-  handler: handleQueryUpdateStatus,
-  returns: queryIdResultValidator,
 });
 
 export const updateContractingProgress = mutation({

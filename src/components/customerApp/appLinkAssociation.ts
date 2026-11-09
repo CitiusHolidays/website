@@ -13,10 +13,10 @@
  * links keep opening the page.
  */
 
-export const CUSTOMER_APP_ID = "com.citiusholidays.app";
+const CUSTOMER_APP_ID = "com.citiusholidays.app";
 
 /** The website paths the app answers. Keep in step with the app's associatedDomains and intentFilters. */
-export const APP_LINK_PATHS = ["/app/sign-in", "/app/invite"] as const;
+const APP_LINK_PATHS = ["/app/sign-in", "/app/invite"] as const;
 
 const TEAM_ID = /^[A-Z0-9]{10}$/;
 const CERT_FINGERPRINT = /^[0-9A-F]{2}(?::[0-9A-F]{2}){31}$/;

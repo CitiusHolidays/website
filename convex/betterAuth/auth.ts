@@ -14,53 +14,31 @@ import type { DataModel } from "../_generated/dataModel";
 import authConfig from "../auth.config";
 import { scheduleAppSignInLink } from "../customerAppSignInDelivery";
 import {
+  AUTH_ATTEMPT_LIMITED_PATHS,
+  authAttemptKeyDigest,
+  authAttemptKindForPath,
+} from "../lib/authAttemptLimits";
+import {
   AUTH_EMAIL_TOKEN_TTL_SECONDS,
-  type AuthEmailPurpose,
   authEmailCorrelationSecretFromUrl,
+  authRecoveryAreaFromUrl,
   deliverTransactionalAuthEmail,
+  reportAuthEmailFailure,
   resolveAuthEmailControlKey,
 } from "../lib/authEmailDelivery";
 import { AUTH_EMAIL_BRAND, prepareAuthEmailMessage } from "../lib/authEmailHtml";
 import { resolveAuthOrigin } from "../lib/authOriginPolicy";
-import { SIGN_IN_DEVICE_HEADER, sha256Hex } from "../lib/customerAppSignIn";
+import {
+  APP_SIGN_IN_LINK_TTL_SECONDS,
+  SIGN_IN_DEVICE_HEADER,
+  sha256Hex,
+} from "../lib/customerAppSignIn";
 import { NATIVE_APP_TRUSTED_ORIGINS } from "../lib/nativeAppOrigins";
 import { isRuntimeString } from "../lib/runtimeValues";
 import schema from "./schema";
 
 const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
 const TWENTY_FOUR_HOURS_IN_SECONDS = 24 * 60 * 60;
-/** The customer app's email sign-in link works once, for this long (ADR 0020). */
-export const APP_SIGN_IN_LINK_TTL_SECONDS = 10 * 60;
-
-/**
- * The customer app's email sign-in link opens the website's `/app/sign-in` page, which hands the
- * token to the installed app in the URL fragment (never sent to a server). The app then calls
- * `/magic-link/verify` itself, so the session lands in the app's secure storage and no session
- * cookie ever travels in a URL.
- */
-const TRAILING_SLASH = /\/$/;
-
-export function appSignInLinkUrl(baseURL: string, token: string) {
-  return `${baseURL.replace(TRAILING_SLASH, "")}/app/sign-in#token=${encodeURIComponent(token)}`;
-}
-
-export function reportAuthEmailFailure(outcome: {
-  correlationDigest?: string;
-  failureCode?: string;
-  purpose: AuthEmailPurpose;
-  status?: string;
-}) {
-  console.error(
-    JSON.stringify({
-      correlationDigest: outcome.correlationDigest,
-      event: "auth_email_delivery_failed",
-      failureCode: outcome.failureCode ?? "delivery_unavailable",
-      purpose: outcome.purpose,
-      status: outcome.status ?? "unknown",
-    })
-  );
-}
-
 export const authComponent = createClient<DataModel, typeof schema>(components.betterAuth, {
   local: { schema },
   verbose: false,
@@ -94,8 +72,11 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       accountLinking: {
         allowDifferentEmails: false,
         enabled: true,
-        // Google is trusted; allow linking even when the email/password account is not verified yet.
-        requireLocalEmailVerified: false,
+        // Link Google into an existing email/password account only after that account's email
+        // is verified. Otherwise anyone could sign up with a victim's address and their own
+        // password, wait for the victim's first Google sign-in to link and verify the row, and
+        // then sign in with that password. Better Auth makes this gate unconditional next minor.
+        requireLocalEmailVerified: true,
         trustedProviders: googleClientId ? ["google"] : [],
         updateUserInfoOnLink: true,
       },
@@ -175,10 +156,31 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
           console.error(JSON.stringify({ event: "existing_user_recovery_queue_failed" }));
         }
       },
+      // A reset link proves the inbox, so a staff member's password set through one is theirs to
+      // keep when their staff access is set up (crm/staffPasswordSetup).
+      onPasswordReset: async ({ user }) => {
+        try {
+          await requireRunMutationCtx(ctx).runMutation(
+            internal.crm.staffPasswordSetup.recordPasswordSetByLink,
+            { email: user.email }
+          );
+        } catch {
+          console.error(JSON.stringify({ event: "staff_password_set_by_link_record_failed" }));
+        }
+      },
       requireEmailVerification: true,
       resetPasswordTokenExpiresIn: AUTH_EMAIL_TOKEN_TTL_SECONDS,
+      // A reset is how someone takes an account back, so it signs out every existing session:
+      // a stolen cookie or a session opened with the old password must not outlive it.
+      revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url, token }) => {
-        const resetUrl = token ? `${baseURL}/auth/reset-password?token=${token}` : url;
+        // Keep the sign-in area the request came from, so the reset page returns there.
+        const resetQuery = new URLSearchParams({ token });
+        const area = authRecoveryAreaFromUrl(url);
+        if (area) {
+          resetQuery.set("from", area);
+        }
+        const resetUrl = token ? `${baseURL}/auth/reset-password?${resetQuery}` : url;
         try {
           const message = await prepareAuthEmailMessage({
             ctaHref: resetUrl,
@@ -224,6 +226,10 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
           console.error(JSON.stringify({ event: "staff_password_setup_queue_failed" }));
         }
       },
+      // Opening the link proves the inbox, so it signs the person in: a traveller lands in their
+      // Travel Account. Staff verify once, from an invitation; pending setup still removes a
+      // password the link did not set (crm/staffPasswordSetup).
+      autoSignInAfterVerification: true,
       expiresIn: AUTH_EMAIL_TOKEN_TTL_SECONDS,
       sendOnSignIn: true,
       sendOnSignUp: true,
@@ -261,6 +267,28 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
     hooks: {
       // A sign-in link opens a session only on the device that asked for it (ADR 0020).
       before: createAuthMiddleware(async (hookCtx) => {
+        const attemptKind = authAttemptKindForPath(hookCtx.path);
+        // Only requests from outside count: the backend's own calls (staff provisioning, the
+        // recovery email after a repeated sign-up) carry no request and were already counted.
+        if (attemptKind && hookCtx.request) {
+          const email = hookCtx.body?.email;
+          if (!isRuntimeString(email) || email.length === 0) {
+            return;
+          }
+          const outcome = await requireActionCtx(ctx).runMutation(
+            internal.authAttemptLimits.consumeAuthAttempt,
+            { keyDigest: await authAttemptKeyDigest(attemptKind, email), kind: attemptKind }
+          );
+          if (!outcome.ok) {
+            // The same answer Better Auth's own limiter gives, whether or not the account exists.
+            throw new APIError(
+              "TOO_MANY_REQUESTS",
+              { code: "TOO_MANY_REQUESTS", message: "Too many requests. Please try again later." },
+              { "X-Retry-After": String(outcome.retryAfterSeconds) }
+            );
+          }
+          return;
+        }
         if (hookCtx.path !== "/magic-link/verify") {
           return;
         }
@@ -296,6 +324,16 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       }),
     ],
     rateLimit: {
+      // Better Auth keys its limiter on the client IP, which a Convex HTTP action cannot trust, so
+      // without one every caller shares one bucket per path. Paths limited durably elsewhere skip
+      // it: password sign-in and auth emails per address (lib/authAttemptLimits), and the
+      // customer app's email link per inbox, domain and phone (ADR 0020).
+      customRules: Object.fromEntries(
+        [...AUTH_ATTEMPT_LIMITED_PATHS, "/sign-in/magic-link", "/magic-link/verify"].map((path) => [
+          path,
+          false as const,
+        ])
+      ),
       enabled: true,
       max: 10,
       window: 60,

@@ -87,7 +87,7 @@ export function isProposalPricingComplete(form) {
   return Number(form.sellingPrice) > 0 && proposalCostPrice(form) > 0;
 }
 
-export function assertProposalPricingComplete(form, message = PROPOSAL_HANDOFF_TO_SALES_ERROR) {
+function assertProposalPricingComplete(form, message = PROPOSAL_HANDOFF_TO_SALES_ERROR) {
   if (!isProposalPricingComplete(form)) {
     throw new Error(message);
   }

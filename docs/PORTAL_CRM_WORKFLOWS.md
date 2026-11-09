@@ -117,7 +117,8 @@ Contracting sends costing to Sales through Send to Sales. The query shows as Wit
 Send to Sales targets exactly one `{ proposalId, queryId, proposalRevision }` pair. It stores an
 immutable handoff snapshot before the command receipt. Sales can confirm only the current revision
 handed to that Query; editable browser prices and a newer unhanded Proposal revision are rejected.
-The retired `proposals.markAccepted` and generic `queries.updateStatus` capabilities fail closed.
+The retired `proposals.markSent`, `proposals.markAccepted` and generic `queries.updateStatus`
+capabilities are no longer exposed; a call to any of them fails as an unknown function.
 
 Proposal cost price is per person and auto-calculated from land, airfare, and visa cost per pax. Contracting enters `visaCostPerPax`; manual CP entry is not part of the workflow. Tax supports 5%, 18%, or a custom rate.
 

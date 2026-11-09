@@ -61,13 +61,6 @@ const getIdentityOrThrow = async (ctx: QueryCtx | MutationCtx) => {
   return identity;
 };
 
-async function readIdentityIds(
-  ctx: QueryCtx | MutationCtx,
-  identity: Awaited<ReturnType<typeof getIdentityOrThrow>>
-) {
-  return await authorizedCustomerIdentityIds(ctx, identity);
-}
-
 async function mutationIdentity(
   ctx: MutationCtx,
   identity: Awaited<ReturnType<typeof getIdentityOrThrow>>
@@ -199,7 +192,10 @@ export const getMyProgress = query({
     if (!identity) {
       return null;
     }
-    return await buildProgressPayloadForIdentityIds(ctx, await readIdentityIds(ctx, identity));
+    return await buildProgressPayloadForIdentityIds(
+      ctx,
+      await authorizedCustomerIdentityIds(ctx, identity)
+    );
   },
   returns: nullableSacredProgressValidator,
 });
@@ -259,7 +255,7 @@ export const getMyPassportProfile = query({
     }
     const profile = await getPassportProfileForIdentityIds(
       ctx,
-      await readIdentityIds(ctx, identity)
+      await authorizedCustomerIdentityIds(ctx, identity)
     );
     return profile
       ? {

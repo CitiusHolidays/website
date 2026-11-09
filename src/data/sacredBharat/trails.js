@@ -122,7 +122,7 @@ export const TRAILS = [
   },
 ];
 
-export const TRAIL_BY_SLUG = Object.fromEntries(TRAILS.map((t) => [t.slug, t]));
+const TRAIL_BY_SLUG = Object.fromEntries(TRAILS.map((t) => [t.slug, t]));
 
 export function getTrailBySlug(slug) {
   return TRAIL_BY_SLUG[slug] ?? null;

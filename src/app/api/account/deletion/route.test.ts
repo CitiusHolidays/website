@@ -113,6 +113,27 @@ describe("Account deletion route", () => {
     expect(calls).toEqual([]);
   });
 
+  test("refuses a cross-site browser request before reading the session or calling the backend", async () => {
+    const response = await POST(
+      new Request("http://localhost/api/account/deletion", {
+        body: JSON.stringify({ confirmation: "DELETE" }),
+        headers: {
+          "Content-Type": "text/plain",
+          Origin: "https://attacker.example",
+          "Sec-Fetch-Site": "cross-site",
+        },
+        method: "POST",
+      })
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({
+      code: "forbidden_origin",
+      error: "Request origin not allowed.",
+    });
+    expect(calls).toEqual([]);
+  });
+
   test("maps backend refusals to plain guidance without leaking details", async () => {
     const cases: [Error, number, string, string][] = [
       [

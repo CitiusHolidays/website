@@ -43,16 +43,16 @@ describe("Public interaction motion recipe", () => {
 
   test("Stages occasional content swaps with GPU transform strings", () => {
     expect(publicStageMotion(false)).toEqual({
-      animate: { filter: "blur(0px)", opacity: 1, transform: "translate3d(0, 0, 0)" },
+      animate: { opacity: 1, transform: "translate3d(0, 0, 0)" },
       exit: {
-        filter: "blur(4px)",
         opacity: 0,
         transform: "translate3d(0, -12px, 0)",
         transition: { duration: 0.15, ease: PUBLIC_EASE_OUT },
       },
-      initial: { filter: "blur(4px)", opacity: 0, transform: "translate3d(0, 16px, 0)" },
+      initial: { opacity: 0, transform: "translate3d(0, 16px, 0)" },
       transition: { duration: 0.28, ease: PUBLIC_EASE_OUT },
     });
+    expect(publicStaggerItem(false).variants.hidden).not.toHaveProperty("filter");
     expect(publicRevealMotion(false).initial).toEqual({
       opacity: 0,
       transform: "translate3d(0, 12px, 0)",

@@ -40,6 +40,21 @@ export const SIGN_IN_LINK_WINDOW_MS = 60 * 60 * 1000;
 /** Rows are kept a day, long enough to count the window and outlive the 10-minute link. */
 export const SIGN_IN_LINK_ROW_TTL_MS = 24 * 60 * 60 * 1000;
 
+/** The customer app's email sign-in link works once, for this long (ADR 0020). */
+export const APP_SIGN_IN_LINK_TTL_SECONDS = 10 * 60;
+
+/**
+ * The customer app's email sign-in link opens the website's `/app/sign-in` page, which hands the
+ * token to the installed app in the URL fragment (never sent to a server). The app then calls
+ * `/magic-link/verify` itself, so the session lands in the app's secure storage and no session
+ * cookie ever travels in a URL.
+ */
+const TRAILING_SLASH = /\/$/;
+
+export function appSignInLinkUrl(baseURL: string, token: string) {
+  return `${baseURL.replace(TRAILING_SLASH, "")}/app/sign-in#token=${encodeURIComponent(token)}`;
+}
+
 import { isRuntimeString } from "./runtimeValues";
 
 /** What the app sends with a sign-in link request (Better Auth's `metadata`). */

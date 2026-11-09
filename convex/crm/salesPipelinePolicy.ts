@@ -1,11 +1,14 @@
 import { ConvexError } from "convex/values";
+import { literalUnion } from "../lib/literalValidators";
 import type { LeadStage } from "./queryValidators";
 
 export const SALES_PIPELINE_BOARD_STAGES = ["Inquiry", "Proposal", "Negotiation"] as const;
 
 export type SalesPipelineBoardStage = (typeof SALES_PIPELINE_BOARD_STAGES)[number];
 
-const TERMINAL_PIPELINE_STAGES = new Set<LeadStage | "Closed">(["Confirmation", "Lost", "Closed"]);
+export const salesPipelineBoardStageValidator = literalUnion(SALES_PIPELINE_BOARD_STAGES);
+
+const TERMINAL_PIPELINE_STAGES = new Set<string>(["Confirmation", "Lost", "Closed"]);
 
 const SALES_PIPELINE_BOARD_LOCKED_STATUSES = new Set([
   "Order Confirmed",
@@ -68,11 +71,17 @@ export function resolveSalesPipelineStage(query: PipelineQueryRecord): LeadStage
   return "Inquiry";
 }
 
-export function isSalesPipelineBoardLocked(query: PipelineQueryRecord) {
+/**
+ * `stage` defaults to the server's resolved stage; the Staff Workspace board
+ * passes the stage it displays so its affordances match what it shows.
+ */
+export function isSalesPipelineBoardLocked(
+  query: PipelineQueryRecord,
+  stage: string = resolveSalesPipelineStage(query)
+) {
   if (query.salesStatus && SALES_PIPELINE_BOARD_LOCKED_STATUSES.has(query.salesStatus)) {
     return true;
   }
-  const stage = resolveSalesPipelineStage(query);
   return TERMINAL_PIPELINE_STAGES.has(stage);
 }
 
@@ -81,7 +90,7 @@ export function isSalesPipelineBoardStage(stage: string): stage is SalesPipeline
 }
 
 export function getAllowedSalesPipelineBoardTargets(
-  currentStage: LeadStage
+  currentStage: string
 ): SalesPipelineBoardStage[] {
   if (!isSalesPipelineBoardStage(currentStage)) {
     return [];

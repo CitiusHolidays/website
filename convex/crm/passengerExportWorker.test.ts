@@ -6,13 +6,18 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { fromPartial } from "@total-typescript/shoehorn";
 import ExcelJS from "exceljs";
+import { encryptPassportDetails } from "../lib/encryption";
 import {
   PASSENGER_EXPORT_MAX_ROW_BYTES,
   PASSENGER_EXPORT_MERGE_FAN_IN,
   PASSENGER_EXPORT_WORKER_MEMORY_BUDGET_BYTES,
 } from "./passengerExportPolicy";
-import type { PassengerExportSortableRow } from "./passengerExportSourceContract";
+import type {
+  PassengerExportSortableRow,
+  PassengerExportSourceRow,
+} from "./passengerExportSourceContract";
 import {
+  mapPassengerExportRow,
   mergePassengerExportChunkFiles,
   passengerExportSourceOrder,
   serializePassengerExportChunk,
@@ -131,4 +136,48 @@ describe("Bounded passenger export worker", () => {
     expect(workbook.worksheets[0]?.rowCount).toBe(20_001);
     expect(workbook.worksheets[0]?.getRow(20_001).getCell(3).value).toBe("019999");
   }, 30_000);
+});
+
+describe("MapPassengerExportRow", () => {
+  const previousKey = process.env.ENCRYPTION_KEY;
+  afterEach(() => {
+    if (previousKey === undefined) {
+      delete process.env.ENCRYPTION_KEY;
+    } else {
+      process.env.ENCRYPTION_KEY = previousKey;
+    }
+  });
+
+  function sourceRow(encryptedPassportPayload: string) {
+    return fromPartial<PassengerExportSourceRow>({
+      createdAt: 1,
+      encryptedPassportPayload,
+      fullName: "Traveller",
+      tickets: [],
+    });
+  }
+
+  test("Exports blank passport cells for one unreadable payload", () => {
+    process.env.ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
+
+    expect(mapPassengerExportRow(sourceRow("not:a:payload")).passport).toEqual({
+      dateOfBirth: "",
+      expiryDate: "",
+      issueDate: "",
+      number: "",
+    });
+  });
+
+  test("Fails the export instead of blanking every passport when the key is missing", () => {
+    process.env.ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64");
+    const payload = encryptPassportDetails({
+      dateOfBirth: "1990-01-01",
+      expiryDate: "2034-01-01",
+      nationality: "INDIAN",
+      number: "Z1234567",
+    });
+    delete process.env.ENCRYPTION_KEY;
+
+    expect(() => mapPassengerExportRow(sourceRow(payload))).toThrow("ENCRYPTION_KEY");
+  });
 });

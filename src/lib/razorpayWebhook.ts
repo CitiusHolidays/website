@@ -1,5 +1,9 @@
+import { isJsonObject, type JsonObject, type JsonValue } from "./jsonValue";
 import { isRuntimeNumber, isRuntimeString } from "./runtimeValues";
 export interface RazorpayPaymentEntity {
+  /** Paid amount in the currency's minor unit (paise for INR). */
+  amount?: unknown;
+  currency?: string;
   error_description?: string;
   id?: string;
   order_id?: string;
@@ -23,6 +27,58 @@ export interface RazorpayWebhookPayload {
   };
 }
 
+function optionalString(entity: JsonObject, key: string) {
+  const value = entity[key];
+  return isRuntimeString(value) ? value : undefined;
+}
+
+function paymentEntityFrom(value: JsonValue): RazorpayPaymentEntity | undefined {
+  if (!isJsonObject(value)) {
+    return;
+  }
+  return {
+    amount: value.amount,
+    currency: optionalString(value, "currency"),
+    error_description: optionalString(value, "error_description"),
+    id: optionalString(value, "id"),
+    order_id: optionalString(value, "order_id"),
+  };
+}
+
+function refundEntityFrom(value: JsonValue): RazorpayRefundEntity | undefined {
+  if (!isJsonObject(value)) {
+    return;
+  }
+  return {
+    amount: value.amount,
+    id: optionalString(value, "id"),
+    payment_id: optionalString(value, "payment_id"),
+  };
+}
+
+function entityOf(container: JsonValue) {
+  return isJsonObject(container) ? container.entity : undefined;
+}
+
+/**
+ * Narrows a signed provider body to the fields this handler reads. Malformed shapes become absent
+ * fields, so the event handlers reject them as invalid payloads instead of failing on property
+ * access.
+ */
+export function parseRazorpayWebhookPayload(body: JsonValue): RazorpayWebhookPayload {
+  if (!isJsonObject(body)) {
+    return {};
+  }
+  const inner = isJsonObject(body.payload) ? body.payload : {};
+  return {
+    event: body.event,
+    payload: {
+      payment: { entity: paymentEntityFrom(entityOf(inner.payment)) },
+      refund: { entity: refundEntityFrom(entityOf(inner.refund)) },
+    },
+  };
+}
+
 export interface BookingTransitionResult {
   alreadyConfirmed?: boolean;
   booking?: { id?: string } | null;
@@ -30,6 +86,7 @@ export interface BookingTransitionResult {
   id?: string;
   ignored?: boolean;
   message?: string;
+  paymentMismatch?: boolean;
   status?: string;
   success?: boolean;
 }
@@ -37,6 +94,8 @@ export interface BookingTransitionResult {
 export interface RazorpayWebhookDeps {
   confirmBookingByOrderId: (args: {
     orderId: string;
+    paidAmount: number;
+    paidCurrency: string;
     paymentId: string;
     providerEventId: string;
     reason: string;
@@ -174,6 +233,11 @@ interface PaymentEntityIdentity {
   paymentId: string;
 }
 
+interface CapturedPaymentIdentity extends PaymentEntityIdentity {
+  paidAmount: number;
+  paidCurrency: string;
+}
+
 interface RefundEntityIdentity {
   /** Refund amount in the currency's minor unit, when Razorpay supplies a valid one. */
   amount?: number;
@@ -198,6 +262,27 @@ function requirePaymentEntity(
     );
   }
   return { orderId, paymentId };
+}
+
+/** A capture confirms a booking only for what Razorpay says was paid, so both fields are required. */
+function requireCapturedPayment(
+  event: string,
+  payment: RazorpayPaymentEntity | undefined
+): CapturedPaymentIdentity {
+  const identity = requirePaymentEntity(event, payment);
+  const amount = payment?.amount;
+  const currency = payment?.currency;
+  if (!(isRuntimeNumber(amount) && Number.isSafeInteger(amount) && amount >= 0)) {
+    throw new RazorpayWebhookPayloadError(
+      `Invalid Razorpay webhook payload: ${event} requires payment.entity.amount`
+    );
+  }
+  if (!isRuntimeString(currency) || currency.trim().length === 0) {
+    throw new RazorpayWebhookPayloadError(
+      `Invalid Razorpay webhook payload: ${event} requires payment.entity.currency`
+    );
+  }
+  return { ...identity, paidAmount: amount, paidCurrency: currency };
 }
 
 function requireRefundEntity(
@@ -252,17 +337,29 @@ async function handlePaymentCaptured(
   payment: RazorpayPaymentEntity | undefined,
   deps: RazorpayWebhookDeps
 ): Promise<RazorpayWebhookResult> {
-  const { orderId, paymentId } = requirePaymentEntity("payment.captured", payment);
+  const { orderId, paidAmount, paidCurrency, paymentId } = requireCapturedPayment(
+    "payment.captured",
+    payment
+  );
   const serverSecret = requireServerSecret(deps);
 
-  await runPaymentMutation("confirm Razorpay booking from webhook", () =>
+  const result = await runPaymentMutation("confirm Razorpay booking from webhook", () =>
     deps.confirmBookingByOrderId({
       orderId,
+      paidAmount,
+      paidCurrency,
       paymentId,
       ...webhookEventMetadata("payment.captured", paymentId),
       serverSecret,
     })
   );
+  if (result?.paymentMismatch) {
+    // Acknowledged so Razorpay stops retrying; the booking records the mismatch for staff.
+    console.error(
+      `Razorpay capture ${paymentId} for order ${orderId} does not match the booking amount`
+    );
+    return { action: "payment.amount_mismatch", received: true };
+  }
   return { action: "payment.captured", received: true };
 }
 

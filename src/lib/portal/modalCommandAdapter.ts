@@ -58,14 +58,6 @@ export interface ModalCommandAdapter {
   policy: ModalCommandPolicy;
 }
 
-export type ModalCommandRequest = {
-  [Command in ModalCommandId]: {
-    adapter: ModalCommandAdapter;
-    form: ModalCommandForm;
-    modal: Command;
-  };
-}[ModalCommandId];
-
 export function isModalCommandId(modal: string): modal is ModalCommandId {
   return MODAL_COMMAND_IDS.some((candidate) => candidate === modal);
 }

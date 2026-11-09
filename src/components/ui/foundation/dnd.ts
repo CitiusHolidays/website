@@ -2,4 +2,4 @@
 // biome-ignore lint/performance/noBarrelFile: this file is the intentional third-party import boundary.
 export * from "@dnd-kit/core";
 export * from "@dnd-kit/sortable";
-export { CSS, getEventCoordinates } from "@dnd-kit/utilities";
+export { CSS } from "@dnd-kit/utilities";

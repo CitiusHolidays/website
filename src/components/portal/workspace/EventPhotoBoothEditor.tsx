@@ -745,6 +745,12 @@ function StaffAssignments({
   );
 }
 
+/** The editor's latest outcome: nothing, a status announcement, or an error. */
+type EditorNotice =
+  | { kind: "none" }
+  | { kind: "status"; text: string }
+  | { kind: "error"; text: string };
+
 function useBoothEditor(props: EventPhotoBoothEditorProps) {
   const { state } = props;
   const [draft, setDraft] = useState({
@@ -754,8 +760,12 @@ function useBoothEditor(props: EventPhotoBoothEditorProps) {
   });
   const [selectedId, setSelectedId] = useState(state.draftScenes[0]?.id ?? "");
   const [busy, setBusy] = useState<false | "saving" | "uploading">(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
+  // One outcome at a time, so a fresh failure never sits beside the previous success.
+  const [notice, setNotice] = useState<EditorNotice>({ kind: "none" });
+  const message = notice.kind === "status" ? notice.text : "";
+  const error = notice.kind === "error" ? notice.text : "";
+  const setMessage = (text: string) => setNotice({ kind: "status", text });
+  const setError = (text: string) => setNotice({ kind: "error", text });
   if (state.revision > draft.revision && !draft.dirty && !busy) {
     setDraft({ dirty: false, revision: state.revision, scenes: state.draftScenes });
   }
@@ -788,8 +798,7 @@ function useBoothEditor(props: EventPhotoBoothEditorProps) {
 
   const beginChange = (operation: "saving" | "uploading" = "saving") => {
     setBusy(operation);
-    setError("");
-    setMessage("");
+    setNotice({ kind: "none" });
   };
   const reportFailure = (failure: Error) => setError(errorMessage(failure));
   const update = (scene: BoothScene) =>
@@ -886,7 +895,6 @@ function useBoothEditor(props: EventPhotoBoothEditorProps) {
   };
   const loadLatest = () => {
     setDraft({ dirty: false, revision: state.revision, scenes: state.draftScenes });
-    setError("");
     setMessage("Latest saved draft loaded.");
   };
   const save = async (event: FormEvent<HTMLFormElement>) => {

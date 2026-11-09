@@ -556,6 +556,11 @@ describe("traveller retention (anonymise 3 years after the trip)", () => {
       firstGuardianTravellerId: guardian,
       guardianImportReferences: [{ name: "Synthetic Parent" }],
       isMinor: true,
+      parentalConsent: {
+        note: "Synthetic Parent signed",
+        receivedAt: istMidnight("2023-10-01"),
+        recordedByName: "Synthetic Ops",
+      },
     });
     const recent = await insertTraveller(t, recentJob, "Synthetic Recent");
     // Same Job Card, a later Travel Batch: kept, and keeps its link to the guardian.
@@ -681,6 +686,8 @@ describe("traveller retention (anonymise 3 years after the trip)", () => {
     expect(state.minor?.firstGuardianTravellerId).toBeUndefined();
     expect(state.minor?.guardianImportReferences).toBeUndefined();
     expect(state.minor?.isMinor).toBeUndefined();
+    // The consent mark exists only on a known minor, and its note can name the parent.
+    expect(state.minor?.parentalConsent).toBeUndefined();
     expect(state.recent).toMatchObject({ fullName: "Synthetic Recent" });
     expect(state.laterMinor).toMatchObject({
       firstGuardianTravellerId: f.guardian,

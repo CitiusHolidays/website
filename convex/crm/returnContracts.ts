@@ -4,6 +4,7 @@ import { destinationCoverValidator } from "../lib/customerAppCovers";
 import { JOB_CARD_STATUS } from "./jobCardConstants";
 import {
   contractingStatusValidator,
+  leadStageValidator,
   querySourceValidator,
   queryTypeValidator,
   salesStatusValidator,
@@ -420,14 +421,6 @@ export const jobCardCommandCenterResultValidator = v.object({
   visaRecords: v.array(v.object({ status: v.string() })),
 });
 
-const salesPipelineStageValidator = v.union(
-  v.literal("Inquiry"),
-  v.literal("Proposal"),
-  v.literal("Negotiation"),
-  v.literal("Confirmation"),
-  v.literal("Lost")
-);
-
 const metricTrendDirectionValidator = v.union(
   v.literal("up"),
   v.literal("down"),
@@ -452,7 +445,7 @@ const queryTypeCountValidator = v.object({
 
 const pipelineStageSnapshotValidator = v.object({
   count: v.number(),
-  stage: salesPipelineStageValidator,
+  stage: leadStageValidator,
   value: v.number(),
   weighted: v.number(),
 });

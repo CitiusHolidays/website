@@ -636,8 +636,6 @@ export const LEAVE_TYPES = [
   "Leave Without Pay",
 ];
 
-export const EXPENSE_CATEGORIES = EXPENSE_HEADS;
-
 export const PAYMENT_TERMS_BY_QUERY_TYPE = {
   B2B: { maxAdvancePercent: 100, minAdvancePercent: 80 },
   Cement: { maxAdvancePercent: 90, minAdvancePercent: 70 },

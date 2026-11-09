@@ -314,7 +314,7 @@ export function applyClientAiStreamEvent(
   return current;
 }
 
-export function hasVisibleClientAiText(message: ClientAiMessage): boolean {
+function hasVisibleClientAiText(message: ClientAiMessage): boolean {
   return message.parts.some((part) => part.type === "text" && part.text.trim().length > 0);
 }
 

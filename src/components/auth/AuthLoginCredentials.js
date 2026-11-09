@@ -5,7 +5,8 @@ import { useEffect, useReducer, useRef } from "react";
 import { signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/lib/auth-client";
 import { formatAuthApiError } from "@/lib/auth-errors";
 import { resolveAuthReturnPath } from "@/lib/auth-return-path";
-import { AuthLoginForm, AuthVerificationNotice } from "./AuthLoginForm";
+import { verificationCallbackHref } from "@/lib/auth-sign-in-targets";
+import { AuthLoginForm, AuthOtherSignIn, AuthVerificationNotice } from "./AuthLoginForm";
 import AuthShell from "./AuthShell";
 
 function createAuthState({ allowSignup, initialMode, error }) {
@@ -45,6 +46,8 @@ export function AuthLoginCredentials({
 }) {
   const router = useRouter();
   const destination = resolveAuthReturnPath(returnTo, variant) ?? variant.href;
+  // A sign-up, or a sign-in before the email is verified, sends a verification email.
+  const verificationCallbackURL = verificationCallbackHref(variant, destination);
   const formStatusRef = useRef(null);
   const [state, dispatch] = useReducer(
     authReducer,
@@ -88,6 +91,7 @@ export function AuthLoginCredentials({
     try {
       if (mode === "signin") {
         const result = await signInWithEmail({
+          callbackURL: verificationCallbackURL,
           email: formData.email,
           password: formData.password,
         });
@@ -106,6 +110,7 @@ export function AuthLoginCredentials({
         }
       } else {
         const result = await signUpWithEmail({
+          callbackURL: verificationCallbackURL,
           email: formData.email,
           name: formData.name,
           password: formData.password,
@@ -220,6 +225,7 @@ export function AuthLoginCredentials({
             showPassword={showPassword}
             variant={variant}
           />
+          {mode === "signin" ? <AuthOtherSignIn variantId={variant.id} /> : null}
         </>
       )}
     </AuthShell>

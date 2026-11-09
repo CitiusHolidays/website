@@ -1,6 +1,5 @@
 "use client";
 
-import { m } from "motion/react";
 import { cn } from "@/lib/utils";
 import Acer from "@/static/clients/acer.webp";
 import Adani from "@/static/clients/adani.webp";
@@ -70,13 +69,7 @@ export default function ClientShowcase({ className }) {
   const items = clients.map((logo) => <ClientBox alt={logo.alt} key={logo.alt} src={logo.src} />);
 
   return (
-    <m.section
-      className={cn("bg-brand-light py-12", className)}
-      initial={{ opacity: 0, y: 40 }}
-      transition={{ delay: 0.2, duration: 0.8 }}
-      viewport={{ amount: 0.2, once: true }}
-      whileInView={{ opacity: 1, y: 0 }}
-    >
+    <section className={cn("bg-brand-light py-12", className)}>
       <h2 className="mb-8 text-center font-semibold text-2xl text-citius-blue">
         Corporate Clients
       </h2>
@@ -89,6 +82,6 @@ export default function ClientShowcase({ className }) {
         }}
         velocity={65}
       />
-    </m.section>
+    </section>
   );
 }

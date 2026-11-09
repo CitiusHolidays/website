@@ -5,7 +5,7 @@ import { resolvePolicyView } from "./policyView";
 export const metadata = {
   description:
     "Billing Policy, Payment Gateway Policy, and Terms & Conditions for Citius Holidays.",
-  title: "Policies & Terms | Citius Holidays",
+  title: "Policies & Terms",
 };
 
 async function PoliciesPageContent({ searchParams }) {
@@ -23,7 +23,11 @@ export default function PoliciesPage({ searchParams }) {
   return (
     <Suspense
       fallback={
-        <div aria-label="Loading policy" className="min-h-[640px] bg-public-paper" role="status" />
+        <div
+          aria-label="Loading policy"
+          className="min-h-[max(100dvh,640px)] bg-public-paper"
+          role="status"
+        />
       }
     >
       <PoliciesPageContent searchParams={searchParams} />

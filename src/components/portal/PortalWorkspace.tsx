@@ -9,6 +9,7 @@ import {
 } from "@/components/portal/PortalChromeContext";
 import { PortalCommandPaletteRoot } from "@/components/portal/PortalCommandPalette";
 import { PortalFilterActionsProvider } from "@/components/portal/PortalFilterActions";
+import { usePortalPaletteNavGroups } from "@/components/portal/PortalNavigationPalette";
 import { type PortalSavedView, usePortalChrome } from "@/components/portal/portalChromeState";
 import SaveViewDialog from "@/components/portal/SaveViewDialog";
 import { usePortalNotificationDeepLink } from "@/components/portal/usePortalNotificationDeepLink";
@@ -27,7 +28,7 @@ import {
 import type { PortalWorkspaceModel } from "@/components/portal/workspace/portalWorkspaceModel";
 import type { SaveCurrentViewOptions } from "@/components/portal/workspace/workspaceStateTypes";
 import { PORTAL_PERMISSIONS } from "@/lib/portal/constants";
-import { getAccessibleNavGroups, portalHomeHref } from "@/lib/portal/permissions";
+import { portalHomeHref } from "@/lib/portal/permissions";
 
 const P = PORTAL_PERMISSIONS;
 const EMPTY_SAVED_VIEWS: PortalSavedView[] = [];
@@ -80,7 +81,7 @@ function PortalWorkspaceViews({ workspace }: { workspace: PortalWorkspaceModel }
 }
 
 function PortalWorkspaceLayout({ workspace }: { workspace: PortalWorkspaceModel }) {
-  const navGroups = getAccessibleNavGroups(workspace.chrome.access);
+  const navGroups = usePortalPaletteNavGroups(workspace.chrome.access);
   const { navShortcuts } = usePortalChrome();
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [savingView, setSavingView] = useState(false);

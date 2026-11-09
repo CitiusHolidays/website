@@ -1,7 +1,9 @@
 import { ConvexError, v } from "convex/values";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery } from "../_generated/server";
-import { propertiesWhen } from "../lib/runtimeValues";
+import { boundedMigrationLimit } from "../lib/migrationBatch";
+import { migrationRegistryState, startedMigrationRegistry } from "../lib/migrationRegistry";
+import { assertMigrationSecret } from "../migrationAuth";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 
 export const CLOSED_LEAD_STAGE_MIGRATION_KEY = "query-lead-stage-closed-to-lost-v1";
@@ -40,17 +42,6 @@ const statusValidator = v.object({
   verified: v.boolean(),
   verifiedAt: v.union(v.number(), v.null()),
 });
-
-function assertMigrationSecret(secret: string) {
-  const expected = process.env.MIGRATION_SECRET;
-  if (!expected || secret !== expected) {
-    throw new ConvexError("Invalid migration secret");
-  }
-}
-
-function boundedLimit(limit?: number) {
-  return Math.min(Math.max(Math.trunc(limit ?? DEFAULT_LIMIT), 1), DEFAULT_LIMIT);
-}
 
 function registryKey(dryRun: boolean) {
   return dryRun ? `${CLOSED_LEAD_STAGE_MIGRATION_KEY}:dry-run` : CLOSED_LEAD_STAGE_MIGRATION_KEY;
@@ -96,7 +87,7 @@ export const migrateClosedLeadStages = internalMutation({
     assertMigrationSecret(args.secret);
     const key = registryKey(args.dryRun);
     const now = Date.now();
-    const limit = boundedLimit(args.limit);
+    const limit = boundedMigrationLimit(args.limit, DEFAULT_LIMIT);
     let registry = await loadRegistry(ctx, key);
     if (registry?.status === "verified" || (args.dryRun && registry?.status === "failed")) {
       return {
@@ -111,15 +102,7 @@ export const migrateClosedLeadStages = internalMutation({
     }
     if (!args.dryRun && registry?.status === "failed") {
       await ctx.db.patch("dataMigrationRegistry", registry._id, {
-        converted: 0,
-        cursor: null,
-        legacyRemaining: 0,
-        processed: 0,
-        stage: "backfill",
-        startedAt: now,
-        status: "running",
-        updatedAt: now,
-        verifiedAt: undefined,
+        ...startedMigrationRegistry("backfill", now),
       });
       registry = await ctx.db.get("dataMigrationRegistry", registry._id);
     }
@@ -136,15 +119,8 @@ export const migrateClosedLeadStages = internalMutation({
     }
     if (!registry) {
       const id = await ctx.db.insert("dataMigrationRegistry", {
-        converted: 0,
-        cursor: null,
         key,
-        legacyRemaining: 0,
-        processed: 0,
-        stage: "backfill",
-        startedAt: now,
-        status: "running",
-        updatedAt: now,
+        ...startedMigrationRegistry("backfill", now),
       });
       registry = await ctx.db.get("dataMigrationRegistry", id);
     }
@@ -176,13 +152,8 @@ export const migrateClosedLeadStages = internalMutation({
     const { stage, status } = backfillCompletion(args.dryRun, page.isDone, legacyRemaining);
     await ctx.db.patch("dataMigrationRegistry", registry._id, {
       converted,
-      cursor,
-      legacyRemaining,
       processed,
-      stage,
-      status,
-      updatedAt: now,
-      ...propertiesWhen(status === "verified", () => ({ verifiedAt: now })),
+      ...migrationRegistryState({ cursor, legacyRemaining, stage, status }, now),
     });
     return {
       converted: pageConverted,
@@ -223,19 +194,17 @@ export const verifyClosedLeadStages = internalMutation({
     const page = await ctx.db
       .query("queries")
       .order("asc")
-      .paginate({ cursor: registry.cursor, numItems: boundedLimit(args.limit) });
+      .paginate({
+        cursor: registry.cursor,
+        numItems: boundedMigrationLimit(args.limit, DEFAULT_LIMIT),
+      });
     const pageResiduals = page.page.filter((query) => query.leadStage === "Closed").length;
     const legacyRemaining = registry.legacyRemaining + pageResiduals;
     const cursor = page.isDone ? null : page.continueCursor;
     const { stage, status } = verificationCompletion(page.isDone, legacyRemaining);
     await ctx.db.patch("dataMigrationRegistry", registry._id, {
-      cursor,
-      legacyRemaining,
       processed: registry.processed + page.page.length,
-      stage,
-      status,
-      updatedAt: now,
-      ...propertiesWhen(status === "verified", () => ({ verifiedAt: now })),
+      ...migrationRegistryState({ cursor, legacyRemaining, stage, status }, now),
     });
     return {
       converted: 0,

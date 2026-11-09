@@ -33,9 +33,6 @@ export default function PilgrimagePageClient({ images }) {
             viewport={{ once: true }}
             whileInView={{ opacity: 1, y: 0 }}
           >
-            <span className="mb-4 block font-heading text-public-orange-ink text-xs uppercase tracking-[0.3em] md:text-sm">
-              Citius Spiritual Trails
-            </span>
             <h2 className="mb-4 font-heading text-3xl text-public-ink leading-tight md:mb-6 md:text-5xl lg:text-6xl">
               The 2026 Kailash <br className="hidden md:block" />
               <span className="text-public-blue italic">Mansarovar Collection</span>
@@ -143,9 +140,6 @@ export default function PilgrimagePageClient({ images }) {
             viewport={{ once: true }}
             whileInView={{ opacity: 1, y: 0 }}
           >
-            <span className="mb-4 block font-heading text-public-orange-ink text-xs uppercase tracking-[0.3em] md:text-sm">
-              Why Choose Citius
-            </span>
             <h2 className="mb-4 font-heading text-3xl text-public-ink md:text-4xl lg:text-5xl">
               Your Trust, <span className="text-public-blue italic">Our Commitment</span>
             </h2>
@@ -185,9 +179,7 @@ export default function PilgrimagePageClient({ images }) {
                     {item.stat}
                   </span>
                 </div>
-                <p className="mb-2 text-public-muted text-xs uppercase tracking-wider">
-                  {item.statLabel}
-                </p>
+                <p className="mb-2 text-public-muted text-sm">{item.statLabel}</p>
                 <h3 className="mb-2 font-heading text-citius-blue text-lg md:text-xl">
                   {item.title}
                 </h3>
@@ -203,9 +195,6 @@ export default function PilgrimagePageClient({ images }) {
         <div className="mx-auto max-w-6xl">
           <div className="mb-10 flex flex-col items-start justify-between gap-6 text-center md:mb-14 md:flex-row md:items-end md:text-left">
             <div className="w-full md:w-auto">
-              <span className="mb-4 block font-heading text-public-orange text-xs uppercase tracking-[0.3em] md:text-sm">
-                Visual Stories
-              </span>
               <h2 className="font-heading text-3xl leading-tight md:text-5xl">
                 Glimpses of <br className="hidden md:block" />
                 <span className="text-public-orange">the Sacred</span>

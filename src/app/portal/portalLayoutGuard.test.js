@@ -31,6 +31,8 @@ let currentUser = salesUser;
 let currentAccess = salesAccess;
 let currentLoginUser = null;
 let requireAuthRedirect = null;
+let requestedPath = "/portal";
+const returnPaths = [];
 const redirectUrls = [];
 let tokenAcquisitions = 0;
 let syncFailure = null;
@@ -46,6 +48,10 @@ mock.module("next/navigation", () => ({
     redirectUrls.push(url);
     throw new Error(`NEXT_REDIRECT:${url}`);
   },
+}));
+
+mock.module("next/headers", () => ({
+  headers: () => new Headers({ "x-citius-return-path": requestedPath }),
 }));
 
 mock.module("next/server", () => ({
@@ -70,9 +76,10 @@ mock.module("@/lib/auth-server", () => ({
     tokenAcquisitions += 1;
     return "request-token";
   },
-  requireAuth: (_callbackUrl, options) => {
+  requireAuth: (_callbackUrl, options, redirectOptions) => {
     callOrder.push("require-auth");
     authOptions.push(options);
+    returnPaths.push(redirectOptions?.returnPath);
     if (requireAuthRedirect) {
       throw new Error(`NEXT_REDIRECT:${requireAuthRedirect}`);
     }
@@ -126,6 +133,8 @@ beforeEach(() => {
   currentAccess = salesAccess;
   currentLoginUser = null;
   requireAuthRedirect = null;
+  requestedPath = "/portal";
+  returnPaths.length = 0;
   redirectUrls.length = 0;
   tokenAcquisitions = 0;
   syncFailure = null;
@@ -176,6 +185,12 @@ describe("Portal layout guard", () => {
     // that syncs the login and returns access.
     expect(callOrder).toEqual(["connection", "token", "sync-and-access", "require-auth"]);
     expect(authOptions).toEqual([{ token: "request-token" }, { token: "request-token" }]);
+  });
+
+  test("Hands the requested portal page to the sign-in redirect", async () => {
+    requestedPath = "/portal/job-cards/abc";
+    await getRenderedShellProps();
+    expect(returnPaths).toEqual(["/portal/job-cards/abc"]);
   });
 
   test("Seeds the browser's Convex connection with this request's token", async () => {
@@ -278,9 +293,12 @@ describe("Auth login loading guard", () => {
       "utf8"
     );
     const fallback = AuthLoginLoadingShell();
+    const markup = renderToStaticMarkup(fallback.props.children);
 
-    expect(fallback.props.title).toBe("Opening secure sign in");
+    expect(fallback.props.title).toBeUndefined();
     expect(fallback.props.children.props["aria-busy"]).toBe("true");
+    expect(markup).toContain("Secure sign in");
+    expect(markup).toContain("Checking your secure session");
     expect(loadingSource).not.toContain("@convex");
     expect(loadingSource).not.toContain("auth-server");
     expect(loadingSource).not.toContain("callbackUrl");

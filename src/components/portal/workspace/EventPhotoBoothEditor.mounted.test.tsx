@@ -618,6 +618,27 @@ describe("Event Photo Booth staff editor", () => {
       await view.unmount();
     }
   });
+  test("a refused save replaces the earlier saved announcement instead of sitting beside it", async () => {
+    const view = await mount();
+    const announcement = () =>
+      view.container.querySelector('[role="status"][aria-atomic="true"]')?.textContent;
+    try {
+      await enterEnglishName(view.container, "Paris at sunset");
+      await act(async () => view.button("Save draft").click());
+      expect(announcement()).toBe("Draft saved. Publish to update the visitor page.");
+
+      // A blank-looking name passes the field's `required` check but not the save check.
+      await enterEnglishName(view.container, "   ");
+      await act(async () => view.button("Save draft").click());
+
+      expect(view.container.querySelector('[role="alert"]')?.textContent).toBe(
+        "Every scene needs an English and Hindi destination name."
+      );
+      expect(announcement()).toBe("");
+    } finally {
+      await view.unmount();
+    }
+  });
   test("describes the publish button only while a publish hint is shown", async () => {
     const view = await mount();
     const hint = () => {

@@ -3,7 +3,12 @@
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { type ActionCtx, action } from "../_generated/server";
+import { action } from "../_generated/server";
+import {
+  cleanupUnreferencedUpload,
+  readStoredFileForDownload,
+  type WritableCommercialSource,
+} from "./attachmentStorage";
 import { recordCompletedDocumentAccess } from "./documentPreviewAudit";
 import {
   downloadFileResultValidator,
@@ -20,6 +25,7 @@ import {
 import { enforcePortalFileDownloadLimit } from "./lib/portalFileDownloadLimit";
 import { PERMISSIONS } from "./lib/rolePolicy";
 
+const REJECTED_UPLOAD = "rejected query attachment upload";
 const ALLOWED_MIME_PREFIXES = [
   "application/pdf",
   "image/",
@@ -29,52 +35,8 @@ const ALLOWED_MIME_PREFIXES = [
   "application/vnd.openxmlformats-officedocument.",
 ];
 
-interface WritableCommercialSource {
-  id: string;
-  sourceType: string;
-  teamAreas: string[];
-}
-
 function isAllowedMimeType(mimeType: string) {
   return isAllowedAttachmentMimeType(mimeType, ALLOWED_MIME_PREFIXES);
-}
-
-/**
- * Rejecting an upload must not leave an unreferenced blob in Convex Storage.
- * Check every attachment owner first so a retry that names an existing blob
- * cannot delete a document that another record already uses.  Cleanup is
- * best-effort: the original validation/authorization error remains the one
- * returned to the caller and the scheduled orphan sweep can retry later.
- */
-async function cleanupUnreferencedUpload(ctx: ActionCtx, storageId: Id<"_storage">) {
-  try {
-    await ctx.runMutation(internal.crm.storageReferences.deleteIfUnreferenced, {
-      storageId,
-    });
-  } catch (error) {
-    console.error("Failed to clean up rejected query attachment upload:", error);
-  }
-}
-
-async function buildDownloadFile(
-  ctx: ActionCtx,
-  record: {
-    storageId: string;
-    fileName: string;
-    mimeType: string;
-  }
-) {
-  const blob = await ctx.storage.get(record.storageId);
-  if (!blob) {
-    throw new ConvexError("File is no longer available");
-  }
-
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  return {
-    bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
-    fileName: record.fileName,
-    mimeType: record.mimeType,
-  };
 }
 
 export const generateUploadUrl = action({
@@ -133,7 +95,7 @@ export const attachFile = action({
       throw new ConvexError("FORBIDDEN");
     }
     if (!isAllowedMimeType(args.mimeType)) {
-      await cleanupUnreferencedUpload(ctx, args.storageId);
+      await cleanupUnreferencedUpload(ctx, args.storageId, REJECTED_UPLOAD);
       throw new ConvexError(
         "File type not allowed. Use PDF, Word, Excel, PowerPoint, images, or plain text."
       );
@@ -145,17 +107,17 @@ export const attachFile = action({
     }
     const actualMimeType = resolveStorageMimeType(blob.type, args.mimeType);
     if (!storageMimeTypeMatchesClaim(blob.type, args.mimeType)) {
-      await cleanupUnreferencedUpload(ctx, args.storageId);
+      await cleanupUnreferencedUpload(ctx, args.storageId, REJECTED_UPLOAD);
       throw new ConvexError("Uploaded file type does not match its declared MIME type.");
     }
     if (!isAllowedMimeType(actualMimeType)) {
-      await cleanupUnreferencedUpload(ctx, args.storageId);
+      await cleanupUnreferencedUpload(ctx, args.storageId, REJECTED_UPLOAD);
       throw new ConvexError(
         "File type not allowed. Use PDF, Word, Excel, PowerPoint, images, or plain text."
       );
     }
     if (!isExactAttachmentSize(blob.size, args.fileSize)) {
-      await cleanupUnreferencedUpload(ctx, args.storageId);
+      await cleanupUnreferencedUpload(ctx, args.storageId, REJECTED_UPLOAD);
       throw new ConvexError("Each file must be between 1 byte and 15 MB.");
     }
 
@@ -169,7 +131,7 @@ export const attachFile = action({
         storageId: args.storageId,
       });
     } catch (error) {
-      await cleanupUnreferencedUpload(ctx, args.storageId);
+      await cleanupUnreferencedUpload(ctx, args.storageId, REJECTED_UPLOAD);
       throw error;
     }
 
@@ -208,7 +170,7 @@ export const getDownloadUrl = action({
       throw new ConvexError("Attachment not found");
     }
 
-    const file = await buildDownloadFile(ctx, record);
+    const file = await readStoredFileForDownload(ctx, record);
     await recordCompletedDocumentAccess(ctx, {
       // SAFETY: the query-attachment record was loaded through a validator-backed Convex query.
       expectedSourceStorageId: record.storageId as Id<"_storage">,
@@ -251,7 +213,7 @@ export const getDownloadFile = action({
       throw new ConvexError("Attachment not found");
     }
 
-    const file = await buildDownloadFile(ctx, record);
+    const file = await readStoredFileForDownload(ctx, record);
     await recordCompletedDocumentAccess(ctx, {
       // SAFETY: the query-attachment record was loaded through a validator-backed Convex query.
       expectedSourceStorageId: record.storageId as Id<"_storage">,

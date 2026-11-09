@@ -7,12 +7,21 @@ const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 16; // 128 bits
 const AUTH_TAG_LENGTH = 16; // 128 bits
 
+/**
+ * The deployment has no encryption key. Unlike a corrupt payload, this affects every record, so
+ * callers that tolerate one unreadable payload must still let this error through.
+ */
+export class EncryptionConfigurationError extends Error {
+  constructor() {
+    super("ENCRYPTION_KEY environment variable is not configured. Base64 string required.");
+    this.name = "EncryptionConfigurationError";
+  }
+}
+
 function getEncryptionKey(): Buffer {
   const key = process.env.ENCRYPTION_KEY;
   if (!key) {
-    throw new Error(
-      "ENCRYPTION_KEY environment variable is not configured. Base64 string required."
-    );
+    throw new EncryptionConfigurationError();
   }
   return Buffer.from(key, "base64");
 }

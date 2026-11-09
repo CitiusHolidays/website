@@ -44,6 +44,8 @@ const tripSummaryValidator = v.object({
   /** The destination's photo (website path and BlurHash), or null: the app draws a cover. */
   cover: destinationCoverValidator,
   destination: v.string(),
+  /** The caller's own group (Travel Batch code), as on the trip detail's `me`; null without one. */
+  groupCode: v.union(v.string(), v.null()),
   groupName: v.string(),
   jobCode: v.string(),
   minorCount: v.number(),
@@ -243,6 +245,7 @@ function summary(trip: ResolvedTrip, referenceNow: number) {
   return {
     cover: destinationCover(destination),
     destination,
+    groupCode: dates.batch?.batchCode ?? null,
     groupName: job.clientName,
     jobCode: job.jobCode,
     minorCount: minors.length,

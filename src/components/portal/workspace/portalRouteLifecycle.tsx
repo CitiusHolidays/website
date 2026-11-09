@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { useEffect, useRef } from "react";
 import type { PortalWorkspaceImplementationState } from "@/components/portal/usePortalWorkspaceState";
+import { buttonVariants } from "@/components/ui/application-button-variants";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
 import {
   canAssignTourManagers,
@@ -120,6 +122,12 @@ export function PortalRouteLifecycleBoundary({
           You do not have access to this page
         </div>
         <p className="mt-2 text-brand-muted text-sm">Your staff role does not include this page.</p>
+        {view === "dashboard" ? null : (
+          // The dashboard itself redirects a login without it to its first page (PortalWorkspace).
+          <Link className={`${buttonVariants({ variant: "primary" })} mt-6`} href="/portal">
+            Go to your workspace
+          </Link>
+        )}
       </div>
     );
   }

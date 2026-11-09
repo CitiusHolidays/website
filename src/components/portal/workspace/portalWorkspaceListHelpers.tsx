@@ -24,29 +24,7 @@ export function money(value: number | string | null | undefined) {
   return `INR ${Number(value || 0).toLocaleString("en-IN")}`;
 }
 
-export function countWords(value: string | null | undefined) {
-  const trimmed = String(value || "").trim();
-  if (!trimmed) {
-    return 0;
-  }
-  return trimmed.split(WHITESPACE_PATTERN).length;
-}
-
-export function truncateToMaxWords(value: string | null | undefined, maxWords: number) {
-  const words = String(value || "")
-    .trim()
-    .split(WHITESPACE_PATTERN)
-    .filter(Boolean);
-  if (words.length <= maxWords) {
-    return String(value ?? "");
-  }
-  return words.slice(0, maxWords).join(" ");
-}
-
-export function formatNotesPreview(
-  value: string | null | undefined,
-  maxWords = MAX_QUERY_NOTES_WORDS
-) {
+function formatNotesPreview(value: string | null | undefined, maxWords = MAX_QUERY_NOTES_WORDS) {
   const text = String(value || "").trim();
   if (!text) {
     return "-";

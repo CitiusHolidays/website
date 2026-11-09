@@ -2,6 +2,13 @@ name: Hosted Quality
 
 on:
   pull_request:
+  # The merge queue needs "Required quality" to report on its temporary merge
+  # commit. Each queue entry has its own gh-readonly-queue ref, so the
+  # concurrency group below never cancels one entry for another. Workflows
+  # that follow this one act only on pull_request and push runs, so a queue
+  # commit is checked but never released.
+  merge_group:
+    types: [checks_requested]
   push:
     branches:
       - main
@@ -17,7 +24,10 @@ jobs:
   target-neutral:
     name: Required quality
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Successful runs take 4-8 minutes (116 green runs since 2026-08-19, max 7.6).
+    # When the Bun test lane hangs after "killed 1 dangling process" it never
+    # recovers, so a 30-minute limit only doubled the wait. 15 keeps 2x headroom.
+    timeout-minutes: 15
     steps:
       - name: Check out exact revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -26,7 +36,7 @@ jobs:
       - name: Install pinned Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
-          bun-version: 1.4.0
+          bun-version: 1.4.4
       - name: Install root dependencies
         run: bun install --frozen-lockfile
       - name: Install Studio lint dependencies

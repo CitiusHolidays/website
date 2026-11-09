@@ -115,7 +115,7 @@ export type BellNotificationTargets =
   | { kind: "roles"; roles: string[] }
   | { kind: "staff"; staffIds: Id<"staffUsers">[] }
   | { kind: "exactStaff"; staffIds: Id<"staffUsers">[] }
-  | { fallbackRoles?: string[]; kind: "matching"; matches: NotificationStaffMatcher };
+  | { kind: "matching"; matches: NotificationStaffMatcher };
 
 export type EmailNotificationTargets =
   | { kind: "none" }
@@ -378,22 +378,6 @@ function staffForBellTargets(
   return activeStaff.filter((member) => ids.has(String(member._id)));
 }
 
-function fallbackBellRows(
-  matchedStaff: NotificationStaff[],
-  fallbackRoles: string[],
-  base: ReturnType<typeof notificationBellBase>
-) {
-  return roleBellRows(
-    fallbackRoles.filter(
-      (role) =>
-        !matchedStaff.some(
-          (member) => member.authUserId && member.roles.some((memberRole) => memberRole === role)
-        )
-    ),
-    base
-  );
-}
-
 function notificationBellRows(
   activeStaff: NotificationStaff[],
   targets: BellNotificationTargets,
@@ -405,11 +389,7 @@ function notificationBellRows(
     return roleBellRows(targets.roles, base);
   }
   const targetStaff = staffForBellTargets(activeStaff, targets);
-  const rows = directStaffBellRows(targetStaff, base, targets.kind === "exactStaff");
-  if (targets.kind === "matching") {
-    rows.push(...fallbackBellRows(targetStaff, targets.fallbackRoles ?? [], base));
-  }
-  return rows;
+  return directStaffBellRows(targetStaff, base, targets.kind === "exactStaff");
 }
 
 function notificationEmailRecipients(
@@ -780,72 +760,6 @@ export async function publishWorkNotification(
     emailRecipientPurpose: { key, kind: "work" },
     emailTargets: { kind: "staff", staffIds },
   });
-}
-
-/** @deprecated Use publishWorkflowNotification with explicit channel targets. */
-export async function notifyRoles(
-  ctx: MutationCtx,
-  roles: string[],
-  input: NotificationInput,
-  options?: { emailDelayMs?: number; emailRoles?: string[] }
-) {
-  return await publishWorkflowNotification(ctx, {
-    bellTargets: { kind: "roles", roles },
-    content: input,
-    emailDelayMs: options?.emailDelayMs,
-    emailTargets:
-      options?.emailRoles?.length === 0
-        ? { kind: "none" }
-        : { kind: "roles", roles: options?.emailRoles ?? roles },
-  });
-}
-
-/** @deprecated Use publishWorkflowNotification with explicit channel targets. */
-export async function notifyStaffMatching(
-  ctx: MutationCtx,
-  shouldNotify: NotificationStaffMatcher,
-  input: NotificationInput,
-  options?: { emailRoles?: string[]; fallbackRoles?: string[] }
-) {
-  const matchesEmail = (staff: NotificationStaff) =>
-    shouldNotify(staff) &&
-    (!options?.emailRoles || staffWantsEmailForRoles(staff, options.emailRoles));
-  return await publishWorkflowNotification(ctx, {
-    bellTargets: {
-      fallbackRoles: options?.fallbackRoles,
-      kind: "matching",
-      matches: shouldNotify,
-    },
-    content: input,
-    emailTargets:
-      options?.emailRoles?.length === 0
-        ? { kind: "none" }
-        : { kind: "matching", matches: matchesEmail },
-  });
-}
-
-export function canReceiveNotification(
-  notification: {
-    recipientStaffId?: Id<"staffUsers">;
-    recipientUserId?: string;
-    recipientRole?: string;
-  },
-  access: { staffId?: Id<"staffUsers"> | null; authUserId?: string | null; roles: string[] }
-) {
-  const roleSet = new Set(access.roles);
-  if (
-    notification.recipientStaffId &&
-    String(notification.recipientStaffId) !== String(access.staffId ?? "")
-  ) {
-    return false;
-  }
-  if (notification.recipientUserId && notification.recipientUserId !== access.authUserId) {
-    return String(notification.recipientStaffId ?? "") === String(access.staffId ?? "");
-  }
-  if (notification.recipientRole && !roleSet.has(notification.recipientRole)) {
-    return false;
-  }
-  return true;
 }
 
 export async function notifyStaffMember(

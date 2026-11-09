@@ -77,6 +77,13 @@ export function getNotificationHref(args: NotificationPathInput) {
       return entityPath("/portal/approvals", "approval", args.entityId);
     case "inboundQueryIntent":
       return entityPath("/portal/inbound-leads", "inboundIntent", args.entityId);
+    case "expense":
+      return "/portal/expenses";
+    case "tourManager":
+      // The id is the Tour Manager assignment; that page opens the assignment's Job Card.
+      return `/portal/job-cards/tour-manager/${encodeURIComponent(args.entityId)}`;
+    case "postTourReport":
+      return `/portal/post-tour-feedback?reportId=${encodeURIComponent(args.entityId)}&view=report`;
     default:
       return "/portal/activity";
   }

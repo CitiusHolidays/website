@@ -10,6 +10,21 @@ import {
 type StoredParentalConsent = NonNullable<Doc<"travellers">["parentalConsent"]>;
 
 /**
+ * The fields that make a traveller "not a known minor" (ADR 0018), written together: the
+ * consent mark exists only while isMinor is true, and only a minor keeps guardian links, so a
+ * writer that clears the minor flag without these would leave a mark and links on an adult (or
+ * on an anonymised row). Spread it into any patch that ends minor status outside the editor and
+ * the import, which decide the mark through `parentalConsentDecisionFor`.
+ */
+export const NO_MINOR_STATUS = {
+  firstGuardianTravellerId: undefined,
+  guardianImportReferences: undefined,
+  isMinor: undefined,
+  parentalConsent: undefined,
+  secondGuardianTravellerId: undefined,
+} as const satisfies Partial<Record<keyof Doc<"travellers">, undefined>>;
+
+/**
  * The next "Parental consent received" mark for a traveller (ADR 0018), recorded by the signed-in
  * staff member at server time. Callers decide what a refused request means: the editor rejects
  * it, the import ignores it with a row message.

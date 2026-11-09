@@ -12,7 +12,7 @@ import {
   AssignTicketingOwnerFields,
   RemoveJobCardCollaboratorFields,
   RemoveProposalCollaboratorFields,
-  teamOptionsForCollaborators,
+  teamOptionsForIds,
 } from "./EntityModalAssignFieldSections";
 
 export function EntityModalAssignFields({
@@ -32,16 +32,13 @@ export function EntityModalAssignFields({
 }) {
   const selectedProposalId = form.proposalId || form.entityId;
   const selectedProposal = proposals.find((proposal) => proposal.id === selectedProposalId);
-  const proposalCollaboratorOptions = teamOptionsForCollaborators(
+  const proposalCollaboratorOptions = teamOptionsForIds(
     team,
     selectedProposal?.collaboratorStaffIds
   );
   const selectedJobCardId = form.jobCardId || form.entityId;
   const selectedJobCard = jobCards.find((jobCard) => jobCard.id === selectedJobCardId);
-  const jobCardCollaboratorOptions = teamOptionsForCollaborators(
-    team,
-    selectedJobCard?.collaboratorStaffIds
-  );
+  const jobCardCollaboratorOptions = teamOptionsForIds(team, selectedJobCard?.collaboratorStaffIds);
 
   const fieldsByModal = new Map([
     [

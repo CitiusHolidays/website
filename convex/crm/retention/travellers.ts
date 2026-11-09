@@ -19,13 +19,14 @@ import {
 import { RETENTION_PERIODS, retentionCutoff, tripRetentionVerdict } from "../lib/retentionSchedule";
 import { tripEndLookup } from "../lib/retentionTrips";
 import { buildTravellerListSearchText, markListSearchDirty } from "../listSearch";
+import { NO_MINOR_STATUS } from "../travellerGuardianConsent";
 
 /**
  * Traveller records (director decision, 7 Nov 2026) are anonymised three years after the trip
  * ends, never deleted: the row stays so the Job Card's passenger, room and meal counts, tickets,
  * visa outcomes and invoices still add up. The name becomes a placeholder; contact details,
  * gender, special requests, companions, hotel allocation, the traveller's own guardian links,
- * minor flag, import names and notes are removed; passport details and scans still left are
+ * minor flag with its parental consent mark, import names and notes are removed; passport details and scans still left are
  * deleted; meal preference rows are deleted; rooming, seat and visa notes are cleared. Customer
  * app records go with the trip records they cover (owner decision, 7 Nov 2026, ADR 0020): the
  * parental consents recorded for a minor and the app invites issued to a traveller are deleted.
@@ -107,23 +108,20 @@ async function anonymiseTraveller(ctx: MutationCtx, traveller: Doc<"travellers">
   ]);
   const now = Date.now();
   const patch = {
+    ...NO_MINOR_STATUS,
     biometricAppointmentDate: undefined,
     contactNo: undefined,
     email: undefined,
-    firstGuardianTravellerId: undefined,
     fullName: ANONYMISED_TRAVELLER_NAME,
     gender: undefined,
     givenName: undefined,
-    guardianImportReferences: undefined,
     guestCompanions: undefined,
     hasPassportScan: false,
     hotelAllocation: undefined,
     importKey: undefined,
-    isMinor: undefined,
     marketingConsentNote: undefined,
     passportExpiryDate: undefined,
     retentionAnonymisedAt: complete ? now : undefined,
-    secondGuardianTravellerId: undefined,
     sourceDealerName: undefined,
     sourceDescription: undefined,
     sourceRsoName: undefined,

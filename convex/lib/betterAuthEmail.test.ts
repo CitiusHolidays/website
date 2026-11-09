@@ -126,4 +126,39 @@ describe("Better Auth email request outcomes", () => {
       sent: false,
     });
   });
+
+  test("Sends staff to Citius Connect and travellers to guest sign-in after a recovery link", async () => {
+    const ctx = createContext(() => null);
+    const redirects: string[] = [];
+    const callbacks: string[] = [];
+    const testAuth = {
+      api: {
+        requestPasswordReset: (input: { body: { redirectTo?: string } }) => {
+          redirects.push(input.body.redirectTo ?? "");
+          return Promise.resolve({ status: true });
+        },
+        sendVerificationEmail: (input: { body: { callbackURL?: string } }) => {
+          callbacks.push(input.body.callbackURL ?? "");
+          return Promise.resolve({ status: true });
+        },
+      },
+    };
+    // SAFETY: this fake implements the Better Auth API methods exercised by this scenario.
+    const auth = fromPartial<typeof testAuth & ReturnType<typeof createAuth>>(testAuth);
+
+    await sendPasswordSetupEmail(ctx, auth, "person@example.com", "email.auth.staff_setup");
+    await sendPasswordSetupEmail(ctx, auth, "person@example.com", "email.auth.password_reset");
+    await sendVerificationEmail(ctx, auth, "person@example.com", "email.auth.staff_setup");
+    await sendVerificationEmail(ctx, auth, "person@example.com", "email.auth.verification");
+
+    expect(redirects.map((url) => new URL(url).searchParams.get("from"))).toEqual([
+      "connect",
+      "guest",
+    ]);
+    expect(callbacks.map((url) => new URL(url).searchParams.get("from"))).toEqual([
+      "connect",
+      "guest",
+    ]);
+    expect(new URL(callbacks[0] ?? "").pathname).toBe("/auth/email-verified");
+  });
 });

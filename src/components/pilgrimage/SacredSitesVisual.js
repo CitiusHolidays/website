@@ -122,9 +122,6 @@ export default function SacredSitesVisual({ className }) {
           viewport={{ once: true }}
           whileInView={{ opacity: 1, y: 0 }}
         >
-          <span className="mb-4 block font-heading text-public-orange-ink text-xs uppercase tracking-[0.3em] md:text-sm">
-            Sacred Geography
-          </span>
           <h2 className="mb-4 font-heading text-3xl text-brand-dark leading-tight md:mb-6 md:text-5xl">
             The Path Along <span className="text-citius-blue italic">the Yatra</span>
           </h2>

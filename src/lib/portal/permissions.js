@@ -75,7 +75,7 @@ export function canViewFieldPassportAccessLog(access) {
   return roles.includes("Admin") || roles.includes("Operations Head");
 }
 
-export function hasPermission(access, permission) {
+function hasPermission(access, permission) {
   if (!permission) {
     return true;
   }
@@ -189,11 +189,11 @@ export function portalHomeHref(access) {
   return first?.href ?? "/portal/activity";
 }
 
-export function hasRole(access, role) {
+function hasRole(access, role) {
   return Boolean(access?.roles?.includes(role));
 }
 
-export function isAdmin(access) {
+function isAdmin(access) {
   return hasRole(access, "Admin");
 }
 
@@ -234,7 +234,7 @@ export function usesSalesInitialAssignmentForm(access) {
   return isSalesQueryAssigner(access) && !canHeadAssignQueryTeams(access);
 }
 
-export function queryHasTeamAssignment(query) {
+function queryHasTeamAssignment(query) {
   return Boolean(
     query?.contractingOwnerId ||
       query?.ticketingOwnerId ||
@@ -243,11 +243,11 @@ export function queryHasTeamAssignment(query) {
   );
 }
 
-export function canShowSalesInitialAssignButton(access, query) {
+function canShowSalesInitialAssignButton(access, query) {
   return usesSalesInitialAssignmentForm(access) && !queryHasTeamAssignment(query);
 }
 
-export function canShowHeadAssignQueryButton(access, query) {
+function canShowHeadAssignQueryButton(access, query) {
   if (!canHeadAssignQueryTeams(access)) {
     return false;
   }

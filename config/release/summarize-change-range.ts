@@ -1,4 +1,5 @@
-import { spawnSync } from "node:child_process";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { isRuntimeString } from "../../src/lib/runtimeValues";
 import { formatCliHelp, parseCliArguments } from "../commands/cli";
 
@@ -298,62 +299,75 @@ export function summarizeChangeRows(input: ChangeSummaryInput) {
   };
 }
 
-function runGit(root: string, args: string[]) {
-  const result = spawnSync("git", args, {
-    cwd: root,
-    encoding: "utf8",
-    maxBuffer: 64 * 1024 * 1024,
-    shell: false,
-  });
-  if (result.status !== 0) {
-    throw new Error((result.stderr || result.stdout).trim() || `git ${args[0]} failed`);
+const execFileAsync = promisify(execFile);
+
+// Async on purpose: a synchronous Git spawn blocks the event loop, and on Linux CI Bun's
+// synchronous spawn has hung test runs past every timeout (see test-helpers/runChild.ts).
+async function runGit(root: string, args: string[]) {
+  try {
+    const { stdout } = await execFileAsync("git", args, {
+      cwd: root,
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+      shell: false,
+    });
+    return stdout;
+  } catch (error) {
+    const detail =
+      error instanceof Error && "stderr" in error && isRuntimeString(error.stderr)
+        ? error.stderr.trim()
+        : "";
+    throw new Error(detail || `git ${args[0]} failed`, { cause: error });
   }
-  return result.stdout;
 }
 
-function resolveCommit(root: string, reference: string, label: string) {
+async function resolveCommit(root: string, reference: string, label: string) {
   try {
-    return runGit(root, ["rev-parse", "--verify", `${reference}^{commit}`]).trim();
+    return (await runGit(root, ["rev-parse", "--verify", `${reference}^{commit}`])).trim();
   } catch (error) {
     throw new Error(`Invalid ${label} revision: ${reference}`, { cause: error });
   }
 }
 
-export function collectChangeRangeSummary(
+export async function collectChangeRangeSummary(
   root: string,
   baseReference: string,
   headReference = "HEAD"
 ) {
-  const base = resolveCommit(root, baseReference, "base");
-  const head = resolveCommit(root, headReference, "head");
+  const [base, head] = await Promise.all([
+    resolveCommit(root, baseReference, "base"),
+    resolveCommit(root, headReference, "head"),
+  ]);
   if (base === head) {
     throw new Error("The requested change range is empty");
   }
   try {
-    runGit(root, ["merge-base", "--is-ancestor", base, head]);
+    await runGit(root, ["merge-base", "--is-ancestor", base, head]);
   } catch (error) {
     throw new Error("The requested base and head do not form an ancestor change range", {
       cause: error,
     });
   }
-  const commits = runGit(root, ["log", "--format=%H%x09%s", `${base}..${head}`])
+  const [commitLog, recentLog, nameStatus, numstat] = await Promise.all([
+    runGit(root, ["log", "--format=%H%x09%s", `${base}..${head}`]),
+    runGit(root, ["log", "-n", "25", "--name-only", "--format=", head]),
+    runGit(root, ["diff", "--name-status", "--find-renames", base, head]),
+    runGit(root, ["diff", "--numstat", "--find-renames", base, head]),
+  ]);
+  const commits = commitLog
     .split("\n")
     .filter(Boolean)
     .map((line) => {
       const separator = line.indexOf("\t");
       return { sha: line.slice(0, separator), subject: line.slice(separator + 1) };
     });
-  const recentPaths = runGit(root, ["log", "-n", "25", "--name-only", "--format=", head])
-    .split("\n")
-    .filter(Boolean);
+  const recentPaths = recentLog.split("\n").filter(Boolean);
   return summarizeChangeRows({
     base,
     commits,
     head,
-    nameStatuses: parseNameStatus(
-      runGit(root, ["diff", "--name-status", "--find-renames", base, head])
-    ),
-    numstat: parseNumstat(runGit(root, ["diff", "--numstat", "--find-renames", base, head])),
+    nameStatuses: parseNameStatus(nameStatus),
+    numstat: parseNumstat(numstat),
     recentPaths,
   });
 }
@@ -384,7 +398,7 @@ if (import.meta.main) {
       if (!isRuntimeString(base)) {
         throw new Error("--base is required");
       }
-      const summary = collectChangeRangeSummary(
+      const summary = await collectChangeRangeSummary(
         process.cwd(),
         base,
         isRuntimeString(parsed.values.head) ? parsed.values.head : "HEAD"

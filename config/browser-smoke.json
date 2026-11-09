@@ -62,7 +62,7 @@
       "profile": "public",
       "viewport": "mobile",
       "expectPath": "/auth/guest",
-      "expectText": "Welcome Back"
+      "expectText": "Welcome back"
     },
     {
       "id": "admin-dashboard",

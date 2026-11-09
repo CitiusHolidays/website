@@ -116,7 +116,11 @@ describe("Signed Razorpay webhook route", () => {
     const response = await handleRazorpayWebhook(
       signedRequest({
         event: "payment.captured",
-        payload: { payment: { entity: { id: "pay_1", order_id: "order_1" } } },
+        payload: {
+          payment: {
+            entity: { amount: 25_000, currency: "INR", id: "pay_1", order_id: "order_1" },
+          },
+        },
       }),
       { deps }
     );
@@ -140,7 +144,11 @@ describe("Signed Razorpay webhook route", () => {
     });
     const capturedPayload = {
       event: "payment.captured",
-      payload: { payment: { entity: { id: "pay_1", order_id: "order_1" } } },
+      payload: {
+        payment: {
+          entity: { amount: 25_000, currency: "INR", id: "pay_1", order_id: "order_1" },
+        },
+      },
     };
 
     const first = await handleRazorpayWebhook(signedRequest(capturedPayload), { deps });

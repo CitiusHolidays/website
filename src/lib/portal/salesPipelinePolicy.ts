@@ -1,22 +1,9 @@
+import {
+  getAllowedSalesPipelineBoardTargets,
+  isSalesPipelineBoardLocked as isSalesPipelineBoardLockedAtStage,
+  isSalesPipelineBoardStage,
+} from "@convex/crm/salesPipelinePolicy";
 import { getSalesPipelineStage } from "./workflow";
-
-export const SALES_PIPELINE_BOARD_STAGES = ["Inquiry", "Proposal", "Negotiation"] as const;
-
-export type SalesPipelineBoardStage = (typeof SALES_PIPELINE_BOARD_STAGES)[number];
-
-const TERMINAL_PIPELINE_STAGES = new Set(["Confirmation", "Lost", "Closed"]);
-
-const SALES_PIPELINE_BOARD_LOCKED_STATUSES = new Set([
-  "Order Confirmed",
-  "Order Lost",
-  "Date/Destination Change Required",
-]);
-
-export const SALES_PIPELINE_BOARD_TRANSITIONS = {
-  Inquiry: ["Proposal"],
-  Negotiation: ["Proposal"],
-  Proposal: ["Inquiry", "Negotiation"],
-} satisfies Record<SalesPipelineBoardStage, readonly SalesPipelineBoardStage[]>;
 
 interface PipelineQueryRecord {
   contractingStatus?: string;
@@ -29,24 +16,7 @@ export function getPipelineCardStage(query: PipelineQueryRecord) {
 }
 
 export function isSalesPipelineBoardLocked(query: PipelineQueryRecord) {
-  if (query.salesStatus && SALES_PIPELINE_BOARD_LOCKED_STATUSES.has(query.salesStatus)) {
-    return true;
-  }
-  const stage = getPipelineCardStage(query);
-  return TERMINAL_PIPELINE_STAGES.has(stage);
-}
-
-export function isSalesPipelineBoardStage(stage: string): stage is SalesPipelineBoardStage {
-  return SALES_PIPELINE_BOARD_STAGES.some((candidate) => candidate === stage);
-}
-
-export function getAllowedSalesPipelineBoardTargets(
-  currentStage: string
-): SalesPipelineBoardStage[] {
-  if (!isSalesPipelineBoardStage(currentStage)) {
-    return [];
-  }
-  return [...SALES_PIPELINE_BOARD_TRANSITIONS[currentStage]];
+  return isSalesPipelineBoardLockedAtStage(query, getPipelineCardStage(query));
 }
 
 export function canMovePipelineCard(query: PipelineQueryRecord, targetStage: string) {

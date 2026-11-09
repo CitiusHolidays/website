@@ -120,10 +120,10 @@ function JourneyDetail({ booking, onBack }) {
       <JourneyPaymentCard booking={bookingData} invoice={booking.invoice} />
       <ItinerarySnapshot trip={trip} />
       <div className="grid gap-4 lg:grid-cols-2">
-        <TravelInfoCard eyebrow="Flights & PNR" icon={<Plane size={18} />} title="Travel details">
+        <TravelInfoCard icon={<Plane size={18} />} title="Flights and PNR">
           <TravelInfoPlaceholder kind="flight" trip={trip} />
         </TravelInfoCard>
-        <TravelInfoCard eyebrow="Stay" icon={<BedDouble size={18} />} title="Accommodation">
+        <TravelInfoCard icon={<BedDouble size={18} />} title="Accommodation">
           <TravelInfoPlaceholder kind="stay" trip={trip} />
         </TravelInfoCard>
       </div>
@@ -202,15 +202,15 @@ function ConfirmedTripPackets({ hasMore, isLoadingMore, loadError, onLoadMore, p
   return (
     <section aria-labelledby="confirmed-trip-packets-heading">
       <div className="mb-4">
-        <p className="font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.16em]">
-          Read-only travel record
-        </p>
         <h2
-          className="account-display mt-1 text-2xl text-[var(--account-ink)] sm:text-3xl"
+          className="account-display text-2xl text-[var(--account-ink)] sm:text-3xl"
           id="confirmed-trip-packets-heading"
         >
           Confirmed trip packet
         </h2>
+        <p className="mt-1 text-[var(--account-muted)] text-sm">
+          A read-only record of your confirmed travel.
+        </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         {packets.map((packet) => (
@@ -368,10 +368,10 @@ function JourneyOverview({
 
       {primaryJourney ? (
         <section aria-label="Upcoming journey travel details" className="grid gap-4 lg:grid-cols-2">
-          <TravelInfoCard eyebrow="Flights & PNR" icon={<Plane size={18} />} title="Travel details">
+          <TravelInfoCard icon={<Plane size={18} />} title="Flights and PNR">
             <TravelInfoPlaceholder kind="flight" trip={primaryJourney.trip} />
           </TravelInfoCard>
-          <TravelInfoCard eyebrow="Stay" icon={<BedDouble size={18} />} title="Accommodation">
+          <TravelInfoCard icon={<BedDouble size={18} />} title="Accommodation">
             <TravelInfoPlaceholder kind="stay" trip={primaryJourney.trip} />
           </TravelInfoCard>
         </section>

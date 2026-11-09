@@ -1,3 +1,8 @@
+import {
+  DOCUMENT_PREVIEW_ROLLOUT_STAGES,
+  documentPreviewRolloutStage,
+} from "@convex/crm/documentPreviewRollout";
+
 export const DOCUMENT_PREVIEW_EVENT = "citius:document-preview";
 
 declare global {
@@ -37,30 +42,10 @@ const FILE_EXTENSION_PATTERN = /\.[^.]+$/;
 const SAFE_IMAGE_MIME_TYPES = new Set(["image/gif", "image/jpeg", "image/png", "image/webp"]);
 const OFFICE_EXTENSIONS = new Set([".docx", ".pptx", ".xlsx"]);
 
-export const DOCUMENT_PREVIEW_ROLLOUT_STAGES = [
-  "off",
-  "commercial-native",
-  "commercial-office",
-  "commercial-chain",
-  "sensitive",
-  "all",
-] as const;
-
-export type DocumentPreviewRolloutStage = (typeof DOCUMENT_PREVIEW_ROLLOUT_STAGES)[number];
-
-function isDocumentPreviewRolloutStage(value: string): value is DocumentPreviewRolloutStage {
-  return DOCUMENT_PREVIEW_ROLLOUT_STAGES.some((stage) => stage === value);
-}
-
-function rolloutStage(): DocumentPreviewRolloutStage {
-  const configured = process.env.NEXT_PUBLIC_DOCUMENT_PREVIEW_ROLLOUT_STAGE?.trim().toLowerCase();
-  if (!configured) {
-    return "all";
-  }
-  if (isDocumentPreviewRolloutStage(configured)) {
-    return configured;
-  }
-  return "off";
+// The literal NEXT_PUBLIC_ reference lets Next inline it; `?? ""` keeps the
+// server-only env default out of the browser and treats unset as "all".
+function rolloutStage() {
+  return documentPreviewRolloutStage(process.env.NEXT_PUBLIC_DOCUMENT_PREVIEW_ROLLOUT_STAGE ?? "");
 }
 
 function rolloutRank(stage = rolloutStage()) {

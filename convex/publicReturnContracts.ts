@@ -230,6 +230,7 @@ export const bookingTransitionResultValidator = v.object({
   id: v.optional(v.id("bookings")),
   ignored: v.optional(v.boolean()),
   message: v.optional(v.string()),
+  paymentMismatch: v.optional(v.boolean()),
   status: v.optional(bookingStatusValidator),
   success: v.optional(v.boolean()),
 });

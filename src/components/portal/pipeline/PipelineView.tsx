@@ -1,6 +1,16 @@
 // biome-ignore-all lint/a11y/noNoninteractiveElementInteractions lint/performance/noJsxPropsBind: dnd-kit makes movable article cards keyboard-operable; React Compiler memoizes local Pipeline handlers.
 "use client";
 
+import {
+  getAllowedContractingPipelineBoardTargets,
+  isContractingPipelineBoardLocked,
+  isContractingPipelineBoardStage,
+} from "@convex/crm/contractingPipelinePolicy";
+import {
+  getAllowedSalesPipelineBoardTargets,
+  isSalesPipelineBoardStage,
+  type SalesPipelineBoardStage,
+} from "@convex/crm/salesPipelinePolicy";
 import { LayoutGroup, m } from "motion/react";
 import {
   type KeyboardEventHandler,
@@ -33,17 +43,9 @@ import {
 } from "@/components/ui/foundation/dnd";
 import { PIPELINE_STAGES, SALES_PIPELINE_STAGES } from "@/lib/portal/constants";
 import {
-  getAllowedContractingPipelineBoardTargets,
-  isContractingPipelineBoardLocked,
-  isContractingPipelineBoardStage,
-} from "@/lib/portal/contractingPipelinePolicy";
-import {
   canMovePipelineCard,
-  getAllowedSalesPipelineBoardTargets,
   getPipelineCardStage,
   isSalesPipelineBoardLocked,
-  isSalesPipelineBoardStage,
-  type SalesPipelineBoardStage,
 } from "@/lib/portal/salesPipelinePolicy";
 import { getPipelineStage, getSalesPipelineStage } from "@/lib/portal/workflow";
 import { isRuntimeObject, isRuntimeString } from "../../../lib/runtimeValues";

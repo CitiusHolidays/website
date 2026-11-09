@@ -32,12 +32,11 @@ import {
   commitPassengerImportAction,
   type PassengerImportCommitResult,
 } from "./passengerImportCommit";
-import type { previewPassengerImportRowsHandler } from "./passengerImportRows";
+import type { PassengerImportPreview } from "./passengerImportRows";
 import { canManagePassengerKinds, canViewPassengerKinds } from "./passengerKindPolicy";
 
 const COMMAND_ID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-type PassengerImportPreview = Awaited<ReturnType<typeof previewPassengerImportRowsHandler>>;
 const previewPassengerImportRowsRef = makeFunctionReference<
   "query",
   {

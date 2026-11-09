@@ -21,15 +21,13 @@ export {
   getLeaveApprovalActions,
   isHrReviewer,
 } from "./lib/leavePolicy";
+export { canReceiveNotification } from "./lib/notificationRecipients";
 export {
-  canReceiveNotification,
   deleteEntityNotifications,
   expandNotificationEmailRoles,
   flushDeferredNotificationCleanup,
   NOTIFICATION_EMAIL_STAGGER_MS,
   type NotificationEntityIdentity,
-  notifyRoles,
-  notifyStaffMatching,
   notifyStaffMember,
   publishWorkflowNotification,
   type WorkflowNotificationPlan,

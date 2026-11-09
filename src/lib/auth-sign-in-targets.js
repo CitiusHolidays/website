@@ -1,4 +1,6 @@
-export const AUTH_LOGIN_VARIANTS = {
+import { resolveAuthReturnPath } from "./auth-return-path";
+
+const AUTH_LOGIN_VARIANTS = {
   employee: {
     allowSignup: false,
     authPath: "/auth/connect",
@@ -15,7 +17,7 @@ export const AUTH_LOGIN_VARIANTS = {
     label: "Citius Connect",
     metadata: {
       description: "Staff sign in for the Citius Holidays CRM portal.",
-      title: "Citius Connect | Citius Holidays",
+      title: "Citius Connect",
     },
     visible: true,
   },
@@ -36,7 +38,7 @@ export const AUTH_LOGIN_VARIANTS = {
     label: "Guest Connect",
     metadata: {
       description: "Sign in to manage your bookings and travel profile.",
-      title: "Guest Connect | Citius Holidays",
+      title: "Guest Connect",
     },
     visible: true,
   },
@@ -56,13 +58,13 @@ export const AUTH_LOGIN_VARIANTS = {
     label: "Vendor Sign In",
     metadata: {
       description: "Partner and supplier sign in for the Citius Holidays vendor portal.",
-      title: "Vendor Sign In | Citius Holidays",
+      title: "Vendor Sign In",
     },
     visible: false,
   },
 };
 
-export const SIGN_IN_TARGET_LIST = Object.values(AUTH_LOGIN_VARIANTS);
+const SIGN_IN_TARGET_LIST = Object.values(AUTH_LOGIN_VARIANTS);
 
 export const VISIBLE_SIGN_IN_TARGETS = SIGN_IN_TARGET_LIST.filter((target) => target.visible);
 
@@ -83,6 +85,46 @@ export function getSignInAuthUrl(variantId = "guest") {
   return variant.authPath;
 }
 
-export function getLoginUrlForCallback(callbackUrl) {
-  return getAuthVariantFromCallbackUrl(callbackUrl).authPath;
+/**
+ * Recovery pages (`/auth/forgot-password`, `/auth/reset-password`, `/auth/email-verified`) carry
+ * `?from=connect|guest|vendor`, the sign-in page the person started from. Unknown or missing values
+ * fall back to `fallbackId`.
+ */
+export function getAuthVariantFromArea(area, fallbackId = "guest") {
+  return (
+    SIGN_IN_TARGET_LIST.find((target) => target.authPath === `/auth/${area}`) ??
+    getAuthVariant(fallbackId)
+  );
+}
+
+/** `path` with the variant's `?from=` area, so the recovery page returns to the same sign-in. */
+export function authRecoveryHref(path, variant) {
+  const area = variant?.authPath?.split("/").at(-1);
+  return area ? `${path}?${new URLSearchParams({ from: area })}` : path;
+}
+
+/**
+ * Where a verification email lands. Travellers are signed in by the link (Better Auth
+ * `autoSignInAfterVerification`), so the guest page sends them on to `destination`, their Travel
+ * Account; other areas keep the page's own next step.
+ */
+export function verificationCallbackHref(variant, destination) {
+  const href = authRecoveryHref("/auth/email-verified", variant);
+  if (variant?.id !== "guest" || !destination) {
+    return href;
+  }
+  const url = new URL(href, "https://callback.invalid");
+  url.searchParams.set("next", destination);
+  return `${url.pathname}${url.search}`;
+}
+
+/**
+ * Where a verified traveller goes next. Their link already signed them in, so a good link with
+ * `?next=` inside the Travel Account goes straight there; staff, vendors and expired links stay.
+ */
+export function travellerDestination({ error, from, next }) {
+  if (from !== "guest" || error) {
+    return null;
+  }
+  return resolveAuthReturnPath(next, AUTH_LOGIN_VARIANTS.guest);
 }

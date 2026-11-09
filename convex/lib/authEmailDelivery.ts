@@ -221,6 +221,21 @@ export function authEmailCorrelationSecretFromUrl(url: string, token: string) {
   return token;
 }
 
+// The sign-in area (Citius Connect, guest, vendor) a recovery link should return to. It rides on the
+// callback URL as `?from=` so the reset page can send the person back where they started.
+const AUTH_RECOVERY_AREAS = new Set(["connect", "guest", "vendor"]);
+const AUTH_RECOVERY_AREA_PARAM = "from";
+
+export function authRecoveryAreaFromUrl(url: string) {
+  try {
+    const callback = new URL(url).searchParams.get("callbackURL");
+    const area = callback ? new URL(callback).searchParams.get(AUTH_RECOVERY_AREA_PARAM) : null;
+    return area && AUTH_RECOVERY_AREAS.has(area) ? area : null;
+  } catch {
+    return null;
+  }
+}
+
 export function normalizeAuthEmailFailure(error?: { name?: string; statusCode?: number | null }) {
   const name = String(error?.name ?? "");
   const status =
@@ -404,4 +419,21 @@ export async function deliverTransactionalAuthEmail(
     },
     sendEmail,
   });
+}
+
+export function reportAuthEmailFailure(outcome: {
+  correlationDigest?: string;
+  failureCode?: string;
+  purpose: AuthEmailPurpose;
+  status?: string;
+}) {
+  console.error(
+    JSON.stringify({
+      correlationDigest: outcome.correlationDigest,
+      event: "auth_email_delivery_failed",
+      failureCode: outcome.failureCode ?? "delivery_unavailable",
+      purpose: outcome.purpose,
+      status: outcome.status ?? "unknown",
+    })
+  );
 }

@@ -585,8 +585,15 @@ function usePdfRenderer({
         currentPage = Math.max(1, Math.min(document.numPages, pageNumber));
         await render();
       };
-      goPreviousRef.current = () => goToPage(currentPage - 1);
-      goNextRef.current = () => goToPage(currentPage + 1);
+      // A failed page turn (for example after a timeout stopped PDF work) keeps the current page on
+      // screen and tells the reader, instead of leaving the buttons silently unresponsive.
+      const reportPageFailure = () => {
+        if (!disposed) {
+          emitWarning("That page could not be shown. Download remains available.");
+        }
+      };
+      goPreviousRef.current = () => goToPage(currentPage - 1).catch(reportPageFailure);
+      goNextRef.current = () => goToPage(currentPage + 1).catch(reportPageFailure);
       // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: bounded PDF search keeps cancellation, pagination, and match accounting at the worker-facing seam.
       const find = async (query: string) => {
         searchGeneration += 1;
@@ -713,7 +720,7 @@ function PdfRenderer(
         <button
           className="min-h-11 rounded-full px-3 font-semibold disabled:opacity-40"
           disabled={!canGoPrevious}
-          onClick={() => goPreviousRef.current().catch(() => undefined)}
+          onClick={() => goPreviousRef.current()}
           type="button"
         >
           Previous page
@@ -724,7 +731,7 @@ function PdfRenderer(
         <button
           className="min-h-11 rounded-full px-3 font-semibold disabled:opacity-40"
           disabled={!canGoNext}
-          onClick={() => goNextRef.current().catch(() => undefined)}
+          onClick={() => goNextRef.current()}
           type="button"
         >
           Next page

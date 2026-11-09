@@ -39,6 +39,11 @@ const ROUTE_DEFINITIONS = {
     methods: ["OPTIONS", "POST"],
     responseMode: "json",
   },
+  "/api/csp-report": {
+    family: "security",
+    methods: ["POST"],
+    responseMode: "json",
+  },
   "/api/e2e/identity": {
     family: "e2e",
     methods: ["GET"],

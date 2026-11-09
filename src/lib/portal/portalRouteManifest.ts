@@ -1,6 +1,10 @@
 import type { BoothAccess } from "@/lib/eventPhotoBooth/contracts";
 import { PORTAL_PERMISSIONS as P } from "@/lib/portal/constants";
-import { canAccessPipeline, isClosedToExternalTourManager } from "@/lib/portal/permissions";
+import {
+  canAccessInboundLeads,
+  canAccessPipeline,
+  isClosedToExternalTourManager,
+} from "@/lib/portal/permissions";
 import type { PortalPermission } from "@/lib/portal/workspaceContract";
 
 export type PortalRouteFamily =
@@ -334,7 +338,7 @@ export const PORTAL_ROUTES = {
 
 export type PortalViewId = Extract<keyof typeof PORTAL_ROUTES, string>;
 
-export function isPortalViewId(view: string): view is PortalViewId {
+function isPortalViewId(view: string): view is PortalViewId {
   return view in PORTAL_ROUTES;
 }
 
@@ -381,6 +385,11 @@ export function canAccessPortalRoute({
   }
   if (view === "event-photo-booth") {
     return Boolean(access?.allowed && eventPhotoBooth?.canManage);
+  }
+  if (view === "inbound-leads") {
+    // The inbound queue is narrower than its permission: the server also requires a Sales,
+    // Sales Head, director or admin role (convex/crm/inboundQueryIntents.ts requireInboundSales).
+    return Boolean(access?.allowed && has(route.permission) && canAccessInboundLeads(access));
   }
   return Boolean(
     access?.allowed &&

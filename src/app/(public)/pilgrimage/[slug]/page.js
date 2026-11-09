@@ -57,14 +57,14 @@ export async function generateMetadata({ params }) {
   const { slug } = await params;
   const trail = getTrailBySlug(slug);
   if (!trail) {
-    return { title: "Trail | Citius Holidays" };
+    return { title: "Trail" };
   }
   return {
     description:
       trail.subtitle ||
       trail.positioning ||
       "Citius Spiritual Trails — Kailash Mansarovar yatra and aerial darshan programmes.",
-    title: `${trail.title} | Spiritual Trails | Citius Holidays`,
+    title: `${trail.title} | Spiritual Trails`,
   };
 }
 
@@ -74,7 +74,6 @@ export default function PilgrimageTrailPage({ params }) {
       fallback={
         <PublicRouteLoadingShell
           description="Route details, dates, inclusions, and booking information for this Citius Spiritual Trail."
-          eyebrow="Citius Spiritual Trails"
           title="Spiritual Trail"
           tone="dark"
         />

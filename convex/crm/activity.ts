@@ -3,7 +3,7 @@ import "./notificationUnreadProjectionMigration";
 import { ConvexError, v } from "convex/values";
 import { mutation, query } from "../_generated/server";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
-import { canReceiveNotification } from "./lib/notifications";
+import { canReceiveNotification } from "./lib/notificationRecipients";
 import { PERMISSIONS } from "./lib/rolePolicy";
 import { requireStaff, requireStaffSession } from "./lib/staffAccess";
 import {

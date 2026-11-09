@@ -16,6 +16,7 @@ import { AnimatePresence, m } from "motion/react";
 import Image from "next/image";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { PUBLIC_SERVICES } from "@/data/publicServices";
+import { useHydrationSafeReducedMotion } from "@/lib/useHydrationSafeReducedMotion";
 import CitiusLogo from "@/static/logos/logo.webp";
 
 const serviceIcons = {
@@ -37,36 +38,13 @@ const services = PUBLIC_SERVICES.map((service) => ({
   icon: serviceIcons[service.id],
 }));
 
-const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
-
-function subscribeToReducedMotion(onStoreChange) {
-  const mediaQuery = window.matchMedia(REDUCED_MOTION_QUERY);
-  mediaQuery.addEventListener("change", onStoreChange);
-  return () => mediaQuery.removeEventListener("change", onStoreChange);
-}
-
-function getReducedMotionSnapshot() {
-  return window.matchMedia(REDUCED_MOTION_QUERY).matches;
-}
-
-export function getReducedMotionServerSnapshot() {
-  return false;
-}
-
-function useHydrationSafeReducedMotion() {
-  return useSyncExternalStore(
-    subscribeToReducedMotion,
-    getReducedMotionSnapshot,
-    getReducedMotionServerSnapshot
-  );
-}
-
 const containerVariants = {
   hidden: {},
   show: (shouldReduceMotion) => ({
     transition: {
-      delayChildren: shouldReduceMotion ? 0 : 0.2,
-      staggerChildren: shouldReduceMotion ? 0 : 0.07,
+      // The orbit is the page's primary content: start at once and keep 11 items under ~0.65s.
+      delayChildren: 0,
+      staggerChildren: shouldReduceMotion ? 0 : 0.04,
     },
   }),
 };

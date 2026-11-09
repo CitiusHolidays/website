@@ -116,7 +116,7 @@ path. Auth and Portal routes may stream only their generic, identity-free loadin
 validation and Portal access resolution run; user, role, permission, and CRM data remain behind the
 secure boundary.
 
-Admin-provisioned staff sign in through Forgot password rather than sign-up. Google and email/password accounts are expected to autolink on the same email, and password reset must enable email/password login on Google-only accounts. Auth URL environment variables need full schemes, for example `http://localhost:3000`, and Next.js must be restarted after auth env changes because `src/lib/auth-server.js` reads those values at module load.
+Admin-provisioned staff sign in through Forgot password rather than sign-up. Google and email/password accounts autolink on the same email once the email/password account's email is verified; Google sign-in on an unverified email/password account is refused until that address is verified, so a pre-registered password can never ride a Google link. Password reset must enable email/password login on Google-only accounts, and a completed reset signs out every existing session for that account. A staff member's password is set only through a link emailed to them (the setup link or a reset link, recorded as `staffUsers.passwordSetByLinkAt`): when provisioning links an account that existed before the office added the person, or a pending staff member verifies their address, any other password on the account is removed and its sessions signed out (`convex/crm/staffPasswordSetup.ts`), so a stranger who signed up first with that address never gets a working staff password. Auth URL environment variables need full schemes, for example `http://localhost:3000`, and Next.js must be restarted after auth env changes because `src/lib/auth-server.js` reads those values at module load.
 
 Verification and reset callbacks use bounded provider retry with stable idempotency and write a
 dedicated privacy-safe receipt. Internal onboarding treats only a matching `sent` receipt as
@@ -195,11 +195,11 @@ target-bound operations and require an explicitly identified non-production depl
 
 ## Payment flow
 
-1. `POST /api/create-order` validates auth + trip via Convex query, creates Razorpay order, then writes pending booking in Convex.
-2. `POST /api/verify-payment` verifies Razorpay signature and calls Convex mutation to idempotently confirm booking + decrement seats.
+1. `POST /api/create-order` validates auth + trip via Convex query, creates Razorpay order, then writes pending booking in Convex (server-only, one booking per order, for exactly the order amount).
+2. `POST /api/verify-payment` verifies Razorpay signature, fetches the payment from Razorpay for the paid amount and currency, and calls Convex mutation to idempotently confirm booking + decrement seats only when they match what the booking owes.
 3. `POST /api/webhooks/razorpay` replays status transitions into Convex (`authorized`, `captured`, `failed`, `refunded`).
 
-All four public payment-status mutations call
+`createPendingBooking` and all four public payment-status mutations call
 `assertPaymentMutationSecret(args.serverSecret)` before changing booking state.
 Next payment routes and the Razorpay webhook obtain that server capability from
 `PAYMENT_MUTATION_SECRET` and fail closed when it is missing or invalid. See

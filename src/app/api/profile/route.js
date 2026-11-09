@@ -1,11 +1,16 @@
 import { anyApi } from "convex/server";
 import { NextResponse } from "next/server";
 import { fetchAuthMutation, fetchAuthQuery } from "@/lib/auth-server";
+import { isCrossSiteBrowserRequest } from "@/lib/http/crossSiteRequest";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
 
 const phoneRegex = /^(\+\d{1,3}[\s.-]?)?\(?([0-9]{3})\)?[\s.-]?([0-9]{3})[\s.-]?([0-9]{4})$/;
 
 async function handleProfileUpdate(request) {
+  // Cookie-authenticated state change: refuse a forged cross-site browser request.
+  if (isCrossSiteBrowserRequest(request)) {
+    return NextResponse.json({ error: "Request origin not allowed." }, { status: 403 });
+  }
   try {
     const sessionUser = await fetchAuthQuery(anyApi.auth.getCurrentUser, {});
 

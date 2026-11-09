@@ -1,28 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import { fromPartial } from "@total-typescript/shoehorn";
+import { CHILD_TEST_TIMEOUT_MS, runChild } from "../../test-helpers/runChild";
 import { createCommandManifest } from "./manifest";
 
 const root = resolve(import.meta.dir, "../..");
 
-// spawnSync blocks the test process, so Bun's per-test timeout cannot stop a
-// stuck child. Bound the child itself so a hang fails in seconds, not at the
-// CI job's 30-minute limit.
-const CHILD_TIMEOUT_MS = 15_000;
-
 function runManifest(args: string[]) {
-  const result = spawnSync("bun", ["config/commands/manifest.ts", ...args], {
+  return runChild("bun", ["config/commands/manifest.ts", ...args], {
     cwd: root,
-    encoding: "utf8",
     env: { PATH: process.env.PATH },
-    killSignal: "SIGKILL",
-    timeout: CHILD_TIMEOUT_MS,
   });
-  if (result.error) {
-    throw result.error;
-  }
-  return result;
 }
 
 describe("Repository command manifest", () => {
@@ -44,23 +32,31 @@ describe("Repository command manifest", () => {
     ]);
   });
 
-  test("Help and invalid flags never execute a package script", () => {
-    const help = runManifest(["--help"]);
-    expect(help.status).toBe(0);
-    expect(help.stdout).toContain("Usage: bun run help -- [options]");
-    expect(help.stdout).not.toContain("CONVEX_DEPLOYMENT");
+  test(
+    "Help and invalid flags never execute a package script",
+    async () => {
+      const help = await runManifest(["--help"]);
+      expect(help.status).toBe(0);
+      expect(help.stdout).toContain("Usage: bun run help -- [options]");
+      expect(help.stdout).not.toContain("CONVEX_DEPLOYMENT");
 
-    const invalid = runManifest(["--live"]);
-    expect(invalid.status).not.toBe(0);
-    expect(invalid.stderr).toContain("Unknown flag --live");
-  });
+      const invalid = await runManifest(["--live"]);
+      expect(invalid.status).not.toBe(0);
+      expect(invalid.stderr).toContain("Unknown flag --live");
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 
-  test("Supports a deterministic JSON view", () => {
-    const result = runManifest(["--json"]);
-    expect(result.status).toBe(0);
-    // SAFETY: This test controls the asserted value at the framework boundary below.
-    const parsed = fromPartial<Array<{ command: string }>>(JSON.parse(result.stdout));
-    expect(parsed.some((entry) => entry.command === "bun run help")).toBe(true);
-    expect(parsed.some((entry) => entry.command === "bun run verify:local")).toBe(true);
-  });
+  test(
+    "Supports a deterministic JSON view",
+    async () => {
+      const result = await runManifest(["--json"]);
+      expect(result.status).toBe(0);
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      const parsed = fromPartial<Array<{ command: string }>>(JSON.parse(result.stdout));
+      expect(parsed.some((entry) => entry.command === "bun run help")).toBe(true);
+      expect(parsed.some((entry) => entry.command === "bun run verify:local")).toBe(true);
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 });

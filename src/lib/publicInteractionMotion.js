@@ -49,15 +49,15 @@ export function publicStageMotion(shouldReduceMotion) {
       transition: { duration: 0 },
     };
   }
+  // No blur: the stage spans a full photo card, and filtering that area every frame is a paint cost.
   return {
-    animate: { filter: "blur(0px)", opacity: 1, transform: "translate3d(0, 0, 0)" },
+    animate: { opacity: 1, transform: "translate3d(0, 0, 0)" },
     exit: {
-      filter: "blur(4px)",
       opacity: 0,
       transform: "translate3d(0, -12px, 0)",
       transition: { duration: 0.15, ease: PUBLIC_EASE_OUT },
     },
-    initial: { filter: "blur(4px)", opacity: 0, transform: "translate3d(0, 16px, 0)" },
+    initial: { opacity: 0, transform: "translate3d(0, 16px, 0)" },
     transition: { duration: 0.28, ease: PUBLIC_EASE_OUT },
   };
 }
@@ -107,9 +107,8 @@ export function publicStaggerItem(shouldReduceMotion) {
   }
   return {
     variants: {
-      hidden: { filter: "blur(4px)", opacity: 0, transform: "translate3d(0, 12px, 0)" },
+      hidden: { opacity: 0, transform: "translate3d(0, 12px, 0)" },
       visible: {
-        filter: "blur(0px)",
         opacity: 1,
         transform: "translate3d(0, 0, 0)",
         transition: { duration: 0.28, ease: PUBLIC_EASE_OUT },

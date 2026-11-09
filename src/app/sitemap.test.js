@@ -30,4 +30,15 @@ describe("Sitemap", () => {
     expect(urls).toContain("https://www.citiusholidays.com/blog/tourism-in-the-age-of-disruption");
     expect(urls).toContain("https://www.citiusholidays.com/pilgrimage/kailash-aerial-3day");
   });
+
+  test("Lists only public pages, never the signed-in Travel Account", async () => {
+    const urls = (await sitemap()).map((entry) => entry.url);
+
+    for (const privatePrefix of ["/account", "/portal", "/auth", "/vendor"]) {
+      expect(
+        urls.filter((url) => new URL(url).pathname.startsWith(privatePrefix)),
+        privatePrefix
+      ).toEqual([]);
+    }
+  });
 });

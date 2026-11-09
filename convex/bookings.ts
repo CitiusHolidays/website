@@ -258,19 +258,33 @@ export const prepareCheckout = query({
   returns: checkoutResultValidator,
 });
 
+/**
+ * Server-only: the create-order route calls this with the payment mutation secret, on behalf of
+ * the signed-in customer, right after it created the Razorpay order for `amount`. A browser
+ * cannot call it directly, so it cannot attach a booking to an order it chose.
+ */
 export const createPendingBooking = mutation({
   args: {
+    // The Razorpay order amount in minor units. The booking must owe exactly this.
+    amount: v.number(),
     currency: v.string(),
     notes: v.optional(v.string()),
     razorpayOrderId: v.string(),
+    serverSecret: v.string(),
     travelerDetails: v.optional(v.any()),
     travelers: v.number(),
     tripIdentifier: v.string(),
   },
   handler: async (ctx, args) => {
+    assertPaymentMutationSecret(args.serverSecret);
     const identity = await getIdentityOrThrow(ctx);
     const authUserId = await ensureCanonicalIdentityLink(ctx, identity);
     ensureValidCheckoutArgs(args.travelers, args.currency);
+    // One booking per provider order. A second booking would let two customers, or one customer
+    // twice, be confirmed by a single payment, so a repeat is refused rather than merged.
+    if (await getBookingByOrderId(ctx, args.razorpayOrderId)) {
+      throw new ConvexError("Payment order already has a booking");
+    }
 
     const trip = await resolveTrip(ctx, args.tripIdentifier);
     if (!trip?.isActive) {
@@ -282,6 +296,10 @@ export const createPendingBooking = mutation({
 
     const pricePerPerson = args.currency === "INR" ? trip.priceInr : trip.priceUsd;
     const totalAmount = pricePerPerson * args.travelers;
+    if (totalAmount !== args.amount) {
+      // The price moved after the order was created; the order no longer matches the booking.
+      throw new ConvexError("Checkout amount changed");
+    }
     const timestamp = Date.now();
 
     const bookingId = await ctx.db.insert("bookings", {
@@ -403,6 +421,9 @@ type BookingTransition = "authorized" | "confirmed" | "failed" | "refunded";
 
 interface BookingTransitionArgs {
   orderId?: string;
+  /** What the provider reports as paid, in minor units. Required to confirm. */
+  paidAmount?: number;
+  paidCurrency?: string;
   paymentId?: string;
   providerEventId: string;
   reason: string;
@@ -435,12 +456,14 @@ async function recordPaymentEvent(
   booking: Doc<"bookings">,
   statusBefore: Doc<"bookings">["status"],
   statusAfter: Doc<"bookings">["status"],
-  outcome: "accepted" | "ignored"
+  outcome: "accepted" | "amount_mismatch" | "ignored"
 ) {
   await ctx.db.insert("bookingPaymentEvents", {
     bookingId: booking._id,
     createdAt: Date.now(),
     outcome,
+    paidAmount: args.paidAmount,
+    paidCurrency: args.paidCurrency,
     paymentId: args.paymentId,
     providerEventId: args.providerEventId,
     reason: args.reason,
@@ -450,13 +473,15 @@ async function recordPaymentEvent(
   });
 }
 
-function duplicateTransitionResult(booking: Doc<"bookings">, transition: BookingTransition) {
-  if (transition === "confirmed") {
+function duplicateTransitionResult(booking: Doc<"bookings">, event: Doc<"bookingPaymentEvents">) {
+  if (event.transition === "confirmed") {
     return {
       alreadyConfirmed: booking.status === "confirmed",
       booking: toApiBooking(booking),
       duplicateEvent: true,
       ignored: booking.status !== "confirmed",
+      // A replayed mismatched payment still reports the mismatch, not a missing booking.
+      paymentMismatch: event.outcome === "amount_mismatch",
       status: booking.status,
       success: booking.status === "confirmed",
     };
@@ -538,6 +563,43 @@ async function applyRefundedTransition(
   return { id: booking._id, status: "refunded" as const };
 }
 
+function paidAmountMatches(booking: Doc<"bookings">, args: BookingTransitionArgs) {
+  return args.paidAmount === booking.totalAmount && args.paidCurrency === booking.currency;
+}
+
+/**
+ * A captured payment that does not cover what the booking owes (or is in another currency)
+ * never confirms it: no seats, no invoice, no confirmation email. The booking keeps its status
+ * and carries the mismatch, and the event log keeps every attempt, so staff can reconcile it.
+ */
+async function recordPaymentMismatch(
+  ctx: MutationCtx,
+  args: BookingTransitionArgs,
+  booking: Doc<"bookings">,
+  timestamp: number
+) {
+  await ctx.db.patch("bookings", booking._id, {
+    paymentMismatch: {
+      detectedAt: timestamp,
+      expectedAmount: booking.totalAmount,
+      expectedCurrency: booking.currency,
+      paidAmount: args.paidAmount,
+      paidCurrency: args.paidCurrency,
+      paymentId: args.paymentId,
+      providerEventId: args.providerEventId,
+    },
+    updatedAt: timestamp,
+  });
+  await recordPaymentEvent(ctx, args, booking, booking.status, booking.status, "amount_mismatch");
+  return {
+    id: booking._id,
+    ignored: true,
+    paymentMismatch: true,
+    status: booking.status,
+    success: false,
+  };
+}
+
 async function applyConfirmedTransition(
   ctx: MutationCtx,
   args: BookingTransitionArgs,
@@ -555,6 +617,9 @@ async function applyConfirmedTransition(
   if (booking.status === "refunded") {
     const ignored = await ignorePaymentTransition(ctx, args, booking);
     return { ...ignored, success: false };
+  }
+  if (!paidAmountMatches(booking, args)) {
+    return await recordPaymentMismatch(ctx, args, booking, timestamp);
   }
 
   const trip = await ctx.db.get("trips", booking.tripId);
@@ -601,7 +666,7 @@ export async function applyBookingPaymentTransition(ctx: MutationCtx, args: Book
     }
     const existingBooking = await ctx.db.get("bookings", existingEvent.bookingId);
     return existingBooking
-      ? duplicateTransitionResult(existingBooking, args.transition)
+      ? duplicateTransitionResult(existingBooking, existingEvent)
       : { duplicateEvent: true, status: existingEvent.statusAfter };
   }
 
@@ -627,12 +692,18 @@ export async function applyBookingPaymentTransition(ctx: MutationCtx, args: Book
 
 export const confirmBookingByOrderIdHandler = async (
   ctx: MutationCtx,
-  args: Omit<BookingTransitionArgs, "transition">
+  args: Omit<BookingTransitionArgs, "paidAmount" | "paidCurrency" | "transition"> & {
+    paidAmount: number;
+    paidCurrency: string;
+  }
 ) => await applyBookingPaymentTransition(ctx, { ...args, transition: "confirmed" });
 
 export const confirmBookingByOrderId = mutation({
   args: {
     orderId: v.string(),
+    // From the verified provider payment, never from the browser.
+    paidAmount: v.number(),
+    paidCurrency: v.string(),
     paymentId: v.string(),
     providerEventId: v.string(),
     reason: v.string(),

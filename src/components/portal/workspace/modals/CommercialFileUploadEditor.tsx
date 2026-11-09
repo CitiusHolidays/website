@@ -2,6 +2,10 @@
 
 "use client";
 
+import {
+  COMMERCIAL_FILE_MIME_PREFIXES,
+  isAllowedAttachmentMimeType,
+} from "@convex/crm/fileValidation";
 import { useAction } from "convex/react";
 import { anyApi } from "convex/server";
 import { Upload } from "lucide-react";
@@ -63,6 +67,7 @@ function errorMessage(cause: unknown, fallback: string) {
 async function runCommercialUploads(
   files: File[],
   uploadOne: (file: File) => Promise<void>,
+  onUploaded: (file: File) => void,
   onSuccess: () => void,
   onSettled: () => void
 ) {
@@ -70,6 +75,9 @@ async function runCommercialUploads(
     for (const file of files) {
       // biome-ignore lint/performance/noAwaitInLoops: preserve ordered uploads and stop after the first failed file.
       await uploadOne(file);
+      // Dequeue each stored file at once, so a later failure leaves only what still needs
+      // uploading and a retry cannot store an earlier file twice.
+      onUploaded(file);
     }
     onSuccess();
     return "";
@@ -102,6 +110,16 @@ export function CommercialFileUploadEditor({
     const invalid = files.find((file) => file.size > MAX_FILE_BYTES);
     if (invalid) {
       setError(`${invalid.name} exceeds the 15 MB limit.`);
+      return;
+    }
+    // The picker's `accept` list is only a hint; a dropped or "All files" choice can be anything.
+    const disallowed = files.find(
+      (file) => !isAllowedAttachmentMimeType(mimeTypeForFile(file), COMMERCIAL_FILE_MIME_PREFIXES)
+    );
+    if (disallowed) {
+      setError(
+        `${disallowed.name} is not an allowed file type. Use PDF, Word, Excel, PowerPoint, images, or plain text.`
+      );
       return;
     }
     if (uploadCategory === "proposalDoc") {
@@ -162,11 +180,11 @@ export function CommercialFileUploadEditor({
           uploadToken,
         });
       },
+      (uploaded) => setPendingFiles((queued) => queued.filter((file) => file !== uploaded)),
       () => {
         toast.success(
           `${pendingFiles.length} file${pendingFiles.length === 1 ? "" : "s"} uploaded.`
         );
-        setPendingFiles([]);
         setNote("");
       },
       () => setBusy(false)

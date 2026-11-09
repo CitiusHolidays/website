@@ -75,14 +75,18 @@ function useCommands(workspace, term, onSaveView) {
             },
           ]
         : []),
-      {
-        group: "Actions",
-        icon: "FilterX",
-        id: "action:clear-filters",
-        label: "Clear filters",
-        run: workspace.clearAllFilters,
-        subtitle: workspace.meta?.title,
-      },
+      ...(isRuntimeFunction(workspace.clearAllFilters)
+        ? [
+            {
+              group: "Actions",
+              icon: "FilterX",
+              id: "action:clear-filters",
+              label: "Clear filters",
+              run: workspace.clearAllFilters,
+              subtitle: workspace.meta?.title,
+            },
+          ]
+        : []),
     ],
     term
   );

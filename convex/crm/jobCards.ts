@@ -37,6 +37,7 @@ import {
 import {
   handleJobCardGetDetail,
   handleJobCardGetListRow,
+  handleJobCardIdForTourManagerAssignment,
   handleJobCardListPage,
   handleListTravelBatches,
   handleMyAssignedJobCardsPage,
@@ -114,6 +115,13 @@ export const getDetail = query({
   returns: jobCardGetListRowResultValidator,
 });
 
+/** The Job Card a Tour Manager allocation notification opens; null when the caller may not see it. */
+export const getJobCardIdForTourManagerAssignment = query({
+  args: { assignmentId: v.string() },
+  handler: handleJobCardIdForTourManagerAssignment,
+  returns: v.union(v.null(), v.id("jobCards")),
+});
+
 export const listTravelBatches = query({
   args: {
     jobCardId: v.string(),
@@ -185,7 +193,6 @@ export const createFromQuery = mutation({
     proposalId: v.optional(v.string()),
     queryId: v.optional(v.string()),
     roomCount: v.optional(v.number()),
-    tourManagerName: v.optional(v.string()),
     travelEndDate: v.optional(v.string()),
     travelStartDate: v.optional(v.string()),
   },
@@ -200,7 +207,6 @@ export const update = mutation({
     destination: v.optional(v.string()),
     jobCardId: v.string(),
     roomCount: v.optional(v.number()),
-    tourManagerName: v.optional(v.string()),
     travelEndDate: v.optional(v.string()),
     travelStartDate: v.optional(v.string()),
   },

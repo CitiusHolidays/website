@@ -18,7 +18,7 @@ const ENTITY_DEEP_LINKS = new Set([
   "ticket",
 ]);
 
-export function parsePortalFilterParams(searchParams) {
+function parsePortalFilterParams(searchParams) {
   const search = searchParams.get("q") ?? "";
   const from = searchParams.get("from") ?? "";
   const to = searchParams.get("to") ?? "";
@@ -50,7 +50,7 @@ export function parseUrlFilterState(searchParams, filterConfig = []) {
   return { ...parsed, listFilters };
 }
 
-export function serializePortalFilterParams({
+function serializePortalFilterParams({
   search,
   dateRange,
   jobCardFilter,

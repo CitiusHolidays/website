@@ -14,8 +14,8 @@ import type {
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
-import { decryptPassportDetails } from "../lib/encryption";
-import { isRuntimeNumber, isRuntimeString } from "../lib/runtimeValues";
+import { decryptPassportDetails, EncryptionConfigurationError } from "../lib/encryption";
+import { isRuntimeNumber, isRuntimeObject, isRuntimeString } from "../lib/runtimeValues";
 import { classifyImportError } from "./importWorkerPolicy";
 import type { PortalAccess } from "./lib";
 import { CRM_LIST_MAX_ROWS_READ } from "./paginationPolicy";
@@ -98,7 +98,11 @@ export function mapPassengerExportRow(row: PassengerExportSourceRow): PassengerE
         issueDate: cleanPassportField(decrypted.issueDate),
         number: cleanPassportField(decrypted.number),
       };
-    } catch {
+    } catch (error) {
+      // One unreadable payload exports blank passport cells; a missing key would blank every row.
+      if (error instanceof EncryptionConfigurationError) {
+        throw error;
+      }
       passport = { dateOfBirth: "", expiryDate: "", issueDate: "", number: "" };
     }
   }
@@ -175,13 +179,17 @@ export function serializePassengerExportChunk(rows: PassengerExportSortableRow[]
 }
 
 function parseSortableRow(line: string): PassengerExportSortableRow {
-  // SAFETY: the following checks validate every field required from the serialized sortable row.
-  const row = JSON.parse(line) as Partial<PassengerExportSortableRow>;
-  if (!(isRuntimeNumber(row.createdAt) && isRuntimeString(row.fullName))) {
+  // SAFETY: a serialized line may be any JSON value; the checks below reject non-objects and
+  // validate every required field before the row is used.
+  const parsed = JSON.parse(line) as Partial<PassengerExportSortableRow> | null;
+  if (!isRuntimeObject(parsed) || Array.isArray(parsed)) {
     throw new ConvexError("Passenger export source chunk is malformed");
   }
-  // SAFETY: createdAt and fullName are the only required fields; remaining fields are optional.
-  return row as PassengerExportSortableRow;
+  const { createdAt, fullName, ...optionalFields } = parsed;
+  if (!(isRuntimeNumber(createdAt) && isRuntimeString(fullName))) {
+    throw new ConvexError("Passenger export source chunk is malformed");
+  }
+  return { ...optionalFields, createdAt, fullName };
 }
 
 async function writeLine(stream: ReturnType<typeof createWriteStream>, line: string) {

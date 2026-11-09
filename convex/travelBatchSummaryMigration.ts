@@ -2,7 +2,8 @@ import type { PaginationOptions } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-import { propertiesWhen } from "./lib/runtimeValues";
+import { boundedMigrationLimit } from "./lib/migrationBatch";
+import { migrationRegistryState, startedMigrationRegistry } from "./lib/migrationRegistry";
 import {
   assertRecognizedTravelBatchSummaries,
   travelBatchCountFromSummaries,
@@ -49,10 +50,6 @@ export const travelBatchSummaryRegistryStatusValidator = v.object({
   verified: v.boolean(),
   verifiedAt: v.union(v.number(), v.null()),
 });
-
-function boundedTravelBatchSummaryMigrationLimit(limit?: number) {
-  return Math.min(Math.max(Math.trunc(limit ?? TRAVEL_BATCH_MIGRATION_LIMIT), 1), 100);
-}
 
 async function getTravelBatchSummaryMigration(ctx: MutationCtx | QueryCtx) {
   return await ctx.db
@@ -125,7 +122,7 @@ export async function backfillTravelBatchSummariesHandler(
   args: { limit?: number; secret: string }
 ) {
   assertMigrationSecret(args.secret);
-  const limit = boundedTravelBatchSummaryMigrationLimit(args.limit);
+  const limit = boundedMigrationLimit(args.limit, TRAVEL_BATCH_MIGRATION_LIMIT, 100);
   const now = Date.now();
   let registry = await getTravelBatchSummaryMigration(ctx);
   if (registry?.status === "verified") {
@@ -150,28 +147,13 @@ export async function backfillTravelBatchSummariesHandler(
   }
   if (!registry) {
     const id = await ctx.db.insert("dataMigrationRegistry", {
-      converted: 0,
-      cursor: null,
       key: TRAVEL_BATCH_SUMMARY_MIGRATION_KEY,
-      legacyRemaining: 0,
-      processed: 0,
-      stage: "backfill",
-      startedAt: now,
-      status: "running",
-      updatedAt: now,
+      ...startedMigrationRegistry("backfill", now),
     });
     registry = await ctx.db.get("dataMigrationRegistry", id);
   } else if (registry.status === "failed") {
     await ctx.db.patch("dataMigrationRegistry", registry._id, {
-      converted: 0,
-      cursor: null,
-      legacyRemaining: 0,
-      processed: 0,
-      stage: "backfill",
-      startedAt: now,
-      status: "running",
-      updatedAt: now,
-      verifiedAt: undefined,
+      ...startedMigrationRegistry("backfill", now),
     });
     registry = await ctx.db.get("dataMigrationRegistry", registry._id);
   }
@@ -209,12 +191,8 @@ export async function backfillTravelBatchSummariesHandler(
   const cursor = page.isDone ? null : page.continueCursor;
   await ctx.db.patch("dataMigrationRegistry", registry._id, {
     converted: registry.converted + converted,
-    cursor,
-    legacyRemaining: 0,
     processed: page.isDone ? 0 : registry.processed + page.page.length,
-    stage,
-    status: "running",
-    updatedAt: now,
+    ...migrationRegistryState({ cursor, legacyRemaining: 0, stage, status: "running" }, now),
   });
   return {
     converted,
@@ -254,7 +232,7 @@ export async function verifyTravelBatchSummariesHandler(
     .order("asc")
     .paginate({
       cursor: registry.cursor,
-      numItems: boundedTravelBatchSummaryMigrationLimit(args.limit),
+      numItems: boundedMigrationLimit(args.limit, TRAVEL_BATCH_MIGRATION_LIMIT, 100),
     });
   const pageResiduals = page.page.filter(
     (job) => (job.travelBatchSummaries?.length ?? 0) > 0
@@ -268,13 +246,8 @@ export async function verifyTravelBatchSummariesHandler(
   const cursor = page.isDone ? null : page.continueCursor;
   const now = Date.now();
   await ctx.db.patch("dataMigrationRegistry", registry._id, {
-    cursor,
-    legacyRemaining,
     processed: registry.processed + page.page.length,
-    stage,
-    status,
-    updatedAt: now,
-    ...propertiesWhen(status === "verified", () => ({ verifiedAt: now })),
+    ...migrationRegistryState({ cursor, legacyRemaining, stage, status }, now),
   });
   return {
     converted: 0,

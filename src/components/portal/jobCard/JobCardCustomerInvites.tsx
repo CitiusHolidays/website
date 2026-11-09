@@ -109,10 +109,17 @@ export function JobCardCustomerInvites({ jobCardId }: { jobCardId: string }) {
     setBusy(false);
   };
   const copyAll = async () => {
-    await navigator.clipboard.writeText(
-      links.map((row) => `${row.fullName}: ${row.url}`).join("\n")
-    );
-    setStatus("Links copied.");
+    setError("");
+    try {
+      await navigator.clipboard.writeText(
+        links.map((row) => `${row.fullName}: ${row.url}`).join("\n")
+      );
+      setStatus("Links copied.");
+    } catch {
+      // The browser can refuse clipboard access; the links stay listed below to copy by hand.
+      setStatus("");
+      setError("The links could not be copied. Copy them from the list instead.");
+    }
   };
   return (
     <section

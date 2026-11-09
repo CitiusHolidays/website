@@ -27,6 +27,7 @@ function routeOptions(overrides: DependencyOverrides = {}): CreateOrderOptions {
       }),
     ensureProfile: () => Promise.resolve({ id: "profile_1" }),
     establishIdentity: () => Promise.resolve({ status: "linked" }),
+    getServerSecret: () => "server-secret",
     prepareCheckout: () =>
       Promise.resolve({
         totalAmount: 25_000,
@@ -214,6 +215,46 @@ describe("Create-order route boundary", () => {
     expect(providerCalls).toBe(0);
   });
 
+  test("Writes the pending booking server-to-server for exactly the provider order amount", async () => {
+    const bookingArgs: JsonValue[] = [];
+    const response = await handleCreateOrder(
+      request(validBody()),
+      routeOptions({
+        createPendingBooking: (args) => {
+          bookingArgs.push(args);
+          return Promise.resolve({ booking: { id: "booking_1", status: "pending" } });
+        },
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(bookingArgs).toEqual([
+      expect.objectContaining({
+        amount: 25_000,
+        currency: "INR",
+        razorpayOrderId: "order_1",
+        serverSecret: "server-secret",
+      }),
+    ]);
+  });
+
+  test("Creates no provider order when the payment mutation secret is missing", async () => {
+    let providerCalls = 0;
+    const response = await handleCreateOrder(
+      request(validBody()),
+      routeOptions({
+        createProviderOrder: () => {
+          providerCalls += 1;
+          return Promise.resolve({});
+        },
+        getServerSecret: () => null,
+      })
+    );
+
+    expect(response.status).toBe(503);
+    expect(providerCalls).toBe(0);
+  });
+
   test("Rejects provider transport and malformed response failures before booking mutation", async () => {
     let bookingCalls = 0;
     const createPendingBooking = () => {
@@ -252,6 +293,31 @@ describe("Create-order route boundary", () => {
     expect(await response.json()).toEqual({
       error: "Checkout is temporarily unavailable. Please try again later.",
     });
+  });
+
+  test("Refuses a cross-site browser request before any identity or provider work", async () => {
+    let dependencyCalls = 0;
+    const count = () => {
+      dependencyCalls += 1;
+      return Promise.reject(new Error("must not be called"));
+    };
+    const response = await handleCreateOrder(
+      new Request("http://localhost/api/create-order", {
+        body: JSON.stringify(validBody()),
+        headers: { "content-type": "text/plain", origin: "https://attacker.example" },
+        method: "POST",
+      }),
+      routeOptions({
+        createPendingBooking: count,
+        createProviderOrder: count,
+        ensureProfile: count,
+        establishIdentity: count,
+        prepareCheckout: count,
+      })
+    );
+
+    expect(response.status).toBe(403);
+    expect(dependencyCalls).toBe(0);
   });
 
   test("Validates all provider fields instead of accepting an unchecked cast", () => {

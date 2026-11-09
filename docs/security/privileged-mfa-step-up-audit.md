@@ -45,10 +45,17 @@ can be checked inside a Convex mutation. A browser flag, an unbound cookie, or a
 `twoFactorEnabled` profile bit would allow an old or different session to invoke
 a privileged mutation and would not satisfy the “recent step-up” requirement.
 
-The existing Google/email autolink behavior must remain unchanged. In
-particular, a Google-linked account may not be silently converted into a
-password account, and enabling MFA must not make an un-enrolled user appear
-authenticated when the second-factor challenge is pending.
+Google/email autolink keeps its current rules, including the one change made
+since this audit: `account.accountLinking.requireLocalEmailVerified` is now
+`true` (owner-approved, PR #330). Google links into an existing email/password
+account only after that account's email is verified. Before, anyone could sign
+up with someone else's address and their own password, wait for that person's
+first Google sign-in to link the account and mark the address verified, and then
+sign in with the password they chose; Better Auth makes this gate unconditional
+in its next minor release. MFA work must keep that gate on. A Google-linked
+account may not be silently converted into a password account, and enabling MFA
+must not make an un-enrolled user appear authenticated when the second-factor
+challenge is pending.
 
 ## Required implementation slice (future work)
 

@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { fromAny, fromPartial } from "@total-typescript/shoehorn";
 import type { FunctionReference } from "convex/server";
 import { getFunctionName } from "convex/server";
@@ -17,6 +17,7 @@ import {
   removePassport,
 } from "./passportActions";
 import { getMyPortalAccess } from "./staff";
+import { deleteIfUnreferenced } from "./storageReferences";
 
 interface Row {
   _id: string;
@@ -95,6 +96,7 @@ function makePassportCtx(tables: Tables, staffOverrides: Partial<Row> = {}) {
         let rows = allTables[table] ?? [];
         return {
           collect: async () => [...rows],
+          first: async () => rows[0] ?? null,
           take: async (limit: number) => rows.slice(0, limit),
           unique: async () => rows[0] ?? null,
           withIndex(_indexName: string, callback: (q: TestIndexQuery) => TestIndexQuery) {
@@ -119,10 +121,18 @@ function makePassportCtx(tables: Tables, staffOverrides: Partial<Row> = {}) {
   return { ctx, staff, tables: allTables };
 }
 
+interface ScheduledCall {
+  args: RuntimeObject;
+  delayMs: number;
+  name: string;
+}
+
 function makePassportActionCtx(
   queryCtx: ReturnType<typeof makePassportCtx>["ctx"],
   storageBlobs: Record<string, Blob> = {},
-  beforeMutation?: (name: string) => Promise<void> | void
+  beforeMutation?: (name: string) => Promise<void> | void,
+  /** Storage ids whose next delete fails, as a storage outage would. */
+  failingDeletes: string[] = []
 ) {
   const blobs = { ...storageBlobs };
   const effects = {
@@ -131,6 +141,56 @@ function makePassportActionCtx(
     storageReads: [],
     storageStores: 0,
     storageUploadUrls: 0,
+  };
+  const scheduled: ScheduledCall[] = [];
+  const pendingFailures = [...failingDeletes];
+  const storage = {
+    delete: (id: string) => {
+      const failure = pendingFailures.indexOf(id);
+      if (failure >= 0) {
+        pendingFailures.splice(failure, 1);
+        throw new Error("storage unavailable");
+      }
+      effects.storageDeletes.push(id);
+      delete blobs[id];
+    },
+    generateUploadUrl: () => {
+      effects.storageUploadUrls += 1;
+      return Promise.resolve("https://storage.example/upload");
+    },
+    get: (id: string) => {
+      effects.storageReads.push(id);
+      return Promise.resolve(blobs[id] ?? null);
+    },
+    store: (blob: Blob) => {
+      effects.storageStores += 1;
+      blobs.storage_new = blob;
+      return Promise.resolve("storage_new");
+    },
+  };
+  /** The storage-cleanup mutation as Convex runs it: the database, storage, and its scheduler. */
+  const mutationCtx = {
+    ...queryCtx,
+    scheduler: {
+      runAfter: (
+        delayMs: number,
+        reference: FunctionReference<"mutation", "internal">,
+        args: RuntimeObject
+      ) => {
+        scheduled.push({ args, delayMs, name: getFunctionName(reference) });
+        return Promise.resolve();
+      },
+    },
+    storage,
+  };
+  const runScheduled = async () => {
+    const due = scheduled.splice(0);
+    for (const call of due) {
+      expect(call.name).toBe("crm/storageReferences:deleteIfUnreferenced");
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      // biome-ignore lint/performance/noAwaitInLoops: scheduled retries run one after another.
+      await fromAny<any, unknown>(deleteIfUnreferenced)._handler(mutationCtx, call.args);
+    }
   };
   const ctx = {
     runMutation: async (
@@ -152,6 +212,10 @@ function makePassportActionCtx(
         // SAFETY: This test controls the asserted value at the framework boundary below.
         return await fromAny<any, unknown>(deletePassportMetadata)._handler(queryCtx, args);
       }
+      if (name === "crm/storageReferences:deleteIfUnreferenced") {
+        // SAFETY: This test controls the asserted value at the framework boundary below.
+        return await fromAny<any, unknown>(deleteIfUnreferenced)._handler(mutationCtx, args);
+      }
       if (name === "crm/rateLimitMaintenance:consumePortalFileDownload") {
         return { allowed: true, remaining: 29, retryAfterSeconds: null };
       }
@@ -172,27 +236,9 @@ function makePassportActionCtx(
       }
       throw new Error(`Unexpected query: ${name}`);
     },
-    storage: {
-      delete: (id: string) => {
-        effects.storageDeletes.push(id);
-        delete blobs[id];
-      },
-      generateUploadUrl: () => {
-        effects.storageUploadUrls += 1;
-        return Promise.resolve("https://storage.example/upload");
-      },
-      get: (id: string) => {
-        effects.storageReads.push(id);
-        return Promise.resolve(blobs[id] ?? null);
-      },
-      store: (blob: Blob) => {
-        effects.storageStores += 1;
-        blobs.storage_new = blob;
-        return Promise.resolve("storage_new");
-      },
-    },
+    storage,
   };
-  return { ctx, effects };
+  return { blobs, ctx, effects, runScheduled, scheduled };
 }
 
 describe("Passport metadata access scope", () => {
@@ -591,6 +637,86 @@ describe("Passport metadata access scope", () => {
     }
     expect(effects.storageDeletes).toContain("storage_temp");
     expect(effects.storageStores).toBe(0);
+  });
+
+  test("A failed delete of the uploaded plaintext is retried until it is gone", async () => {
+    const { ctx: queryCtx } = makePassportCtx({
+      jobCards: [{ ...job }],
+      passportDetails: [{ ...passportRow }],
+      queries: [{ ...linkedQuery }],
+      travellers: [{ ...traveller }],
+    });
+    const previousKey = process.env.ENCRYPTION_KEY;
+    process.env.ENCRYPTION_KEY = Buffer.alloc(32, 12).toString("base64");
+    const { blobs, ctx, runScheduled, scheduled } = makePassportActionCtx(
+      queryCtx,
+      {
+        storage_1: new Blob([new Uint8Array(encryptBuffer(Buffer.from("original passport")))]),
+        storage_temp: new Blob(["replacement passport"]),
+      },
+      undefined,
+      ["storage_temp", "storage_temp"]
+    );
+    const logged = spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      await expect(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
+        fromAny<any, unknown>(encryptAndStorePassport)._handler(ctx, {
+          fileName: "replacement.pdf",
+          fileSize: 20,
+          mimeType: "application/pdf",
+          tempStorageId: "storage_temp",
+          travellerId,
+        })
+      ).resolves.toEqual({ success: true });
+      expect(Object.keys(blobs)).toContain("storage_temp");
+      expect(scheduled).toEqual([
+        {
+          args: { attempt: 1, storageId: "storage_temp" },
+          delayMs: 1000,
+          name: "crm/storageReferences:deleteIfUnreferenced",
+        },
+      ]);
+
+      // The first retry meets the outage too and schedules the next one, which succeeds.
+      await runScheduled();
+      expect(scheduled).toMatchObject([{ args: { attempt: 2 }, delayMs: 2000 }]);
+      await runScheduled();
+      expect(Object.keys(blobs)).not.toContain("storage_temp");
+      expect(scheduled).toEqual([]);
+      // The encrypted copy that replaced it is untouched.
+      expect(Object.keys(blobs)).toContain("storage_new");
+    } finally {
+      logged.mockRestore();
+      if (previousKey === undefined) {
+        delete process.env.ENCRYPTION_KEY;
+      } else {
+        process.env.ENCRYPTION_KEY = previousKey;
+      }
+    }
+  });
+
+  test("A temporary id naming another record's file never deletes that file", async () => {
+    const { ctx: queryCtx } = makePassportCtx({
+      jobCards: [{ ...job }],
+      passportDetails: [{ ...passportRow }],
+      queries: [{ ...linkedQuery }],
+      travellers: [{ ...traveller }],
+    });
+    const { blobs, ctx } = makePassportActionCtx(queryCtx, {
+      storage_1: new Blob(["encrypted passport, not a PDF"]),
+    });
+    await expect(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<any, unknown>(encryptAndStorePassport)._handler(ctx, {
+        fileName: "passport.pdf",
+        fileSize: 1,
+        mimeType: "application/pdf",
+        tempStorageId: "storage_1",
+        travellerId,
+      })
+    ).rejects.toBeInstanceOf(ConvexError);
+    expect(Object.keys(blobs)).toContain("storage_1");
   });
 
   test("Deletion rechecks scope before commit and preserves the current document", async () => {

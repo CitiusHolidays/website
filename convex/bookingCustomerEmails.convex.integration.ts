@@ -146,9 +146,31 @@ async function runScheduledFollowUps(t: Harness) {
   await t.finishInProgressScheduledFunctions();
 }
 
-async function confirmViaCheckout(t: Harness, orderId = "order_1", paymentId = "pay_1") {
+interface Paid {
+  paidAmount: number;
+  paidCurrency: string;
+}
+
+/** By default the provider reports exactly what the booking owes. */
+async function bookingDue(t: Harness, orderId: string): Promise<Paid> {
+  const booking = await t.run((ctx) =>
+    ctx.db
+      .query("bookings")
+      .withIndex("by_razorpayOrderId", (q) => q.eq("razorpayOrderId", orderId))
+      .first()
+  );
+  return { paidAmount: booking?.totalAmount ?? 0, paidCurrency: booking?.currency ?? "INR" };
+}
+
+async function confirmViaCheckout(
+  t: Harness,
+  orderId = "order_1",
+  paymentId = "pay_1",
+  paid?: Paid
+) {
   const result = await t.mutation(api.bookings.confirmBookingByOrderId, {
     orderId,
+    ...(paid ?? (await bookingDue(t, orderId))),
     paymentId,
     providerEventId: `checkout:payment.confirmed:${orderId}:${paymentId}`,
     reason: "Checkout signature verified",
@@ -159,9 +181,15 @@ async function confirmViaCheckout(t: Harness, orderId = "order_1", paymentId = "
   return result;
 }
 
-async function confirmViaWebhook(t: Harness, orderId = "order_1", paymentId = "pay_1") {
+async function confirmViaWebhook(
+  t: Harness,
+  orderId = "order_1",
+  paymentId = "pay_1",
+  paid?: Paid
+) {
   const result = await t.mutation(api.bookings.confirmBookingByOrderId, {
     orderId,
+    ...(paid ?? (await bookingDue(t, orderId))),
     paymentId,
     providerEventId: `razorpay:payment.captured:${paymentId}`,
     reason: "Razorpay payment.captured webhook",
@@ -318,6 +346,60 @@ describe("booking confirmation email", () => {
   });
 });
 
+describe("a payment that does not match the booking", () => {
+  test("an underpayment queues no email and issues no invoice, whichever callback arrives first", async () => {
+    for (const webhookFirst of [true, false]) {
+      const t = harness();
+      stubInvoiceConfig();
+      const requests = captureResend();
+      const bookingId = await seedBooking(t);
+      const short = { paidAmount: 100, paidCurrency: "INR" };
+
+      const confirmations = webhookFirst
+        ? [
+            () => confirmViaWebhook(t, "order_1", "pay_1", short),
+            () => confirmViaCheckout(t, "order_1", "pay_1", short),
+          ]
+        : [
+            () => confirmViaCheckout(t, "order_1", "pay_1", short),
+            () => confirmViaWebhook(t, "order_1", "pay_1", short),
+          ];
+      for (const confirm of [...confirmations, ...confirmations]) {
+        expect(await confirm()).toMatchObject({ paymentMismatch: true, success: false });
+      }
+      await dispatchAll(t);
+
+      expect(requests).toHaveLength(0);
+      expect(await customerJobs(t)).toEqual([]);
+      expect(await t.run((ctx) => ctx.db.query("bookingInvoices").collect())).toEqual([]);
+      const booking = await t.run((ctx) => ctx.db.get("bookings", bookingId));
+      expect(booking).toMatchObject({
+        paymentMismatch: { expectedAmount: 12_500_000, paidAmount: 100, paymentId: "pay_1" },
+        status: "pending",
+      });
+      const trip = booking ? await t.run((ctx) => ctx.db.get("trips", booking.tripId)) : null;
+      expect(trip?.availableSeats).toBe(10);
+      const events = await t.run((ctx) => ctx.db.query("bookingPaymentEvents").collect());
+      expect(events.map((event) => event.outcome)).toEqual(["amount_mismatch", "amount_mismatch"]);
+    }
+  });
+
+  test("a payment in another currency queues no email and issues no invoice", async () => {
+    const t = harness();
+    stubInvoiceConfig();
+    await seedBooking(t);
+
+    const result = await confirmViaWebhook(t, "order_1", "pay_1", {
+      paidAmount: 12_500_000,
+      paidCurrency: "USD",
+    });
+
+    expect(result).toMatchObject({ paymentMismatch: true, success: false });
+    expect(await customerJobs(t)).toEqual([]);
+    expect(await t.run((ctx) => ctx.db.query("bookingInvoices").collect())).toEqual([]);
+  });
+});
+
 describe("payment safety and recipient identity", () => {
   test("a failing invoice or email follow-up never undoes the payment confirmation", async () => {
     const t = harness();
@@ -337,6 +419,8 @@ describe("payment safety and recipient identity", () => {
 
     const result = await t.mutation(api.bookings.confirmBookingByOrderId, {
       orderId: "order_1",
+      paidAmount: 12_500_000,
+      paidCurrency: "INR",
       paymentId: "pay_1",
       providerEventId: "razorpay:payment.captured:pay_1",
       reason: "Razorpay payment.captured webhook",

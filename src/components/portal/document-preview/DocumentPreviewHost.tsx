@@ -540,7 +540,7 @@ function DocumentPreviewHeader({
           className="flex min-w-64 items-center gap-1"
           onSubmit={(event) => {
             event.preventDefault();
-            runSearch().catch(() => undefined);
+            runSearch();
           }}
         >
           <label className="relative min-w-0 flex-1" htmlFor="document-preview-search">
@@ -571,7 +571,7 @@ function DocumentPreviewHeader({
                   searchResult?.total
                 ) {
                   event.preventDefault();
-                  stepSearch(-1).catch(() => undefined);
+                  stepSearch(-1);
                 }
               }}
               placeholder="Search this document"
@@ -859,8 +859,14 @@ export function DocumentPreviewHost() {
   const searchResultLabel = formatSearchResult(searchResult);
   const navigation = sensitive ? null : request?.navigation;
 
-  const runSearch = () => runDocumentPreviewSearch(state, kind, dispatch);
-  const stepSearch = (direction: -1 | 1) => stepDocumentPreviewSearch(state, direction, dispatch);
+  // A search that times out or loses its worker leaves the document readable, so the failure is
+  // shown as a status warning instead of being dropped.
+  const reportSearchFailure = () =>
+    dispatch({ type: "warning", warning: "Search could not finish for this document." });
+  const runSearch = () =>
+    runDocumentPreviewSearch(state, kind, dispatch).catch(reportSearchFailure);
+  const stepSearch = (direction: -1 | 1) =>
+    stepDocumentPreviewSearch(state, direction, dispatch).catch(reportSearchFailure);
 
   return (
     <ControlledDialog

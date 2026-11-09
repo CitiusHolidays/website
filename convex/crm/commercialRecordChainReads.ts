@@ -15,6 +15,7 @@ import {
   PERMISSIONS,
   requireAnyPermission,
 } from "./lib";
+import { linkedQueriesForProposal } from "./proposalRelations";
 
 const commercialChainFileValidator = v.object({
   attachmentId: v.string(),
@@ -32,26 +33,6 @@ const commercialChainFileValidator = v.object({
 });
 
 type EntryPoint = "query" | "proposal" | "jobCard";
-
-export async function linkedQueriesForProposal(
-  ctx: QueryCtx,
-  proposal: { _id: Id<"proposals">; queryId?: Id<"queries"> }
-) {
-  const links = await ctx.db
-    .query("proposalQueryLinks")
-    .withIndex("by_proposalId", (q) => q.eq("proposalId", proposal._id))
-    .collect();
-  const queryIds = new Set<Id<"queries">>();
-  if (proposal.queryId) {
-    queryIds.add(proposal.queryId);
-  }
-  for (const link of links) {
-    queryIds.add(link.queryId);
-  }
-  return (
-    await Promise.all(Array.from(queryIds, (queryId) => ctx.db.get("queries", queryId)))
-  ).filter((row): row is NonNullable<typeof row> => row !== null);
-}
 
 export async function proposalsForQuery(ctx: QueryCtx, queryId: Id<"queries">) {
   const proposalIds = new Set<Id<"proposals">>();

@@ -16,7 +16,7 @@ instead of silently choosing a behavior change.
 | Authentication, password reset, account linking, origin, session, or privileged-auth work | `docs/BACKEND_INFRASTRUCTURE.md`, `docs/LOCAL_DEV.md`, `docs/AUTH_DOMAIN_CUTOVER.md`, and relevant security/identity ADRs |
 | TypeScript migration or proposed Effect usage | `docs/adr/0004-typescript-first-effect-adoption.md` and direct behavior tests for each retained seam |
 | Public website, Concierge, contact, policy, MICE, pilgrimage, or visual-identity work | `CONTEXT.md`, the relevant public design/brand document, and focused behavior or mounted tests |
-| Release, deploy, environment, Vercel, Convex target, E2E, browser proof, or rollback work | `RELEASE.md`, `config/environment.manifest.json`, `docs/LOCAL_DEV.md`, `docs/E2E_TESTING.md`, and `docs/BROWSER_SMOKE.md` |
+| Release, deploy, environment, Vercel, Convex target, E2E, browser proof, or rollback work | `RELEASE.md`, `config/environment.manifest.json`, `docs/LOCAL_DEV.md`, `docs/E2E_TESTING.md`, `docs/BROWSER_SMOKE.md`, and the local `verify-citius` skill for driving a local instance |
 | Issue, ticket, Wayfinder map, or planning-evidence work | `docs/agents/issue-tracker.md` and `docs/PLAN_MAP.md`; GitHub is canonical and `.scratch/` is local evidence |
 | Repository health, lint, dead code, hooks, or command discovery | `AGENTS.md`, `package.json`, `docs/DEAD_CODE_INVENTORY.md`, and `docs/LOCAL_DEV.md` |
 

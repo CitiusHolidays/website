@@ -48,4 +48,10 @@ describe("Contracting Pipeline Policy", () => {
       ).toThrow("Use Sales Decision");
     }
   );
+
+  test("Locks records Sales has already decided", () => {
+    expect(
+      isContractingPipelineBoardLocked({ salesStatus: "Date/Destination Change Required" })
+    ).toBe(true);
+  });
 });
