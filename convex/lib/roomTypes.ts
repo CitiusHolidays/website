@@ -55,18 +55,6 @@ export function resolveRoomCategory(value: RuntimeValue): RoomTypeLabel | undefi
   }
 }
 
-/** @deprecated Use resolveRoomCategory for roomType fields. */
-export function normalizeLegacyRoomType(value: RuntimeValue): RoomTypeLabel | string | undefined {
-  const category = resolveRoomCategory(value);
-  if (category) {
-    return category;
-  }
-  if (isRuntimeString(value)) {
-    const trimmed = value.trim();
-    return trimmed || undefined;
-  }
-}
-
 function normalizeHotelAllocationValue(value: RuntimeValue): string | undefined {
   if (value === undefined || value === null) {
     return;

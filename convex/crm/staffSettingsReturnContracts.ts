@@ -143,7 +143,6 @@ export const staffOnboardingRecordResultValidator = v.union(
     staffId: v.id("staffUsers"),
   })
 );
-export const successResultValidator = v.object({ success: v.literal(true) });
 
 const staffImportResultRowValidator = v.object({
   action: v.union(

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { fromAny } from "@total-typescript/shoehorn";
 import type { RuntimeObject, RuntimeValue } from "../lib/runtimeValues";
-import { create, markSent, sendToSales, update } from "./proposals";
+import { create, sendToSales, update } from "./proposals";
 
 interface Row {
   _id: string;
@@ -227,17 +227,6 @@ describe("Proposal Handoff", () => {
     ).rejects.toThrow(
       "Enter selling price and cost price on the proposal before sending it to Sales."
     );
-
-    expect(tables.proposals[0].status).toBe("Draft");
-  });
-
-  test("Removes the legacy Mark client sent transition", async () => {
-    const { ctx, tables } = makeProposalHandoffCtx();
-
-    // SAFETY: This test controls the asserted value at the framework boundary below.
-    await expect(
-      fromAny<any, unknown>(markSent)._handler(ctx, { proposalId: "proposals_1" })
-    ).rejects.toThrow("Mark client sent is no longer available. Use Send to Sales.");
 
     expect(tables.proposals[0].status).toBe("Draft");
   });

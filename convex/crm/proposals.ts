@@ -114,15 +114,6 @@ export const update = mutation({
   returns: proposalIdResultValidator,
 });
 
-export const markSent = mutation({
-  args: {
-    proposalId: v.string(),
-  },
-  handler: () =>
-    Promise.reject(new ConvexError("Mark client sent is no longer available. Use Send to Sales.")),
-  returns: proposalIdResultValidator,
-});
-
 export const sendToSales = mutation({
   args: {
     commandId: v.string(),
@@ -131,18 +122,6 @@ export const sendToSales = mutation({
     queryId: v.string(),
   },
   handler: handleSendProposalToSales,
-  returns: proposalIdResultValidator,
-});
-
-export const markAccepted = mutation({
-  args: {
-    proposalId: v.string(),
-  },
-  handler: () => {
-    throw new ConvexError(
-      "Proposal acceptance is retired. Sales must confirm the exact handed-off revision through Sales Decision."
-    );
-  },
   returns: proposalIdResultValidator,
 });
 
