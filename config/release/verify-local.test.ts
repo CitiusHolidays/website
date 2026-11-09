@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { CHILD_TEST_TIMEOUT_MS, runChild } from "../../test-helpers/runChild";
 import {
   LOCAL_RELEASE_GATES,
   resolveVerificationRevision,
@@ -160,32 +160,35 @@ describe("Target-neutral local release verifier", () => {
     ).toBe("abc123");
   });
 
-  test("Help and list are side-effect-free while unknown flags fail before gates", () => {
-    const run = (args: string[]) =>
-      spawnSync("bun", ["config/release/verify-local.ts", ...args], {
-        cwd: root,
-        encoding: "utf8",
-        env: { PATH: process.env.PATH },
-      });
+  test(
+    "Help and list are side-effect-free while unknown flags fail before gates",
+    async () => {
+      const run = (args: string[]) =>
+        runChild("bun", ["config/release/verify-local.ts", ...args], {
+          cwd: root,
+          env: { PATH: process.env.PATH },
+        });
 
-    const help = run(["--help"]);
-    expect(help.status).toBe(0);
-    expect(help.stdout).toContain("Usage: bun run verify:local");
-    expect(help.stdout).toContain("--metrics");
-    expect(help.stdout).toContain("--evidence");
-    expect(help.stdout).not.toContain("Running Diff hygiene");
+      const help = await run(["--help"]);
+      expect(help.status).toBe(0);
+      expect(help.stdout).toContain("Usage: bun run verify:local");
+      expect(help.stdout).toContain("--metrics");
+      expect(help.stdout).toContain("--evidence");
+      expect(help.stdout).not.toContain("Running Diff hygiene");
 
-    const list = run(["--list"]);
-    expect(list.status).toBe(0);
-    expect(list.stdout).toContain("root-install: Root frozen install");
-    expect(list.stdout).toContain("studio-lint-install: Studio lint dependency install");
-    expect(list.stdout).toContain("shared-quality: Shared required quality suite");
-    expect(list.stdout).toContain("not release evidence");
-    expect(list.stdout).not.toContain("Running Diff hygiene");
+      const list = await run(["--list"]);
+      expect(list.status).toBe(0);
+      expect(list.stdout).toContain("root-install: Root frozen install");
+      expect(list.stdout).toContain("studio-lint-install: Studio lint dependency install");
+      expect(list.stdout).toContain("shared-quality: Shared required quality suite");
+      expect(list.stdout).toContain("not release evidence");
+      expect(list.stdout).not.toContain("Running Diff hygiene");
 
-    const unknown = run(["--wat"]);
-    expect(unknown.status).toBe(1);
-    expect(unknown.stderr).toContain("Unknown flag --wat");
-    expect(unknown.stdout).not.toContain("Running Diff hygiene");
-  });
+      const unknown = await run(["--wat"]);
+      expect(unknown.status).toBe(1);
+      expect(unknown.stderr).toContain("Unknown flag --wat");
+      expect(unknown.stdout).not.toContain("Running Diff hygiene");
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 });

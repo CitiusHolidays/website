@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
+import { CHILD_TEST_TIMEOUT_MS, runChild } from "../../test-helpers/runChild";
 import {
   type ConvexRuntimeEnvironmentEvidence,
   evaluateEnvironmentPreflight,
@@ -271,61 +271,69 @@ describe("Target-aware environment preflight", () => {
     ).toThrow("invalid or duplicate names");
   });
 
-  test("The CLI fails production closed without printing provisioning secrets", () => {
-    const provisioningSecret = "production-provisioning-must-stay-private";
-    const result = spawnSync(
-      "bun",
-      [
-        "config/release/environment-preflight.ts",
-        "--target",
-        "production",
-        "--convex-env-evidence",
-        "config/test/fixtures/convex-env-evidence.production.json",
-      ],
-      {
-        cwd: root,
-        encoding: "utf8",
-        env: {
-          PATH: process.env.PATH,
-          ...urls,
-          CONVEX_DEPLOY_KEY: "prod:example|redacted",
-          CONVEX_DEPLOYMENT: "prod:example",
-          E2E_PROVISIONING_TARGET: "preview",
-          E2E_SEED_SECRET: provisioningSecret,
-          E2E_STAFF_PASSWORD: provisioningSecret,
-          RESEND_API_KEY: "redacted",
-        },
-      }
-    );
+  test(
+    "The CLI fails production closed without printing provisioning secrets",
+    async () => {
+      const provisioningSecret = "production-provisioning-must-stay-private";
+      const result = await runChild(
+        "bun",
+        [
+          "config/release/environment-preflight.ts",
+          "--target",
+          "production",
+          "--convex-env-evidence",
+          "config/test/fixtures/convex-env-evidence.production.json",
+        ],
+        {
+          cwd: root,
+          env: {
+            PATH: process.env.PATH,
+            ...urls,
+            CONVEX_DEPLOY_KEY: "prod:example|redacted",
+            CONVEX_DEPLOYMENT: "prod:example",
+            E2E_PROVISIONING_TARGET: "preview",
+            E2E_SEED_SECRET: provisioningSecret,
+            E2E_STAFF_PASSWORD: provisioningSecret,
+            RESEND_API_KEY: "redacted",
+          },
+        }
+      );
 
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain("Production must not configure E2E provisioning variables");
-    expect(`${result.stdout}\n${result.stderr}`).not.toContain(provisioningSecret);
-  });
-
-  test("Help is side-effect-free and missing, unknown, or invalid targets fail before validation", () => {
-    const run = (args: string[]) =>
-      spawnSync("bun", ["config/release/environment-preflight.ts", ...args], {
-        cwd: root,
-        encoding: "utf8",
-        env: { PATH: process.env.PATH },
-      });
-
-    const help = run(["--help"]);
-    expect(help.status).toBe(0);
-    expect(help.stdout).toContain("Usage: bun run env:preflight");
-    expect(help.stdout).not.toContain("Missing required");
-
-    for (const [args, message] of [
-      [[], "requires --target"],
-      [["--target"], "--target requires a value"],
-      [["--target", "local"], "Valid choices: preview, production"],
-      [["--wat"], "Unknown flag --wat"],
-    ] as const) {
-      const result = run([...args]);
       expect(result.status).toBe(1);
-      expect(result.stderr).toContain(message);
-      expect(result.stderr).not.toContain("Missing required");
-    }
-  });
+      expect(result.stderr).toContain("Production must not configure E2E provisioning variables");
+      expect(`${result.stdout}\n${result.stderr}`).not.toContain(provisioningSecret);
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
+
+  test(
+    "Help is side-effect-free and missing, unknown, or invalid targets fail before validation",
+    async () => {
+      const run = (args: string[]) =>
+        runChild("bun", ["config/release/environment-preflight.ts", ...args], {
+          cwd: root,
+          env: { PATH: process.env.PATH },
+        });
+
+      const help = await run(["--help"]);
+      expect(help.status).toBe(0);
+      expect(help.stdout).toContain("Usage: bun run env:preflight");
+      expect(help.stdout).not.toContain("Missing required");
+
+      const cases = [
+        [[], "requires --target"],
+        [["--target"], "--target requires a value"],
+        [["--target", "local"], "Valid choices: preview, production"],
+        [["--wat"], "Unknown flag --wat"],
+      ] as const;
+      const results = await Promise.all(cases.map(([args]) => run([...args])));
+      for (const [index, [, message]] of cases.entries()) {
+        const result = results[index];
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(message);
+        expect(result.stderr).not.toContain("Missing required");
+      }
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 });

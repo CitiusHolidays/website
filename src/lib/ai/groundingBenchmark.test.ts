@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
+import { CHILD_TEST_TIMEOUT_MS, runChild } from "../../../test-helpers/runChild";
 import {
   GROUNDING_BENCHMARK_CASES,
   GROUNDING_BENCHMARK_VERSION,
@@ -28,16 +28,19 @@ describe("Offline canonical grounding benchmark", () => {
     }
   });
 
-  test("Runs without a provider key or live probe", () => {
-    const result = spawnSync("bun", ["run", "ai:grounding-check"], {
-      cwd: root,
-      encoding: "utf8",
-      env: { NODE_ENV: "test", PATH: process.env.PATH },
-    });
+  test(
+    "Runs without a provider key or live probe",
+    async () => {
+      const result = await runChild("bun", ["run", "ai:grounding-check"], {
+        cwd: root,
+        env: { NODE_ENV: "test", PATH: process.env.PATH },
+      });
 
-    expect(result.status).toBe(0);
-    expect(result.stdout).toContain('"score": 1');
-    expect(result.stdout).toContain('"failed": 0');
-    expect(result.stderr.trim()).toBe("$ bun scripts/benchmark-ai-grounding.ts");
-  });
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain('"score": 1');
+      expect(result.stdout).toContain('"failed": 0');
+      expect(result.stderr.trim()).toBe("$ bun scripts/benchmark-ai-grounding.ts");
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 });

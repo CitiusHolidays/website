@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
+import { CHILD_TEST_TIMEOUT_MS, runChild } from "../../test-helpers/runChild";
 import type { JsonObject } from "../lib/jsonValue";
 import {
   APPROVAL_POLICY_VERSION,
@@ -74,23 +74,26 @@ describe("Agent automation consent policy", () => {
     ).toBe(false);
   });
 
-  test("Help exits before reading an approval record and an empty command fails with usage", () => {
-    const run = (args: string[]) =>
-      spawnSync("bun", ["config/release/agent-automation-policy.ts", ...args], {
-        cwd: root,
-        encoding: "utf8",
-        env: {
-          AUTOMATION_APPROVAL_RECORD: "/path/that/must/not/be/read",
-          PATH: process.env.PATH,
-        },
-      });
+  test(
+    "Help exits before reading an approval record and an empty command fails with usage",
+    async () => {
+      const run = (args: string[]) =>
+        runChild("bun", ["config/release/agent-automation-policy.ts", ...args], {
+          cwd: root,
+          env: {
+            AUTOMATION_APPROVAL_RECORD: "/path/that/must/not/be/read",
+            PATH: process.env.PATH,
+          },
+        });
 
-    const help = run(["--help"]);
-    expect(help.status).toBe(0);
-    expect(help.stdout).toContain("Usage: bun run automation:check");
+      const help = await run(["--help"]);
+      expect(help.status).toBe(0);
+      expect(help.stdout).toContain("Usage: bun run automation:check");
 
-    const empty = run([]);
-    expect(empty.status).toBe(1);
-    expect(empty.stderr).toContain("requires a command");
-  });
+      const empty = await run([]);
+      expect(empty.status).toBe(1);
+      expect(empty.stderr).toContain("requires a command");
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 });

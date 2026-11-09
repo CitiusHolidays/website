@@ -8,16 +8,19 @@ const DEPLOYMENT_IDENTITY_PATH = "convex/e2eDeploymentIdentity.ts";
 const CONVEX_SOURCE_EXTENSION_PATTERN = /\.(?:jsx?|json|tsx?)$/;
 const TEST_SOURCE_PATTERN = /\.(?:convex\.integration|integration|test)\.(?:jsx?|tsx?)$/;
 
-function convexDeploymentSourceFiles(root: string) {
-  const result = spawnSync(
-    "git",
-    ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", ...ROOT_INPUTS],
-    { cwd: root, encoding: "utf8", shell: false }
-  );
-  if (result.status !== 0) {
-    throw new Error("Unable to enumerate Convex deployment source files");
-  }
-  return result.stdout
+/** `git` arguments that list the deployable Convex source candidates, NUL-separated. */
+export const CONVEX_SOURCE_LIST_ARGS = [
+  "ls-files",
+  "--cached",
+  "--others",
+  "--exclude-standard",
+  "-z",
+  "--",
+  ...ROOT_INPUTS,
+] as const;
+
+function convexDeploymentSourceFiles(gitListing: string) {
+  return gitListing
     .split("\0")
     .filter(Boolean)
     .filter((path) => {
@@ -35,8 +38,9 @@ function convexDeploymentSourceFiles(root: string) {
     .sort((left, right) => left.localeCompare(right));
 }
 
-export function computeConvexDeploymentSourceHash(root: string) {
-  const files = convexDeploymentSourceFiles(root);
+/** Hashes the files named by a `git CONVEX_SOURCE_LIST_ARGS` listing taken in `root`. */
+export function hashConvexDeploymentSource(root: string, gitListing: string) {
+  const files = convexDeploymentSourceFiles(gitListing);
   if (files.length === 0) {
     throw new Error("Convex deployment source fingerprint has no inputs");
   }
@@ -48,4 +52,16 @@ export function computeConvexDeploymentSourceHash(root: string) {
     hash.update("\0");
   }
   return hash.digest("hex");
+}
+
+export function computeConvexDeploymentSourceHash(root: string) {
+  const result = spawnSync("git", [...CONVEX_SOURCE_LIST_ARGS], {
+    cwd: root,
+    encoding: "utf8",
+    shell: false,
+  });
+  if (result.status !== 0) {
+    throw new Error("Unable to enumerate Convex deployment source files");
+  }
+  return hashConvexDeploymentSource(root, result.stdout);
 }
