@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { isRuntimeObject } from "../../src/lib/runtimeValues";
+import { CHILD_TEST_TIMEOUT_MS, runChild } from "../../test-helpers/runChild";
 import type { JsonObject, JsonValue } from "../lib/jsonValue";
 import {
   buildMigrationRehearsalPlan,
@@ -163,42 +163,49 @@ describe("Target-explicit migration rehearsal planner", () => {
     ).toThrow("secret");
   });
 
-  test("CLI help is inert and dry planning writes no snapshot or target state", () => {
-    const fixtureRoot = mkdtempSync(resolve(tmpdir(), "citius-migration-plan-"));
-    const manifestPath = resolve(fixtureRoot, "manifest.json");
-    writeFileSync(manifestPath, JSON.stringify(validManifest));
-    const run = (args: string[]) =>
-      spawnSync("bun", ["config/release/migration-rehearsal.ts", ...args], {
-        cwd: root,
-        encoding: "utf8",
-        env: { PATH: process.env.PATH },
-      });
-    try {
-      const help = run(["--help"]);
-      expect(help.status).toBe(0);
-      expect(help.stdout).toContain("planning-only");
+  test(
+    "CLI help is inert and dry planning writes no snapshot or target state",
+    async () => {
+      const fixtureRoot = mkdtempSync(resolve(tmpdir(), "citius-migration-plan-"));
+      const manifestPath = resolve(fixtureRoot, "manifest.json");
+      writeFileSync(manifestPath, JSON.stringify(validManifest));
+      const run = (args: string[]) =>
+        runChild("bun", ["config/release/migration-rehearsal.ts", ...args], {
+          cwd: root,
+          env: { PATH: process.env.PATH },
+        });
+      try {
+        const help = await run(["--help"]);
+        expect(help.status).toBe(0);
+        expect(help.stdout).toContain("planning-only");
 
-      const planned = run(["--manifest", manifestPath, "--json"]);
-      expect(planned.status).toBe(0);
-      expect(JSON.parse(planned.stdout).scope).toBe("planning-only");
-      expect(planned.stdout).not.toContain("migration-secret");
+        const planned = await run(["--manifest", manifestPath, "--json"]);
+        expect(planned.status).toBe(0);
+        expect(JSON.parse(planned.stdout).scope).toBe("planning-only");
+        expect(planned.stdout).not.toContain("migration-secret");
 
-      const execute = run(["--manifest", manifestPath, "--execute"]);
-      expect(execute.status).toBe(1);
-      expect(execute.stderr).toContain("Unknown flag --execute");
-    } finally {
-      rmSync(fixtureRoot, { force: true, recursive: true });
-    }
-  });
+        const execute = await run(["--manifest", manifestPath, "--execute"]);
+        expect(execute.status).toBe(1);
+        expect(execute.stderr).toContain("Unknown flag --execute");
+      } finally {
+        rmSync(fixtureRoot, { force: true, recursive: true });
+      }
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 
-  test("The sensitive snapshot boundary is ignored by Git", () => {
-    const ignored = spawnSync(
-      "git",
-      ["check-ignore", ".scratch/migration-rehearsal/example/snapshot.zip"],
-      { cwd: root, encoding: "utf8" }
-    );
-    expect(ignored.status).toBe(0);
-  });
+  test(
+    "The sensitive snapshot boundary is ignored by Git",
+    async () => {
+      const ignored = await runChild(
+        "git",
+        ["check-ignore", ".scratch/migration-rehearsal/example/snapshot.zip"],
+        { cwd: root, encoding: "utf8" }
+      );
+      expect(ignored.status).toBe(0);
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 
   test("The canonical runbook preserves snapshot, flag, rollback, and evidence boundaries", () => {
     const runbook = readFileSync(resolve(root, "docs/migrations/rehearsal.md"), "utf8");

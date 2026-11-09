@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { CHILD_TEST_TIMEOUT_MS, runChild } from "../../test-helpers/runChild";
 import {
   classifyIntegrationUnit,
   forbiddenReason,
@@ -15,15 +15,14 @@ const DELETED_ENTRYPOINT = "src/components/portal/PortalWorkspace.js";
 const EXPECTED_SUCCESSOR = "src/components/portal/PortalWorkspace.tsx";
 const tempRepositories: string[] = [];
 
-function run(
+async function run(
   command: string,
   args: string[],
   cwd: string,
   options: { allowFailure?: boolean; env?: Record<string, string> } = {}
 ) {
-  const result = spawnSync(command, args, {
+  const result = await runChild(command, args, {
     cwd,
-    encoding: "utf8",
     env: { ...process.env, ...options.env },
   });
   if (!options.allowFailure && result.status !== 0) {
@@ -42,7 +41,7 @@ function write(root: string, path: string, contents = "export default null;\n") 
   writeFileSync(absolutePath, contents);
 }
 
-function createRepository() {
+async function createRepository() {
   const root = mkdtempSync(join(tmpdir(), "citius-diff-hygiene-"));
   tempRepositories.push(root);
   mkdirSync(join(root, "config/release"), { recursive: true });
@@ -65,23 +64,20 @@ function createRepository() {
   );
   write(root, DELETED_ENTRYPOINT);
   write(root, "src/components/portal/LegacyBanner.js");
-  const init = spawnSync("git", ["init", "--quiet", "--template="], {
-    cwd: root,
-    encoding: "utf8",
-  });
+  const init = await runChild("git", ["init", "--quiet", "--template="], { cwd: root });
   if (init.status !== 0) {
     throw new Error(`git init failed: ${init.stderr || init.stdout}`);
   }
-  git(root, "config", "user.email", "release-test@example.com");
-  git(root, "config", "user.name", "Release Test");
-  git(root, "add", ".");
-  git(root, "commit", "--quiet", "-m", "base");
-  return { base: git(root, "rev-parse", "HEAD").stdout.trim(), root };
+  await git(root, "config", "user.email", "release-test@example.com");
+  await git(root, "config", "user.name", "Release Test");
+  await git(root, "add", ".");
+  await git(root, "commit", "--quiet", "-m", "base");
+  return { base: (await git(root, "rev-parse", "HEAD")).stdout.trim(), root };
 }
 
-function commit(root: string, message: string) {
-  git(root, "add", "-A");
-  git(root, "commit", "--quiet", "-m", message);
+async function commit(root: string, message: string) {
+  await git(root, "add", "-A");
+  await git(root, "commit", "--quiet", "-m", message);
 }
 
 function check(root: string, base: string) {
@@ -97,76 +93,93 @@ afterEach(() => {
   }
 });
 
-function probeGitAvailable() {
+async function probeGitAvailable() {
   const probeRoot = mkdtempSync(join(tmpdir(), "citius-git-probe-"));
-  const init = spawnSync("git", ["init", "--quiet", "--template="], {
-    cwd: probeRoot,
-    encoding: "utf8",
-  });
+  const init = await runChild("git", ["init", "--quiet", "--template="], { cwd: probeRoot });
   rmSync(probeRoot, { force: true, recursive: true });
   return init.status === 0;
 }
 
-const gitAvailable = probeGitAvailable();
+const gitAvailable = await probeGitAvailable();
 const describeHygiene = gitAvailable ? describe : describe.skip;
 
 describeHygiene("atomic replacement diff hygiene", () => {
-  test("Rejects a candidate that deletes a protected entrypoint without its successor", () => {
-    const { base, root } = createRepository();
-    rmSync(join(root, DELETED_ENTRYPOINT));
-    commit(root, "delete entrypoint only");
+  test(
+    "Rejects a candidate that deletes a protected entrypoint without its successor",
+    async () => {
+      const { base, root } = await createRepository();
+      rmSync(join(root, DELETED_ENTRYPOINT));
+      await commit(root, "delete entrypoint only");
 
-    const result = check(root, base);
+      const result = await check(root, base);
 
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain(DELETED_ENTRYPOINT);
-    expect(result.stderr).toContain(EXPECTED_SUCCESSOR);
-  });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(DELETED_ENTRYPOINT);
+      expect(result.stderr).toContain(EXPECTED_SUCCESSOR);
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 
-  test("Accepts an atomic entrypoint replacement", () => {
-    const { base, root } = createRepository();
-    rmSync(join(root, DELETED_ENTRYPOINT));
-    write(root, EXPECTED_SUCCESSOR);
-    commit(root, "replace entrypoint atomically");
+  test(
+    "Accepts an atomic entrypoint replacement",
+    async () => {
+      const { base, root } = await createRepository();
+      rmSync(join(root, DELETED_ENTRYPOINT));
+      write(root, EXPECTED_SUCCESSOR);
+      await commit(root, "replace entrypoint atomically");
 
-    const result = check(root, base);
+      const result = await check(root, base);
 
-    expect(result.status).toBe(0);
-    expect(result.stdout).toContain("Diff hygiene passed");
-  });
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("Diff hygiene passed");
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 
-  test("Ignores an unrelated deletion", () => {
-    const { base, root } = createRepository();
-    rmSync(join(root, "src/components/portal/LegacyBanner.js"));
-    commit(root, "remove unrelated legacy file");
+  test(
+    "Ignores an unrelated deletion",
+    async () => {
+      const { base, root } = await createRepository();
+      rmSync(join(root, "src/components/portal/LegacyBanner.js"));
+      await commit(root, "remove unrelated legacy file");
 
-    expect(check(root, base).status).toBe(0);
-  });
+      expect((await check(root, base)).status).toBe(0);
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 
-  test("Rejects renaming a protected entrypoint to a non-successor", () => {
-    const { base, root } = createRepository();
-    git(root, "mv", DELETED_ENTRYPOINT, "src/components/portal/PortalWorkspace.backup.js");
-    commit(root, "rename entrypoint somewhere else");
+  test(
+    "Rejects renaming a protected entrypoint to a non-successor",
+    async () => {
+      const { base, root } = await createRepository();
+      await git(root, "mv", DELETED_ENTRYPOINT, "src/components/portal/PortalWorkspace.backup.js");
+      await commit(root, "rename entrypoint somewhere else");
 
-    const result = check(root, base);
+      const result = await check(root, base);
 
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain(DELETED_ENTRYPOINT);
-    expect(result.stderr).toContain(EXPECTED_SUCCESSOR);
-  });
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(DELETED_ENTRYPOINT);
+      expect(result.stderr).toContain(EXPECTED_SUCCESSOR);
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 
-  test("Ignores a rename that is not a protected migration", () => {
-    const { base, root } = createRepository();
-    git(
-      root,
-      "mv",
-      "src/components/portal/LegacyBanner.js",
-      "src/components/portal/RenamedBanner.js"
-    );
-    commit(root, "rename unrelated file");
+  test(
+    "Ignores a rename that is not a protected migration",
+    async () => {
+      const { base, root } = await createRepository();
+      await git(
+        root,
+        "mv",
+        "src/components/portal/LegacyBanner.js",
+        "src/components/portal/RenamedBanner.js"
+      );
+      await commit(root, "rename unrelated file");
 
-    expect(check(root, base).status).toBe(0);
-  });
+      expect((await check(root, base)).status).toBe(0);
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 });
 
 describe("Agent-tool integration-unit advisory", () => {

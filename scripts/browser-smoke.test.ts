@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
 import manifest from "../config/browser-smoke.json";
+import { CHILD_TEST_TIMEOUT_MS, runChild } from "../test-helpers/runChild";
 import {
   type BrowserSmokeCommandRunner,
   type BrowserSmokeManifest,
@@ -160,22 +160,25 @@ describe("Browser smoke harness", () => {
     expect(result).toEqual({ id: "fixture", status: "passed" });
   });
 
-  test("Help and invalid flags perform no browser or artifact work", () => {
-    const run = (args: string[]) =>
-      spawnSync("bun", ["scripts/browser-smoke.ts", ...args], {
-        cwd: root,
-        encoding: "utf8",
-        env: { PATH: process.env.PATH },
-      });
+  test(
+    "Help and invalid flags perform no browser or artifact work",
+    async () => {
+      const run = (args: string[]) =>
+        runChild("bun", ["scripts/browser-smoke.ts", ...args], {
+          cwd: root,
+          env: { PATH: process.env.PATH },
+        });
 
-    const help = run(["--help"]);
-    expect(help.status).toBe(0);
-    expect(help.stdout).toContain("Usage: bun run smoke:browser");
+      const help = await run(["--help"]);
+      expect(help.status).toBe(0);
+      expect(help.stdout).toContain("Usage: bun run smoke:browser");
 
-    const invalid = run(["--wat"]);
-    expect(invalid.status).toBe(1);
-    expect(invalid.stderr).toContain("Unknown flag --wat");
-  });
+      const invalid = await run(["--wat"]);
+      expect(invalid.status).toBe(1);
+      expect(invalid.stderr).toContain("Unknown flag --wat");
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 });
 
 const fixtureManifest: BrowserSmokeManifest = {

@@ -1,4 +1,9 @@
 import { execFileSync } from "node:child_process";
+import {
+  buildContentSecurityPolicy,
+  CONTENT_SECURITY_POLICY_REPORT_ONLY_HEADER,
+  CSP_REPORTING_ENDPOINTS,
+} from "./src/lib/security/contentSecurityPolicy.mjs";
 
 const EXACT_REVISION_PATTERN = /^[a-f0-9]{40}$/;
 const REACT_INSPECTION_MODULE = "./src/lib/dev/react-inspection-client.ts";
@@ -159,6 +164,20 @@ const nextConfig = {
           {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=()",
+          },
+          // Report-only: browsers report would-be violations and block nothing. The policy
+          // module explains every source and how to switch this to an enforcing policy.
+          {
+            key: CONTENT_SECURITY_POLICY_REPORT_ONLY_HEADER,
+            value: buildContentSecurityPolicy({
+              convexSiteUrl: process.env.NEXT_PUBLIC_CONVEX_SITE_URL,
+              convexUrl: process.env.NEXT_PUBLIC_CONVEX_URL,
+              development: process.env.NODE_ENV === "development",
+            }),
+          },
+          {
+            key: "Reporting-Endpoints",
+            value: CSP_REPORTING_ENDPOINTS,
           },
         ],
         source: "/(.*)",

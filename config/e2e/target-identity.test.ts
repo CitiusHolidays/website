@@ -4,7 +4,8 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { fromPartial } from "@total-typescript/shoehorn";
 import { CONVEX_E2E_DEPLOYMENT_SOURCE_HASH } from "../../convex/e2eDeploymentIdentity";
-import { computeConvexDeploymentSourceHash } from "./convex-source-fingerprint";
+import { CHILD_TEST_TIMEOUT_MS, runChild } from "../../test-helpers/runChild";
+import { CONVEX_SOURCE_LIST_ARGS, hashConvexDeploymentSource } from "./convex-source-fingerprint";
 import {
   readApprovedE2eTarget,
   validateApprovedE2eTargetManifest,
@@ -111,11 +112,18 @@ describe("Approved E2E target identity", () => {
     ).rejects.toThrow("does not match");
   });
 
-  test("Binds the deployed marker to the current Convex source closure", () => {
-    expect(computeConvexDeploymentSourceHash(resolve(import.meta.dir, "../.."))).toBe(
-      CONVEX_E2E_DEPLOYMENT_SOURCE_HASH
-    );
-  });
+  test(
+    "Binds the deployed marker to the current Convex source closure",
+    async () => {
+      const root = resolve(import.meta.dir, "../..");
+      const listing = await runChild("git", CONVEX_SOURCE_LIST_ARGS, { cwd: root });
+      expect(listing.status).toBe(0);
+      expect(hashConvexDeploymentSource(root, listing.stdout)).toBe(
+        CONVEX_E2E_DEPLOYMENT_SOURCE_HASH
+      );
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 
   test("Reads only an ignored-boundary manifest and binds both configured origins", () => {
     const root = mkdtempSync(resolve(tmpdir(), "citius-e2e-target-"));

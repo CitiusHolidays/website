@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
+import { CHILD_TEST_TIMEOUT_MS, runChild } from "../../test-helpers/runChild";
 import {
   collectChangeRangeSummary,
   parseNameStatus,
@@ -13,8 +13,8 @@ import {
 const root = resolve(import.meta.dir, "../..");
 const TARGET_BOUND_COMMAND_PATTERN = /deploy|codegen|vercel/;
 
-function runGit(cwd: string, args: string[]) {
-  const result = spawnSync("git", args, { cwd, encoding: "utf8" });
+async function runGit(cwd: string, args: string[]) {
+  const result = await runChild("git", args, { cwd });
   if (result.status !== 0) {
     throw new Error(result.stderr || result.stdout || `git ${args[0]} failed`);
   }
@@ -26,56 +26,60 @@ function writeFixture(fixtureRoot: string, filePath: string, content: string) {
   writeFileSync(output, content);
 }
 
-function createChangeRangeFixture() {
+async function createChangeRangeFixture() {
   const fixtureRoot = mkdtempSync(resolve(tmpdir(), "citius-release-range-"));
-  runGit(fixtureRoot, ["init", "--initial-branch=main"]);
-  runGit(fixtureRoot, ["config", "user.email", "release-fixture@example.invalid"]);
-  runGit(fixtureRoot, ["config", "user.name", "Release Fixture"]);
+  await runGit(fixtureRoot, ["init", "--initial-branch=main"]);
+  await runGit(fixtureRoot, ["config", "user.email", "release-fixture@example.invalid"]);
+  await runGit(fixtureRoot, ["config", "user.name", "Release Fixture"]);
   writeFixture(fixtureRoot, ".agents/review.md", "baseline\n");
   writeFixture(fixtureRoot, "src/app/auth/page.tsx", "export const state = 'baseline';\n");
   writeFixture(fixtureRoot, "convex/schema.ts", "export const schema = 'baseline';\n");
   writeFixture(fixtureRoot, "config/release/tool.ts", "export const tool = 'baseline';\n");
-  runGit(fixtureRoot, ["add", "."]);
-  runGit(fixtureRoot, ["commit", "-m", "chore: create release fixture"]);
+  await runGit(fixtureRoot, ["add", "."]);
+  await runGit(fixtureRoot, ["commit", "-m", "chore: create release fixture"]);
 
   writeFixture(fixtureRoot, ".agents/review.md", "updated\n");
   writeFixture(fixtureRoot, "src/app/auth/page.tsx", "export const state = 'updated';\n");
   writeFixture(fixtureRoot, "src/app/auth/page.test.ts", "export const covered = true;\n");
   writeFixture(fixtureRoot, "convex/schema.ts", "export const schema = 'updated';\n");
   writeFixture(fixtureRoot, "config/release/tool.ts", "export const tool = 'updated';\n");
-  runGit(fixtureRoot, ["add", "."]);
-  runGit(fixtureRoot, ["commit", "-m", "feat: update release fixture"]);
+  await runGit(fixtureRoot, ["add", "."]);
+  await runGit(fixtureRoot, ["commit", "-m", "feat: update release fixture"]);
   return fixtureRoot;
 }
 
 describe("Advisory release-range scope report", () => {
-  test("Summarizes a self-contained Git fixture without depending on workspace history", () => {
-    const fixtureRoot = createChangeRangeFixture();
-    try {
-      const summary = collectChangeRangeSummary(fixtureRoot, "HEAD^", "HEAD");
+  test(
+    "Summarizes a self-contained Git fixture without depending on workspace history",
+    async () => {
+      const fixtureRoot = await createChangeRangeFixture();
+      try {
+        const summary = await collectChangeRangeSummary(fixtureRoot, "HEAD^", "HEAD");
 
-      expect(summary.files.total).toBe(5);
-      expect(summary.tests.files).toBe(1);
-      expect(summary.ownership.map((row) => row.area)).toEqual(
-        expect.arrayContaining(["agent-tooling", "application", "backend", "release-tooling"])
-      );
-      expect(summary.risks.map((risk) => risk.tag)).toEqual(
-        expect.arrayContaining(["auth", "backend", "frontend", "release-tooling"])
-      );
-      expect(summary.mixing.toolchainAndProduct).toBe(true);
-      expect(summary.suggestedCommands).toEqual(
-        expect.arrayContaining([
-          "bun run config:check",
-          "bun run convex:typecheck",
-          "bun run typecheck",
-          "bun run verify:local",
-        ])
-      );
-      expect(summary.suggestedCommands.join(" ")).not.toMatch(TARGET_BOUND_COMMAND_PATTERN);
-    } finally {
-      rmSync(fixtureRoot, { force: true, recursive: true });
-    }
-  });
+        expect(summary.files.total).toBe(5);
+        expect(summary.tests.files).toBe(1);
+        expect(summary.ownership.map((row) => row.area)).toEqual(
+          expect.arrayContaining(["agent-tooling", "application", "backend", "release-tooling"])
+        );
+        expect(summary.risks.map((risk) => risk.tag)).toEqual(
+          expect.arrayContaining(["auth", "backend", "frontend", "release-tooling"])
+        );
+        expect(summary.mixing.toolchainAndProduct).toBe(true);
+        expect(summary.suggestedCommands).toEqual(
+          expect.arrayContaining([
+            "bun run config:check",
+            "bun run convex:typecheck",
+            "bun run typecheck",
+            "bun run verify:local",
+          ])
+        );
+        expect(summary.suggestedCommands.join(" ")).not.toMatch(TARGET_BOUND_COMMAND_PATTERN);
+      } finally {
+        rmSync(fixtureRoot, { force: true, recursive: true });
+      }
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 
   test("Parses binary paths and renames without fabricating line counts", () => {
     const rows = parseNumstat("10\t2\tsrc/a.ts\n-\t-\tpublic/a.png\n4\t1\told => new.ts\n");
@@ -108,17 +112,20 @@ describe("Advisory release-range scope report", () => {
     expect(summary.suggestedCommands).toEqual(["bun run diff:check"]);
   });
 
-  test("Requires an explicit valid base and rejects an empty range", () => {
-    const run = (args: string[]) =>
-      spawnSync("bun", ["config/release/summarize-change-range.ts", ...args], {
-        cwd: root,
-        encoding: "utf8",
-        env: { PATH: process.env.PATH },
-      });
+  test(
+    "Requires an explicit valid base and rejects an empty range",
+    async () => {
+      const run = (args: string[]) =>
+        runChild("bun", ["config/release/summarize-change-range.ts", ...args], {
+          cwd: root,
+          env: { PATH: process.env.PATH },
+        });
 
-    expect(run([]).status).toBe(1);
-    expect(run([]).stderr).toContain("--base");
-    expect(run(["--base", "not-a-revision"]).status).toBe(1);
-    expect(run(["--base", "HEAD", "--head", "HEAD"]).stderr).toContain("empty");
-  });
+      expect((await run([])).status).toBe(1);
+      expect((await run([])).stderr).toContain("--base");
+      expect((await run(["--base", "not-a-revision"])).status).toBe(1);
+      expect((await run(["--base", "HEAD", "--head", "HEAD"])).stderr).toContain("empty");
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 });

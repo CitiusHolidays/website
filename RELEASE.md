@@ -56,11 +56,14 @@ an environment-only revision label is not deployment-bound Convex evidence.
 ## Local and hosted quality gates
 
 `.github/workflows/hosted-quality.yml` runs `bun run quality:target-neutral`, the same required
-credential-free quality command used by the local verifier, on pull requests and `main`. That
+credential-free quality command used by the local verifier, on pull requests, merge-queue
+commits (`merge_group`), and `main`. That
 shared command intentionally contains only the canonical zero-warning lint gate, application and
 Convex typechecks, every target-neutral test, and coverage. Its
 third-party actions are commit-pinned, its
-permissions are read-only, and concurrency cancels superseded runs. It never runs Convex
+permissions are read-only, and concurrency cancels superseded runs (each merge-queue entry has its
+own ref, so queue runs never cancel each other). The Vercel deploy workflow acts only on
+`pull_request` and `push` runs, so a merge-queue run is checked but never deployed. It never runs Convex
 codegen/deploy, Vercel operations, authenticated browser tests, migrations, or provider commands.
 Branch-rule status is an external setting and remains unverified; do not call this check required
 until GitHub protection is inspected.

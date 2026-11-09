@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { CHILD_TEST_TIMEOUT_MS, runChild } from "../../test-helpers/runChild";
 import { createVercelConvexDeploymentPlan } from "./vercel-convex-deploy";
 
 const revision = "a5c5f0906d0cf9198cafd2459ad208c7554ca3dc";
@@ -57,7 +57,7 @@ describe("Vercel Convex deployment metadata", () => {
   });
 });
 
-function exerciseWrapper(options: {
+async function exerciseWrapper(options: {
   deployStatus?: number;
   environment: string;
   metadataStatus?: number;
@@ -81,12 +81,11 @@ exit "$CITIUS_PROBE_DEPLOY_STATUS"
 `
     );
     chmodSync(executable, 0o700);
-    const result = spawnSync(
+    const result = await runChild(
       process.execPath,
       [resolve(import.meta.dir, "vercel-convex-deploy.ts")],
       {
         cwd: directory,
-        encoding: "utf8",
         env: {
           CITIUS_PROBE_COMMANDS: commandsPath,
           CITIUS_PROBE_DEPLOY_STATUS: String(options.deployStatus ?? 0),
@@ -98,9 +97,6 @@ exit "$CITIUS_PROBE_DEPLOY_STATUS"
         },
       }
     );
-    if (result.error) {
-      throw result.error;
-    }
     return {
       commands: existsSync(commandsPath)
         ? readFileSync(commandsPath, "utf8").trim().split("\n")
@@ -115,64 +111,91 @@ exit "$CITIUS_PROBE_DEPLOY_STATUS"
 }
 
 describe("Vercel Convex wrapper execution", () => {
-  test("passes the reviewed metadata only after the integrated command succeeds", () => {
-    const result = exerciseWrapper({ environment: "production", sourceRevision: revision });
-    expect(result.status).toBe(0);
-    expect(result.commands).toEqual([
-      "convex deploy --cmd bun run build",
-      "convex env set --force",
-    ]);
-    expect(result.metadata).toBe(
-      `OPERATIONAL_CONTROL_SOURCE_REVISION=${revision}\nVERCEL_ENV=production\n`
-    );
-  });
+  test(
+    "passes the reviewed metadata only after the integrated command succeeds",
+    async () => {
+      const result = await exerciseWrapper({ environment: "production", sourceRevision: revision });
+      expect(result.status).toBe(0);
+      expect(result.commands).toEqual([
+        "convex deploy --cmd bun run build",
+        "convex env set --force",
+      ]);
+      expect(result.metadata).toBe(
+        `OPERATIONAL_CONTROL_SOURCE_REVISION=${revision}\nVERCEL_ENV=production\n`
+      );
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 
-  test("does not attempt a metadata update after the build/deploy command fails", () => {
-    const result = exerciseWrapper({
-      deployStatus: 17,
-      environment: "production",
-      sourceRevision: revision,
-    });
-    expect(result.status).toBe(1);
-    expect(result.commands).toEqual(["convex deploy --cmd bun run build"]);
-    expect(result.metadata).toBeNull();
-    expect(result.stderr).toContain("failed with exit code 17");
-  });
+  test(
+    "does not attempt a metadata update after the build/deploy command fails",
+    async () => {
+      const result = await exerciseWrapper({
+        deployStatus: 17,
+        environment: "production",
+        sourceRevision: revision,
+      });
+      expect(result.status).toBe(1);
+      expect(result.commands).toEqual(["convex deploy --cmd bun run build"]);
+      expect(result.metadata).toBeNull();
+      expect(result.stderr).toContain("failed with exit code 17");
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 
-  test("fails the Vercel build when the Production metadata update is rejected", () => {
-    const result = exerciseWrapper({
-      environment: "production",
-      metadataStatus: 18,
-      sourceRevision: revision,
-    });
-    expect(result.status).toBe(1);
-    expect(result.commands).toEqual([
-      "convex deploy --cmd bun run build",
-      "convex env set --force",
-    ]);
-    expect(result.stderr).toContain("convex env set --force failed with exit code 18");
-  });
+  test(
+    "fails the Vercel build when the Production metadata update is rejected",
+    async () => {
+      const result = await exerciseWrapper({
+        environment: "production",
+        metadataStatus: 18,
+        sourceRevision: revision,
+      });
+      expect(result.status).toBe(1);
+      expect(result.commands).toEqual([
+        "convex deploy --cmd bun run build",
+        "convex env set --force",
+      ]);
+      expect(result.stderr).toContain("convex env set --force failed with exit code 18");
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 
-  test("runs Preview without a Production metadata update", () => {
-    const result = exerciseWrapper({ environment: "preview" });
-    expect(result.status).toBe(0);
-    expect(result.commands).toEqual(["convex deploy --cmd bun run build"]);
-    expect(result.metadata).toBeNull();
-  });
+  test(
+    "runs Preview without a Production metadata update",
+    async () => {
+      const result = await exerciseWrapper({ environment: "preview" });
+      expect(result.status).toBe(0);
+      expect(result.commands).toEqual(["convex deploy --cmd bun run build"]);
+      expect(result.metadata).toBeNull();
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 
-  test("rejects missing Production identity before starting any child command", () => {
-    const result = exerciseWrapper({ environment: "production" });
-    expect(result.status).toBe(1);
-    expect(result.commands).toEqual([]);
-    expect(result.metadata).toBeNull();
-    expect(result.stderr).toContain("VERCEL_GIT_COMMIT_SHA must be an exact");
-  });
+  test(
+    "rejects missing Production identity before starting any child command",
+    async () => {
+      const result = await exerciseWrapper({ environment: "production" });
+      expect(result.status).toBe(1);
+      expect(result.commands).toEqual([]);
+      expect(result.metadata).toBeNull();
+      expect(result.stderr).toContain("VERCEL_GIT_COMMIT_SHA must be an exact");
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 
-  test("rejects an unsupported environment before starting any child command", () => {
-    const result = exerciseWrapper({ environment: "development", sourceRevision: revision });
-    expect(result.status).toBe(1);
-    expect(result.commands).toEqual([]);
-    expect(result.metadata).toBeNull();
-    expect(result.stderr).toContain("VERCEL_ENV must be preview or production");
-  });
+  test(
+    "rejects an unsupported environment before starting any child command",
+    async () => {
+      const result = await exerciseWrapper({
+        environment: "development",
+        sourceRevision: revision,
+      });
+      expect(result.status).toBe(1);
+      expect(result.commands).toEqual([]);
+      expect(result.metadata).toBeNull();
+      expect(result.stderr).toContain("VERCEL_ENV must be preview or production");
+    },
+    CHILD_TEST_TIMEOUT_MS
+  );
 });
