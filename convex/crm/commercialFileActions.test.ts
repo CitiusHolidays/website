@@ -116,4 +116,77 @@ describe("Commercial file upload quarantine", () => {
     ).rejects.toThrow("metadata write failed");
     expect(deletes).toEqual(["storage_quarantine"]);
   });
+  test.each([
+    ["declares", "image/svg+xml", "image/svg+xml"],
+    ["declares", "text/html; charset=utf-8", "text/html"],
+    ["is stored as", "image/png", "image/svg+xml"],
+    ["is stored as", "text/plain", "text/html"],
+  ])(
+    "Refuses and removes a file that %s an active type (%s, stored %s)",
+    async (_how, declared, stored) => {
+      const deletes: string[] = [];
+      const committed: string[] = [];
+      const ctx = {
+        runMutation: (
+          reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">,
+          args?: { storageId?: string }
+        ) => {
+          const name = getFunctionName(reference);
+          if (name === "crm/storageReferences:deleteIfUnreferenced") {
+            deletes.push(args?.storageId ?? "");
+            return { deleted: true };
+          }
+          committed.push(name);
+          return { success: true };
+        },
+        runQuery: (
+          reference: FunctionReference<"query" | "mutation" | "action", "public" | "internal">
+        ) => {
+          const name = getFunctionName(reference);
+          if (name === "crm/staff:getMyPortalAccess") {
+            return {
+              allowed: true,
+              authUserId: "auth_sales",
+              email: "sales@example.test",
+              name: "Sales",
+              permissions: [PERMISSIONS.MANAGE_QUERIES],
+              roles: ["Sales"],
+            };
+          }
+          if (name === "crm/commercialFiles:listForEntryPoint") {
+            return {
+              writableSources: [{ id: "queries_1", sourceType: "query", teamAreas: ["sales"] }],
+            };
+          }
+          if (name === "crm/storageReferences:isStorageReferenced") {
+            return false;
+          }
+          throw new Error(`Unexpected query: ${name}`);
+        },
+        storage: {
+          delete: (storageId: string) => {
+            deletes.push(storageId);
+          },
+          get: () => new Blob(["<svg onload=alert(1)>"], { type: stored }),
+        },
+      };
+
+      await expect(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
+        fromAny<any, unknown>(uploadFile)._handler(ctx, {
+          category: "workingFile",
+          fileName: "brochure",
+          fileSize: 21,
+          mimeType: declared,
+          sourceId: "queries_1",
+          sourceType: "query",
+          storageId: "storage_active",
+          teamArea: "sales",
+          uploadToken: "upload-token",
+        })
+      ).rejects.toThrow("File type not allowed");
+      expect(committed).toEqual([]);
+      expect(deletes).toEqual(["storage_active"]);
+    }
+  );
 });

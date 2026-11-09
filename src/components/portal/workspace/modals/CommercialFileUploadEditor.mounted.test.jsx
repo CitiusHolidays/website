@@ -99,9 +99,9 @@ async function mountEditor() {
   return container;
 }
 
-async function chooseFiles(container, names) {
+async function chooseFiles(container, names, type = "application/pdf") {
   const input = container.querySelector('input[type="file"]');
-  const files = names.map((name) => new dom.window.File(["x"], name, { type: "application/pdf" }));
+  const files = names.map((name) => new dom.window.File(["x"], name, { type }));
   Object.defineProperty(input, "files", { configurable: true, value: files });
   await act(async () => input.dispatchEvent(new dom.window.Event("change", { bubbles: true })));
 }
@@ -133,4 +133,21 @@ test("a retry after a partial batch failure uploads only the files that were not
 
   expect(stored).toEqual(["itinerary.pdf", "rooming.pdf"]);
   expect(container.textContent).not.toContain("ready");
+});
+
+test("refuses an SVG or HTML file before anything is uploaded", async () => {
+  stubStorage();
+  const container = await mountEditor();
+  for (const [name, type] of [
+    ["logo.svg", "image/svg+xml"],
+    ["page.html", "text/html"],
+  ]) {
+    // biome-ignore lint/performance/noAwaitInLoops: each choice must render its refusal before the next.
+    await chooseFiles(container, [name], type);
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+      `${name} is not an allowed file type. Use PDF, Word, Excel, PowerPoint, images, or plain text.`
+    );
+    expect(container.textContent).not.toContain("ready");
+  }
+  expect(stored).toEqual([]);
 });

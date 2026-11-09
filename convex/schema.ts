@@ -3046,6 +3046,9 @@ export default defineSchema({
     mobile: v.optional(v.string()),
     name: v.string(),
     officeId: v.optional(v.id("offices")),
+    // When the staff member last set their password through an emailed setup or reset link.
+    // A password without one is not theirs to keep: staffPasswordSetup removes it.
+    passwordSetByLinkAt: v.optional(v.number()),
     paternityEventsUsed: v.optional(v.number()),
     pendingPasswordSetup: v.optional(v.boolean()),
     reportingManagerName: v.optional(v.string()),

@@ -13,6 +13,7 @@ import {
   encryptPassportDetails,
 } from "../lib/encryption";
 import { hasOwnKey } from "../lib/runtimeValues";
+import { cleanupUnreferencedUpload } from "./attachmentStorage";
 import { recordCompletedDocumentAccess } from "./documentPreviewAudit";
 import {
   downloadFileResultValidator,
@@ -165,17 +166,12 @@ export const encryptAndStorePassport = action({
       throw new ConvexError("Uploaded passport file not found");
     }
 
-    const cleanupTempUpload = async () => {
-      try {
-        await ctx.storage.delete(args.tempStorageId);
-      } catch (error) {
-        // Cleanup is best effort.  Do not replace the validation/processing
-        // error with a storage-provider error.  Nothing retries this delete
-        // (there is no scheduled storage sweep), so a failure leaves the
-        // upload in storage until it is removed by hand; the log is the record.
-        console.error("Failed to delete temporary passport upload:", error);
-      }
-    };
+    // The unencrypted upload must not outlive this action. deleteIfUnreferenced schedules its own
+    // retries when the storage delete fails, and never deletes a blob a record references (so a
+    // tempStorageId naming another record's file cannot remove it). A failure is logged without
+    // replacing the validation or processing error.
+    const cleanupTempUpload = () =>
+      cleanupUnreferencedUpload(ctx, args.tempStorageId, "temporary passport upload");
 
     const validation = passportUploadValidationError(fileBlob, args);
     if (validation.message) {
