@@ -278,9 +278,12 @@ describe("Auth login loading guard", () => {
       "utf8"
     );
     const fallback = AuthLoginLoadingShell();
+    const markup = renderToStaticMarkup(fallback.props.children);
 
-    expect(fallback.props.title).toBe("Opening secure sign in");
+    expect(fallback.props.title).toBeUndefined();
     expect(fallback.props.children.props["aria-busy"]).toBe("true");
+    expect(markup).toContain("Secure sign in");
+    expect(markup).toContain("Checking your secure session");
     expect(loadingSource).not.toContain("@convex");
     expect(loadingSource).not.toContain("auth-server");
     expect(loadingSource).not.toContain("callbackUrl");

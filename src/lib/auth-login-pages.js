@@ -10,7 +10,9 @@ import { getAuthVariant, getAuthVariantFromCallbackUrl } from "@/lib/auth-sign-i
 
 export function createAuthLoginPage({ variantId, searchParams }) {
   return (
-    <Suspense fallback={<AuthLoginLoadingShell />}>
+    <Suspense
+      fallback={<AuthLoginLoadingShell reserveModeSwitch={getAuthVariant(variantId).allowSignup} />}
+    >
       <AuthLoginBoundary searchParams={searchParams} variantId={variantId} />
     </Suspense>
   );
