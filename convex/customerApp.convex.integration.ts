@@ -283,6 +283,7 @@ describe("customer app trip invites", () => {
       expect.objectContaining({
         cover: expect.objectContaining({ path: "/images/event-photo-booth/bali.webp" }),
         destination: "Bali",
+        groupCode: "B01",
         minorCount: 1,
         phase: "upcoming",
         role: "traveller",
@@ -292,6 +293,7 @@ describe("customer app trip invites", () => {
     ]);
     const detail = await asha.query(api.customerApp.getMyTrip, { referenceNow: NOW, tripId });
     expect(detail?.me).toMatchObject({ fullName: "Asha Testguest", groupCode: "B01" });
+    expect(detail?.trip.groupCode).toBe("B01");
     expect(detail?.minors).toEqual([
       expect.objectContaining({ consent: "granted", fullName: "Kiran Testguest" }),
     ]);
@@ -531,6 +533,8 @@ describe("customer app privacy and safety (review of PR 315)", () => {
     expect(detail?.announcements).toEqual([]);
     expect(detail?.contacts.map((row) => row.name)).toEqual(["Trip Lead"]);
     expect(detail?.documents).toEqual([]);
+    // No Traveller row, so no group of their own.
+    expect(detail?.trip.groupCode).toBeNull();
 
     // An organizer sees only what went to every traveller on the trip, never a group's or a
     // child's message.
