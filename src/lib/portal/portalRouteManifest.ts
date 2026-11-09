@@ -334,7 +334,7 @@ export const PORTAL_ROUTES = {
 
 export type PortalViewId = Extract<keyof typeof PORTAL_ROUTES, string>;
 
-export function isPortalViewId(view: string): view is PortalViewId {
+function isPortalViewId(view: string): view is PortalViewId {
   return view in PORTAL_ROUTES;
 }
 

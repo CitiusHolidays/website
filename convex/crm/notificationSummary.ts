@@ -1,4 +1,4 @@
-import { canReceiveNotification } from "./lib/notifications";
+import { canReceiveNotification } from "./lib/notificationRecipients";
 
 interface NotificationAccess {
   authUserId?: string | null;

@@ -23,11 +23,6 @@ export function modalCombobox(page: Page, name: string | RegExp) {
   return entityModal(page).getByRole("combobox", { name });
 }
 
-/** @deprecated Prefer `modalCombobox` — label text is split when fields are required. */
-export function modalSelect(page: Page, label: string) {
-  return modalCombobox(page, new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
-}
-
 export async function expectEntityModalOpen(page: Page) {
   await expect(entityModal(page)).toBeVisible({ timeout: 5000 });
 }

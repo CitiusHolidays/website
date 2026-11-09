@@ -27,7 +27,7 @@ export async function uploadQueryFiles({ queryId, files, generateUploadUrl, atta
   );
 }
 
-export async function uploadEntityFiles({
+async function uploadEntityFiles({
   entityId,
   idField,
   files,

@@ -1,5 +1,4 @@
-import type { Key, ReactNode } from "react";
-import type { PipelineMode } from "@/components/portal/pipeline/PipelineView";
+import type { Key } from "react";
 import type { PortalWorkspaceImplementationState } from "@/components/portal/usePortalWorkspaceState";
 import type { PortalPermission } from "@/lib/portal/workspaceContract";
 
@@ -193,76 +192,6 @@ export interface ProposalsViewProps {
   sendProposalToSales: PortalWorkspaceState["sendProposalToSales"];
 }
 
-export type PilotPortalViewComponent = (
-  props: QueriesViewProps | ContractingViewProps | ProposalsViewProps
-) => ReactNode;
-
-export interface PortalDateRange {
-  from: string | null;
-  to: string | null;
-}
-
-export interface PortalDashboardSummary {
-  activeTours?: Array<{
-    clientName?: string;
-    destination?: string;
-    id: string;
-    jobCode?: string;
-    pax?: number;
-    status?: string;
-    ticketProgress?: number;
-    visaProgress?: number;
-  }>;
-  departmentWorkflow?: Array<{ label: string; percent?: number; value?: number | string }>;
-  metrics?: Record<string, number>;
-  metricTrends?: Record<string, { direction?: string; value?: number }>;
-  myTeam?: Array<{
-    department?: string;
-    email?: string;
-    function?: string;
-    id: string;
-    location?: string;
-    name: string;
-  }>;
-  progress?: {
-    guestData?: { percent?: number };
-    payment?: { percent?: number };
-    rooming?: { percent?: number };
-    tickets?: { percent?: number };
-    visas?: { percent?: number };
-  };
-  upcomingDepartures?: Array<{
-    clientName?: string;
-    id: string;
-    jobCode?: string;
-    pax?: number;
-    readiness?: string;
-    tourManagerName?: string;
-    travelStartDate?: string;
-  }>;
-  urgentActions?: Array<{ id: string; label?: string; type?: string }>;
-}
-
-export interface DashboardViewProps {
-  access: PortalAccessSlice;
-  dateRange: PortalDateRange;
-  has: PortalPermissionChecker;
-  loading: boolean;
-  openModal: PortalModalOpener;
-  setDateRange: (value: PortalDateRange) => void;
-  summary?: PortalDashboardSummary;
-}
-
-export interface PipelineViewProps {
-  canMoveContractingPipeline?: boolean;
-  canMoveSalesPipeline?: boolean;
-  mode: PipelineMode;
-  moveContractingPipelineStage?: PortalWorkspaceState["moveContractingPipelineStage"];
-  moveSalesPipelineStage?: PortalWorkspaceState["moveSalesPipelineStage"];
-  rows: PortalQueryListRow[];
-  setMode: (value: PipelineMode) => void;
-}
-
 export interface PortalAccountsJobCardCreatorRow {
   email?: string;
   id: string;
@@ -287,10 +216,6 @@ export interface AccountsJobCardViewProps {
   rows: PortalQueryListRow[];
   setJobCardCreatorAccess: (args: { enabled: boolean; staffId: string }) => Promise<{ id: string }>;
 }
-
-export type CorePortalViewComponent = (
-  props: DashboardViewProps | PipelineViewProps | AccountsJobCardViewProps
-) => ReactNode;
 
 export interface PortalJobCardListRow {
   clientName?: string;
@@ -452,10 +377,6 @@ export interface PortalCallingBoardRow extends PortalTravellerListRow {
 
 export type PortalBulkDeleteHandler = PortalWorkspaceState["deleteSelected"];
 
-export interface PortalGridRow {
-  id?: Key;
-}
-
 export type PortalJobCardDeletionStatus = "complete" | "failed" | "running";
 
 export interface PortalJobCardDeletionOperation {
@@ -569,16 +490,6 @@ export interface TourManagersViewProps {
   travellers: PortalCallingBoardRow[];
   updateCallingStatus: PortalWorkspaceState["updateCallingStatus"];
 }
-
-export type OperationsPortalViewComponent = (
-  props:
-    | JobCardsViewProps
-    | TravellersViewProps
-    | PassportDocumentsViewProps
-    | VisaTrackingViewProps
-    | HotelRoomingViewProps
-    | TourManagersViewProps
-) => ReactNode;
 
 export interface PortalTicketDashboardSummary {
   aggregateCoverage?: {
@@ -1011,19 +922,3 @@ export interface SettingsViewProps {
   staff: PortalStaffSettingsRow[];
   startStaffOnboarding: PortalWorkspaceState["startStaffOnboarding"];
 }
-
-export type TicketingPortalViewComponent = (
-  props: TicketDashboardViewProps | TicketsViewProps | PnrViewProps | SeatViewProps
-) => ReactNode;
-
-export type AdministrationPortalViewComponent = (
-  props:
-    | FinanceViewProps
-    | ExpensesViewProps
-    | ApprovalsViewProps
-    | ReportsViewProps
-    | TeamViewProps
-    | ActivityViewProps
-    | LeaveViewProps
-    | SettingsViewProps
-) => ReactNode;

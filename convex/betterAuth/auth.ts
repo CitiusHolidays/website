@@ -15,52 +15,24 @@ import authConfig from "../auth.config";
 import { scheduleAppSignInLink } from "../customerAppSignInDelivery";
 import {
   AUTH_EMAIL_TOKEN_TTL_SECONDS,
-  type AuthEmailPurpose,
   authEmailCorrelationSecretFromUrl,
   deliverTransactionalAuthEmail,
+  reportAuthEmailFailure,
   resolveAuthEmailControlKey,
 } from "../lib/authEmailDelivery";
 import { AUTH_EMAIL_BRAND, prepareAuthEmailMessage } from "../lib/authEmailHtml";
 import { resolveAuthOrigin } from "../lib/authOriginPolicy";
-import { SIGN_IN_DEVICE_HEADER, sha256Hex } from "../lib/customerAppSignIn";
+import {
+  APP_SIGN_IN_LINK_TTL_SECONDS,
+  SIGN_IN_DEVICE_HEADER,
+  sha256Hex,
+} from "../lib/customerAppSignIn";
 import { NATIVE_APP_TRUSTED_ORIGINS } from "../lib/nativeAppOrigins";
 import { isRuntimeString } from "../lib/runtimeValues";
 import schema from "./schema";
 
 const THIRTY_DAYS_IN_SECONDS = 30 * 24 * 60 * 60;
 const TWENTY_FOUR_HOURS_IN_SECONDS = 24 * 60 * 60;
-/** The customer app's email sign-in link works once, for this long (ADR 0020). */
-export const APP_SIGN_IN_LINK_TTL_SECONDS = 10 * 60;
-
-/**
- * The customer app's email sign-in link opens the website's `/app/sign-in` page, which hands the
- * token to the installed app in the URL fragment (never sent to a server). The app then calls
- * `/magic-link/verify` itself, so the session lands in the app's secure storage and no session
- * cookie ever travels in a URL.
- */
-const TRAILING_SLASH = /\/$/;
-
-export function appSignInLinkUrl(baseURL: string, token: string) {
-  return `${baseURL.replace(TRAILING_SLASH, "")}/app/sign-in#token=${encodeURIComponent(token)}`;
-}
-
-export function reportAuthEmailFailure(outcome: {
-  correlationDigest?: string;
-  failureCode?: string;
-  purpose: AuthEmailPurpose;
-  status?: string;
-}) {
-  console.error(
-    JSON.stringify({
-      correlationDigest: outcome.correlationDigest,
-      event: "auth_email_delivery_failed",
-      failureCode: outcome.failureCode ?? "delivery_unavailable",
-      purpose: outcome.purpose,
-      status: outcome.status ?? "unknown",
-    })
-  );
-}
-
 export const authComponent = createClient<DataModel, typeof schema>(components.betterAuth, {
   local: { schema },
   verbose: false,

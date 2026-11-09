@@ -12,7 +12,7 @@ const SALES_PIPELINE_BOARD_LOCKED_STATUSES = new Set([
   "Date/Destination Change Required",
 ]);
 
-export const SALES_PIPELINE_BOARD_TRANSITIONS = {
+const SALES_PIPELINE_BOARD_TRANSITIONS = {
   Inquiry: ["Proposal"],
   Negotiation: ["Proposal"],
   Proposal: ["Inquiry", "Negotiation"],

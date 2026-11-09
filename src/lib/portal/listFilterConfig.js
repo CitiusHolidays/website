@@ -2,7 +2,7 @@ import {
   APPROVAL_STATUSES,
   CONTRACTING_STATUSES,
   EXPENSE_APPROVAL_STATUSES,
-  EXPENSE_CATEGORIES,
+  EXPENSE_HEADS,
   INVOICE_STATUSES,
   JOB_CARD_STATUSES,
   LEAD_STAGES,
@@ -78,19 +78,6 @@ export const PORTAL_LIST_VIEWS = [
   "settings",
 ];
 
-function staticOptionValues(options) {
-  if (!Array.isArray(options)) {
-    return [];
-  }
-  const values = [];
-  for (const entry of options) {
-    if (entry.value) {
-      values.push(entry.value);
-    }
-  }
-  return values;
-}
-
 /** @type {Record<string, import('./listFilters.js').ListFilterDef[]>} */
 export const LIST_FILTER_CONFIG = {
   "accounts-job-cards": [
@@ -140,7 +127,7 @@ export const LIST_FILTER_CONFIG = {
     {
       field: "category",
       label: "Category",
-      options: staticOptions(EXPENSE_CATEGORIES, "All categories"),
+      options: staticOptions(EXPENSE_HEADS, "All categories"),
     },
   ],
   finance: [
@@ -278,10 +265,8 @@ export const LIST_FILTER_CONFIG = {
 
 export const VIEWS_WITH_JOB_CARD_FILTER = JOB_CARD_FILTER_VIEWS;
 
-export { staticOptionValues };
-
 /** Search keys used when computing filter option counts per view. */
-export const VIEW_FILTER_SEARCH_KEYS = {
+const VIEW_FILTER_SEARCH_KEYS = {
   "accounts-job-cards": ["queryCode", "clientName", "destination", "queryType"],
   activity: ["action", "summary", "entityType", "actorName"],
   approvals: ["requestCode", "summary", "requestedByName", "type"],

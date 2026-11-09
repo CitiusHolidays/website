@@ -15,7 +15,8 @@ export const authClient = createAuthClient({
   plugins: [convexClient()],
 });
 
-export const { signIn, signUp, signOut, useSession } = authClient;
+const { signIn, signUp, signOut } = authClient;
+export const { useSession } = authClient;
 
 export async function signUpWithEmail({ email, password, name, phoneNumber }) {
   return await signUp.email({

@@ -3,15 +3,12 @@ import { v } from "convex/values";
 import { components, internal } from "./_generated/api";
 import type { ActionCtx } from "./_generated/server";
 import { internalAction } from "./_generated/server";
-import {
-  APP_SIGN_IN_LINK_TTL_SECONDS,
-  appSignInLinkUrl,
-  reportAuthEmailFailure,
-} from "./betterAuth/auth";
-import { deliverTransactionalAuthEmail } from "./lib/authEmailDelivery";
+import { deliverTransactionalAuthEmail, reportAuthEmailFailure } from "./lib/authEmailDelivery";
 import { prepareAppSignInEmailMessage } from "./lib/authEmailHtml";
 import { resolveAuthOrigin } from "./lib/authOriginPolicy";
 import {
+  APP_SIGN_IN_LINK_TTL_SECONDS,
+  appSignInLinkUrl,
   deviceDigestFrom,
   inviteTokenHashFrom,
   type SignInLinkMetadata,

@@ -9,7 +9,7 @@ import {
   isRuntimeString,
   propertiesWhen,
 } from "../lib/runtimeValues";
-import { canReceiveNotification } from "./lib/notifications";
+import { canReceiveNotification } from "./lib/notificationRecipients";
 import { PERMISSIONS } from "./lib/rolePolicy";
 import { requireStaff } from "./lib/staffAccess";
 import { getNotificationHref } from "./notificationPaths";

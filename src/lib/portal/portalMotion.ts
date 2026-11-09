@@ -104,5 +104,3 @@ export function portalModalExitTransform(prefersReducedMotion: boolean, scale = 
   const { travel } = resolveReducedMotion(citiusTheme, prefersReducedMotion);
   return travel ? `scale(${scale})` : "scale(1)";
 }
-
-export const PORTAL_MODAL_VISIBLE_TRANSFORM = "scale(1)";

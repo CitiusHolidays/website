@@ -23,7 +23,7 @@ async function optionLabels(select: Locator, openCustomSelect: boolean) {
 }
 
 /** Wait until async Convex options have rendered in a native or Base UI select. */
-export async function waitForSelectableOptions(select: Locator, timeout = 15_000) {
+async function waitForSelectableOptions(select: Locator, timeout = 15_000) {
   const deadline = Date.now() + timeout;
   let lastOptions: string[] = [];
 

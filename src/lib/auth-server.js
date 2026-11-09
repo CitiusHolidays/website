@@ -48,7 +48,7 @@ export class AuthTokenExchangeError extends Error {
   }
 }
 
-export function isAuthTokenExchangeError(error) {
+function isAuthTokenExchangeError(error) {
   return error instanceof AuthTokenExchangeError;
 }
 

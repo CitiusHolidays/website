@@ -263,5 +263,3 @@ export function buildPipelineStageHref(stage, dateRange) {
     view: "pipeline",
   });
 }
-
-export { TICKET_ATTENTION_STATUSES };

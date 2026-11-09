@@ -10,7 +10,7 @@ const WHITESPACE_PATTERN = /\s+/;
  * Maps spreadsheet alert labels (first name or "Directors") to a search token
  * matched against active staff names (case-insensitive).
  */
-export const LEAVE_ALERT_NAME_TOKENS = {
+const LEAVE_ALERT_NAME_TOKENS = {
   directors: "directors",
   divyanshu: "divyanshu",
   kalyan: "kalyan",
@@ -65,7 +65,7 @@ export const LEAVE_MATRIX_ALERT_BY_EMAIL = {
   "vicky@citius.in": "Monika",
 };
 
-export function normalizeLeaveAlertLabel(value) {
+function normalizeLeaveAlertLabel(value) {
   return String(value ?? "")
     .trim()
     .toLowerCase();

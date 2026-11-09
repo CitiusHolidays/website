@@ -1,17 +1,7 @@
 import type { PortalWorkspaceImplementationState } from "@/components/portal/usePortalWorkspaceState";
-import type { JsonValue } from "@/lib/jsonValue";
 import type { PortalAccessSlice } from "./portalViewTypes";
 
 type PortalWorkspaceState = PortalWorkspaceImplementationState;
-
-/**
- * Dynamic form state shared by the heterogeneous entity-modal commands.
- */
-export interface PortalEntityModalFormState {
-  entityId?: string;
-  jobCardId?: string;
-  [field: string]: JsonValue;
-}
 
 type PortalTravelBatchModalWorkspaceBase = Pick<
   PortalWorkspaceState,

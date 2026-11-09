@@ -1,7 +1,7 @@
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { propertiesWhen } from "../lib/runtimeValues";
-import { canReceiveNotification } from "./lib/notifications";
+import { canReceiveNotification } from "./lib/notificationRecipients";
 import { isStaffRole } from "./lib/rolePolicy";
 import { notificationUnreadSummaryFromProjection } from "./notificationUnreadProjection";
 

@@ -1,4 +1,4 @@
-export const AUTH_LOGIN_VARIANTS = {
+const AUTH_LOGIN_VARIANTS = {
   employee: {
     allowSignup: false,
     authPath: "/auth/connect",
@@ -62,7 +62,7 @@ export const AUTH_LOGIN_VARIANTS = {
   },
 };
 
-export const SIGN_IN_TARGET_LIST = Object.values(AUTH_LOGIN_VARIANTS);
+const SIGN_IN_TARGET_LIST = Object.values(AUTH_LOGIN_VARIANTS);
 
 export const VISIBLE_SIGN_IN_TARGETS = SIGN_IN_TARGET_LIST.filter((target) => target.visible);
 

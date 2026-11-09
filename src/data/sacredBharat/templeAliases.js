@@ -1,5 +1,5 @@
 /** Legacy ids merged into canonical sacred sites (one darshan, one score). */
-export const TEMPLE_ALIASES = {
+const TEMPLE_ALIASES = {
   rameswaram: "ramanathaswamy",
   varanasi: "kashi-vishwanath",
 };

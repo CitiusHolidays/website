@@ -40,7 +40,7 @@ export function filterScopeRows(rows, { view, jobCardFilter, search, searchKeys 
   return result;
 }
 
-export function applyListFiltersExcept(rows, filterValues, config, exceptField) {
+function applyListFiltersExcept(rows, filterValues, config, exceptField) {
   if (!(rows?.length && config?.length)) {
     return rows || [];
   }
@@ -72,7 +72,7 @@ function rowMatchesFilterValue(row, field, value, filterFn) {
   return String(row[field] ?? "") === value;
 }
 
-export function countRowsForFilterValue(rows, field, value, filterFn) {
+function countRowsForFilterValue(rows, field, value, filterFn) {
   if (!value) {
     return rows?.length ?? 0;
   }
@@ -85,7 +85,7 @@ export function countRowsForFilterValue(rows, field, value, filterFn) {
   return count;
 }
 
-export function formatFilterOptionLabel(label, count) {
+function formatFilterOptionLabel(label, count) {
   return `${label} (${count})`;
 }
 
