@@ -9,4 +9,8 @@ describe("Better Auth sign-in policy", () => {
     expect(linking.trustedProviders).toBeArray();
     expect(linking.requireLocalEmailVerified).toBe(true);
   });
+
+  test("signs out every existing session when a password is reset", () => {
+    expect(options.emailAndPassword.revokeSessionsOnPasswordReset).toBe(true);
+  });
 });

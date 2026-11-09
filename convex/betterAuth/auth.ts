@@ -180,6 +180,9 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       },
       requireEmailVerification: true,
       resetPasswordTokenExpiresIn: AUTH_EMAIL_TOKEN_TTL_SECONDS,
+      // A reset is how someone takes an account back, so it signs out every existing session:
+      // a stolen cookie or a session opened with the old password must not outlive it.
+      revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url, token }) => {
         const resetUrl = token ? `${baseURL}/auth/reset-password?token=${token}` : url;
         try {
