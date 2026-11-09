@@ -10,6 +10,7 @@ import {
   notifyFinanceHeadsOnJobCardCreation,
   queryRequiresTicketingWork,
 } from "./jobCardNotifications";
+import { jobCardTourManagerLink } from "./jobCardVisibility";
 import { fiscalYearForDate } from "./leavePolicy";
 import {
   assertDateRangeOrder,
@@ -32,7 +33,6 @@ interface CreateJobCardArgs {
   proposalId?: string;
   queryId?: string;
   roomCount?: number;
-  tourManagerName?: string;
   travelEndDate?: string;
   travelStartDate?: string;
 }
@@ -209,7 +209,8 @@ function buildJobCardPayload({
     ticketingOwnerName: linkedQuery.ticketingOwnerName ?? "",
     ticketingRequired: queryRequiresTicketingWork(linkedQuery),
     ticketingScope: linkedQuery.ticketingScope ?? "",
-    tourManagerName: args.tourManagerName?.trim() || "",
+    // A new Job Card has no Tour Manager assignment yet, so it has no named Tour Manager.
+    ...jobCardTourManagerLink(null),
     travelBatchCount: 0,
     travelEndDate: firstTruthy(
       args.travelEndDate,

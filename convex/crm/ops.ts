@@ -9,6 +9,7 @@ import { getExternalTourManagerProfile } from "./externalTourManagerProfiles";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
   getVisibleJob,
+  jobCardTourManagerLink,
   MAX_TOUR_MANAGER_ASSIGNMENTS_PER_JOB_CARD,
   syncJobCardTourManagerVisibility,
 } from "./jobCardVisibility";
@@ -626,11 +627,7 @@ export async function createTourManagerForTest(
       ctx,
       "jobCards",
       jobCardId,
-      {
-        tourManagerId: id,
-        tourManagerName: name,
-        updatedAt: now,
-      },
+      { ...jobCardTourManagerLink({ _id: id, name }), updatedAt: now },
       { authUserId: access.authUserId }
     );
     await syncJobCardTourManagerVisibility(ctx, jobCardId, { authUserId: access.authUserId });
@@ -823,11 +820,7 @@ async function releaseJobTourManagerLink(
     ctx,
     "jobCards",
     jobCardId,
-    {
-      tourManagerId: successor?._id,
-      tourManagerName: successor?.name.trim() ?? "",
-      updatedAt: now,
-    },
+    { ...jobCardTourManagerLink(successor), updatedAt: now },
     actor
   );
   await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
@@ -857,11 +850,7 @@ async function syncTourManagerJobLinks(
       ctx,
       "jobCards",
       jobCardId,
-      {
-        tourManagerId: id,
-        tourManagerName: next.name,
-        updatedAt: now,
-      },
+      { ...jobCardTourManagerLink({ _id: id, name: next.name }), updatedAt: now },
       actor
     );
     await scheduleCrmMetricSync(ctx, "jobCards", String(jobCardId));
@@ -1083,8 +1072,7 @@ async function deleteTourManagerRecord(
     const job = await ctx.db.get("jobCards", tourManager.jobCardId);
     if (job?.tourManagerId === id) {
       await ctx.db.patch("jobCards", tourManager.jobCardId, {
-        tourManagerId: undefined,
-        tourManagerName: "",
+        ...jobCardTourManagerLink(null),
         updatedAt: Date.now(),
       });
       await scheduleCrmMetricSync(ctx, "jobCards", String(tourManager.jobCardId));

@@ -19,6 +19,21 @@ export async function getVisibleJob(
   return canSeeJobCardRecord(access, job, linkedQuery) ? job : null;
 }
 
+/**
+ * A Job Card's named Tour Manager: `tourManagerId` points at the assignment and
+ * `tourManagerName` is that assignment's name, written only here so the two cannot disagree.
+ * No assignment means no name: the name is never typed in on its own, because the legacy name
+ * match (recordScope, post-tour feedback and reports) grants a same-named Tour Manager scope.
+ */
+export function jobCardTourManagerLink(
+  assignment: Pick<Doc<"tourManagerAssignments">, "_id" | "name"> | null | undefined
+) {
+  return {
+    tourManagerId: assignment?._id,
+    tourManagerName: assignment?.name.trim() ?? "",
+  };
+}
+
 /** Upper bound on assignment rows read when deriving one Job Card's Tour Manager set. */
 export const MAX_TOUR_MANAGER_ASSIGNMENTS_PER_JOB_CARD = 500;
 

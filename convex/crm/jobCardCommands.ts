@@ -33,7 +33,6 @@ export async function handleJobCardUpdate(
     destination?: string;
     jobCardId: string;
     roomCount?: number;
-    tourManagerName?: string;
     travelEndDate?: string;
     travelStartDate?: string;
   }
@@ -85,9 +84,6 @@ export async function handleJobCardUpdate(
   }
   if (args.travelEndDate !== undefined) {
     patch.travelEndDate = args.travelEndDate;
-  }
-  if (args.tourManagerName !== undefined) {
-    patch.tourManagerName = args.tourManagerName.trim();
   }
   patch.listSearchText = buildJobCardListSearchText({ ...job, ...patch });
 
