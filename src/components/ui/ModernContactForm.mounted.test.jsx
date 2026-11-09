@@ -272,6 +272,62 @@ describe("Mounted contact intent", () => {
     await act(async () => root.unmount());
   });
 
+  test("Keeps the success message until the person chooses to send another enquiry", async () => {
+    const timers = [];
+    globalThis.setTimeout = (callback, delay, ...args) => {
+      if (delay > 0) {
+        timers.push(callback);
+        return 0;
+      }
+      return originalSetTimeout(callback, delay, ...args);
+    };
+    globalThis.fetch = mock(() =>
+      Promise.resolve(Response.json({ accepted: true }, { status: 201 }))
+    );
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    await act(async () => root.render(<ModernContactForm />));
+    await act(() => {
+      setInputValue(container.querySelector('input[name="name"]'), "A Traveller");
+      setInputValue(container.querySelector('input[name="email"]'), "traveller@example.com");
+      setInputValue(container.querySelector('input[name="subject"]'), "Kerala journey");
+      setInputValue(container.querySelector('textarea[name="message"]'), "Please contact me.");
+      container.querySelector('input[name="consent"]').click();
+    });
+    await act(async () => {
+      container
+        .querySelector("form")
+        .dispatchEvent(new dom.window.Event("submit", { bubbles: true, cancelable: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    await act(() => {
+      for (const timer of timers.splice(0)) {
+        timer();
+      }
+    });
+
+    const heading = container.querySelector("h3");
+    expect(heading.textContent).toBe("Thank you, your enquiry is with us");
+    expect(document.activeElement).toBe(heading);
+    expect(container.querySelector("form").hidden).toBe(true);
+
+    const another = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Send another enquiry"
+    );
+    await act(async () => {
+      another.click();
+      await new Promise((resolve) => originalSetTimeout(resolve, 0));
+    });
+    expect(container.querySelector("h3")).toBeNull();
+    expect(container.querySelector("form").hidden).toBe(false);
+    expect(container.querySelector('input[name="name"]').value).toBe("");
+    expect(container.querySelector('[role="status"]').textContent).toBe("");
+
+    await act(async () => root.unmount());
+  });
+
   test("Preserves the enquiry and retry identity after a recoverable gateway failure", async () => {
     const calls = [];
     globalThis.fetch = mock((_url, options) => {

@@ -1,5 +1,13 @@
 "use client";
-import { AlertCircle, FileText, Mail, MessageSquare, Phone, User } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  FileText,
+  Mail,
+  MessageSquare,
+  Phone,
+  User,
+} from "lucide-react";
 import { useEffect, useReducer, useRef } from "react";
 import { formatContactSubmissionError, readJsonError } from "@/lib/userFacingErrors";
 import AnimatedSubmitButton from "./AnimatedSubmitButton";
@@ -114,7 +122,13 @@ const INITIAL_FORM_STATE = {
   errors: {},
   focusedField: null,
   formValues: EMPTY_FORM_VALUES,
+  submitted: false,
 };
+
+// Moves focus to the success message once, when it replaces the form.
+function focusOnMount(node) {
+  node?.focus();
+}
 
 function createInitialFormState(initialValues) {
   return {
@@ -150,6 +164,7 @@ function contactFormReducer(state, action) {
       };
     },
     SET_FOCUSED: () => ({ ...state, focusedField: action.field }),
+    START_ANOTHER: () => ({ ...state, announcement: "", buttonState: "idle", submitted: false }),
     SUBMIT_ERROR: () => ({
       ...state,
       announcement: action.announcement,
@@ -162,6 +177,7 @@ function contactFormReducer(state, action) {
       errors: {},
       focusedField: state.focusedField,
       formValues: EMPTY_FORM_VALUES,
+      submitted: true,
     }),
   };
   const reduce = reducers[action.type];
@@ -172,11 +188,8 @@ function contactFormReducer(state, action) {
 }
 
 function useModernContactForm(initialValues) {
-  const [{ announcement, formValues, errors, focusedField, buttonState }, dispatch] = useReducer(
-    contactFormReducer,
-    initialValues,
-    createInitialFormState
-  );
+  const [{ announcement, formValues, errors, focusedField, buttonState, submitted }, dispatch] =
+    useReducer(contactFormReducer, initialValues, createInitialFormState);
   const turnstileTokenRef = useRef("");
   const formLoadedAtRef = useRef(0);
   const formRef = useRef(null);
@@ -277,7 +290,6 @@ function useModernContactForm(initialValues) {
         turnstileTokenRef.current = "";
         formLoadedAtRef.current = Date.now();
         submissionKeyRef.current = crypto.randomUUID();
-        setTimeout(() => dispatch({ buttonState: "idle", type: "SET_BUTTON" }), 2000);
       } else {
         const message = formatContactSubmissionError({
           message: await readJsonError(response),
@@ -294,6 +306,11 @@ function useModernContactForm(initialValues) {
     submittingRef.current = false;
   };
 
+  const startAnother = () => {
+    dispatch({ type: "START_ANOTHER" });
+    requestAnimationFrame(() => formRef.current?.querySelector('input[name="name"]')?.focus());
+  };
+
   return {
     announcement,
     buttonState,
@@ -307,8 +324,39 @@ function useModernContactForm(initialValues) {
     handleTurnstileVerify,
     messageRef,
     onSubmit,
+    startAnother,
+    submitted,
     updateFormValue,
   };
+}
+
+function ContactFormSuccess({ onStartAnother }) {
+  return (
+    <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
+      <div className="flex items-start gap-4">
+        <CheckCircle2 aria-hidden="true" className="mt-0.5 size-6 shrink-0 text-emerald-700" />
+        <div>
+          <h3
+            className="font-semibold text-emerald-950 text-lg outline-none"
+            ref={focusOnMount}
+            tabIndex={-1}
+          >
+            Thank you, your enquiry is with us
+          </h3>
+          <p className="mt-2 text-emerald-900/80 text-sm leading-6">
+            Our team will reply with a proposal or next steps within two business days.
+          </p>
+          <button
+            className="mt-4 inline-flex min-h-11 items-center rounded-full border border-emerald-700/30 px-5 font-medium text-emerald-900 text-sm transition-colors hover:bg-emerald-100 focus-visible:outline-2 focus-visible:outline-emerald-700 focus-visible:outline-offset-2"
+            onClick={onStartAnother}
+            type="button"
+          >
+            Send another enquiry
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function ModernContactForm({ initialValues }) {
@@ -325,6 +373,8 @@ export default function ModernContactForm({ initialValues }) {
     handleTurnstileVerify,
     messageRef,
     onSubmit,
+    startAnother,
+    submitted,
     updateFormValue,
   } = useModernContactForm(initialValues);
 
@@ -338,16 +388,18 @@ export default function ModernContactForm({ initialValues }) {
         </p>
       </div>
 
+      <p aria-live="polite" className="sr-only" role="status">
+        {announcement}
+      </p>
+      {submitted ? <ContactFormSuccess onStartAnother={startAnother} /> : null}
       <form
         aria-busy={buttonState === "processing"}
         className="space-y-6"
+        hidden={submitted}
         noValidate
         onSubmit={onSubmit}
         ref={formRef}
       >
-        <p aria-live="polite" className="sr-only" role="status">
-          {announcement}
-        </p>
         {/* Honeypot — hidden from users; bots often fill every field */}
         <div
           aria-hidden="true"
