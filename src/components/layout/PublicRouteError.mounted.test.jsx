@@ -69,18 +69,36 @@ describe("PublicRouteError", () => {
 
 describe("Public error boundaries", () => {
   test("The root, public, and global boundaries are client components wired to retry", () => {
-    for (const file of ["error.js", "(public)/error.js", "global-error.js"]) {
+    for (const [file, props] of [
+      ["error.js", ""],
+      ["(public)/error.js", " underPublicHeader"],
+      ["global-error.js", ""],
+    ]) {
       const source = readFileSync(resolve(APP_ROOT, file), "utf8");
       expect(source.startsWith('"use client";'), file).toBe(true);
-      expect(source, file).toContain("<PublicRouteError error={error} retry={retry} />");
+      expect(source, file).toContain(`<PublicRouteError error={error} retry={retry}${props} />`);
     }
+  });
+
+  test("Clears the public header only inside the public chrome, and fills the screen otherwise", () => {
+    const underHeader = renderToStaticMarkup(
+      <PublicRouteError error={null} retry={() => undefined} underPublicHeader />
+    );
+    const standalone = renderToStaticMarkup(
+      <PublicRouteError error={null} retry={() => undefined} />
+    );
+    expect(underHeader).toContain("bg-public-night");
+    expect(underHeader).toContain("pt-36");
+    expect(underHeader).not.toContain("min-h-dvh");
+    expect(standalone).toContain("min-h-dvh");
+    expect(standalone).not.toContain("pt-36");
   });
 
   test("The global boundary renders its own document with styles, fonts, and a title", async () => {
     const { default: GlobalError } = await import("../../app/global-error.js");
     const html = renderToStaticMarkup(<GlobalError error={new Error("layout")} retry={() => 0} />);
     expect(html).toStartWith('<html class="font-poppins-variable" lang="en">');
-    expect(html).toContain('<body class="font-inter-variable bg-public-paper');
+    expect(html).toContain('<body class="font-inter-variable bg-public-night');
     expect(html).toContain("<title>Something went wrong | Citius Holidays</title>");
     expect(html).toContain("Try again");
     expect(html).toContain('href="/"');

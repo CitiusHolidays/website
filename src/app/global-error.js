@@ -21,7 +21,7 @@ const poppins = Poppins({
 export default function GlobalError({ error, retry }) {
   return (
     <html className={poppins.variable} lang="en">
-      <body className={`${inter.variable} bg-public-paper font-sans text-public-ink`}>
+      <body className={`${inter.variable} bg-public-night font-sans text-white`}>
         <title>Something went wrong | Citius Holidays</title>
         <PublicRouteError error={error} retry={retry} />
       </body>
