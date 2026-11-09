@@ -121,6 +121,10 @@ export default function PostPage({ params }) {
   );
 }
 
+/**
+ * Mirrors the story header (night band, breadcrumb, one title line, standfirst, byline) and the
+ * body column so the loaded header lands where the placeholder was.
+ */
 function JournalStoryLoadingShell() {
   return (
     <section
@@ -128,15 +132,15 @@ function JournalStoryLoadingShell() {
       className="min-h-screen animate-pulse bg-public-paper motion-reduce:animate-none"
       role="status"
     >
-      <div className="bg-public-night px-4 pt-32 pb-16 sm:px-6 lg:px-8 lg:pt-40 lg:pb-20">
-        <div className="mx-auto max-w-7xl">
-          <div className="h-5 w-32 rounded bg-white/10" />
-          <div className="mt-10 h-12 max-w-4xl rounded-lg bg-white/10 md:h-16" />
-          <div className="mt-4 h-12 max-w-2xl rounded-lg bg-white/10 md:h-16" />
+      <div className="bg-public-night pt-32 pb-14 lg:pt-40 lg:pb-20">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+          <div className="h-11 w-32 rounded bg-white/10" />
+          <div className="mt-8 h-[2.6rem] max-w-[22ch] rounded-lg bg-white/10 sm:h-[3.9rem] lg:h-[4.68rem]" />
+          <div className="mt-6 h-[3.75rem] max-w-[52ch] rounded-lg bg-white/10 sm:h-[4.125rem]" />
           <div className="mt-10 h-11 w-64 rounded bg-white/10" />
         </div>
       </div>
-      <div className="mx-auto max-w-[68ch] space-y-5 px-4 py-16 sm:px-6">
+      <div className="mx-auto max-w-[39rem] space-y-5 px-4 py-14 sm:px-0 lg:py-20">
         <div className="h-4 w-full rounded bg-public-blue/10" />
         <div className="h-4 w-full rounded bg-public-blue/10" />
         <div className="h-4 w-5/6 rounded bg-public-blue/10" />
@@ -298,7 +302,7 @@ async function PostContent({ params }) {
             alt={getImageAlt(post.mainImage, post.title)}
             className="public-media-edge"
             image={post.mainImage}
-            maxHeightClass="max-h-[80svh]"
+            maxHeightClass="[--plate-max-h:80svh]"
             priority
             sizes="(max-width: 1023px) 100vw, 976px"
             width={1600}

@@ -80,22 +80,24 @@ export default function QueriesLoadingPanel() {
       <div className="sr-only" role="status">
         Loading All Sales Queries
       </div>
+      {/* Mirrors PortalListToolbar for Queries: sticky under the chrome, title row with the
+          New Query action, then search, Filters toggle and the command palette trigger. The
+          Queries filter row starts collapsed, so it is not reserved here. */}
       <div
-        className="material-structural sticky top-16 z-10 mb-4 border-brand-border border-b bg-brand-light/95 py-2 backdrop-blur-sm"
+        className="sticky top-[var(--portal-chrome-height)] mb-4 border-brand-border border-b bg-white py-4"
         data-testid="queries-loading-toolbar"
       >
-        <div className="flex min-h-11 flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-          <LoadingBlock className="h-7 w-48" />
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <LoadingBlock className="h-11 w-full min-w-40 sm:w-56" />
-            <LoadingBlock className="hidden h-11 w-24 sm:block" />
-            <LoadingBlock className="hidden h-11 w-28 sm:block" />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+            <LoadingBlock className="h-8 w-48" />
+            <LoadingBlock className="h-4 w-28" />
           </div>
+          <LoadingBlock className="h-11 w-32 shrink-0" />
         </div>
-        <div className="mt-2 flex flex-wrap items-center gap-2 border-brand-border/60 border-t pt-2">
-          <LoadingBlock className="h-11 w-28" />
-          <LoadingBlock className="h-11 w-32" />
-          <LoadingBlock className="h-11 w-36" />
+        <div className="mt-4 flex min-w-0 flex-wrap items-center gap-2">
+          <LoadingBlock className="h-11 min-w-[8rem] flex-1 sm:max-w-72" />
+          <LoadingBlock className="h-11 w-28 shrink-0" />
+          <LoadingBlock className="h-11 w-11 shrink-0 sm:w-[4.5rem]" />
         </div>
       </div>
       <QueryMobileSkeleton />

@@ -1,6 +1,7 @@
 import { PortableText } from "@portabletext/react";
 import Image from "next/image";
 import { safePublicHref } from "@/lib/publicHref";
+import { JOURNAL_PLATE_FIT_CLASS, journalPlateFitStyle } from "./JournalPlate";
 import { cleanText, getImageAlt, getPlateImage, withoutRepeatedTitle } from "./journalContent";
 
 const HEADING_SPACE = "mt-14 mb-4 text-balance font-(family-name:--font-journal) text-public-ink";
@@ -75,10 +76,11 @@ function createComponents(postTitle) {
           <figure className="my-12">
             <Image
               alt={getImageAlt(value, postTitle)}
-              className="public-media-edge mx-auto h-auto max-h-[80svh] w-auto max-w-full"
+              className={`public-media-edge mx-auto object-contain [--plate-max-h:80svh] ${JOURNAL_PLATE_FIT_CLASS}`}
               height={plate.height}
               sizes="(max-width: 767px) 100vw, 720px"
               src={plate.src}
+              style={journalPlateFitStyle(plate)}
               width={plate.width}
             />
             {caption ? (

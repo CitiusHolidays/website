@@ -38,7 +38,7 @@ export default function ContactPage({ searchParams }) {
       fallback={
         <div
           aria-label="Loading contact form"
-          className="min-h-[720px] bg-public-paper"
+          className="min-h-[max(100dvh,720px)] bg-public-paper"
           role="status"
         />
       }
