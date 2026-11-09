@@ -2,6 +2,10 @@
 
 "use client";
 
+import {
+  COMMERCIAL_FILE_MIME_PREFIXES,
+  isAllowedAttachmentMimeType,
+} from "@convex/crm/fileValidation";
 import { useAction } from "convex/react";
 import { anyApi } from "convex/server";
 import { Upload } from "lucide-react";
@@ -106,6 +110,16 @@ export function CommercialFileUploadEditor({
     const invalid = files.find((file) => file.size > MAX_FILE_BYTES);
     if (invalid) {
       setError(`${invalid.name} exceeds the 15 MB limit.`);
+      return;
+    }
+    // The picker's `accept` list is only a hint; a dropped or "All files" choice can be anything.
+    const disallowed = files.find(
+      (file) => !isAllowedAttachmentMimeType(mimeTypeForFile(file), COMMERCIAL_FILE_MIME_PREFIXES)
+    );
+    if (disallowed) {
+      setError(
+        `${disallowed.name} is not an allowed file type. Use PDF, Word, Excel, PowerPoint, images, or plain text.`
+      );
       return;
     }
     if (uploadCategory === "proposalDoc") {

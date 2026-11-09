@@ -15,6 +15,11 @@ import {
   COMMERCIAL_FILE_TEAM_AREAS,
 } from "./commercialFilePolicy";
 import { recordCompletedDocumentAccess } from "./documentPreviewAudit";
+import {
+  COMMERCIAL_FILE_MIME_PREFIXES,
+  isAllowedAttachmentMimeType,
+  normalizeMimeType,
+} from "./fileValidation";
 import { enforcePortalFileDownloadLimit } from "./lib/portalFileDownloadLimit";
 import { PERMISSIONS } from "./lib/rolePolicy";
 
@@ -28,14 +33,6 @@ const COMMERCIAL_FILE_WRITE_PERMISSIONS = [
   PERMISSIONS.MANAGE_JOB_CARDS,
   PERMISSIONS.MANAGE_OPERATIONS,
 ] as const;
-const ALLOWED_MIME_PREFIXES = [
-  "application/pdf",
-  "image/",
-  "text/plain",
-  "application/msword",
-  "application/vnd.ms-",
-  "application/vnd.openxmlformats-officedocument.",
-];
 
 const sourceTypeValidator = v.union(
   v.literal(COMMERCIAL_FILE_SOURCE_TYPES[0]),
@@ -59,11 +56,10 @@ const uploadTicketResultValidator = v.object({
   uploadUrl: v.string(),
 });
 
+// Same rule as every other attachment upload: SVG, HTML and script types are refused even though
+// "image/" and the Office prefixes would otherwise let them through.
 function isAllowedMimeType(mimeType: string) {
-  const normalized = mimeType.trim().toLowerCase();
-  return (
-    Boolean(normalized) && ALLOWED_MIME_PREFIXES.some((prefix) => normalized.startsWith(prefix))
-  );
+  return isAllowedAttachmentMimeType(mimeType, COMMERCIAL_FILE_MIME_PREFIXES);
 }
 
 function isPdfMimeType(mimeType: string) {
@@ -180,7 +176,7 @@ export const uploadFile = action({
     if (!blob) {
       throw new ConvexError("Uploaded file not found in storage");
     }
-    const actualMimeType = blob.type?.trim() || args.mimeType.trim();
+    const actualMimeType = normalizeMimeType(blob.type) || normalizeMimeType(args.mimeType);
     if (!isAllowedMimeType(actualMimeType)) {
       await cleanupUnreferencedUpload(ctx, args.storageId, REJECTED_UPLOAD);
       throw new ConvexError(

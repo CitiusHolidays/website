@@ -10,6 +10,16 @@ const DISALLOWED_ACTIVE_MIME_TYPES = new Set([
   "text/javascript",
 ]);
 
+/** Types a commercial file (query, proposal or job card file area) may be. Shared with the editor. */
+export const COMMERCIAL_FILE_MIME_PREFIXES = [
+  "application/pdf",
+  "image/",
+  "text/plain",
+  "application/msword",
+  "application/vnd.ms-",
+  "application/vnd.openxmlformats-officedocument.",
+] as const;
+
 export function normalizeMimeType(value: RuntimeValue) {
   return String(value ?? "")
     .split(";", 1)[0]
