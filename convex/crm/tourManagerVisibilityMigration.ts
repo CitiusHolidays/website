@@ -3,7 +3,7 @@ import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery } from "../_generated/server";
 import { boundedMigrationLimit } from "../lib/migrationBatch";
-import { propertiesWhen } from "../lib/runtimeValues";
+import { migrationRegistryState, startedMigrationRegistry } from "../lib/migrationRegistry";
 import { assertMigrationSecret } from "../migrationAuth";
 import { expectedAssignedTourManagerStaffIds, sameTourManagerStaffIds } from "./jobCardVisibility";
 
@@ -127,15 +127,7 @@ export const migrateAssignedTourManagerStaffIds = internalMutation({
     }
     if (!args.dryRun && registry?.status === "failed") {
       await ctx.db.patch("dataMigrationRegistry", registry._id, {
-        converted: 0,
-        cursor: null,
-        legacyRemaining: 0,
-        processed: 0,
-        stage: "backfill",
-        startedAt: now,
-        status: "running",
-        updatedAt: now,
-        verifiedAt: undefined,
+        ...startedMigrationRegistry("backfill", now),
       });
       registry = await ctx.db.get("dataMigrationRegistry", registry._id);
     }
@@ -152,15 +144,8 @@ export const migrateAssignedTourManagerStaffIds = internalMutation({
     }
     if (!registry) {
       const id = await ctx.db.insert("dataMigrationRegistry", {
-        converted: 0,
-        cursor: null,
         key,
-        legacyRemaining: 0,
-        processed: 0,
-        stage: "backfill",
-        startedAt: now,
-        status: "running",
-        updatedAt: now,
+        ...startedMigrationRegistry("backfill", now),
       });
       registry = await ctx.db.get("dataMigrationRegistry", id);
     }
@@ -192,13 +177,8 @@ export const migrateAssignedTourManagerStaffIds = internalMutation({
     const { stage, status } = backfillCompletion(args.dryRun, page.isDone, legacyRemaining);
     await ctx.db.patch("dataMigrationRegistry", registry._id, {
       converted,
-      cursor,
-      legacyRemaining,
       processed,
-      stage,
-      status,
-      updatedAt: now,
-      ...propertiesWhen(status === "verified", () => ({ verifiedAt: now })),
+      ...migrationRegistryState({ cursor, legacyRemaining, stage, status }, now),
     });
     return {
       converted: pageConverted,
@@ -248,13 +228,8 @@ export const verifyAssignedTourManagerStaffIds = internalMutation({
     const cursor = page.isDone ? null : page.continueCursor;
     const { stage, status } = verificationCompletion(page.isDone, legacyRemaining);
     await ctx.db.patch("dataMigrationRegistry", registry._id, {
-      cursor,
-      legacyRemaining,
       processed: registry.processed + page.page.length,
-      stage,
-      status,
-      updatedAt: now,
-      ...propertiesWhen(status === "verified", () => ({ verifiedAt: now })),
+      ...migrationRegistryState({ cursor, legacyRemaining, stage, status }, now),
     });
     return {
       converted: 0,

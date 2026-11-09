@@ -191,6 +191,53 @@ describe("registered Job Card mutation boundary", () => {
     ).rejects.toThrow();
   });
 
+  test("a Job Card's Tour Manager name comes from its assignment, never from a typed-in name", async () => {
+    const t = createHarness();
+    const jobCardId = await seedEditableJobCard(t);
+    const assignmentId = await t.run(async (ctx) => {
+      const id = await ctx.db.insert("tourManagerAssignments", {
+        callingStatus: "Pending",
+        createdAt: FIXED_NOW.getTime(),
+        createdBy: ACTOR,
+        jobCardId,
+        languages: [],
+        name: "Assigned Lead",
+        status: "Assigned",
+        updatedAt: FIXED_NOW.getTime(),
+      });
+      await ctx.db.patch("jobCards", jobCardId, {
+        tourManagerId: id,
+        tourManagerName: "Assigned Lead",
+      });
+      return id;
+    });
+    const asDirector = t.withIdentity({
+      email: "job-card-integration@citius-e2e.test",
+      issuer: "https://auth.citius.test",
+      subject: ACTOR,
+      tokenIdentifier: `https://auth.citius.test|${ACTOR}`,
+    });
+
+    // A free-text name would leave tourManagerId pointing at someone else, and the legacy name
+    // match would grant a same-named Tour Manager the Job Card.
+    await expect(
+      // SAFETY: the argument is no longer part of the mutation's validator; this is the old shape.
+      asDirector.mutation(
+        api.crm.jobCards.update,
+        fromAny<never, unknown>({ jobCardId, tourManagerName: "Someone Typed" })
+      )
+    ).rejects.toThrow();
+    await asDirector.mutation(api.crm.jobCards.update, { clientName: "Renamed client", jobCardId });
+
+    await t.run(async (ctx) => {
+      expect(await ctx.db.get("jobCards", jobCardId)).toMatchObject({
+        clientName: "Renamed client",
+        tourManagerId: assignmentId,
+        tourManagerName: "Assigned Lead",
+      });
+    });
+  });
+
   test("rejects missing rows through the registered mutation without committing activity", async () => {
     const t = createHarness();
     const jobCardId = await seedEditableJobCard(t);

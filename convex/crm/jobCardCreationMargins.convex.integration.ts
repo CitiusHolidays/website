@@ -1,3 +1,4 @@
+import { fromAny } from "@total-typescript/shoehorn";
 import { convexTest } from "convex-test";
 import { expect, test } from "vitest";
 import { api } from "../_generated/api";
@@ -137,6 +138,24 @@ for (const [role, enabled] of [
     });
   });
 }
+test("a new Job Card has no named Tour Manager until an assignment names one", async () => {
+  const { caller, ids, t } = await seedMargins("Operations Head", true, 25_000);
+  const args = { confirmedPax: 12, proposalId: ids.proposalId, queryId: ids.queryId };
+  // A typed-in name had no assignment behind it, yet the legacy name match granted it scope.
+  await expect(
+    // SAFETY: the argument is no longer part of the mutation's validator; this is the old shape.
+    caller.mutation(
+      api.crm.jobCards.createFromQuery,
+      fromAny<never, unknown>({ ...args, tourManagerName: "Someone Typed" })
+    )
+  ).rejects.toThrow();
+  const created = await caller.mutation(api.crm.jobCards.createFromQuery, args);
+  await t.run(async (ctx) => {
+    const job = await ctx.db.get("jobCards", created.id);
+    expect(job?.tourManagerName).toBe("");
+    expect(job?.tourManagerId).toBeUndefined();
+  });
+});
 for (const [role, enabled, rejection] of [
   ["Sales", false, "FORBIDDEN"],
   ["Finance", false, "FORBIDDEN"],

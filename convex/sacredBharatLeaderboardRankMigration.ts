@@ -3,6 +3,7 @@ import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { boundedMigrationLimit } from "./lib/migrationBatch";
+import { migrationRegistryState, startedMigrationRegistry } from "./lib/migrationRegistry";
 import { SACRED_BHARAT_LEADERBOARD_MIGRATION_KEY } from "./lib/sacredBharatLeaderboard";
 import {
   leaderboardSummaryIsEligible,
@@ -90,30 +91,15 @@ export const backfillLeaderboardRanks = internalMutation({
     }
     if (!registry) {
       const id = await ctx.db.insert("dataMigrationRegistry", {
-        converted: 0,
-        cursor: null,
         key: SACRED_BHARAT_LEADERBOARD_RANK_MIGRATION_KEY,
-        legacyRemaining: 0,
-        processed: 0,
+        ...startedMigrationRegistry("backfill", timestamp),
         quarantined: 0,
-        stage: "backfill",
-        startedAt: timestamp,
-        status: "running",
-        updatedAt: timestamp,
       });
       registry = await ctx.db.get("dataMigrationRegistry", id);
     } else if (registry.status === "failed") {
       await ctx.db.patch("dataMigrationRegistry", registry._id, {
-        converted: 0,
-        cursor: null,
-        legacyRemaining: 0,
-        processed: 0,
+        ...startedMigrationRegistry("backfill", timestamp),
         quarantined: 0,
-        stage: "backfill",
-        startedAt: timestamp,
-        status: "running",
-        updatedAt: timestamp,
-        verifiedAt: undefined,
       });
       registry = await ctx.db.get("dataMigrationRegistry", registry._id);
     }
@@ -137,13 +123,12 @@ export const backfillLeaderboardRanks = internalMutation({
     const stage: "backfill" | "verify" = page.isDone ? "verify" : "backfill";
     await ctx.db.patch("dataMigrationRegistry", registry._id, {
       converted: page.isDone ? 0 : registry.converted + eligibleProcessed,
-      cursor,
-      legacyRemaining: 0,
       processed: page.isDone ? 0 : registry.processed + page.page.length,
       quarantined: page.isDone ? 0 : (registry.quarantined ?? 0) + hiddenProcessed,
-      stage,
-      status: "running",
-      updatedAt: timestamp,
+      ...migrationRegistryState(
+        { cursor, legacyRemaining: 0, stage, status: "running" },
+        timestamp
+      ),
     });
     return {
       cursor,
@@ -217,14 +202,9 @@ export const verifyLeaderboardRanks = internalMutation({
     }
     await ctx.db.patch("dataMigrationRegistry", registry._id, {
       converted: eligibleTotal,
-      cursor,
-      legacyRemaining,
       processed: registry.processed + page.page.length,
       quarantined: hiddenTotal,
-      stage,
-      status,
-      updatedAt: timestamp,
-      verifiedAt: verified ? timestamp : undefined,
+      ...migrationRegistryState({ cursor, legacyRemaining, stage, status }, timestamp),
     });
     return {
       cursor,
