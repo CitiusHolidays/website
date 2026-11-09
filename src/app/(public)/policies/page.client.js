@@ -1,9 +1,8 @@
 "use client";
 
 import { ArrowRight, CreditCard, FileText, Mail, MapPin, Phone, Shield } from "lucide-react";
-import { m, useReducedMotion, useScroll, useTransform } from "motion/react";
+import { m, useScroll, useTransform } from "motion/react";
 import Link from "next/link";
-import { publicRevealMotion } from "@/lib/publicInteractionMotion";
 import { POLICY_VIEW_HREFS, resolvePolicyView } from "./policyView";
 
 const POLICY_TABS = [
@@ -336,7 +335,6 @@ const Section = ({ data }) => (
 function PolicyPage({ activeTab }) {
   const { scrollYProgress } = useScroll();
   const scaleX = useTransform(scrollYProgress, [0, 1], [0, 1]);
-  const contentMotion = publicRevealMotion(!!useReducedMotion());
 
   return (
     <div className="min-h-screen bg-[#FDFBF7]">
@@ -353,23 +351,11 @@ function PolicyPage({ activeTab }) {
         <div className="absolute inset-0 bg-gradient-to-b from-brand-dark/0 via-brand-dark/50 to-brand-dark" />
 
         <div className="relative z-10 mx-auto max-w-4xl text-center">
-          <m.h1
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 font-heading text-4xl md:text-6xl"
-            initial={{ opacity: 0, y: 30 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-          >
-            Legal & Policies
-          </m.h1>
-          <m.p
-            animate={{ opacity: 1 }}
-            className="mx-auto max-w-xl font-sans text-gray-400 text-xl"
-            initial={{ opacity: 0 }}
-            transition={{ delay: 0.2, duration: 0.8 }}
-          >
+          <h1 className="public-enter mb-6 font-heading text-4xl md:text-6xl">Legal & Policies</h1>
+          <p className="public-enter mx-auto max-w-xl font-sans text-gray-400 text-xl [--public-enter-delay:60ms]">
             These policies govern bookings, cancellations, and travel with Citius Holidays. Read
             each section before you confirm a programme.
-          </m.p>
+          </p>
         </div>
       </header>
       {/* Navigation Tabs */}
@@ -411,12 +397,8 @@ function PolicyPage({ activeTab }) {
       {/* Content Area */}
       <section className="mx-auto max-w-3xl px-6 py-16" id="policy-document">
         <div className="font-sans text-lg">
-          <m.div
-            animate={contentMotion.animate}
-            initial={contentMotion.initial}
-            key={activeTab}
-            transition={contentMotion.transition}
-          >
+          {/* Remounting per tab replays the CSS entrance; the first paint never waits for hydration. */}
+          <div className="public-enter [animation-duration:220ms]" key={activeTab}>
             {activeTab === "billing" ? (
               <div className="space-y-8">
                 <div className="mb-8 border-gray-200 border-b pb-8">
@@ -447,7 +429,7 @@ function PolicyPage({ activeTab }) {
                 ))}
               </div>
             )}
-          </m.div>
+          </div>
         </div>
       </section>
       {/* Footer CTA */}
