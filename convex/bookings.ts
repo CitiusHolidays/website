@@ -258,19 +258,33 @@ export const prepareCheckout = query({
   returns: checkoutResultValidator,
 });
 
+/**
+ * Server-only: the create-order route calls this with the payment mutation secret, on behalf of
+ * the signed-in customer, right after it created the Razorpay order for `amount`. A browser
+ * cannot call it directly, so it cannot attach a booking to an order it chose.
+ */
 export const createPendingBooking = mutation({
   args: {
+    // The Razorpay order amount in minor units. The booking must owe exactly this.
+    amount: v.number(),
     currency: v.string(),
     notes: v.optional(v.string()),
     razorpayOrderId: v.string(),
+    serverSecret: v.string(),
     travelerDetails: v.optional(v.any()),
     travelers: v.number(),
     tripIdentifier: v.string(),
   },
   handler: async (ctx, args) => {
+    assertPaymentMutationSecret(args.serverSecret);
     const identity = await getIdentityOrThrow(ctx);
     const authUserId = await ensureCanonicalIdentityLink(ctx, identity);
     ensureValidCheckoutArgs(args.travelers, args.currency);
+    // One booking per provider order. A second booking would let two customers, or one customer
+    // twice, be confirmed by a single payment, so a repeat is refused rather than merged.
+    if (await getBookingByOrderId(ctx, args.razorpayOrderId)) {
+      throw new ConvexError("Payment order already has a booking");
+    }
 
     const trip = await resolveTrip(ctx, args.tripIdentifier);
     if (!trip?.isActive) {
@@ -282,6 +296,10 @@ export const createPendingBooking = mutation({
 
     const pricePerPerson = args.currency === "INR" ? trip.priceInr : trip.priceUsd;
     const totalAmount = pricePerPerson * args.travelers;
+    if (totalAmount !== args.amount) {
+      // The price moved after the order was created; the order no longer matches the booking.
+      throw new ConvexError("Checkout amount changed");
+    }
     const timestamp = Date.now();
 
     const bookingId = await ctx.db.insert("bookings", {

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { fromAny } from "@total-typescript/shoehorn";
 import {
   confirmBookingByOrderIdHandler,
+  createPendingBooking,
   markPaymentFailedByOrderId,
   markPaymentFailedByOrderIdHandler,
 } from "./bookings";
@@ -543,6 +544,42 @@ describe("Captured-then-failed ordering", () => {
 });
 
 describe("Booking transition capability", () => {
+  test("createPendingBooking refuses a caller without the payment mutation secret", async () => {
+    const previous = process.env.PAYMENT_MUTATION_SECRET;
+    process.env.PAYMENT_MUTATION_SECRET = "expected-secret";
+    let identityReads = 0;
+    try {
+      await expect(
+        // SAFETY: This test controls the asserted value at the framework boundary below.
+        fromAny<any, unknown>(createPendingBooking)._handler(
+          {
+            auth: {
+              getUserIdentity: () => {
+                identityReads += 1;
+                return Promise.resolve({ subject: "user_1" });
+              },
+            },
+          },
+          {
+            amount: 1000,
+            currency: "INR",
+            razorpayOrderId: "order_chosen_by_browser",
+            serverSecret: "",
+            travelers: 2,
+            tripIdentifier: tripId,
+          }
+        )
+      ).rejects.toThrow("Invalid payment mutation secret");
+      expect(identityReads).toBe(0);
+    } finally {
+      if (previous === undefined) {
+        delete process.env.PAYMENT_MUTATION_SECRET;
+      } else {
+        process.env.PAYMENT_MUTATION_SECRET = previous;
+      }
+    }
+  });
+
   test("The remaining payment failure mutation rejects an unauthenticated secret", async () => {
     const previous = process.env.PAYMENT_MUTATION_SECRET;
     process.env.PAYMENT_MUTATION_SECRET = "expected-secret";
