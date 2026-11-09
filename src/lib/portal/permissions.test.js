@@ -204,6 +204,25 @@ describe("Portal permissions", () => {
     }
   });
 
+  test("The inbound leads route gate matches the backend role boundary, not just view:queries", () => {
+    const routeAllowed = (roles) => {
+      const permissions = getPermissionsForRoles(roles);
+      return canAccessPortalRoute({
+        access: { allowed: true, permissions, roles },
+        has: (permission) => permissions.includes(permission),
+        view: "inbound-leads",
+      });
+    };
+    for (const role of ["Sales", "Sales Head", "Admin", "Directors", "Director Cement"]) {
+      expect(routeAllowed([role]), `${role} should open inbound leads`).toBe(true);
+    }
+    // These roles hold view:queries but the server refuses them the inbound queue.
+    for (const role of ["Contracting", "Contracting Cement", "Sales Cement", "Ticketing"]) {
+      expect(getPermissionsForRoles([role]), role).toContain(PORTAL_PERMISSIONS.VIEW_QUERIES);
+      expect(routeAllowed([role]), `${role} should not open inbound leads`).toBe(false);
+    }
+  });
+
   test("Hr can manage leave without staff settings access", () => {
     const permissions = getPermissionsForRoles(["HR"]);
     const pages = pagesForRoles(["HR"]);
