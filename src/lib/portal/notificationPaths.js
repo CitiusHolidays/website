@@ -109,6 +109,10 @@ function buildNotificationPath({ entityType, entityId, title }) {
         return `/portal/approvals?${params}`;
       },
     ],
+    // The approving manager and the submitter both act from the Expenses page.
+    ["expense", () => "/portal/expenses"],
+    // Internal and external Tour Managers both reach Job Cards; the id is the assignment.
+    ["tourManager", () => "/portal/job-cards"],
     [
       "inboundQueryIntent",
       () => {

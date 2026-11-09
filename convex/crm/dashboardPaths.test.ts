@@ -28,6 +28,20 @@ describe("Dashboard notification path parity", () => {
       href: "/portal/tickets?open=ticket&id=ticket_1",
       title: "",
     },
+    // The approving manager and the submitter both act from the Expenses page.
+    {
+      entityId: "expense_1",
+      entityType: "expense",
+      href: "/portal/expenses",
+      title: "Expense manager approval requested",
+    },
+    // Internal and external Tour Managers both reach Job Cards; the id is the assignment.
+    {
+      entityId: "assignment_1",
+      entityType: "tourManager",
+      href: "/portal/job-cards",
+      title: "Tour Manager allocated",
+    },
   ];
 
   for (const fixture of fixtures) {
