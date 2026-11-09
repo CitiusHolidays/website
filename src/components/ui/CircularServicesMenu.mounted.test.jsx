@@ -45,9 +45,9 @@ beforeAll(async () => {
   });
   globalThis.matchMedia = dom.window.matchMedia;
   ({ createRoot } = await import("react-dom/client"));
+  ({ getReducedMotionServerSnapshot } = await import("@/lib/useHydrationSafeReducedMotion"));
   ({
     default: CircularServicesMenu,
-    getReducedMotionServerSnapshot,
     getServiceOrbitPosition,
     sameLinePosition,
   } = await import("./CircularServicesMenu"));

@@ -3,6 +3,7 @@
 import { m, useScroll, useTransform } from "motion/react";
 import Link from "next/link";
 import { useRef } from "react";
+import { useHydrationSafeReducedMotion } from "@/lib/useHydrationSafeReducedMotion";
 import Kashmir from "@/static/places/kashmir.webp";
 import PublicContactCta from "../ui/PublicContactCta";
 import PublicGrain from "../ui/PublicGrain";
@@ -10,6 +11,7 @@ import HeroVideo from "./HeroVideo";
 
 export default function HomeHeroClient() {
   const heroRef = useRef(null);
+  const shouldReduceMotion = useHydrationSafeReducedMotion();
   const { scrollYProgress } = useScroll({
     offset: ["start start", "end start"],
     target: heroRef,
@@ -21,13 +23,15 @@ export default function HomeHeroClient() {
     ["translate3d(0, 0%, 0)", "translate3d(0, 50%, 0)"]
   );
   const opacity = useTransform(scrollYProgress, [0, 0.8], [1, 0]);
+  // Scroll-linked parallax is spatial motion; reduced-motion visitors keep a still backdrop.
+  const parallaxStyle = shouldReduceMotion ? undefined : { opacity, transform };
 
   return (
     <section
       className="relative flex min-h-[max(100dvh,700px)] items-center justify-center overflow-hidden text-center"
       ref={heroRef}
     >
-      <m.div className="absolute inset-0 z-0 size-full" style={{ opacity, transform }}>
+      <m.div className="absolute inset-0 z-0 size-full" style={parallaxStyle}>
         <HeroVideo
           className="size-full object-cover object-center brightness-[0.65]"
           controlClassName="!right-auto !left-[max(1rem,var(--safe-area-inset-left))]"
@@ -43,21 +47,11 @@ export default function HomeHeroClient() {
           <span className="text-blue-100 italic">starts here.</span>
         </h1>
 
-        <m.p
-          animate={{ opacity: 1, y: 0 }}
-          className="mx-auto mb-10 max-w-2xl font-light text-lg text-slate-200 leading-relaxed md:text-xl"
-          initial={{ opacity: 0, y: 20 }}
-          transition={{ delay: 0.3, duration: 0.8, ease: "easeOut" }}
-        >
+        <p className="public-enter mx-auto mb-10 max-w-2xl font-light text-lg text-slate-200 leading-relaxed [--public-enter-delay:60ms] md:text-xl">
           Crafted by experts. Designed for you.
-        </m.p>
+        </p>
 
-        <m.div
-          animate={{ opacity: 1, y: 0 }}
-          className="flex gap-4"
-          initial={{ opacity: 0, y: 20 }}
-          transition={{ delay: 0.5, duration: 0.6, ease: "easeOut" }}
-        >
+        <div className="public-enter flex gap-4 [--public-enter-delay:120ms]">
           <PublicContactCta>Plan Your Trip</PublicContactCta>
 
           <Link
@@ -66,7 +60,7 @@ export default function HomeHeroClient() {
           >
             Explore Services
           </Link>
-        </m.div>
+        </div>
       </div>
     </section>
   );
