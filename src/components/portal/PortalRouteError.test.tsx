@@ -24,7 +24,7 @@ describe("classifyPortalRouteError", () => {
 });
 
 describe("PortalRouteError", () => {
-  const render = (error: unknown) =>
+  const render = (error: Error) =>
     renderToStaticMarkup(<PortalRouteError error={error} retry={() => undefined} />);
 
   test("Access errors say so and offer the workspace and sign-in, not a retry", () => {

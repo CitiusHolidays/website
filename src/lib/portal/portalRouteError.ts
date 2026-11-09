@@ -11,12 +11,12 @@ const MISSING_RECORD_PATTERN = /\bnot found\b|^invalid\b.*\bid$/i;
  * client-side query keep their data; anything else, including a server-rendered error whose
  * message production hides, counts as a page that could not load.
  */
-export function classifyPortalRouteError(error: unknown): PortalRouteErrorKind {
-  if (!(error instanceof ConvexError && isRuntimeString(error.data))) {
+export function classifyPortalRouteError(cause: unknown): PortalRouteErrorKind {
+  if (!(cause instanceof ConvexError && isRuntimeString(cause.data))) {
     return "unavailable";
   }
-  if (error.data === "FORBIDDEN") {
+  if (cause.data === "FORBIDDEN") {
     return "forbidden";
   }
-  return MISSING_RECORD_PATTERN.test(error.data.trim()) ? "missing" : "unavailable";
+  return MISSING_RECORD_PATTERN.test(cause.data.trim()) ? "missing" : "unavailable";
 }
