@@ -121,9 +121,12 @@ registration exist; it will use Better Auth's `phoneNumber` plugin.
 
 - Schema changes are additive: two optional entitlement fields, one index, a new `source` literal,
   and three tables. No backfill.
-- Better Auth's own per-IP rate limit still keeps its counters in memory. Moving it to the
-  database needs a `rateLimit` table in the Better Auth component and adapter support for atomic
-  increments, which is not verified yet; the per-address limit above does not depend on it.
+- Better Auth's own per-IP rate limit is off for `/sign-in/magic-link` and `/magic-link/verify`
+  (`rateLimit.customRules`). With no client IP it can trust, it put every caller in one in-memory
+  bucket per path, which could refuse a whole corporate group signing in after a bulk invite and
+  stopped no attacker; the per-address limit above and the device-bound, single-use link do the
+  work. Email+password sign-in and the auth emails are limited per address in the database
+  (`convex/lib/authAttemptLimits.ts`); Better Auth's limiter is off for those paths too.
 - Revoking a traveller's app access (`customerTripInvites:revokeTravellerAccess`) ends the
   entitlement, not the account. An operator grant that a claim only linked to the Traveller keeps
   its access and loses the Traveller link. The owner's rule that access is never fully removed is kept by

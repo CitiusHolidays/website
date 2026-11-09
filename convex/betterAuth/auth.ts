@@ -14,6 +14,11 @@ import type { DataModel } from "../_generated/dataModel";
 import authConfig from "../auth.config";
 import { scheduleAppSignInLink } from "../customerAppSignInDelivery";
 import {
+  AUTH_ATTEMPT_LIMITED_PATHS,
+  authAttemptKeyDigest,
+  authAttemptKindForPath,
+} from "../lib/authAttemptLimits";
+import {
   AUTH_EMAIL_TOKEN_TTL_SECONDS,
   authEmailCorrelationSecretFromUrl,
   deliverTransactionalAuthEmail,
@@ -239,6 +244,28 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
     hooks: {
       // A sign-in link opens a session only on the device that asked for it (ADR 0020).
       before: createAuthMiddleware(async (hookCtx) => {
+        const attemptKind = authAttemptKindForPath(hookCtx.path);
+        // Only requests from outside count: the backend's own calls (staff provisioning, the
+        // recovery email after a repeated sign-up) carry no request and were already counted.
+        if (attemptKind && hookCtx.request) {
+          const email = hookCtx.body?.email;
+          if (!isRuntimeString(email) || email.length === 0) {
+            return;
+          }
+          const outcome = await requireActionCtx(ctx).runMutation(
+            internal.authAttemptLimits.consumeAuthAttempt,
+            { keyDigest: await authAttemptKeyDigest(attemptKind, email), kind: attemptKind }
+          );
+          if (!outcome.ok) {
+            // The same answer Better Auth's own limiter gives, whether or not the account exists.
+            throw new APIError(
+              "TOO_MANY_REQUESTS",
+              { code: "TOO_MANY_REQUESTS", message: "Too many requests. Please try again later." },
+              { "X-Retry-After": String(outcome.retryAfterSeconds) }
+            );
+          }
+          return;
+        }
         if (hookCtx.path !== "/magic-link/verify") {
           return;
         }
@@ -274,6 +301,16 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       }),
     ],
     rateLimit: {
+      // Better Auth keys its limiter on the client IP, which a Convex HTTP action cannot trust, so
+      // without one every caller shares one bucket per path. Paths limited durably elsewhere skip
+      // it: password sign-in and auth emails per address (lib/authAttemptLimits), and the
+      // customer app's email link per inbox, domain and phone (ADR 0020).
+      customRules: Object.fromEntries(
+        [...AUTH_ATTEMPT_LIMITED_PATHS, "/sign-in/magic-link", "/magic-link/verify"].map((path) => [
+          path,
+          false as const,
+        ])
+      ),
       enabled: true,
       max: 10,
       window: 60,

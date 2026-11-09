@@ -15,6 +15,7 @@ import type * as accountDeletionEmail from "../accountDeletionEmail.js";
 import type * as aiRuntime from "../aiRuntime.js";
 import type * as auth from "../auth.js";
 import type * as authAccountLinking from "../authAccountLinking.js";
+import type * as authAttemptLimits from "../authAttemptLimits.js";
 import type * as authEmailDeliveries from "../authEmailDeliveries.js";
 import type * as authEmailDeliveryIntents from "../authEmailDeliveryIntents.js";
 import type * as authIdentityMigration from "../authIdentityMigration.js";
@@ -370,6 +371,7 @@ declare const fullApi: ApiFromModules<{
   aiRuntime: typeof aiRuntime;
   auth: typeof auth;
   authAccountLinking: typeof authAccountLinking;
+  authAttemptLimits: typeof authAttemptLimits;
   authEmailDeliveries: typeof authEmailDeliveries;
   authEmailDeliveryIntents: typeof authEmailDeliveryIntents;
   authIdentityMigration: typeof authIdentityMigration;
