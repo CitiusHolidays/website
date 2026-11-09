@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import PortalNavigationPalette from "@/components/portal/PortalNavigationPalette";
 import PostTourFeedbackWorkspace from "@/components/portal/postTour/PostTourFeedbackWorkspace";
 
 export const metadata = { title: "Post-tour feedback | Citius Connect" };
@@ -20,8 +21,10 @@ async function FeedbackContent({ searchParams }: PageProps) {
 
 export default function PostTourFeedbackPage(props: PageProps) {
   return (
-    <Suspense fallback={<p role="status">Loading post-tour feedback...</p>}>
-      <FeedbackContent {...props} />
-    </Suspense>
+    <PortalNavigationPalette>
+      <Suspense fallback={<p role="status">Loading post-tour feedback...</p>}>
+        <FeedbackContent {...props} />
+      </Suspense>
+    </PortalNavigationPalette>
   );
 }

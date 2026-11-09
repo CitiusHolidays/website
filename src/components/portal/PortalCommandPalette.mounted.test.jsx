@@ -6,8 +6,12 @@ import { JSDOM } from "jsdom";
 import { act } from "react";
 
 let createRoot;
+let PortalAccessProvider;
 let PortalCommandPaletteRoot;
 let PortalCommandPaletteTrigger;
+let PortalNavigationPalette;
+
+mock.module("next/navigation", () => ({ usePathname: () => "/portal/travel-schedule" }));
 
 const dom = new JSDOM("<!doctype html><html><body></body></html>", {
   pretendToBeVisual: true,
@@ -64,6 +68,8 @@ beforeAll(async () => {
   ({ PortalCommandPaletteRoot, PortalCommandPaletteTrigger } = await import(
     "./PortalCommandPalette.js"
   ));
+  ({ PortalAccessProvider } = await import("./PortalAccessContext"));
+  ({ default: PortalNavigationPalette } = await import("./PortalNavigationPalette"));
 });
 
 afterAll(() => dom.window.close());
@@ -289,6 +295,43 @@ describe("PortalCommandPalette", () => {
     await settle();
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(document.activeElement).toBe(trigger);
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
+
+  test("Offers only navigation on pages outside the workspace, including the photo booth", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    const access = {
+      allowed: true,
+      eventPhotoBooth: { canManage: true },
+      permissions: ["view:dashboard"],
+      roles: ["Sales"],
+    };
+
+    await act(async () =>
+      root.render(
+        <PortalAccessProvider access={access}>
+          <PortalNavigationPalette>
+            <PortalCommandPaletteTrigger />
+          </PortalNavigationPalette>
+        </PortalAccessProvider>
+      )
+    );
+    const trigger = container.querySelector("button");
+    trigger.focus();
+    await act(async () => trigger.click());
+    await settle();
+
+    const dialog = document.querySelector('[role="dialog"]');
+    expect(
+      [...dialog.querySelectorAll("[cmdk-group-heading]")].map((heading) => heading.textContent)
+    ).toEqual(["Navigate"]);
+    const labels = [...dialog.querySelectorAll("[cmdk-item]")].map((item) => item.textContent);
+    expect(labels).toContainEqual(expect.stringContaining("Event Photo Booth"));
+    expect(labels).not.toContainEqual(expect.stringContaining("Clear filters"));
 
     await act(async () => root.unmount());
     container.remove();
