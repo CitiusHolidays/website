@@ -33,8 +33,8 @@
  */
 
 export const CONTENT_SECURITY_POLICY_REPORT_ONLY_HEADER = "Content-Security-Policy-Report-Only";
-export const CSP_REPORT_PATH = "/api/csp-report";
-export const CSP_REPORT_GROUP = "csp-endpoint";
+const CSP_REPORT_PATH = "/api/csp-report";
+const CSP_REPORT_GROUP = "csp-endpoint";
 export const CSP_REPORTING_ENDPOINTS = `${CSP_REPORT_GROUP}="${CSP_REPORT_PATH}"`;
 
 const TURNSTILE_ORIGIN = "https://challenges.cloudflare.com";

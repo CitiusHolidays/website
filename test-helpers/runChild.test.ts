@@ -41,7 +41,8 @@ test(
     expect(listing.status).toBe(0);
     const offenders: string[] = [];
     for (const path of listing.stdout.split("\0").filter(Boolean)) {
-      if (path === "test-helpers/runChild.test.ts") {
+      // The helper and this guard name the forbidden calls in order to explain and detect them.
+      if (path.startsWith("test-helpers/runChild.")) {
         continue;
       }
       const source = readFileSync(resolve(import.meta.dir, "..", path), "utf8");
