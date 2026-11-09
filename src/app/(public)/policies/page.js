@@ -23,7 +23,11 @@ export default function PoliciesPage({ searchParams }) {
   return (
     <Suspense
       fallback={
-        <div aria-label="Loading policy" className="min-h-[640px] bg-public-paper" role="status" />
+        <div
+          aria-label="Loading policy"
+          className="min-h-[max(100dvh,640px)] bg-public-paper"
+          role="status"
+        />
       }
     >
       <PoliciesPageContent searchParams={searchParams} />
