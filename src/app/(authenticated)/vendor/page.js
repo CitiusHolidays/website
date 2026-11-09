@@ -7,7 +7,7 @@ export const instant = false;
 
 export const metadata = {
   description: "Partner and supplier portal for Citius Holidays vendors.",
-  title: "Vendor Portal | Citius Holidays",
+  title: "Vendor Portal",
 };
 
 export default async function VendorPage() {

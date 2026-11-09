@@ -5,7 +5,7 @@ import MicePageClient from "./page.client";
 export const generateMetadata = () => ({
   description:
     "Citius plans meetings, incentives, conferences, and exhibitions around your brief. Request a proposal from one accountable team.",
-  title: "MICE programmes planned around your brief | Citius",
+  title: "MICE programmes planned around your brief",
 });
 
 export default async function MicePage() {

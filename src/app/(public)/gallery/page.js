@@ -4,7 +4,7 @@ import GalleryPageClient from "./page.client";
 
 export const generateMetadata = () => ({
   description: "Photos from Citius MICE programmes, corporate events, and travel routes.",
-  title: "Gallery | Citius Holidays",
+  title: "Gallery",
 });
 
 export default async function GalleryPage() {

@@ -5,7 +5,7 @@ import { resolvePolicyView } from "./policyView";
 export const metadata = {
   description:
     "Billing Policy, Payment Gateway Policy, and Terms & Conditions for Citius Holidays.",
-  title: "Policies & Terms | Citius Holidays",
+  title: "Policies & Terms",
 };
 
 async function PoliciesPageContent({ searchParams }) {

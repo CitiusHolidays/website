@@ -15,7 +15,7 @@ export const AUTH_LOGIN_VARIANTS = {
     label: "Citius Connect",
     metadata: {
       description: "Staff sign in for the Citius Holidays CRM portal.",
-      title: "Citius Connect | Citius Holidays",
+      title: "Citius Connect",
     },
     visible: true,
   },
@@ -36,7 +36,7 @@ export const AUTH_LOGIN_VARIANTS = {
     label: "Guest Connect",
     metadata: {
       description: "Sign in to manage your bookings and travel profile.",
-      title: "Guest Connect | Citius Holidays",
+      title: "Guest Connect",
     },
     visible: true,
   },
@@ -56,7 +56,7 @@ export const AUTH_LOGIN_VARIANTS = {
     label: "Vendor Sign In",
     metadata: {
       description: "Partner and supplier sign in for the Citius Holidays vendor portal.",
-      title: "Vendor Sign In | Citius Holidays",
+      title: "Vendor Sign In",
     },
     visible: false,
   },
