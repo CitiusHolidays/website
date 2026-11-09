@@ -12,6 +12,7 @@ const ACTION_REFERENCE_PATTERN = /uses:\s+[^@\s]+@([^\s]+)/g;
 const IMMUTABLE_ACTION_REFERENCE_PATTERN = /^[a-f0-9]{40}$/;
 const WORKFLOW_ENVIRONMENT_PATTERN = /^\s+environment:/m;
 const TEMPLATE_DOLLAR = String.fromCodePoint(36);
+const BUN_VERSION_PATTERN = /bun-version:\s*(\S+)/g;
 
 describe("Credential-free hosted quality workflow", () => {
   test("Pins every third-party action to an immutable commit", () => {
@@ -78,6 +79,17 @@ describe("Credential-free hosted quality workflow", () => {
     ]) {
       expect(sharedQuality).not.toContain(excluded);
     }
-    expect(sharedQuality).toContain('export const PINNED_BUN_VERSION = "1.4.0"');
+    expect(sharedQuality).toContain('export const PINNED_BUN_VERSION = "1.4.4"');
+  });
+
+  test("Installs the same Bun in every workflow as the package pin", () => {
+    const pinned = JSON.parse(readFileSync(resolve(root, "package.json"), "utf8")).engines.bun;
+    for (const name of ["hosted-quality.yml", "vercel-deploy.yml"]) {
+      const source = readFileSync(resolve(root, ".github/workflows", name), "utf8");
+      const versions = [...source.matchAll(BUN_VERSION_PATTERN)].map((match) => match[1]);
+      expect(versions.length, name).toBeGreaterThan(0);
+      expect(versions, name).toEqual(versions.map(() => pinned));
+    }
+    expect(sharedQuality).toContain(`export const PINNED_BUN_VERSION = "${pinned}"`);
   });
 });

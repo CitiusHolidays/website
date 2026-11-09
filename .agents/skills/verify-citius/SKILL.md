@@ -67,7 +67,7 @@ Read-only. It runs `bun run dev:doctor -- --profile public` (repo policy: runtim
 dev-only target, no E2E settings in the plain shell), then checks that the port is owned by the
 process group this script started, the revision, the required `.env.local` key names, `GET /` = 200,
 `GET /account` = 307 → `/auth/guest`, and `/_next/mcp` `get_compilation_issues`. Exit 0 means the
-instance is worth driving. `dev:doctor` requires Bun exactly `1.4.0` (`package.json#packageManager`);
+instance is worth driving. `dev:doctor` requires Bun exactly `1.4.4` (`package.json#packageManager`);
 on another patch it prints a finding — record it in the report rather than claiming a clean doctor.
 Never drive a port the doctor says you do not own.
 
