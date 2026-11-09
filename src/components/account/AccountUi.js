@@ -551,30 +551,18 @@ export function PastJourneyCard({ booking, bookingId, onOpen }) {
   const className =
     "account-focus group relative block aspect-[16/10] w-full overflow-hidden rounded-2xl bg-[var(--account-night)] text-left shadow-sm";
 
-  if (onOpen) {
-    return (
-      <Button
-        aria-label={`Open itinerary for ${trip.name}`}
-        className={`min-h-0 ${className}`}
-        data-booking-id={bookingId}
-        onClick={onOpen}
-        surface="account"
-        type="button"
-      >
-        {content}
-      </Button>
-    );
-  }
-
   return (
-    <Link aria-label={`View ${trip.name}`} className={className} href={`/services/${trip.slug}`}>
+    <Button
+      aria-label={`Open itinerary for ${trip.name}`}
+      className={`min-h-0 ${className}`}
+      data-booking-id={bookingId}
+      onClick={onOpen}
+      surface="account"
+      type="button"
+    >
       {content}
-    </Link>
+    </Button>
   );
-}
-
-export function BookingCard({ booking }) {
-  return <PastJourneyCard booking={booking} />;
 }
 
 export function ProfileAlert({ type = "success", message }) {
