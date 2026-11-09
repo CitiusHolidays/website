@@ -139,3 +139,29 @@ test("a caller who cannot invite sees the list without controls", async () => {
   expect(node.querySelectorAll("button")).toHaveLength(0);
   expect(node.querySelectorAll('input[type="checkbox"]')).toHaveLength(0);
 });
+
+test("a refused clipboard write tells the coordinator to copy the listed links", async () => {
+  data = { canInvite: true, rows };
+  const clipboard = Object.getOwnPropertyDescriptor(globalThis.navigator, "clipboard");
+  Object.defineProperty(globalThis.navigator, "clipboard", {
+    configurable: true,
+    value: { writeText: () => Promise.reject(new Error("NotAllowedError")) },
+  });
+  try {
+    const node = await mount();
+    await click(button(node, "Select not invited"));
+    await click(button(node, "Create 1 invite link"));
+    await click(button(node, "Copy all"));
+    expect(node.querySelector('[role="alert"]')?.textContent).toBe(
+      "The links could not be copied. Copy them from the list instead."
+    );
+    expect(node.textContent).not.toContain("Links copied.");
+    expect(node.textContent).toMatch(RAVI_LINK);
+  } finally {
+    if (clipboard) {
+      Object.defineProperty(globalThis.navigator, "clipboard", clipboard);
+    } else {
+      Reflect.deleteProperty(globalThis.navigator, "clipboard");
+    }
+  }
+});

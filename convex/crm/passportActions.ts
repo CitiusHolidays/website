@@ -8,6 +8,7 @@ import { action, internalAction } from "../_generated/server";
 import {
   decryptBuffer,
   decryptPassportDetails,
+  EncryptionConfigurationError,
   encryptBuffer,
   encryptPassportDetails,
 } from "../lib/encryption";
@@ -169,8 +170,9 @@ export const encryptAndStorePassport = action({
         await ctx.storage.delete(args.tempStorageId);
       } catch (error) {
         // Cleanup is best effort.  Do not replace the validation/processing
-        // error with a storage-provider error; the scheduled orphan sweep can
-        // retry a transient delete failure.
+        // error with a storage-provider error.  Nothing retries this delete
+        // (there is no scheduled storage sweep), so a failure leaves the
+        // upload in storage until it is removed by hand; the log is the record.
         console.error("Failed to delete temporary passport upload:", error);
       }
     };
@@ -215,8 +217,8 @@ export const encryptAndStorePassport = action({
     } finally {
       // Delete plaintext regardless of which processing step failed, including
       // encryption, metadata encryption, and the final authorization check.
-      // A failure here is logged and left for the orphan sweep rather than
-      // masking the original operation result.
+      // A failure here is logged by cleanupTempUpload rather than masking the
+      // original operation result.
       await cleanupTempUpload();
     }
 
@@ -344,6 +346,20 @@ export const removePassport = action({
   returns: fileOperationSuccessValidator,
 });
 
+/**
+ * The stored expiry date of one passport payload, or undefined when that payload is unreadable.
+ * A missing encryption key is not a per-row problem and is rethrown.
+ */
+function readableExpiryDate(encryptedPayload: string) {
+  try {
+    return normalizePassportExpiryDate(decryptPassportDetails(encryptedPayload).expiryDate);
+  } catch (error) {
+    if (error instanceof EncryptionConfigurationError) {
+      throw error;
+    }
+  }
+}
+
 export const backfillPassportExpiryDates = internalAction({
   args: {
     cursor: v.optional(v.union(v.string(), v.null())),
@@ -372,20 +388,17 @@ export const backfillPassportExpiryDates = internalAction({
     const rows = result.page;
     const outcomes = await Promise.all(
       rows.map(async (row) => {
-        try {
-          const decrypted = decryptPassportDetails(row.encryptedPayload);
-          const expiryDate = normalizePassportExpiryDate(decrypted.expiryDate);
-          if (!expiryDate) {
-            return "skipped" as const;
-          }
-          await ctx.runMutation(internal.crm.passport.backfillPassportExpiryDate, {
-            expiryDate,
-            passportId: row.id,
-          });
-          return "updated" as const;
-        } catch {
+        const expiryDate = readableExpiryDate(row.encryptedPayload);
+        if (!expiryDate) {
           return "skipped" as const;
         }
+        // A failed write rejects the page so the same cursor can be retried; reporting it as
+        // skipped would let the backfill finish with rows it never updated.
+        await ctx.runMutation(internal.crm.passport.backfillPassportExpiryDate, {
+          expiryDate,
+          passportId: row.id,
+        });
+        return "updated" as const;
       })
     );
     const updated = outcomes.filter((outcome) => outcome === "updated").length;

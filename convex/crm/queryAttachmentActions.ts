@@ -44,7 +44,9 @@ function isAllowedMimeType(mimeType: string) {
  * Check every attachment owner first so a retry that names an existing blob
  * cannot delete a document that another record already uses.  Cleanup is
  * best-effort: the original validation/authorization error remains the one
- * returned to the caller and the scheduled orphan sweep can retry later.
+ * returned to the caller.  deleteIfUnreferenced schedules its own bounded
+ * retries when the storage delete fails; if the mutation cannot run at all,
+ * the failure is only logged (there is no scheduled storage sweep).
  */
 async function cleanupUnreferencedUpload(ctx: ActionCtx, storageId: Id<"_storage">) {
   try {

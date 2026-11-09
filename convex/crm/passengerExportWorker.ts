@@ -14,7 +14,7 @@ import type {
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
-import { decryptPassportDetails } from "../lib/encryption";
+import { decryptPassportDetails, EncryptionConfigurationError } from "../lib/encryption";
 import { isRuntimeNumber, isRuntimeString } from "../lib/runtimeValues";
 import { classifyImportError } from "./importWorkerPolicy";
 import type { PortalAccess } from "./lib";
@@ -98,7 +98,11 @@ export function mapPassengerExportRow(row: PassengerExportSourceRow): PassengerE
         issueDate: cleanPassportField(decrypted.issueDate),
         number: cleanPassportField(decrypted.number),
       };
-    } catch {
+    } catch (error) {
+      // One unreadable payload exports blank passport cells; a missing key would blank every row.
+      if (error instanceof EncryptionConfigurationError) {
+        throw error;
+      }
       passport = { dateOfBirth: "", expiryDate: "", issueDate: "", number: "" };
     }
   }
