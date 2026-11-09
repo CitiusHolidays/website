@@ -3,7 +3,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 
 let searchParams = new URLSearchParams();
 mock.module("next/navigation", () => ({
-  useRouter: () => ({ push: () => undefined, replace: () => undefined }),
+  redirect: () => undefined,
+  useRouter: () => ({ push: () => undefined }),
   useSearchParams: () => searchParams,
 }));
 
@@ -13,6 +14,7 @@ mock.module("next/image", () => ({
 
 const { default: ResetPasswordPage } = await import("./reset-password/page.client.js");
 const { default: EmailVerifiedPage } = await import("./email-verified/page.client.js");
+const { travellerDestination } = await import("@/lib/auth-sign-in-targets");
 const { default: ForgotPasswordPage } = await import("./forgot-password/page.client.js");
 
 const renderWith = (Page, query) => {
@@ -58,26 +60,22 @@ describe("Email verified page", () => {
   });
 
   test("Sends a signed-in traveller on to their Travel Account", () => {
-    const markup = renderWith(EmailVerifiedPage, "from=guest&next=%2Faccount%3Ftab%3Dtrips");
-    expect(markup).toContain("Opening your Travel Account");
-    expect(markup).not.toContain("You can sign in now");
+    expect(travellerDestination({ from: "guest", next: "/account?tab=trips" })).toBe(
+      "/account?tab=trips"
+    );
   });
 
   test("Ignores a next destination outside the Travel Account", () => {
-    for (const next of ["/portal", "https://evil.example/account", "//evil.example"]) {
-      const markup = renderWith(EmailVerifiedPage, `from=guest&next=${encodeURIComponent(next)}`);
-      expect(markup).toContain("You can sign in now");
-      expect(markup).not.toContain("Opening your Travel Account");
+    for (const next of ["/portal", "https://evil.example/account", "//evil.example", undefined]) {
+      expect(travellerDestination({ from: "guest", next })).toBeNull();
     }
   });
 
   test("Never forwards staff or an expired link", () => {
-    expect(renderWith(EmailVerifiedPage, "from=connect&next=%2Faccount")).toContain(
-      "Set your password"
-    );
+    expect(travellerDestination({ from: "connect", next: "/account" })).toBeNull();
     expect(
-      renderWith(EmailVerifiedPage, "from=guest&next=%2Faccount&error=TOKEN_EXPIRED")
-    ).toContain("This link has expired");
+      travellerDestination({ error: "TOKEN_EXPIRED", from: "guest", next: "/account" })
+    ).toBeNull();
   });
 
   test("Explains an expired link instead of claiming the email is verified", () => {

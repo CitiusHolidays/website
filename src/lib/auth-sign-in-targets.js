@@ -1,3 +1,5 @@
+import { resolveAuthReturnPath } from "./auth-return-path";
+
 const AUTH_LOGIN_VARIANTS = {
   employee: {
     allowSignup: false,
@@ -114,4 +116,15 @@ export function verificationCallbackHref(variant, destination) {
   const url = new URL(href, "https://callback.invalid");
   url.searchParams.set("next", destination);
   return `${url.pathname}${url.search}`;
+}
+
+/**
+ * Where a verified traveller goes next. Their link already signed them in, so a good link with
+ * `?next=` inside the Travel Account goes straight there; staff, vendors and expired links stay.
+ */
+export function travellerDestination({ error, from, next }) {
+  if (from !== "guest" || error) {
+    return null;
+  }
+  return resolveAuthReturnPath(next, AUTH_LOGIN_VARIANTS.guest);
 }
