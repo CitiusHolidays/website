@@ -21,6 +21,7 @@ import {
 import {
   AUTH_EMAIL_TOKEN_TTL_SECONDS,
   authEmailCorrelationSecretFromUrl,
+  authRecoveryAreaFromUrl,
   deliverTransactionalAuthEmail,
   reportAuthEmailFailure,
   resolveAuthEmailControlKey,
@@ -173,7 +174,13 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       // a stolen cookie or a session opened with the old password must not outlive it.
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: async ({ user, url, token }) => {
-        const resetUrl = token ? `${baseURL}/auth/reset-password?token=${token}` : url;
+        // Keep the sign-in area the request came from, so the reset page returns there.
+        const resetQuery = new URLSearchParams({ token });
+        const area = authRecoveryAreaFromUrl(url);
+        if (area) {
+          resetQuery.set("from", area);
+        }
+        const resetUrl = token ? `${baseURL}/auth/reset-password?${resetQuery}` : url;
         try {
           const message = await prepareAuthEmailMessage({
             ctaHref: resetUrl,

@@ -4,6 +4,7 @@ import { Heart, PlaneTakeoffIcon, Sparkle, Telescope } from "lucide-react";
 import { m } from "motion/react";
 import Image from "next/image";
 import AnimatedSection from "@/components/layout/AnimatedSection";
+import PublicPlanningCta from "@/components/ui/PublicPlanningCta";
 import TeamMember from "@/components/ui/TeamMember";
 import ValuesCard from "@/components/ui/ValuesCard";
 import arpan from "@/static/team/arpan.webp";
@@ -251,6 +252,7 @@ export default function AboutPage() {
       </AnimatedSection>
 
       <ValuesCard />
+      <PublicPlanningCta />
     </>
   );
 }

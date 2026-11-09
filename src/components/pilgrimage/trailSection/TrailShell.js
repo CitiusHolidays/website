@@ -16,6 +16,7 @@ import {
 import { AnimatePresence, m } from "motion/react";
 import Link from "next/link";
 
+import { PILGRIMAGE_CONTACT_HREFS } from "@/lib/public/contactIntent";
 import { cn } from "@/lib/utils";
 import { HighlightsTab, ItineraryTab, TabButton } from "./TrailCoreTabs";
 import {
@@ -307,7 +308,24 @@ export function TrailTabContent({ activeTab, trail, relatedBlogPosts, flags, rev
   );
 }
 
-export function TrailCta({ isAerial }) {
+// Coming-soon trails have no departures yet, so their closing call is to register interest.
+function trailCtaCopy({ isAerial, isComingSoon }) {
+  if (isComingSoon) {
+    return {
+      action: "Register your interest",
+      body: "Departures are not published yet. Tell us you are interested and we will contact you first.",
+    };
+  }
+  return {
+    action: "Request Detailed Brochure",
+    body: isAerial
+      ? "Limited seats per charter. Book early for preferred dates."
+      : "Multiple departure batches June–September 2026. Early registration recommended.",
+  };
+}
+
+export function TrailCta({ isAerial, isComingSoon = false }) {
+  const copy = trailCtaCopy({ isAerial, isComingSoon });
   return (
     <m.div
       className="mt-12 text-center md:mt-16"
@@ -324,15 +342,13 @@ export function TrailCta({ isAerial }) {
             Ready for <span className="text-public-orange">Transformation?</span>
           </h3>
           <p className="mx-auto mb-6 max-w-xl font-sans text-base text-white/60 md:text-lg">
-            {isAerial
-              ? "Limited seats per charter. Book early for preferred dates."
-              : "Multiple departure batches June–September 2026. Early registration recommended."}
+            {copy.body}
           </p>
           <Link
             className="inline-flex items-center gap-2 rounded-full bg-citius-orange px-8 py-3.5 font-heading text-brand-dark text-sm tracking-wider shadow-citius-orange/20 shadow-xl transition-[translate,box-shadow,filter] duration-300 fine-hover:hover:-translate-y-0.5 hover:shadow-citius-orange/40 hover:brightness-110 active:translate-y-0 md:px-10 md:py-4"
-            href="/contact"
+            href={PILGRIMAGE_CONTACT_HREFS.enquiry}
           >
-            Request Detailed Brochure
+            {copy.action}
             <ArrowRight className="size-4" />
           </Link>
         </div>

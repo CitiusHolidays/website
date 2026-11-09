@@ -2,13 +2,17 @@
 
 import { ArrowLeft, ArrowRight, Mail } from "lucide-react";
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useRef, useState } from "react";
 import AuthRecoveryLayout from "@/components/auth/AuthRecoveryLayout";
 import { AuthRecoveryTransition } from "@/components/auth/AuthRecoveryTransition";
 import { authClient } from "@/lib/auth-client";
 import { formatAuthRecoveryError } from "@/lib/auth-errors";
+import { authRecoveryHref, getAuthVariantFromArea } from "@/lib/auth-sign-in-targets";
 
-export default function ForgotPasswordPage() {
+function ForgotPasswordForm() {
+  // The sign-in page that sent the person here; the reset email and "Back to sign in" return to it.
+  const variant = getAuthVariantFromArea(useSearchParams().get("from"));
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState({ message: "", type: "" });
@@ -26,7 +30,7 @@ export default function ForgotPasswordPage() {
     try {
       const { error } = await authClient.requestPasswordReset({
         email,
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+        redirectTo: `${window.location.origin}${authRecoveryHref("/auth/reset-password", variant)}`,
       });
 
       if (error) {
@@ -45,10 +49,7 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <AuthRecoveryLayout
-      formDescription="Enter your email and we’ll send a secure link to choose a new password."
-      formTitle="Reset password"
-    >
+    <>
       <AuthRecoveryTransition
         announcement={status.message}
         onEntered={status.type === "error" ? focusEmail : undefined}
@@ -120,12 +121,25 @@ export default function ForgotPasswordPage() {
       <div className="mt-8 text-center">
         <Link
           className="inline-flex min-h-11 items-center gap-2 rounded-sm font-medium text-auth-accent-ink text-sm transition-colors hover:text-auth-accent-ink/80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-auth-accent-ink focus-visible:outline-offset-2"
-          href="/auth/guest"
+          href={variant.authPath}
         >
           <ArrowLeft aria-hidden="true" className="size-4" />
           Back to sign in
         </Link>
       </div>
+    </>
+  );
+}
+
+export default function ForgotPasswordPage() {
+  return (
+    <AuthRecoveryLayout
+      formDescription="Enter your email and we’ll send a secure link to choose a new password."
+      formTitle="Reset password"
+    >
+      <Suspense fallback={<p className="text-[#0B1026]/60">Loading…</p>}>
+        <ForgotPasswordForm />
+      </Suspense>
     </AuthRecoveryLayout>
   );
 }

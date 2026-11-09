@@ -98,10 +98,6 @@ export default function SpiritualHero() {
               key={`text-${currentIndex}`}
               transition={transitionConfig}
             >
-              <span className="mb-4 block font-medium text-public-orange text-xs uppercase tracking-[0.5em] md:text-sm">
-                Citius Spiritual Trails
-              </span>
-
               <h1 className="mb-6 font-bold font-heading text-5xl text-white tracking-tight md:text-8xl">
                 {images[currentIndex].title}
               </h1>

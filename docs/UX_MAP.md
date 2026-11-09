@@ -32,8 +32,11 @@ policy wins when it and this page disagree. Update the rows you touch when you c
 | Staff Workspace | `src/app/portal/**` | `PortalShell` (`src/components/portal/PortalShell.tsx`) | Session plus staff access (`src/app/portal/PortalAuthBoundary.js:26-34`) |
 | HTTP API | `src/app/api/**`, `src/app/.well-known/**` | n/a | Per route |
 
-There is no `proxy`/`middleware` file and `next.config.mjs` defines no redirects or rewrites, so
-every redirect below comes from a page, a layout, or a client component.
+`src/proxy.js` matches only `/portal` and `/portal/*`: it copies the requested path and query
+into the `x-citius-return-path` request header (`src/lib/requestReturnPath.js`, which overwrites
+any client-sent value), because a layout cannot read the pathname. It never redirects.
+`next.config.mjs` defines no redirects or rewrites, so every redirect below comes from a page, a
+layout, or a client component.
 
 ## Cross-cutting behaviour
 
@@ -41,22 +44,24 @@ every redirect below comes from a page, a layout, or a client component.
 
 | Request | Result | Evidence |
 | --- | --- | --- |
-| Signed out, `/portal` or any `/portal/*` | `/auth/connect`; the original path is dropped | `src/lib/auth-server.js:391-401`, `src/lib/auth-sign-in-targets.js:66-77`. Seen locally for `/portal`, `/portal/queries`, `/portal/job-cards/abc`, `/portal/travel-schedule` |
-| Signed out, `/account` (with or without `?tab=`) | `/auth/guest`; `tab` is dropped | `src/app/(authenticated)/account/page.js:23`. Seen locally |
+| Signed out, `/portal` or any `/portal/*` | `/auth/connect?returnTo=<path and query>` | `src/app/portal/PortalAuthBoundary.js` reads the proxy header and passes it to `requireAuth` (`src/lib/auth-server.js`), which keeps it only if `resolveAuthReturnPath` accepts it. Seen locally for `/portal/queries?open=x` |
+| Signed out, `/account` (with or without `?tab=`) | `/auth/guest?returnTo=/account`, with `?tab=` kept when it names a real tab | `src/app/(authenticated)/account/page.js`. Seen locally for `?tab=settings` |
 | Signed out, `/vendor` | `/auth/vendor` | `src/app/(authenticated)/vendor/page.js:15`. Seen locally |
 | `/auth` (legacy) | `/auth/guest`, or the variant whose `href` equals `callbackUrl`; keeps `error` and `mode` only | `src/lib/auth-login-pages.js:50-64`. Seen locally |
 | Signed in, any login page | `returnTo` if it is inside that variant's area, else the variant home (`/portal`, `/account`, `/vendor`) | `src/lib/auth-login-pages.js:31-35`, `src/lib/auth-return-path.js:12-35`. Seen locally for staff and customer |
-| Signed in without staff access, `/portal/*` | `/account?portal=unauthorized`; nothing reads `portal`, so the Account renders with no explanation | `src/app/portal/PortalAuthBoundary.js:32-34`, `src/app/(authenticated)/account/page.js:45-46`. Seen locally with the customer fixture |
+| Signed in without staff access, `/portal/*` | `/account?portal=unauthorized`; the Account shows a status note that Citius Connect is the staff workspace, this sign-in has no staff access, and staff should ask their administrator | `src/app/portal/PortalAuthBoundary.js`, `src/components/account/AccountPortalNotice.js`. Redirect seen locally with the customer fixture; the note is covered by `AccountPortalNotice.test.jsx` and `account/page.test.js` |
 | Signed-in staff, `/auth/guest` or `/account` | The customer Account; `ensureMyProfile` creates a customer profile for the staff login on first visit | `src/app/(authenticated)/account/page.js:34`. Seen locally with the Sales account |
 
-`returnTo` is honoured after an email or Google sign-in (`src/components/auth/AuthLoginCredentials.js:47,104,137`)
-but only the Account deletion flow sets it (`src/components/account/AccountDeletionSection.tsx:20`).
+`returnTo` is honoured after an email or Google sign-in (`src/components/auth/AuthLoginCredentials.js`).
+The signed-out redirects above and the Account deletion flow (`src/components/account/AccountDeletionSection.tsx:20`)
+set it.
 
 ### Error, not-found and loading boundaries
 
 | Boundary | Covers | Shows |
 | --- | --- | --- |
-| `src/app/not-found.js` | Every unmatched URL, including `/portal/*` | "Page not found", links to `/` and `/auth/connect`, no public or portal chrome. Seen locally for `/nope`, `/inbound-leads` and `/portal/nope` |
+| `src/app/not-found.js` | Every unmatched URL outside `/portal` | "Page not found", links to `/` and `/auth/connect`, no public or portal chrome. Seen locally for `/nope` and `/inbound-leads` |
+| `src/app/portal/not-found.js` | Unknown `/portal/*` paths (`src/app/portal/[...missing]/page.js` calls `notFound()`) | Inside the portal shell, so only after the portal sign-in and staff checks: "This page does not exist" with "Go to your workspace" → `/portal` and the command palette (`src/components/portal/PortalNotFound.tsx`). Covered by `portalNotFound.test.jsx`; signed-out `/portal/nope` → `/auth/connect?returnTo=/portal/nope` |
 | `src/app/(auth)/error.js` | Auth pages | Scenic `PrivateAuthError`: "We couldn’t verify your session", Try again, Return to sign in (`/auth/guest` for every auth page) |
 | `src/app/(authenticated)/error.js` | `/account`, `/vendor` | Plain `PrivateAuthError`, same copy, Return to sign in → `/auth/guest` |
 | `src/app/portal/error.js` | Every portal page without its own boundary | `PortalRouteError` inside the portal shell (see [Staff Workspace errors](#staff-workspace-errors)) |
@@ -98,14 +103,14 @@ inventory was seen locally on `/`, `/about`, `/services`, `/contact` and `/polic
 | Route | Purpose and data | States | Links out | Evidence |
 | --- | --- | --- | --- | --- |
 | `/` | Home; static data (`src/data/publicServices`, `publicCompanyFacts`, `trendingDestinations`) | Lazy sections show skeletons (`HomeMainClient.js:48-59`); no error state | `/contact`, `/services` | Seen locally |
-| `/about` | Company story; static | Static | Chrome only; no in-page next step | Seen locally |
-| `/services` | Services wheel (`CircularServicesMenu.js`); static | Static | Chrome only; the wheel uses buttons, no contact CTA | Seen locally |
+| `/about` | Company story; static | Static | Ends with the standard "Planning a trip or event?" call to action → `/contact` (`src/components/ui/PublicPlanningCta.js`) | Seen locally |
+| `/services` | Services wheel (`CircularServicesMenu.js`); static | Static | The wheel uses buttons; the page ends with the standard planning call to action → `/contact` | Seen locally |
 | `/mice` | MICE pitch; Sanity images with static fallback (`mice/page.client.js:92`) | Fallback images when Sanity is empty; a Sanity failure is unhandled | `/contact?intent=mice-proposal`, `/gallery` | Code-verified only (500 locally, no Sanity) |
 | `/gallery` | Photo grid and lightbox; Sanity (`gallery/page.js:11`) | No empty state (`GalleryGrid.js:168`); no error state | Chrome only | Code-verified only |
-| `/contact` | Enquiry form → `/api/inbound-intents` (`ModernContactForm.js:255`); `?intent=` prefills; `?intent=account-deletion` redirects to `/account?tab=settings#delete-account` (`contact/page.js:19-21`) | Suspense fallback; inline field and form errors; success is "Sent!" on the button for two seconds plus a screen-reader message (`ModernContactForm.js:278,347-349`) | `tel:`, `mailto:` | Default state seen locally |
+| `/contact` | Enquiry form → `/api/inbound-intents` (`ModernContactForm.js:255`); `?intent=` prefills; `?intent=account-deletion` redirects to `/account?tab=settings#delete-account` (`contact/page.js:19-21`) | Suspense fallback; inline field and form errors; success replaces the form with "Thank you, your enquiry is with us", moves focus to it, and stays until "Send another enquiry" brings back an empty form; a live region outside the form announces it (`ModernContactForm.js`). Success seen locally with the API response stubbed in the browser | `tel:`, `mailto:` | Default state seen locally |
 | `/policies` | Terms and Billing tabs, `?view=terms|billing` (`policyView.js:6-8`) | Suspense fallback | `/contact`, tabs | Seen locally |
 | `/pilgrimage` | Spiritual Trails hub; static trails plus Sanity gallery | Gallery heading renders over an empty gallery (`pilgrimage/page.client.js:206-224`) | `/pilgrimage/{slug}`, `/contact`, sticky mobile bar with `?intent=pilgrimage-callback|enquiry` | Code-verified only |
-| `/pilgrimage/[slug]` | Trail detail; 8 static slugs, 6 marked coming soon | Suspense fallback (`[slug]/page.js:73-81`); unknown slug → `notFound()` (`:91-93`); coming-soon trails say "not yet open for booking" (`TrailSection.js:79-82`) | `/contact` for every booking option; `/blog/{slug}` when a trail has related posts (none do); the back link to the hub is commented out (`TrailHeroSlideshow.js:99-107`) | Code-verified only |
+| `/pilgrimage/[slug]` | Trail detail; 8 static slugs, 6 marked coming soon | Suspense fallback (`[slug]/page.js:73-81`); unknown slug → `notFound()` (`:91-93`); coming-soon trails say "not yet open for booking" (`TrailSection.js:79-82`) and their closing call asks the visitor to register interest instead of promising departure batches (`trailSection/TrailShell.js`, `TrailCta`) | `/contact` for every booking option; the closing call → `/contact?intent=pilgrimage-enquiry`; `/blog/{slug}` when a trail has related posts (none do); "All spiritual trails" back link → `/pilgrimage#all-trails` (`TrailHeroSlideshow.js`) | Code-verified only (500 locally, no Sanity); covered by `TrailShell.mounted.test.jsx` and `TrailHeroSlideshow.test.jsx` |
 | `/blog`, `/blog/[slug]` | Citius Journal; Sanity | Index empty state "The first story is on its way" (`blog/page.js:222-233`); story skeleton (`[slug]/page.js:124-146`); unknown slug → `notFound()` (`:239-241`); empty body "This story has no text yet." | `/blog/{slug}`, `/pilgrimage/{slug}`, `/contact` | Code-verified only |
 | `/photo-booth` | Event Photo Booth; Convex `getParticipantState`; no chrome, noindex | "Checking", closed notice, no-scenes notice, error boundary; success offers download/share then an enquiry link (`EventPhotoBooth.tsx:329-369,795`) | `/`, `/pilgrimage`, `/policies`, `/contact?intent=event-photo-booth` | Closed/default state seen locally |
 | `/sacred-bharat` | Sacred Bharat edition 001; gated by the runtime control `public.sacred_bharat_001`, fails closed (`sacred-bharat/page.js:48-60`) | "Edition under review" when disabled (`:67-95`) | `/pilgrimage`, `/`, image credits | Open edition seen locally |
@@ -126,16 +131,21 @@ inventory was seen locally on `/`, `/about`, `/services`, `/contact` and `/polic
 ## Authentication
 
 All pages render inside `AuthShell` with a logo and "Back to website" → `/`
-(`src/components/auth/AuthShell.js:24-38`). There is no link between the staff and guest pages.
+(`src/components/auth/AuthShell.js:24-38`). In sign-in mode, `/auth/connect` links to guest sign-in
+("Booked a trip with us?") and `/auth/guest` links to Citius Connect ("Citius Holidays staff?");
+`/auth/vendor` has neither (`AuthOtherSignIn` in `src/components/auth/AuthLoginForm.js`). Every
+"Forgot password?" link carries `?from=connect|guest|vendor`, and the recovery pages use it to return
+to the same sign-in page (`getAuthVariantFromArea`, `authRecoveryHref` in
+`src/lib/auth-sign-in-targets.js`; missing or unknown `from` means guest).
 
 | Route | Purpose | States | Success goes to | Evidence |
 | --- | --- | --- | --- | --- |
 | `/auth/connect` | Staff sign-in, no sign-up (`auth-sign-in-targets.js:2-21`) | "Opening secure sign in" fallback; submitting "Processing…"; one `role=alert` error box with copy from `src/lib/auth-errors.js:29-58`; `?error=` copy (`:10-27`); Google button | `/portal` or an allowed `/portal/*` `returnTo` | Default seen locally; staff already signed in → `/portal` seen locally; customer → `/account?portal=unauthorized` seen locally |
 | `/auth/guest` | Customer sign-in and sign-up (`?mode=signup`) | As above plus "Check your email" after sign-up (`AuthLoginForm.js:14-43`) | `/account` or an allowed `returnTo` | Sign-in, sign-up and `?error=account not linked` seen locally |
 | `/auth/vendor` | Vendor sign-in, hidden from navigation | As `/auth/connect` | `/vendor` | Default seen locally |
-| `/auth/forgot-password` | Request a reset link | "Sending…", success copy replaces the form, errors from `auth-errors.js:61-77` | "Back to sign in" always → `/auth/guest` (`forgot-password/page.client.js:120-127`) | Default seen locally |
-| `/auth/reset-password?token=` | Set a new password | Full form even without a token; the missing token is reported only on submit (`reset-password/page.client.js:47-56,182`); mismatch and length errors; invalid/expired token copy with "Request a new link" | `/auth/guest` after three seconds (`:195-203`) | No-token form seen locally |
-| `/auth/email-verified` | Confirmation after email verification | Static; Citius Connect branded copy (`email-verified/page.client.js:12-24`) | Button → `/auth/connect` | Seen locally |
+| `/auth/forgot-password?from=` | Request a reset link | "Sending…", success copy replaces the form, errors from `auth-errors.js:61-77`; the emailed link keeps `from` | "Back to sign in" → the `from` sign-in page (`forgot-password/page.client.js`) | Seen locally for `from=connect` |
+| `/auth/reset-password?token=&from=` | Set a new password | Without a token: "This reset link is incomplete" with "Request a new link" and "Back to sign in", no form (`reset-password/page.client.js`); mismatch and length errors; invalid/expired token copy with "Request a new link" | The `from` sign-in page after three seconds | No-token state and token form seen locally |
+| `/auth/email-verified?from=` | Confirmation after email verification | `from=guest`: Travel Account copy, "Sign in" → `/auth/guest`; otherwise (staff invitations, and links sent before `from` existed): Citius Connect copy, "Go to Citius Connect" → `/auth/connect`. With Better Auth's `?error=` (expired, used or invalid link): "This link has expired" and how to get a new one (`email-verified/page.client.js`) | The button above | Guest, staff and expired states seen locally |
 | `/auth` | Legacy entry | Redirect only | See [Sign-in redirects](#sign-in-redirects) | Seen locally |
 
 ## Customer Travel Account
@@ -145,8 +155,8 @@ Reachable by any session; it carries no staff authority ([context](customer-acco
 
 | State | Behaviour | Evidence |
 | --- | --- | --- |
-| Signed out | → `/auth/guest` | Seen locally |
-| Identity link not `linked` | The page throws "Account identity requires support review" (`page.js:31-33`); the error page offers Try again (throws again) and Return to sign in (→ `/auth/guest` → already signed in → `/account`). No sign-out or contact | Code-verified only |
+| Signed out | → `/auth/guest?returnTo=/account` (with `?tab=` kept) | Seen locally |
+| Identity link not `linked` | "Your account needs a quick check": the sign-in could not be matched to one traveller record; Contact us → `/contact` and Sign out → `/` (an error alert if sign-out fails). No journey or profile query runs (`page.js`, `src/components/account/AccountIdentityReview.js`) | Covered by `account/page.test.js` |
 | Tabs | `journeys` (default), `profile`, `settings` from `?tab=`; switching does not update the URL (`page.client.js:37`) | Journeys and `?tab=settings` seen locally |
 | No journeys | "No upcoming trips … will appear here." and "Completed trips appear here." with no next step (`AccountJourneysPanel.js:361-365,402-404`) | Seen locally |
 | Journey detail | Loading, unavailable and failed states; Back to journeys (`AccountJourneysPanel.js:95-103,191-193,476-480`) | Code-verified only (no seeded journey on this deployment) |
@@ -171,8 +181,10 @@ Entry: `src/app/portal/layout.js` → `PortalAuthBoundary.js` → `PortalShell`.
   notifications" → `/portal/activity` (`PortalShell.tsx:482-488,658-697`).
 - Account menu: Back to site → `/`, Sign out → `/`. There is no link to `/account`
   (`PortalShell.tsx:329-346`).
-- Command palette: only inside `PortalWorkspace` pages (`PortalWorkspace.tsx:112`), not on the
-  four stand-alone pages below.
+- Command palette: on every `PortalWorkspace` page and, through `PortalNavigationPalette.tsx`
+  (navigation only, no saved views or filters), on the four stand-alone pages below and the portal
+  404. Its navigation includes Event Photo Booth when the login has photo booth access
+  (`usePortalPaletteNavGroups`).
 
 ### View gate
 
@@ -251,16 +263,18 @@ Convex error a client query threw:
 | `ConvexError` "… not found" or "Invalid … id" | "This record could not be found" | Go to your workspace |
 | Anything else, including argument-validator errors from URL ids such as `/portal/inbound-leads?open=inboundIntent&id=x` | "This page could not be loaded" | Try again, Go to your workspace |
 
-Unknown portal paths render the root 404 without the portal shell (seen locally for `/portal/nope`).
+Unknown portal paths render `src/app/portal/not-found.js` inside the portal shell, with a link back
+to `/portal` (see [boundaries](#error-not-found-and-loading-boundaries)).
 
 ### Notification links
 
 Two builders produce portal links: `src/lib/portal/notificationPaths.js` (in-app) and
 `convex/crm/notificationPaths.ts` (email). They agree for query, proposal, job card, ticket, leave,
 approval, inbound lead and post-tour report (`convex/crm/dashboardPaths.test.ts` checks the pair).
-The email change takes effect once the Convex functions are deployed. Expense-approval and Tour Manager allocation notifications carry no
-destination and open `/portal/activity` in both (`convex/crm/expenseApprovalWorkflow.ts:216-223`,
-`convex/crm/ops.ts:587-593`).
+The email change takes effect once the Convex functions are deployed. Expense-approval
+notifications open `/portal/expenses` and Tour Manager allocation notifications open
+`/portal/job-cards` in both builders; the notification does not carry the Job Card id, so it
+cannot open the card itself.
 
 ## HTTP API (for orientation)
 
@@ -288,23 +302,33 @@ Fixed in this quality pass (each with a test, apart from the one-word copy fix):
 - The sitemap listed `/account`.
 - A stray comma in the coming-soon trail notice.
 
+Fixed in the UX gaps pass (each with a test):
+
+- Signed-out `/portal/*` and `/account?tab=` links keep the target through sign-in.
+- `/account?portal=unauthorized` explains why the person is in the Travel Account.
+- An unlinked customer identity gets a support page with Contact us and Sign out instead of an
+  error loop.
+- Expense and Tour Manager allocation notifications open `/portal/expenses` and `/portal/job-cards`.
+- Unknown `/portal/*` paths show a not-found page inside the Staff Workspace.
+- Recovery pages return to the sign-in page the person came from; `email-verified` has traveller
+  copy and an expired-link state; staff and guest sign-in link to each other.
+- Reset password without a token shows an incomplete-link state instead of the form.
+- Coming-soon trails ask for interest instead of promising departures; the trail back link is
+  restored; `/about` and `/services` end with the planning call to action; the contact
+  confirmation stays until the person moves on.
+- The command palette is on the stand-alone portal pages and includes the photo booth.
+- Eyebrow labels removed from the surfaces listed in the previous version of this table.
+- The unused `BookingCard` and the `PastJourneyCard` link to `/services/{slug}` are gone.
+
 Open, needing an owner or another workstream:
 
 | Gap | Where | Why it is open |
 | --- | --- | --- |
-| Signed-out deep links drop the target (`/portal/*` → `/auth/connect`, `/account?tab=` → `/auth/guest`) | `src/lib/auth-server.js:391-401`, `account/page.js:23` | Auth flow; needs a decision on carrying `returnTo` from server redirects (pathname is not available to layouts) |
-| A customer sent from the portal lands on `/account?portal=unauthorized` with no explanation | `PortalAuthBoundary.js:32-34` | Customer Account copy and placement are an owner decision |
-| Unlinked customer identity loops between the error page and sign-in, with no sign-out or contact | `account/page.js:31-33`, `(authenticated)/error.js` | Needs a support path decision |
-| Staff can open the customer Account, which creates a customer profile for the staff login | `account/page.js:34` | Account policy decision |
+| Staff can open the customer Account, which creates a customer profile for the staff login | `account/page.js` | Account policy decision |
 | Customers can open `/vendor` | `vendor/page.js:15` | Vendor portal is a placeholder; access rules not decided |
-| Expense-approval and Tour Manager allocation notifications open `/portal/activity` | `convex/crm/expenseApprovalWorkflow.ts:216-223`, `convex/crm/ops.ts:587-593` | Needs a target page per notification |
-| `/portal/*` 404 renders without the portal shell and links to staff sign-in | `src/app/not-found.js` | Portal-specific not-found is a design decision |
-| No `global-error`, no public error boundaries; Sanity failures fall to Next's default page | `src/app/` | Public error design decision |
-| Recovery pages always return to `/auth/guest`; `email-verified` uses staff copy; Google sign-in shows on staff and vendor pages; no link between staff and guest sign-in | `src/app/(auth)/auth/**` | Auth workstream |
-| Reset password renders the form without a token | `reset-password/page.client.js:47-56` | Auth workstream |
-| Coming-soon trails show "not yet open" beside departure details; trail back link commented out; no CTA on `/about` and `/services`; contact success is a two-second "Sent!" | Public pages | Content and design decisions |
+| Google sign-in shows on the staff and vendor sign-in pages | `src/lib/auth-sign-in-targets.js`, `AuthLoginCredentials.js` | Whether staff and vendors may use Google is an access decision |
+| No `global-error`, no public error boundaries; Sanity failures fall to Next's default page | `src/app/` | Public error design decision; another workstream |
 | No privacy policy page | `/policies` | Legal content |
-| `robots.js` disallows `/admin`, which does not exist | `src/app/robots.js:9` | Which private prefixes to list is an SEO decision |
-| Command palette missing on stand-alone portal pages and omits the photo booth | `PortalWorkspace.tsx:112` | Shell design decision |
-| Eyebrow labels that `DESIGN.md` discourages (`not-found.js`, `PrivateAuthError`, mice, pilgrimage, home, account, vendor) | Several | Visual change per surface needs design sign-off |
-| `PastJourneyCard` without `onOpen` links to `/services/{slug}`, which does not exist | `src/components/account/AccountUi.js:570` | Only the unused `BookingCard` reaches it; left to the unused-code workstream |
+| `robots.js` disallows `/admin`, which does not exist | `src/app/robots.js:9` | Which private prefixes to list is an SEO decision; another workstream |
+| A Tour Manager allocation notification opens the Job Card list, not the card | `convex/crm/ops.ts` (`entityType: "tourManager"`) | The notification carries the assignment id; linking the card needs the Job Card id on the notification |
+| A traveller's verification email from sign-up or sign-in lands on `/` (Better Auth's default) rather than `/auth/email-verified?from=guest` | `src/lib/auth-client.js` (`signUpWithEmail`, `signInWithEmail` pass no `callbackURL`) | Where a new traveller should land after verifying is a product decision |

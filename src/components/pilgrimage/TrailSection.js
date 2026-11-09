@@ -90,7 +90,7 @@ export default function TrailSection({
           reviewsList={reviewsList}
           trail={trail}
         />
-        <TrailCta isAerial={isAerial} />
+        <TrailCta isAerial={isAerial} isComingSoon={isComingSoon} />
       </div>
     </section>
   );

@@ -21,12 +21,7 @@ export default function VendorPageClient({ user }) {
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
           <Link className="flex items-center gap-3" href="/">
             <Image alt="Citius Holidays" height={72} src={citiusLogo} width={72} />
-            <div>
-              <p className="text-citius-orange text-xs uppercase tracking-[0.2em]">
-                Citius Holidays
-              </p>
-              <p className="font-heading text-[#0B1026] text-lg">Vendor Portal</p>
-            </div>
+            <p className="font-heading text-[#0B1026] text-lg">Vendor Portal</p>
           </Link>
           <button
             className="inline-flex items-center gap-2 rounded-full border border-[#e2e8f0] px-4 py-2 text-[#64748b] text-sm transition-colors hover:border-[#cbd5e1] hover:text-[#0f172a]"
@@ -55,10 +50,14 @@ export default function VendorPageClient({ user }) {
               <Building2 size={28} />
             </div>
             <div>
-              <p className="text-citius-orange text-sm uppercase tracking-[0.18em]">Coming soon</p>
-              <h1 className="mt-2 font-heading text-4xl text-[#0B1026]">
-                Welcome{user?.name ? `, ${user.name.split(" ")[0]}` : ""}
-              </h1>
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="font-heading text-4xl text-[#0B1026]">
+                  Welcome{user?.name ? `, ${user.name.split(" ")[0]}` : ""}
+                </h1>
+                <span className="rounded-full bg-orange-50 px-3 py-1 font-medium text-orange-800 text-xs">
+                  Coming soon
+                </span>
+              </div>
               <p className="mt-3 max-w-2xl font-light text-[#64748b] text-lg">
                 The vendor portal is being prepared. This page will host supplier onboarding,
                 contract documents, and booking coordination tools.

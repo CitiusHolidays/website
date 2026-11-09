@@ -1,6 +1,7 @@
 "use client";
 
 import CircularServicesMenu from "@/components/ui/CircularServicesMenu";
+import PublicPlanningCta from "@/components/ui/PublicPlanningCta";
 
 export default function ServicesPage() {
   return (
@@ -25,6 +26,7 @@ export default function ServicesPage() {
           <CircularServicesMenu />
         </div>
       </section>
+      <PublicPlanningCta />
     </>
   );
 }

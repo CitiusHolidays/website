@@ -1,4 +1,5 @@
 import { anyApi } from "convex/server";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 import PortalShell from "@/components/portal/PortalShell";
@@ -6,6 +7,7 @@ import { ConvexClientProvider } from "@/components/providers/ConvexClientProvide
 import PortalMotionThemeProvider from "@/components/providers/PortalMotionThemeProvider";
 import ReducedMotionProvider from "@/components/providers/ReducedMotionProvider";
 import { fetchAuthMutation, getToken, requireAuth } from "@/lib/auth-server";
+import { RETURN_PATH_HEADER } from "@/lib/requestReturnPath";
 
 // All request-derived identity, authorization, and CRM work stays behind this
 // boundary. Its parent may stream only a generic shell with no user or CRM data.
@@ -23,7 +25,9 @@ export default async function PortalAuthBoundary({ children }) {
         (cause) => ({ access: null, failure: cause })
       )
     : Promise.resolve({ access: null, failure: null });
-  const { user } = await requireAuth("/portal", authOptions);
+  // Set by src/proxy.js, so a signed-out visitor returns to the page they asked for.
+  const returnPath = (await headers()).get(RETURN_PATH_HEADER);
+  const { user } = await requireAuth("/portal", authOptions, { returnPath });
   const { access, failure } = await bootstrap;
   if (failure) {
     throw failure;

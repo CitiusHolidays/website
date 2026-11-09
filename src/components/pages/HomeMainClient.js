@@ -11,8 +11,7 @@ import { PUBLIC_HOME_SERVICES } from "@/data/publicServices";
 import Goa from "@/static/places/goa.webp";
 import AnimatedSection from "../layout/AnimatedSection";
 import NumberTicker from "../ui/NumberTicker";
-import PublicContactCta from "../ui/PublicContactCta";
-import PublicGrain from "../ui/PublicGrain";
+import PublicPlanningCta from "../ui/PublicPlanningCta";
 import ServiceCard from "../ui/ServiceCard";
 import UspElement from "../ui/UspElement";
 
@@ -140,9 +139,6 @@ export default function HomeMainClient() {
 
       <section aria-labelledby="home-proof-heading" className="bg-public-surface pt-24">
         <div className="mx-auto max-w-3xl px-4 text-center">
-          <p className="mb-3 font-medium text-public-blue text-sm uppercase tracking-widest">
-            Why Citius
-          </p>
           <h2
             className="font-heading font-semibold text-4xl text-public-ink md:text-5xl"
             id="home-proof-heading"
@@ -157,9 +153,6 @@ export default function HomeMainClient() {
 
         <AnimatedSection className="py-20" data-proof-module="company-stats">
           <div className="mb-14 text-center">
-            <p className="mb-2 font-medium text-public-blue text-sm uppercase tracking-widest">
-              Our Impact
-            </p>
             <h3 className="font-heading font-semibold text-3xl text-public-ink md:text-4xl">
               By the Numbers
             </h3>
@@ -223,22 +216,7 @@ export default function HomeMainClient() {
         </AnimatedSection>
       </section>
 
-      <AnimatedSection className="relative overflow-hidden py-32 text-center text-white">
-        <div className="absolute inset-0 z-0 bg-public-night" />
-        <PublicGrain className="z-10" />
-        <div className="absolute inset-0 z-0 bg-gradient-to-br from-public-night via-public-blue to-public-night" />
-
-        <div className="relative z-20 mx-auto max-w-3xl px-4">
-          <h2 className="mb-8 font-bold font-heading text-4xl leading-tight md:text-5xl">
-            Planning a trip or event?
-          </h2>
-          <p className="mx-auto mb-10 max-w-xl text-lg text-public-lime/70">
-            Tell us your dates, group size, and destination. We&apos;ll send a proposal within two
-            business days.
-          </p>
-          <PublicContactCta>Start Planning Now</PublicContactCta>
-        </div>
-      </AnimatedSection>
+      <PublicPlanningCta />
     </div>
   );
 }
