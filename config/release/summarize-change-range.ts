@@ -334,8 +334,10 @@ export async function collectChangeRangeSummary(
   baseReference: string,
   headReference = "HEAD"
 ) {
-  const base = await resolveCommit(root, baseReference, "base");
-  const head = await resolveCommit(root, headReference, "head");
+  const [base, head] = await Promise.all([
+    resolveCommit(root, baseReference, "base"),
+    resolveCommit(root, headReference, "head"),
+  ]);
   if (base === head) {
     throw new Error("The requested change range is empty");
   }
