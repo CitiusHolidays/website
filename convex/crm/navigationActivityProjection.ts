@@ -3,7 +3,7 @@ import type { MutationCtx } from "../_generated/server";
 import { authorizedCustomerIdentityIds } from "../lib/customerIdentityAccess";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { canReceiveNotification } from "./lib/notificationRecipients";
-import { type PortalAccess, portalAccessForStaff } from "./lib/staffAccess";
+import { portalAccessForStaff } from "./lib/staffAccess";
 import { createNavigationWorkReader } from "./navigationWork";
 
 async function identityIdsForStaff(ctx: MutationCtx, staff: Doc<"staffUsers">) {
@@ -43,9 +43,6 @@ async function identityIdsForStaff(ctx: MutationCtx, staff: Doc<"staffUsers">) {
   }
   return [...ids];
 }
-function accessForStaff(staff: Doc<"staffUsers">): PortalAccess {
-  return portalAccessForStaff(staff);
-}
 
 // One latest arrival per person/destination persists independently of the bell's
 // limited recent feed. Publication and this projection commit atomically.
@@ -75,11 +72,11 @@ export async function projectNavigationActivity(
   const recipients = activeStaff.filter(
     (staff) =>
       staff.active &&
-      supported.some((notice) => canReceiveNotification(notice, accessForStaff(staff)))
+      supported.some((notice) => canReceiveNotification(notice, portalAccessForStaff(staff)))
   );
   await Promise.all(
     recipients.map(async (staff) => {
-      const access = accessForStaff(staff);
+      const access = portalAccessForStaff(staff);
       const reader = await createNavigationWorkReader(
         ctx,
         access,

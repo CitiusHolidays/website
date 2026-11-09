@@ -447,9 +447,3 @@ export async function handleApplySalesDecision(ctx: MutationCtx, args: SalesDeci
 
   return { id: queryId };
 }
-
-export function handleQueryUpdateStatus(): Promise<never> {
-  return Promise.reject(
-    new ConvexError("updateStatus is retired. Use applySalesDecision or updateContractingProgress.")
-  );
-}

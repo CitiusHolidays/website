@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
+  buildDashboardKpiHref,
   buildDashboardListUrl,
-  buildKpiHref,
   buildQueryTypeTileHref,
   buildUrgentActionHref,
   buildUrgentViewAllHref,
@@ -14,18 +14,18 @@ function parsed(url) {
 describe("DashboardLinks", () => {
   test("Builds KPI hrefs with date range and list filter params", () => {
     const range = { from: "2026-01-01", to: "2026-01-31" };
-    const proposalsUrl = parsed(buildKpiHref("Proposals Sent", range));
+    const proposalsUrl = parsed(buildDashboardKpiHref("proposalsSent", range));
 
     expect(proposalsUrl.pathname).toBe("/portal/proposals");
     expect(proposalsUrl.searchParams.get("from")).toBe("2026-01-01");
     expect(proposalsUrl.searchParams.get("to")).toBe("2026-01-31");
     expect(proposalsUrl.searchParams.get("f_status")).toBe("Sent");
 
-    const activeUrl = parsed(buildKpiHref("Active queries", range));
+    const activeUrl = parsed(buildDashboardKpiHref("activeQueries", range));
     expect(activeUrl.pathname).toBe("/portal/pipeline");
     expect(activeUrl.searchParams.get("from")).toBe("2026-01-01");
 
-    const jobCardsUrl = parsed(buildKpiHref("Open job cards", range));
+    const jobCardsUrl = parsed(buildDashboardKpiHref("jobCardsOpen", range));
     expect(jobCardsUrl.pathname).toBe("/portal/job-cards");
     expect(jobCardsUrl.searchParams.get("f_status")).toBe("Open");
   });

@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "f35c2a7b343a6b4472f8ab224f5b706ab698ea24c7c8d5f66b16b18c0aa02fa1";
+const EXPECTED_CAPABILITY_HASH = "af7a98c450ade298fc9c836613e141f0776be91c797adad09c5cf4010de378d0";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_CAPABILITIES = new Set(["crm/postTourReports.archive"]);
@@ -722,6 +722,25 @@ describe("Convex capability inventory", () => {
     });
     expect(approvalsSource).not.toContain("pendingCount");
     expect(exportSurface).not.toContain("crm_approvals.pendingCount");
+  });
+
+  test("Retires the deprecated compatibility functions that no client calls", () => {
+    const names = new Set(discoverCapabilities().map(({ module, name }) => `${module}.${name}`));
+    for (const replacement of [
+      "crm/proposals.sendToSales",
+      "crm/queries.applySalesDecision",
+      "crm/staffAction.startStaffOnboarding",
+    ]) {
+      expect(names.has(replacement), replacement).toBe(true);
+    }
+    for (const retired of [
+      "crm/proposals.markAccepted",
+      "crm/proposals.markSent",
+      "crm/queries.updateStatus",
+      "crm/staffAction.adminSendResetEmail",
+    ]) {
+      expect(names.has(retired), retired).toBe(false);
+    }
   });
 
   test("Exposes bounded inbound dismissal without the unrelated-query conversion escape hatch", () => {

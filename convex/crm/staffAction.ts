@@ -14,10 +14,7 @@ import { resolveAuthOrigin } from "../lib/authOriginPolicy";
 import { sendPasswordSetupEmail, sendVerificationEmail } from "../lib/betterAuthEmail";
 import { findAuthUserByEmail } from "../lib/betterAuthLookup";
 import { isRuntimeObject } from "../lib/runtimeValues";
-import {
-  staffOnboardingResultValidator,
-  successResultValidator,
-} from "./staffSettingsReturnContracts";
+import { staffOnboardingResultValidator } from "./staffSettingsReturnContracts";
 
 function isExistingUserError(cause: unknown) {
   let message = String(cause);
@@ -361,27 +358,4 @@ export const startStaffOnboarding = action({
     };
   },
   returns: staffOnboardingResultValidator,
-});
-
-/** @deprecated Use startStaffOnboarding — kept for compatibility */
-export const adminSendResetEmail = action({
-  args: {
-    email: v.string(),
-    name: v.string(),
-  },
-  handler: async (ctx, args) => {
-    const access = await ctx.runQuery(api.crm.staff.getMyPortalAccess);
-    if (!(access?.allowed && access.permissions.includes("manage:staff"))) {
-      throw new ConvexError("FORBIDDEN");
-    }
-
-    const auth = createAuth(ctx);
-    const delivery = await sendPasswordSetupEmail(ctx, auth, args.email, "email.auth.staff_setup");
-    if (!delivery.sent) {
-      throw new ConvexError("Failed to send reset password email");
-    }
-
-    return { success: true as const };
-  },
-  returns: successResultValidator,
 });

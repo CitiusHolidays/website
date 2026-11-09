@@ -61,7 +61,6 @@ function chatStreamErrorMessage(error) {
   return "Citius Concierge could not complete that response. Please try again.";
 }
 
-// Initialize OpenRouter with the API key from environment variables
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_API_KEY || "",
 });

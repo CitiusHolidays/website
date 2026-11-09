@@ -4,11 +4,7 @@ import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { normalizeEmail } from "./crm/lib/staffAccess";
-import {
-  isLegacyRoomCode,
-  resolveRoomingEntryRoomType,
-  resolveTravellerRoomFields,
-} from "./lib/roomTypes";
+import { isLegacyRoomCode, resolveRoomCategory, resolveTravellerRoomFields } from "./lib/roomTypes";
 import {
   isRuntimeBigInt,
   isRuntimeNumber,
@@ -556,7 +552,7 @@ async function migrateRoomingEntryRoomType(
   now: number
 ): Promise<RoomTypePageCounts> {
   const legacyRoomingRoomTypes = isLegacyRoomCode(row.roomType) ? 1 : 0;
-  const roomType = resolveRoomingEntryRoomType(row.roomType);
+  const roomType = resolveRoomCategory(row.roomType);
   if (!(roomType && String(row.roomType) !== roomType)) {
     return { ...EMPTY_ROOM_TYPE_PAGE_COUNTS, legacyRoomingRoomTypes };
   }

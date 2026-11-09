@@ -28,8 +28,6 @@ export {
   flushDeferredNotificationCleanup,
   NOTIFICATION_EMAIL_STAGGER_MS,
   type NotificationEntityIdentity,
-  notifyRoles,
-  notifyStaffMatching,
   notifyStaffMember,
   publishWorkflowNotification,
   type WorkflowNotificationPlan,

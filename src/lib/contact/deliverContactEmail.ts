@@ -1,9 +1,9 @@
-import { Resend } from "resend";
 import {
   deliverNotificationEmailsSequentially,
   RESEND_DELIVERY_MAX_ATTEMPTS,
   RESEND_DELIVERY_MIN_INTERVAL_MS,
-} from "../../../convex/crm/notificationEmailDelivery";
+} from "@convex/crm/notificationEmailDelivery";
+import { Resend } from "resend";
 import { contactEmailEventId, contactEmailText } from "./contactEmailContent";
 
 interface DeliverContactEmailInput {
