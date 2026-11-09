@@ -17,6 +17,12 @@ describe("Dashboard notification path parity", () => {
       title: "Order confirmed",
     },
     {
+      entityId: "report_1",
+      entityType: "postTourReport",
+      href: "/portal/post-tour-feedback?reportId=report_1&view=report",
+      title: "Post-tour report submitted",
+    },
+    {
       entityId: "ticket_1",
       entityType: "ticket",
       href: "/portal/tickets?open=ticket&id=ticket_1",
