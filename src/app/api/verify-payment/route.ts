@@ -9,12 +9,17 @@
 import { anyApi } from "convex/server";
 import { NextResponse } from "next/server";
 import { fetchAuthMutation } from "@/lib/auth-server";
+import { isCrossSiteBrowserRequest } from "@/lib/http/crossSiteRequest";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
 import type { ConfirmBookingArgs, VerifyPaymentPayload } from "@/lib/paymentVerification";
 import { verifyPaymentRequest } from "@/lib/paymentVerification";
 import { verifyPaymentSignature } from "@/lib/razorpay";
 
 async function handleVerifyPayment(request: Request) {
+  // Cookie-authenticated state change: refuse a forged cross-site browser request.
+  if (isCrossSiteBrowserRequest(request)) {
+    return NextResponse.json({ error: "Request origin not allowed." }, { status: 403 });
+  }
   try {
     const body: VerifyPaymentPayload = await request.json();
 
