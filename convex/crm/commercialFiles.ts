@@ -33,7 +33,7 @@ import {
   purgeExpiredHandler,
   purgeRunResultValidator,
 } from "./commercialFilePurge";
-import { linkedQueriesForProposal, resolveCommercialChain } from "./commercialRecordChainReads";
+import { resolveCommercialChain } from "./commercialRecordChainReads";
 import {
   invalidateDocumentPreviewSource,
   scheduleDocumentPreviewInvalidationBatches,
@@ -51,6 +51,7 @@ import {
   type PortalAccess,
   requireAnyPermission,
 } from "./lib";
+import { linkedQueriesForProposal } from "./proposalRelations";
 import { enqueueProposalQueryCommercialProjections } from "./queryCommercialProjection";
 
 const MAX_PAGE_SIZE = 50;

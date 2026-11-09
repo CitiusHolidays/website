@@ -1,7 +1,8 @@
 import { v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
-import { getVisibleJob, resolveImportTravelBatchId } from "./importProcessor";
+import { resolveImportTravelBatchId } from "./importProcessor";
+import { getVisibleJob } from "./jobCardVisibility";
 import { createActivity, PERMISSIONS, type PortalAccess, requireStaff } from "./lib";
 import {
   applyCrmCursorFilters,

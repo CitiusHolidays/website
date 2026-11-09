@@ -2,7 +2,7 @@ import { ConvexError } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { propertiesWhen } from "../lib/runtimeValues";
-import { getVisibleJob } from "./importProcessor";
+import { getVisibleJob } from "./jobCardVisibility";
 import type { PortalAccess } from "./lib";
 import { patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { type TravellerGroupScope, travellerInGroupScope } from "./tourManagerGroupScope";

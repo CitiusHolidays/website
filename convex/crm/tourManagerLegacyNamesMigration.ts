@@ -2,7 +2,9 @@ import { ConvexError, v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery } from "../_generated/server";
+import { boundedMigrationLimit } from "../lib/migrationBatch";
 import { propertiesWhen } from "../lib/runtimeValues";
+import { assertMigrationSecret } from "../migrationAuth";
 import { staleTourManagerVisibilityPatch } from "./jobCardVisibility";
 
 /**
@@ -53,17 +55,6 @@ export const tourManagerVisibilityMigrationStatusValidator = v.object({
   verified: v.boolean(),
   verifiedAt: v.union(v.number(), v.null()),
 });
-
-function assertMigrationSecret(secret: string) {
-  const expected = process.env.MIGRATION_SECRET;
-  if (!expected || secret !== expected) {
-    throw new ConvexError("Invalid migration secret");
-  }
-}
-
-function boundedLimit(limit?: number) {
-  return Math.min(Math.max(Math.trunc(limit ?? DEFAULT_LIMIT), 1), MAX_LIMIT);
-}
 
 function registryKey(key: string, dryRun: boolean) {
   return dryRun ? `${key}:dry-run` : key;
@@ -122,7 +113,7 @@ export async function runTourManagerVisibilityMigrationPage(
   assertMigrationSecret(args.secret);
   const key = registryKey(migrationKey, args.dryRun);
   const now = Date.now();
-  const limit = boundedLimit(args.limit);
+  const limit = boundedMigrationLimit(args.limit, DEFAULT_LIMIT, MAX_LIMIT);
   let registry = await loadRegistry(ctx, key);
   if (registry?.status === "verified" || (args.dryRun && registry?.status === "failed")) {
     return {
@@ -257,7 +248,10 @@ export async function runTourManagerVisibilityVerification(
   const page = await ctx.db
     .query("jobCards")
     .order("asc")
-    .paginate({ cursor: registry.cursor, numItems: boundedLimit(args.limit) });
+    .paginate({
+      cursor: registry.cursor,
+      numItems: boundedMigrationLimit(args.limit, DEFAULT_LIMIT, MAX_LIMIT),
+    });
   const pageResiduals = (await staleJobCards(ctx, page.page)).length;
   const legacyRemaining = registry.legacyRemaining + pageResiduals;
   const cursor = page.isDone ? null : page.continueCursor;

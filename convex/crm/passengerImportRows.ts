@@ -4,11 +4,11 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import {
   buildTravellerMatchIndex,
   findTravellerMatchInIndex,
-  getVisibleJob,
   processImportRows,
   summarizeRoomTypesFromRows,
 } from "./importProcessor";
 import type { internalPassengerImportRow } from "./importRowValidators";
+import { getVisibleJob } from "./jobCardVisibility";
 import type { PortalAccess } from "./lib";
 import { canManagePassengerKinds } from "./passengerKindPolicy";
 

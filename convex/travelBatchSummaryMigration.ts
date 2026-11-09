@@ -2,6 +2,7 @@ import type { PaginationOptions } from "convex/server";
 import { ConvexError, v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { boundedMigrationLimit } from "./lib/migrationBatch";
 import { propertiesWhen } from "./lib/runtimeValues";
 import {
   assertRecognizedTravelBatchSummaries,
@@ -49,10 +50,6 @@ export const travelBatchSummaryRegistryStatusValidator = v.object({
   verified: v.boolean(),
   verifiedAt: v.union(v.number(), v.null()),
 });
-
-function boundedTravelBatchSummaryMigrationLimit(limit?: number) {
-  return Math.min(Math.max(Math.trunc(limit ?? TRAVEL_BATCH_MIGRATION_LIMIT), 1), 100);
-}
 
 async function getTravelBatchSummaryMigration(ctx: MutationCtx | QueryCtx) {
   return await ctx.db
@@ -125,7 +122,7 @@ export async function backfillTravelBatchSummariesHandler(
   args: { limit?: number; secret: string }
 ) {
   assertMigrationSecret(args.secret);
-  const limit = boundedTravelBatchSummaryMigrationLimit(args.limit);
+  const limit = boundedMigrationLimit(args.limit, TRAVEL_BATCH_MIGRATION_LIMIT, 100);
   const now = Date.now();
   let registry = await getTravelBatchSummaryMigration(ctx);
   if (registry?.status === "verified") {
@@ -254,7 +251,7 @@ export async function verifyTravelBatchSummariesHandler(
     .order("asc")
     .paginate({
       cursor: registry.cursor,
-      numItems: boundedTravelBatchSummaryMigrationLimit(args.limit),
+      numItems: boundedMigrationLimit(args.limit, TRAVEL_BATCH_MIGRATION_LIMIT, 100),
     });
   const pageResiduals = page.page.filter(
     (job) => (job.travelBatchSummaries?.length ?? 0) > 0

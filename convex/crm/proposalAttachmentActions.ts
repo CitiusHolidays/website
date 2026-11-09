@@ -3,7 +3,12 @@
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { type ActionCtx, action } from "../_generated/server";
+import { action } from "../_generated/server";
+import {
+  cleanupUnreferencedUpload,
+  readStoredFileForDownload,
+  type WritableCommercialSource,
+} from "./attachmentStorage";
 import { recordCompletedDocumentAccess } from "./documentPreviewAudit";
 import {
   downloadFileResultValidator,
@@ -21,6 +26,7 @@ import {
 import { enforcePortalFileDownloadLimit } from "./lib/portalFileDownloadLimit";
 import { PERMISSIONS } from "./lib/rolePolicy";
 
+const REJECTED_UPLOAD = "rejected proposal attachment upload";
 const ALLOWED_MIME_PREFIXES = [
   "application/pdf",
   "image/",
@@ -30,29 +36,8 @@ const ALLOWED_MIME_PREFIXES = [
   "application/vnd.openxmlformats-officedocument.",
 ];
 
-interface WritableCommercialSource {
-  id: string;
-  sourceType: string;
-  teamAreas: string[];
-}
-
 function isAllowedMimeType(mimeType: string) {
   return isAllowedAttachmentMimeType(mimeType, ALLOWED_MIME_PREFIXES);
-}
-
-/**
- * Clean rejected uploads only when the blob is not referenced by any file
- * record.  This keeps the validation path fail-closed without allowing a
- * malformed retry to delete an existing proposal document.
- */
-async function cleanupUnreferencedUpload(ctx: ActionCtx, storageId: Id<"_storage">) {
-  try {
-    await ctx.runMutation(internal.crm.storageReferences.deleteIfUnreferenced, {
-      storageId,
-    });
-  } catch (error) {
-    console.error("Failed to clean up rejected proposal attachment upload:", error);
-  }
 }
 
 function canManageProposalFiles(
@@ -73,27 +58,6 @@ function canSendProposalFiles(
 
 function isPdfMimeType(mimeType: string) {
   return normalizeMimeType(mimeType) === "application/pdf";
-}
-
-async function buildDownloadFile(
-  ctx: ActionCtx,
-  record: {
-    storageId: string;
-    fileName: string;
-    mimeType?: string;
-  }
-) {
-  const blob = await ctx.storage.get(record.storageId);
-  if (!blob) {
-    throw new ConvexError("File is no longer available");
-  }
-
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  return {
-    bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
-    fileName: record.fileName,
-    mimeType: record.mimeType ?? "application/octet-stream",
-  };
 }
 
 export const generateUploadUrl = action({
@@ -154,7 +118,7 @@ export const attachFile = action({
       throw new ConvexError("FORBIDDEN");
     }
     if (!isAllowedMimeType(args.mimeType)) {
-      await cleanupUnreferencedUpload(ctx, args.storageId);
+      await cleanupUnreferencedUpload(ctx, args.storageId, REJECTED_UPLOAD);
       throw new ConvexError(
         "File type not allowed. Use PDF, Word, Excel, PowerPoint, images, or plain text."
       );
@@ -166,17 +130,17 @@ export const attachFile = action({
     }
     const actualMimeType = resolveStorageMimeType(blob.type, args.mimeType);
     if (!storageMimeTypeMatchesClaim(blob.type, args.mimeType)) {
-      await cleanupUnreferencedUpload(ctx, args.storageId);
+      await cleanupUnreferencedUpload(ctx, args.storageId, REJECTED_UPLOAD);
       throw new ConvexError("Uploaded file type does not match its declared MIME type.");
     }
     if (!isAllowedMimeType(actualMimeType)) {
-      await cleanupUnreferencedUpload(ctx, args.storageId);
+      await cleanupUnreferencedUpload(ctx, args.storageId, REJECTED_UPLOAD);
       throw new ConvexError(
         "File type not allowed. Use PDF, Word, Excel, PowerPoint, images, or plain text."
       );
     }
     if (!isExactAttachmentSize(blob.size, args.fileSize)) {
-      await cleanupUnreferencedUpload(ctx, args.storageId);
+      await cleanupUnreferencedUpload(ctx, args.storageId, REJECTED_UPLOAD);
       throw new ConvexError("Each file must be between 1 byte and 15 MB.");
     }
 
@@ -201,7 +165,7 @@ export const attachFile = action({
         uploaderTeam: access.roles.join(", ") || "Contracting",
       });
     } catch (error) {
-      await cleanupUnreferencedUpload(ctx, args.storageId);
+      await cleanupUnreferencedUpload(ctx, args.storageId, REJECTED_UPLOAD);
       throw error;
     }
 
@@ -241,7 +205,7 @@ export const getDownloadUrl = action({
       throw new ConvexError("Attachment not found");
     }
 
-    const file = await buildDownloadFile(ctx, record);
+    const file = await readStoredFileForDownload(ctx, record);
     await recordCompletedDocumentAccess(ctx, {
       // SAFETY: the proposal-attachment record was loaded through a validator-backed Convex query.
       expectedSourceStorageId: record.storageId as Id<"_storage">,
@@ -285,7 +249,7 @@ export const getDownloadFile = action({
       throw new ConvexError("Attachment not found");
     }
 
-    const file = await buildDownloadFile(ctx, record);
+    const file = await readStoredFileForDownload(ctx, record);
     await recordCompletedDocumentAccess(ctx, {
       // SAFETY: the proposal-attachment record was loaded through a validator-backed Convex query.
       expectedSourceStorageId: record.storageId as Id<"_storage">,
@@ -382,7 +346,7 @@ export const attachFinalizedPdf = action({
       throw new ConvexError("FORBIDDEN");
     }
     if (!isPdfMimeType(args.mimeType)) {
-      await cleanupUnreferencedUpload(ctx, args.storageId);
+      await cleanupUnreferencedUpload(ctx, args.storageId, REJECTED_UPLOAD);
       throw new ConvexError("Only PDF files can be uploaded as the finalized proposal.");
     }
 
@@ -392,15 +356,15 @@ export const attachFinalizedPdf = action({
     }
     const actualMimeType = resolveStorageMimeType(blob.type, args.mimeType);
     if (!storageMimeTypeMatchesClaim(blob.type, args.mimeType)) {
-      await cleanupUnreferencedUpload(ctx, args.storageId);
+      await cleanupUnreferencedUpload(ctx, args.storageId, REJECTED_UPLOAD);
       throw new ConvexError("Uploaded file type does not match its declared MIME type.");
     }
     if (!isPdfMimeType(actualMimeType)) {
-      await cleanupUnreferencedUpload(ctx, args.storageId);
+      await cleanupUnreferencedUpload(ctx, args.storageId, REJECTED_UPLOAD);
       throw new ConvexError("Only PDF files can be uploaded as the finalized proposal.");
     }
     if (!isExactAttachmentSize(blob.size, args.fileSize)) {
-      await cleanupUnreferencedUpload(ctx, args.storageId);
+      await cleanupUnreferencedUpload(ctx, args.storageId, REJECTED_UPLOAD);
       throw new ConvexError("The PDF must be between 1 byte and 15 MB.");
     }
 
@@ -425,7 +389,7 @@ export const attachFinalizedPdf = action({
         uploaderTeam: access.roles.join(", ") || "Contracting",
       });
     } catch (error) {
-      await cleanupUnreferencedUpload(ctx, args.storageId);
+      await cleanupUnreferencedUpload(ctx, args.storageId, REJECTED_UPLOAD);
       throw error;
     }
 
@@ -461,7 +425,7 @@ export const getFinalizedPdfUrl = action({
       return null;
     }
 
-    const file = await buildDownloadFile(ctx, {
+    const file = await readStoredFileForDownload(ctx, {
       fileName: record.fileName,
       mimeType: "application/pdf",
       storageId: record.storageId,
@@ -505,7 +469,7 @@ export const getFinalizedPdfFile = action({
       return null;
     }
 
-    const file = await buildDownloadFile(ctx, {
+    const file = await readStoredFileForDownload(ctx, {
       fileName: record.fileName,
       mimeType: "application/pdf",
       storageId: record.storageId,

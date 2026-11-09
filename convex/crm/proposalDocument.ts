@@ -3,6 +3,7 @@ import type { MutationCtx, QueryCtx } from "../_generated/server";
 import type { RuntimeObject } from "../lib/runtimeValues";
 import { hasOwnKey } from "../lib/runtimeValues";
 import { publishWorkflowNotification } from "./lib";
+import { linkedQueriesForProposal } from "./proposalRelations";
 
 const PREFERRED_STATUSES = new Set(["Accepted", "Sent"]);
 const STATUS_RANK = { Accepted: 0, Sent: 1 } satisfies Record<string, number>;
@@ -166,28 +167,6 @@ export async function resolveProposalDocumentsByQueryId(
   return result;
 }
 
-export async function linkedQueriesForProposalDocument(
-  ctx: MutationCtx,
-  proposal: { _id: Id<"proposals">; queryId?: Id<"queries"> }
-) {
-  const links = await ctx.db
-    .query("proposalQueryLinks")
-    .withIndex("by_proposalId", (q) => q.eq("proposalId", proposal._id))
-    .collect();
-  const queryIds = new Set<string>();
-  if (proposal.queryId) {
-    queryIds.add(String(proposal.queryId));
-  }
-  for (const link of links) {
-    queryIds.add(String(link.queryId));
-  }
-  const queries = await Promise.all(
-    // SAFETY: queryIds is populated exclusively from queryId fields on proposal-query link documents.
-    [...queryIds].map((queryId) => ctx.db.get("queries", queryId as Id<"queries">))
-  );
-  return queries.filter((query): query is NonNullable<typeof query> => Boolean(query));
-}
-
 async function resolveActiveSalesOwnerStaff(ctx: MutationCtx, rawSalesOwnerId: string) {
   const normalizedStaffId = ctx.db.normalizeId("staffUsers", rawSalesOwnerId);
   const staffById = normalizedStaffId ? await ctx.db.get("staffUsers", normalizedStaffId) : null;
@@ -214,7 +193,7 @@ export async function notifyLinkedQuerySalesOwnersOfProposalDocument(
   if (!proposal) {
     return;
   }
-  const linkedQueries = await linkedQueriesForProposalDocument(ctx, proposal);
+  const linkedQueries = await linkedQueriesForProposal(ctx, proposal);
   const rawOwnerIds = [
     ...new Set(
       linkedQueries.flatMap((query) => {
