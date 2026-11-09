@@ -18,6 +18,8 @@ describe("ProcessRazorpayWebhookEvent", () => {
         payload: {
           payment: {
             entity: {
+              amount: 25_000,
+              currency: "INR",
               id: "pay_1",
               order_id: "order_1",
             },
@@ -40,12 +42,70 @@ describe("ProcessRazorpayWebhookEvent", () => {
     expect(calls).toEqual([
       {
         orderId: "order_1",
+        paidAmount: 25_000,
+        paidCurrency: "INR",
         paymentId: "pay_1",
         providerEventId: "razorpay:payment.captured:pay_1",
         reason: "Razorpay payment.captured webhook",
         serverSecret: "server-secret",
       },
     ]);
+  });
+
+  test("Acknowledges a capture that does not match the booking without confirming it", async () => {
+    const calls: unknown[] = [];
+    const result = await processRazorpayWebhookEvent(
+      {
+        event: "payment.captured",
+        payload: {
+          payment: { entity: { amount: 100, currency: "INR", id: "pay_1", order_id: "order_1" } },
+        },
+      },
+      {
+        confirmBookingByOrderId: (args) => {
+          calls.push(args);
+          return Promise.resolve({ ignored: true, paymentMismatch: true, success: false });
+        },
+        getServerSecret: () => "server-secret",
+        markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
+        markRefundedByPaymentId: () => Promise.resolve({}),
+        recordPaymentAuthorized: () => Promise.resolve({}),
+      }
+    );
+
+    expect(result).toEqual({ action: "payment.amount_mismatch", received: true });
+    expect(calls).toEqual([
+      expect.objectContaining({ paidAmount: 100, paidCurrency: "INR", paymentId: "pay_1" }),
+    ]);
+  });
+
+  test("Rejects a capture without a paid amount or currency instead of confirming it", async () => {
+    let called = false;
+    const deps = {
+      confirmBookingByOrderId: () => {
+        called = true;
+        return Promise.resolve({ success: true });
+      },
+      getServerSecret: () => "server-secret",
+      markPaymentFailedByOrderId: () => Promise.resolve({ id: "booking_1" }),
+      markRefundedByPaymentId: () => Promise.resolve({}),
+      recordPaymentAuthorized: () => Promise.resolve({}),
+    };
+    const captured = (entity: Record<string, number | string>) => ({
+      event: "payment.captured",
+      payload: { payment: { entity: { id: "pay_1", order_id: "order_1", ...entity } } },
+    });
+
+    await expect(processRazorpayWebhookEvent(captured({ currency: "INR" }), deps)).rejects.toThrow(
+      "payment.captured requires payment.entity.amount"
+    );
+    await expect(
+      processRazorpayWebhookEvent(captured({ amount: 12.5, currency: "INR" }), deps)
+    ).rejects.toThrow("payment.captured requires payment.entity.amount");
+    await expect(
+      processRazorpayWebhookEvent(captured({ amount: 25_000 }), deps)
+    ).rejects.toBeInstanceOf(RazorpayWebhookPayloadError);
+    expect(called).toBe(false);
   });
 
   test("Fails closed when the server secret is missing", async () => {
@@ -169,7 +229,15 @@ describe("ParseRazorpayWebhookPayload", () => {
     ).toEqual({
       event: "refund.created",
       payload: {
-        payment: { entity: { error_description: undefined, id: undefined, order_id: "order_1" } },
+        payment: {
+          entity: {
+            amount: undefined,
+            currency: undefined,
+            error_description: undefined,
+            id: undefined,
+            order_id: "order_1",
+          },
+        },
         refund: { entity: { amount: 500, id: "rfnd_1", payment_id: undefined } },
       },
     });
@@ -243,7 +311,9 @@ describe("MapRazorpayWebhookProcessingError", () => {
   test("Maps a structured Convex payment-secret rejection to a configuration response", async () => {
     const payload = {
       event: "payment.captured",
-      payload: { payment: { entity: { id: "pay_1", order_id: "order_1" } } },
+      payload: {
+        payment: { entity: { amount: 25_000, currency: "INR", id: "pay_1", order_id: "order_1" } },
+      },
     };
     const promise = processRazorpayWebhookEvent(payload, {
       confirmBookingByOrderId: () => Promise.reject({ data: "Invalid payment mutation secret" }),

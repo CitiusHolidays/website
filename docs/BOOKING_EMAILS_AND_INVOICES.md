@@ -34,6 +34,8 @@ the Convex logs.
 - A booking is confirmed by whichever arrives first: the checkout verification or the
   `payment.captured` webhook. Every later path, and every replay of either, takes the
   already-confirmed branch and issues no invoice and queues no email.
+- A payment whose amount or currency does not match the booking never confirms it, so it
+  issues no invoice and queues no email; the booking records the mismatch for staff.
 - Each email kind has one event identity per booking: `booking_confirmation/<bookingId>`,
   `booking_invoice_ready/<bookingId>`, and `booking_refund/<bookingId>`. The notification outbox
   holds one job per event and recipient, so even a repeated enqueue reuses the same job.

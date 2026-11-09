@@ -1,4 +1,5 @@
-import { isRuntimeString } from "./runtimeValues";
+import { isJsonObject, type JsonValue } from "./jsonValue";
+import { isRuntimeNumber, isRuntimeString } from "./runtimeValues";
 export interface VerifyPaymentPayload {
   razorpay_order_id?: unknown;
   razorpay_payment_id?: unknown;
@@ -7,6 +8,8 @@ export interface VerifyPaymentPayload {
 
 export interface ConfirmBookingArgs {
   orderId: string;
+  paidAmount: number;
+  paidCurrency: string;
   paymentId: string;
   providerEventId: string;
   reason: string;
@@ -21,8 +24,20 @@ export interface ConfirmedBookingResult {
     id?: unknown;
     status?: unknown;
   };
+  paymentMismatch?: boolean;
   success?: boolean;
 }
+
+/** The fields of a Razorpay payment this check relies on, as fetched by the server. */
+export interface VerifiedRazorpayPayment {
+  amount: number;
+  currency: string;
+  orderId: string;
+  status: string;
+}
+
+// Razorpay reports a successful checkout as authorized, then captured (auto-capture).
+const SUCCESSFUL_PAYMENT_STATUSES = new Set(["authorized", "captured"]);
 
 export type VerifyPaymentValidationResult =
   | {
@@ -43,7 +58,14 @@ export type VerifyPaymentResult =
       ok: true;
     }
   | {
-      code: "invalid_configuration" | "invalid_payload" | "mutation_unavailable" | "not_found";
+      code:
+        | "invalid_configuration"
+        | "invalid_payload"
+        | "mutation_unavailable"
+        | "not_found"
+        | "payment_incomplete"
+        | "payment_mismatch"
+        | "provider_unavailable";
       error: string;
       ok: false;
       status: number;
@@ -77,6 +99,30 @@ export function validateVerifyPaymentPayload(
   };
 }
 
+/** Narrows a fetched Razorpay payment; anything malformed is treated as unverifiable. */
+function parseRazorpayPayment(value: JsonValue): VerifiedRazorpayPayment | null {
+  if (!isJsonObject(value)) {
+    return null;
+  }
+  const { amount, currency, order_id: orderId, status } = value;
+  if (
+    !(
+      isRuntimeNumber(amount) &&
+      Number.isSafeInteger(amount) &&
+      amount >= 0 &&
+      isRuntimeString(currency) &&
+      currency &&
+      isRuntimeString(orderId) &&
+      orderId &&
+      isRuntimeString(status) &&
+      status
+    )
+  ) {
+    return null;
+  }
+  return { amount, currency, orderId, status };
+}
+
 export function getPaymentMutationSecret(env = process.env) {
   const secret = env.PAYMENT_MUTATION_SECRET;
 
@@ -90,11 +136,14 @@ export function getPaymentMutationSecret(env = process.env) {
 export async function verifyPaymentRequest({
   body,
   confirmBooking,
+  fetchPayment,
   logFailure = console.error,
   verifySignature,
 }: {
   body: VerifyPaymentPayload | null | undefined;
   confirmBooking: (args: ConfirmBookingArgs) => Promise<ConfirmedBookingResult>;
+  /** Server-side Razorpay lookup: the only source of the paid amount and currency. */
+  fetchPayment: (paymentId: string) => Promise<JsonValue>;
   logFailure?: (message: string, cause: unknown) => void;
   verifySignature: (input: { orderId: string; paymentId: string; signature: string }) => boolean;
 }): Promise<VerifyPaymentResult> {
@@ -138,10 +187,46 @@ export async function verifyPaymentRequest({
     };
   }
 
+  // The signature proves the payment belongs to the order, not how much was paid. Ask Razorpay.
+  let payment: VerifiedRazorpayPayment | null;
+  try {
+    payment = parseRazorpayPayment(await fetchPayment(validated.paymentId));
+  } catch (cause) {
+    logFailure("Razorpay payment lookup failed", cause);
+    payment = null;
+  }
+  if (!payment) {
+    // The signed webhook confirms the booking independently once Razorpay is reachable.
+    return {
+      code: "provider_unavailable",
+      error: "We could not confirm your payment yet. Please check your bookings shortly.",
+      ok: false,
+      status: 503,
+    };
+  }
+  if (payment.orderId !== validated.orderId) {
+    return {
+      code: "invalid_payload",
+      error: "Payment verification failed. Please contact support.",
+      ok: false,
+      status: 400,
+    };
+  }
+  if (!SUCCESSFUL_PAYMENT_STATUSES.has(payment.status)) {
+    return {
+      code: "payment_incomplete",
+      error: "Your payment has not completed. Please contact support if you were charged.",
+      ok: false,
+      status: 409,
+    };
+  }
+
   let confirmed: ConfirmedBookingResult;
   try {
     confirmed = await confirmBooking({
       orderId: validated.orderId,
+      paidAmount: payment.amount,
+      paidCurrency: payment.currency,
       paymentId: validated.paymentId,
       providerEventId: `checkout:payment.confirmed:${validated.orderId}:${validated.paymentId}`,
       reason: "Checkout signature verified",
@@ -155,6 +240,15 @@ export async function verifyPaymentRequest({
       error: "Payment confirmation failed. Please contact support.",
       ok: false,
       status: 500,
+    };
+  }
+
+  if (confirmed?.paymentMismatch) {
+    return {
+      code: "payment_mismatch",
+      error: "Your payment did not match this booking. Our team will contact you.",
+      ok: false,
+      status: 409,
     };
   }
 

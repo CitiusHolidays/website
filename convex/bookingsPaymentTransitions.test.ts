@@ -91,6 +91,15 @@ function paymentEventArgs(paymentId: string, event: string) {
   };
 }
 
+/** A capture of exactly what `baseBooking` owes, unless the test says otherwise. */
+function captureArgs(
+  paymentId: string,
+  event: string,
+  paid: { paidAmount: number; paidCurrency: string } = { paidAmount: 1000, paidCurrency: "INR" }
+) {
+  return { ...paymentEventArgs(paymentId, event), ...paid };
+}
+
 function baseBooking(overrides: RuntimeObject = {}) {
   return {
     _id: bookingId,
@@ -249,7 +258,7 @@ describe("ConfirmBookingByOrderId transitions", () => {
     const result = await confirmBookingByOrderIdHandler(
       // SAFETY: This test controls the asserted value at the framework boundary below.
       fromAny<never, unknown>(ctx),
-      paymentEventArgs("pay_ok", "payment.captured")
+      captureArgs("pay_ok", "payment.captured")
     );
 
     expect(result.success).toBe(true);
@@ -265,7 +274,7 @@ describe("ConfirmBookingByOrderId transitions", () => {
     const result = await confirmBookingByOrderIdHandler(
       // SAFETY: This test controls the asserted value at the framework boundary below.
       fromAny<never, unknown>(ctx),
-      paymentEventArgs("pay_ok", "payment.captured")
+      captureArgs("pay_ok", "payment.captured")
     );
 
     expect(result.success).toBe(true);
@@ -284,6 +293,8 @@ describe("ConfirmBookingByOrderId transitions", () => {
     // SAFETY: This test controls the asserted value at the framework boundary below.
     const result = await confirmBookingByOrderIdHandler(fromAny<never, unknown>(ctx), {
       orderId,
+      paidAmount: 1000,
+      paidCurrency: "INR",
       paymentId: "pay_retry",
       providerEventId: "razorpay:payment.captured:pay_retry",
       reason: "late capture retry",
@@ -305,7 +316,7 @@ describe("ConfirmBookingByOrderId transitions", () => {
       // SAFETY: This test controls the asserted value at the framework boundary below.
       confirmBookingByOrderIdHandler(
         fromAny<never, unknown>(ctx),
-        paymentEventArgs("pay_late", "payment.captured")
+        captureArgs("pay_late", "payment.captured")
       )
     ).rejects.toThrow("No seats available for confirmation");
 
@@ -320,7 +331,7 @@ describe("ConfirmBookingByOrderId transitions", () => {
       bookings: [baseBooking()],
       trips: [baseTrip({ availableSeats: 8 })],
     });
-    const args = paymentEventArgs("pay_race", "payment.captured");
+    const args = captureArgs("pay_race", "payment.captured");
     let transactionLane = Promise.resolve<unknown>(undefined);
     const runAsConvexTransaction = () => {
       // SAFETY: This test controls the asserted value at the framework boundary below.
@@ -340,6 +351,166 @@ describe("ConfirmBookingByOrderId transitions", () => {
   });
 });
 
+type ConfirmArgs = Parameters<typeof confirmBookingByOrderIdHandler>[1];
+type ConfirmResult = Awaited<ReturnType<typeof confirmBookingByOrderIdHandler>>;
+
+/** Deliver provider callbacks one after another, as Convex serializes the mutations. */
+function confirmInOrder(ctx: ReturnType<typeof makeBookingsCtx>["ctx"], callbacks: ConfirmArgs[]) {
+  return callbacks.reduce<Promise<ConfirmResult[]>>(
+    (previous, args) =>
+      previous.then(async (results) => [
+        ...results,
+        // SAFETY: This test controls the asserted value at the framework boundary below.
+        await confirmBookingByOrderIdHandler(fromAny<never, unknown>(ctx), args),
+      ]),
+    Promise.resolve([])
+  );
+}
+
+describe("Paid amount and currency check", () => {
+  const checkoutEvent = (paymentId: string) => ({
+    orderId,
+    paymentId,
+    providerEventId: `checkout:payment.confirmed:${orderId}:${paymentId}`,
+    reason: "Checkout signature verified",
+  });
+
+  test("An underpayment does not confirm, debit seats or schedule the invoice and email", async () => {
+    const { ctx, tables } = makeBookingsCtx({
+      bookingPaymentEvents: [],
+      bookings: [baseBooking()],
+      trips: [baseTrip({ availableSeats: 8 })],
+    });
+    let scheduled = 0;
+    ctx.scheduler.runAfter = () => {
+      scheduled += 1;
+      return Promise.resolve();
+    };
+
+    const result = await confirmBookingByOrderIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<never, unknown>(ctx),
+      captureArgs("pay_short", "payment.captured", { paidAmount: 999, paidCurrency: "INR" })
+    );
+
+    expect(result).toMatchObject({ paymentMismatch: true, status: "pending", success: false });
+    expect(tables.bookings[0]).toMatchObject({
+      paymentMismatch: {
+        expectedAmount: 1000,
+        expectedCurrency: "INR",
+        paidAmount: 999,
+        paidCurrency: "INR",
+        paymentId: "pay_short",
+        providerEventId: "razorpay:payment.captured:pay_short",
+      },
+      status: "pending",
+    });
+    expect(tables.bookings[0]?.confirmedAt).toBeUndefined();
+    expect(tables.trips[0]?.availableSeats).toBe(8);
+    expect(scheduled).toBe(0);
+    expect(tables.bookingPaymentEvents).toEqual([
+      expect.objectContaining({
+        outcome: "amount_mismatch",
+        paidAmount: 999,
+        paidCurrency: "INR",
+        statusAfter: "pending",
+        transition: "confirmed",
+      }),
+    ]);
+  });
+
+  test("The right amount in the wrong currency does not confirm", async () => {
+    const { ctx, tables } = makeBookingsCtx({
+      bookingPaymentEvents: [],
+      bookings: [baseBooking()],
+      trips: [baseTrip({ availableSeats: 8 })],
+    });
+
+    const result = await confirmBookingByOrderIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<never, unknown>(ctx),
+      captureArgs("pay_usd", "payment.captured", { paidAmount: 1000, paidCurrency: "USD" })
+    );
+
+    expect(result).toMatchObject({ paymentMismatch: true, success: false });
+    expect(tables.bookings[0]?.status).toBe("pending");
+    expect(tables.bookings[0]?.paymentMismatch).toMatchObject({ paidCurrency: "USD" });
+    expect(tables.trips[0]?.availableSeats).toBe(8);
+  });
+
+  test("An overpayment is held for staff too rather than silently accepted", async () => {
+    const { ctx, tables } = makeBookingsCtx({
+      bookingPaymentEvents: [],
+      bookings: [baseBooking({ razorpayPaymentId: "pay_fail", status: "failed" })],
+      trips: [baseTrip({ availableSeats: 8 })],
+    });
+
+    const result = await confirmBookingByOrderIdHandler(
+      // SAFETY: This test controls the asserted value at the framework boundary below.
+      fromAny<never, unknown>(ctx),
+      captureArgs("pay_over", "payment.captured", { paidAmount: 1001, paidCurrency: "INR" })
+    );
+
+    expect(result).toMatchObject({ paymentMismatch: true, status: "failed", success: false });
+    expect(tables.bookings[0]?.status).toBe("failed");
+    expect(tables.trips[0]?.availableSeats).toBe(8);
+  });
+
+  for (const order of ["checkout then webhook", "webhook then checkout"] as const) {
+    test(`A matching payment confirmed by ${order} debits seats once`, async () => {
+      const { ctx, tables } = makeBookingsCtx({
+        bookingPaymentEvents: [],
+        bookings: [baseBooking()],
+        trips: [baseTrip({ availableSeats: 8 })],
+      });
+      let scheduled = 0;
+      ctx.scheduler.runAfter = () => {
+        scheduled += 1;
+        return Promise.resolve();
+      };
+      const paid = { paidAmount: 1000, paidCurrency: "INR" };
+      const checkout = { ...checkoutEvent("pay_ok"), ...paid, signature: "sig" };
+      const webhook = captureArgs("pay_ok", "payment.captured");
+      const sequence =
+        order === "checkout then webhook" ? [checkout, webhook] : [webhook, checkout];
+
+      const results = await confirmInOrder(ctx, [...sequence, ...sequence]);
+
+      expect(results.map((result) => result.success)).toEqual([true, true, true, true]);
+      expect(results.filter((result) => result.alreadyConfirmed === false)).toHaveLength(1);
+      expect(tables.bookings[0]?.status).toBe("confirmed");
+      expect(tables.bookings[0]?.paymentMismatch).toBeUndefined();
+      expect(tables.trips[0]?.availableSeats).toBe(6);
+      expect(scheduled).toBe(1);
+      expect(tables.bookingPaymentEvents).toHaveLength(2);
+    });
+
+    test(`A short payment reported by ${order} never confirms`, async () => {
+      const { ctx, tables } = makeBookingsCtx({
+        bookingPaymentEvents: [],
+        bookings: [baseBooking()],
+        trips: [baseTrip({ availableSeats: 8 })],
+      });
+      const paid = { paidAmount: 500, paidCurrency: "INR" };
+      const checkout = { ...checkoutEvent("pay_short"), ...paid };
+      const webhook = captureArgs("pay_short", "payment.captured", paid);
+      const sequence =
+        order === "checkout then webhook" ? [checkout, webhook] : [webhook, checkout];
+
+      const results = await confirmInOrder(ctx, [...sequence, ...sequence]);
+
+      expect(results.map((result) => result.success)).toEqual([false, false, false, false]);
+      expect(tables.bookings[0]?.status).toBe("pending");
+      expect(tables.trips[0]?.availableSeats).toBe(8);
+      // One mismatch row per distinct provider event; the replays add nothing.
+      expect(tables.bookingPaymentEvents.map((event) => event.outcome)).toEqual([
+        "amount_mismatch",
+        "amount_mismatch",
+      ]);
+    });
+  }
+});
+
 describe("Captured-then-failed ordering", () => {
   test("Does not downgrade a confirmed booking on a late failure webhook", async () => {
     const { ctx, tables } = makeBookingsCtx({
@@ -350,7 +521,7 @@ describe("Captured-then-failed ordering", () => {
     await confirmBookingByOrderIdHandler(
       // SAFETY: This test controls the asserted value at the framework boundary below.
       fromAny<never, unknown>(ctx),
-      paymentEventArgs("pay_ok", "payment.captured")
+      captureArgs("pay_ok", "payment.captured")
     );
     expect(tables.bookings[0]?.status).toBe("confirmed");
     expect(tables.trips[0]?.availableSeats).toBe(6);

@@ -196,7 +196,7 @@ target-bound operations and require an explicitly identified non-production depl
 ## Payment flow
 
 1. `POST /api/create-order` validates auth + trip via Convex query, creates Razorpay order, then writes pending booking in Convex.
-2. `POST /api/verify-payment` verifies Razorpay signature and calls Convex mutation to idempotently confirm booking + decrement seats.
+2. `POST /api/verify-payment` verifies Razorpay signature, fetches the payment from Razorpay for the paid amount and currency, and calls Convex mutation to idempotently confirm booking + decrement seats only when they match what the booking owes.
 3. `POST /api/webhooks/razorpay` replays status transitions into Convex (`authorized`, `captured`, `failed`, `refunded`).
 
 All four public payment-status mutations call

@@ -342,6 +342,9 @@ export default defineSchema({
     bookingId: v.id("bookings"),
     createdAt: v.number(),
     outcome: v.string(),
+    // What the provider says was paid, for confirmation events (minor units, ISO currency).
+    paidAmount: v.optional(v.number()),
+    paidCurrency: v.optional(v.string()),
     paymentId: v.optional(v.string()),
     providerEventId: v.string(),
     reason: v.string(),
@@ -380,6 +383,19 @@ export default defineSchema({
     inventoryDebitedEventId: v.optional(v.string()),
     legacyBookingId: v.optional(v.string()),
     notes: v.optional(v.string()),
+    // The latest captured payment whose amount or currency did not match what the booking
+    // owes. The booking stays unconfirmed; staff reconcile or refund it with Razorpay.
+    paymentMismatch: v.optional(
+      v.object({
+        detectedAt: v.number(),
+        expectedAmount: v.number(),
+        expectedCurrency: v.string(),
+        paidAmount: v.optional(v.number()),
+        paidCurrency: v.optional(v.string()),
+        paymentId: v.optional(v.string()),
+        providerEventId: v.string(),
+      })
+    ),
     razorpayOrderId: v.string(),
     razorpayPaymentId: v.string(),
     razorpaySignature: v.optional(v.string()),
