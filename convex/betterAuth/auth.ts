@@ -94,8 +94,11 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
       accountLinking: {
         allowDifferentEmails: false,
         enabled: true,
-        // Google is trusted; allow linking even when the email/password account is not verified yet.
-        requireLocalEmailVerified: false,
+        // Link Google into an existing email/password account only after that account's email
+        // is verified. Otherwise anyone could sign up with a victim's address and their own
+        // password, wait for the victim's first Google sign-in to link and verify the row, and
+        // then sign in with that password. Better Auth makes this gate unconditional next minor.
+        requireLocalEmailVerified: true,
         trustedProviders: googleClientId ? ["google"] : [],
         updateUserInfoOnLink: true,
       },

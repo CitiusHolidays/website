@@ -116,7 +116,7 @@ path. Auth and Portal routes may stream only their generic, identity-free loadin
 validation and Portal access resolution run; user, role, permission, and CRM data remain behind the
 secure boundary.
 
-Admin-provisioned staff sign in through Forgot password rather than sign-up. Google and email/password accounts are expected to autolink on the same email, and password reset must enable email/password login on Google-only accounts. Auth URL environment variables need full schemes, for example `http://localhost:3000`, and Next.js must be restarted after auth env changes because `src/lib/auth-server.js` reads those values at module load.
+Admin-provisioned staff sign in through Forgot password rather than sign-up. Google and email/password accounts autolink on the same email once the email/password account's email is verified; Google sign-in on an unverified email/password account is refused until that address is verified, so a pre-registered password can never ride a Google link. Password reset must enable email/password login on Google-only accounts. Auth URL environment variables need full schemes, for example `http://localhost:3000`, and Next.js must be restarted after auth env changes because `src/lib/auth-server.js` reads those values at module load.
 
 Verification and reset callbacks use bounded provider retry with stable idempotency and write a
 dedicated privacy-safe receipt. Internal onboarding treats only a matching `sent` receipt as
