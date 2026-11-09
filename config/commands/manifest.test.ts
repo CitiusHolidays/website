@@ -8,7 +8,7 @@ const root = resolve(import.meta.dir, "../..");
 
 // spawnSync blocks the test process, so Bun's per-test timeout cannot stop a
 // stuck child. Bound the child itself so a hang fails in seconds, not at the
-// CI job's 30-minute limit.
+// CI job's 15-minute limit.
 const CHILD_TIMEOUT_MS = 15_000;
 
 function runManifest(args: string[]) {
