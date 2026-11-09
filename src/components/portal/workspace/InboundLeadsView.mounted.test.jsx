@@ -10,6 +10,7 @@ const dom = new JSDOM("<!doctype html><html><body></body></html>", {
 let InboundLeadsView;
 let createRoot;
 let selectedIntent;
+let listStatus = "Exhausted";
 const convert = mock(async () => ({ queryCode: "Q-0042" }));
 const dismiss = mock(async () => ({ status: "dismissed" }));
 const replace = mock(() => undefined);
@@ -48,8 +49,8 @@ beforeAll(async () => {
       getFunctionName(reference) === "crm/inboundQueryIntents:dismiss" ? dismiss : convert,
     usePaginatedQuery: () => ({
       loadMore: () => undefined,
-      results: selectedIntent ? [selectedIntent] : [],
-      status: "Exhausted",
+      results: listStatus === "LoadingFirstPage" || !selectedIntent ? [] : [selectedIntent],
+      status: listStatus,
     }),
     useQuery: () => selectedIntent,
   }));
@@ -62,6 +63,7 @@ beforeAll(async () => {
 
 beforeEach(() => {
   selectedIntent = lead();
+  listStatus = "Exhausted";
   convert.mockClear();
   dismiss.mockClear();
   replace.mockClear();
@@ -96,6 +98,18 @@ describe("InboundLeadsView conversion", () => {
 
     expect(view.container.textContent).toContain("Select a lead to review its details.");
     expect(view.container.textContent).toContain("No inbound leads match these filters.");
+
+    await view.unmount();
+  });
+
+  test("Shows a loading state, not the empty copy, before the first page arrives", async () => {
+    selectedIntent = undefined;
+    listStatus = "LoadingFirstPage";
+    const view = await mount();
+
+    expect(view.container.textContent).not.toContain("No inbound leads match these filters.");
+    expect(view.container.textContent).not.toContain("0 loaded");
+    expect(view.container.querySelector('[aria-busy="true"]')).not.toBeNull();
 
     await view.unmount();
   });
