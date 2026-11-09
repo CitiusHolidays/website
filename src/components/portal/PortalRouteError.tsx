@@ -48,9 +48,9 @@ export default function PortalRouteError({ error, retry }: { error: unknown; ret
           Go to your workspace
         </Link>
         {kind === "forbidden" ? (
-          <a className={buttonVariants({ variant: "outline" })} href="/auth/connect">
+          <Link className={buttonVariants({ variant: "outline" })} href="/auth/connect">
             Sign in again
-          </a>
+          </Link>
         ) : null}
       </div>
     </div>
