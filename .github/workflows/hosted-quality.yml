@@ -2,6 +2,13 @@ name: Hosted Quality
 
 on:
   pull_request:
+  # The merge queue needs "Required quality" to report on its temporary merge
+  # commit. Each queue entry has its own gh-readonly-queue ref, so the
+  # concurrency group below never cancels one entry for another. Workflows
+  # that follow this one act only on pull_request and push runs, so a queue
+  # commit is checked but never released.
+  merge_group:
+    types: [checks_requested]
   push:
     branches:
       - main

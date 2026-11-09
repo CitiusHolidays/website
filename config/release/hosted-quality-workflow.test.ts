@@ -13,6 +13,8 @@ const IMMUTABLE_ACTION_REFERENCE_PATTERN = /^[a-f0-9]{40}$/;
 const WORKFLOW_ENVIRONMENT_PATTERN = /^\s+environment:/m;
 const TEMPLATE_DOLLAR = String.fromCodePoint(36);
 const BUN_VERSION_PATTERN = /bun-version:\s*(\S+)/g;
+const TRIGGER_BLOCK_PATTERN = /^on:\n((?:[ #].*\n|\n)*)/m;
+const DEPLOY_JOB_CONDITION_PATTERN = /^ {2}(\w+):\n(?: {4}.*\n)*? {4}if: >-\n((?: {6}.*\n)+)/gm;
 
 describe("Credential-free hosted quality workflow", () => {
   test("Pins every third-party action to an immutable commit", () => {
@@ -91,5 +93,28 @@ describe("Credential-free hosted quality workflow", () => {
       expect(versions, name).toEqual(versions.map(() => pinned));
     }
     expect(sharedQuality).toContain(`export const PINNED_BUN_VERSION = "${pinned}"`);
+  });
+
+  test("Reports the required check to the merge queue without deploying queue commits", () => {
+    const triggers = workflow.match(TRIGGER_BLOCK_PATTERN)?.[1] ?? "";
+    expect(triggers).toContain("  pull_request:\n");
+    expect(triggers).toContain("  merge_group:\n    types: [checks_requested]\n");
+    expect(triggers).toContain("  push:\n    branches:\n      - main\n");
+    expect(workflow).toContain("name: Required quality");
+    expect(workflow).toContain(
+      `group: hosted-quality-${TEMPLATE_DOLLAR}{{ github.workflow }}-${TEMPLATE_DOLLAR}{{ github.ref }}`
+    );
+
+    const deploy = readFileSync(resolve(root, ".github/workflows/vercel-deploy.yml"), "utf8");
+    const conditions = Object.fromEntries(
+      [...deploy.matchAll(DEPLOY_JOB_CONDITION_PATTERN)].map((match) => [match[1], match[2]])
+    );
+    expect(Object.keys(conditions).sort()).toEqual(["preview", "production"]);
+    expect(conditions.preview).toContain("github.event.workflow_run.event == 'pull_request'");
+    expect(conditions.production).toContain("github.event.workflow_run.event == 'push'");
+    for (const condition of Object.values(conditions)) {
+      expect(condition).toContain("github.event.workflow_run.conclusion == 'success'");
+      expect(condition).not.toContain("merge_group");
+    }
   });
 });
