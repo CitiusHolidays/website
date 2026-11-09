@@ -2,10 +2,12 @@ import { ConvexError, v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { internalMutation, internalQuery } from "./_generated/server";
+import { boundedMigrationLimit } from "./lib/migrationBatch";
 import {
   MAX_SACRED_BHARAT_GROUP_MEMBERS,
   SACRED_BHARAT_GROUP_COUNT_MIGRATION_KEY,
 } from "./lib/sacredBharatGroups";
+import { assertMigrationSecret } from "./migrationAuth";
 
 const DEFAULT_PAGE_SIZE = 20;
 const migrationStatusValidator = v.union(
@@ -35,17 +37,6 @@ const migrationStatusResultValidator = v.object({
   verified: v.boolean(),
   verifiedAt: v.union(v.number(), v.null()),
 });
-
-function assertMigrationSecret(secret: string) {
-  const expected = process.env.MIGRATION_SECRET;
-  if (!expected || secret !== expected) {
-    throw new ConvexError("Invalid migration secret");
-  }
-}
-
-function boundedPageSize(limit?: number) {
-  return Math.min(Math.max(Math.trunc(limit ?? DEFAULT_PAGE_SIZE), 1), DEFAULT_PAGE_SIZE);
-}
 
 async function getRegistry(ctx: QueryCtx | MutationCtx) {
   return await ctx.db
@@ -129,7 +120,10 @@ export const backfillGroupMemberCounts = internalMutation({
     const page = await ctx.db
       .query("sacredBharatGroups")
       .order("asc")
-      .paginate({ cursor: registry.cursor, numItems: boundedPageSize(args.limit) });
+      .paginate({
+        cursor: registry.cursor,
+        numItems: boundedMigrationLimit(args.limit, DEFAULT_PAGE_SIZE),
+      });
     const inspections = await Promise.all(
       page.page.map(async (group) => ({ group, ...(await inspectGroup(ctx, group._id)) }))
     );
@@ -187,7 +181,10 @@ export const verifyGroupMemberCounts = internalMutation({
     const page = await ctx.db
       .query("sacredBharatGroups")
       .order("asc")
-      .paginate({ cursor: registry.cursor, numItems: boundedPageSize(args.limit) });
+      .paginate({
+        cursor: registry.cursor,
+        numItems: boundedMigrationLimit(args.limit, DEFAULT_PAGE_SIZE),
+      });
     const inspections = await Promise.all(
       page.page.map(async (group) => ({ group, ...(await inspectGroup(ctx, group._id)) }))
     );

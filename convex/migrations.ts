@@ -4,6 +4,7 @@ import type { Doc } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { normalizeEmail } from "./crm/lib/staffAccess";
+import { boundedMigrationLimit } from "./lib/migrationBatch";
 import { isLegacyRoomCode, resolveRoomCategory, resolveTravellerRoomFields } from "./lib/roomTypes";
 import {
   isRuntimeBigInt,
@@ -820,7 +821,7 @@ export const migrateRoomTypes = internalMutation({
   },
   handler: async (ctx, args) => {
     assertMigrationSecret(args.secret);
-    const limit = Math.min(Math.max(Math.trunc(args.limit ?? ROOM_TYPE_MIGRATION_LIMIT), 1), 100);
+    const limit = boundedMigrationLimit(args.limit, ROOM_TYPE_MIGRATION_LIMIT, 100);
     const now = Date.now();
     const existing = await ctx.db
       .query("dataMigrationRegistry")
@@ -914,7 +915,7 @@ export const verifyRoomTypes = internalMutation({
   },
   handler: async (ctx, args) => {
     assertMigrationSecret(args.secret);
-    const limit = Math.min(Math.max(Math.trunc(args.limit ?? ROOM_TYPE_MIGRATION_LIMIT), 1), 100);
+    const limit = boundedMigrationLimit(args.limit, ROOM_TYPE_MIGRATION_LIMIT, 100);
     const now = Date.now();
     const registry = await ctx.db
       .query("dataMigrationRegistry")

@@ -23,6 +23,7 @@ import {
   initialBalanceRows,
   LEAVE_TYPES,
   type LeaveType,
+  leaveTypeValidator,
 } from "./leavePolicy";
 
 function leaveReviewLabel(stage: string) {
@@ -62,17 +63,6 @@ const leaveStatusValidator = v.union(
   v.literal("Pending"),
   v.literal("Approved"),
   v.literal("Rejected")
-);
-
-const leaveTypeValidator = v.union(
-  v.literal("Privilege"),
-  v.literal("Casual"),
-  v.literal("Sick"),
-  v.literal("Maternity"),
-  v.literal("Paternity"),
-  v.literal("Bereavement"),
-  v.literal("Marriage"),
-  v.literal("Leave Without Pay")
 );
 
 function ensureLeaveType(value: string): LeaveType {

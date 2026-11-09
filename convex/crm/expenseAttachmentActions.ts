@@ -4,7 +4,8 @@ import { createHash } from "node:crypto";
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { type ActionCtx, action } from "../_generated/server";
+import { action } from "../_generated/server";
+import { cleanupUnreferencedUpload, readStoredFileForDownload } from "./attachmentStorage";
 import { recordCompletedDocumentAccess } from "./documentPreviewAudit";
 import {
   downloadFileResultValidator,
@@ -44,41 +45,6 @@ function canPrepareExpenseFileUpload(
   );
 }
 
-async function cleanupUnreferencedExpenseBlob(
-  ctx: ActionCtx,
-  storageId: Id<"_storage">,
-  operation: string
-) {
-  try {
-    await ctx.runMutation(internal.crm.storageReferences.deleteIfUnreferenced, {
-      storageId,
-    });
-  } catch (error) {
-    console.error(`Failed to clean up ${operation} expense proof:`, error);
-  }
-}
-
-async function buildDownloadFile(
-  ctx: ActionCtx,
-  record: {
-    storageId: string;
-    fileName: string;
-    mimeType: string;
-  }
-) {
-  const blob = await ctx.storage.get(record.storageId);
-  if (!blob) {
-    throw new ConvexError("File is no longer available");
-  }
-
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  return {
-    bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
-    fileName: record.fileName,
-    mimeType: record.mimeType,
-  };
-}
-
 export const generateUploadUrl = action({
   args: {
     expenseId: v.string(),
@@ -114,7 +80,7 @@ export const attachProof = action({
       { expenseId: args.expenseId }
     );
     const cleanupRejectedUpload = async () => {
-      await cleanupUnreferencedExpenseBlob(ctx, args.storageId, "rejected");
+      await cleanupUnreferencedUpload(ctx, args.storageId, "rejected expense proof");
     };
 
     if (!isAllowedMimeType(args.mimeType)) {
@@ -183,7 +149,7 @@ export const getDownloadUrl = action({
       throw new ConvexError("Attachment not found");
     }
 
-    const file = await buildDownloadFile(ctx, record);
+    const file = await readStoredFileForDownload(ctx, record);
     await recordCompletedDocumentAccess(ctx, {
       // SAFETY: the expense-attachment record was loaded through a validator-backed Convex query.
       expectedSourceStorageId: record.storageId as Id<"_storage">,
@@ -217,7 +183,7 @@ export const getDownloadFile = action({
       throw new ConvexError("Attachment not found");
     }
 
-    const file = await buildDownloadFile(ctx, record);
+    const file = await readStoredFileForDownload(ctx, record);
     await recordCompletedDocumentAccess(ctx, {
       // SAFETY: the expense-attachment record was loaded through a validator-backed Convex query.
       expectedSourceStorageId: record.storageId as Id<"_storage">,

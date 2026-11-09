@@ -3,7 +3,7 @@ import type { Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { propertiesWhen } from "../lib/runtimeValues";
 import { passengerImportBatchRowCount } from "./importBatchPolicy";
-import { getVisibleJob } from "./importProcessor";
+import { getVisibleJob } from "./jobCardVisibility";
 import { createActivity, type PortalAccess, requireStaff } from "./lib";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { isOperationStalled } from "./operationTimePolicy";

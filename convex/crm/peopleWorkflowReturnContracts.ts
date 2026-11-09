@@ -1,5 +1,6 @@
 import { paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
+import { leaveTypeValidator } from "./leavePolicy";
 
 const isoDateTimeValidator = v.string();
 const reviewStatusValidator = v.union(
@@ -7,17 +8,6 @@ const reviewStatusValidator = v.union(
   v.literal("Approved"),
   v.literal("Rejected")
 );
-const leaveTypeValidator = v.union(
-  v.literal("Privilege"),
-  v.literal("Casual"),
-  v.literal("Sick"),
-  v.literal("Maternity"),
-  v.literal("Paternity"),
-  v.literal("Bereavement"),
-  v.literal("Marriage"),
-  v.literal("Leave Without Pay")
-);
-
 const approvalOutputValidator = v.object({
   amount: v.number(),
   createdAt: isoDateTimeValidator,

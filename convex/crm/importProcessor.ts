@@ -6,13 +6,7 @@ import { propertiesWhen } from "../lib/runtimeValues";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import type { InternalPassengerImportRow } from "./importRows";
 import { classifyImportError, publicImportErrorMessage } from "./importWorkerPolicy";
-import {
-  canSeeJobCardRecord,
-  createActivity,
-  jobCardRecordGrant,
-  PERMISSIONS,
-  type PortalAccess,
-} from "./lib";
+import { createActivity, jobCardRecordGrant, PERMISSIONS, type PortalAccess } from "./lib";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { buildTravellerListSearchText, markListSearchDirty } from "./listSearch";
 import { logParentalConsentChange, parentalConsentDecisionFor } from "./travellerGuardianConsent";
@@ -49,19 +43,6 @@ interface TravellerMatchRow {
 interface TravelBatchSelection {
   travelBatchId?: string;
   travelBatchReference?: string;
-}
-
-export async function getVisibleJob(
-  ctx: QueryCtx,
-  access: PortalAccess,
-  jobCardId: Id<"jobCards">
-) {
-  const job = await ctx.db.get("jobCards", jobCardId);
-  const linkedQuery = job?.queryId ? await ctx.db.get("queries", job.queryId) : null;
-  if (!(job && canSeeJobCardRecord(access, job, linkedQuery))) {
-    return null;
-  }
-  return job;
 }
 
 /**

@@ -22,7 +22,7 @@ import {
   loadDashboardSummarySnapshot,
   OPERATIONAL_DETAIL_LIMIT,
 } from "./operationalSnapshots";
-import type { QueryType } from "./queryValidators";
+import { LEAD_STAGES, QUERY_TYPES, type QueryType } from "./queryValidators";
 import {
   aggregateCoverageValidator,
   portalDashboardActivityResultValidator,
@@ -186,7 +186,7 @@ export const getPortalDashboardActivity = convexQuery({
 });
 
 function aggregatePipelineSnapshot(values: MetricValues) {
-  return SALES_PIPELINE_STAGES.map((stage) => {
+  return LEAD_STAGES.map((stage) => {
     const count = aggregateMetric(values, `queries.stage.${stage}.count`);
     const value = aggregateMetric(values, `queries.stage.${stage}.budget`);
     return {
@@ -216,7 +216,7 @@ const PIPELINE_STAGE_WEIGHTS = {
   Lost: 0,
   Negotiation: 0.5,
   Proposal: 0.25,
-} satisfies Record<(typeof SALES_PIPELINE_STAGES)[number], number>;
+} satisfies Record<(typeof LEAD_STAGES)[number], number>;
 
 function daysFromIso(iso: string, offsetDays: number) {
   const date = new Date(`${iso}T00:00:00.000Z`);
@@ -237,25 +237,6 @@ function buildMetricTrend(current: number, prior: number) {
     direction,
   };
 }
-
-const QUERY_TYPES = [
-  "MICE",
-  "MICE Bidding",
-  "Cement",
-  "Cement Bidding",
-  "FIT",
-  "Family Group",
-  "B2B",
-  "Spiritual",
-] as const;
-
-const SALES_PIPELINE_STAGES = [
-  "Inquiry",
-  "Proposal",
-  "Negotiation",
-  "Confirmation",
-  "Lost",
-] as const;
 
 const TICKET_ATTENTION_STATUSES = new Set([
   "Name Change Required",
@@ -640,7 +621,7 @@ export function buildHeadAssignmentSlaItems(
 export function buildPipelineSnapshot(
   queries: Array<{ leadStage?: string; budgetAmount?: number; paxCount?: number }>
 ) {
-  return SALES_PIPELINE_STAGES.map((stage) => {
+  return LEAD_STAGES.map((stage) => {
     const stageQueries = queries.filter((q) => (q.leadStage || "Inquiry") === stage);
     const value = stageQueries.reduce(
       (sum, query) => sum + (query.budgetAmount ?? 0) * Math.max(query.paxCount ?? 1, 1),

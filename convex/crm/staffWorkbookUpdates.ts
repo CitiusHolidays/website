@@ -8,10 +8,10 @@ import {
   normalizeEmail,
   PERMISSIONS,
   requireStaff,
+  type StaffRole,
 } from "./lib";
 import { staffWorkbookResultValidator } from "./staffSettingsReturnContracts";
 
-type StaffRole = (typeof ALL_ROLES)[number];
 type StaffUser = Doc<"staffUsers">;
 type WorkbookValue = string | number | boolean | string[];
 const DIRECTOR_WORD_PATTERN = /\bdirector\b/;

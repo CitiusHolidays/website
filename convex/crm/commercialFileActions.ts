@@ -3,7 +3,12 @@
 import { ConvexError, v } from "convex/values";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { type ActionCtx, action } from "../_generated/server";
+import { action } from "../_generated/server";
+import {
+  cleanupUnreferencedUpload,
+  readStoredFileForDownload,
+  type WritableCommercialSource,
+} from "./attachmentStorage";
 import {
   COMMERCIAL_FILE_CATEGORIES,
   COMMERCIAL_FILE_SOURCE_TYPES,
@@ -13,6 +18,7 @@ import { recordCompletedDocumentAccess } from "./documentPreviewAudit";
 import { enforcePortalFileDownloadLimit } from "./lib/portalFileDownloadLimit";
 import { PERMISSIONS } from "./lib/rolePolicy";
 
+const REJECTED_UPLOAD = "rejected commercial upload";
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 const COMMERCIAL_FILE_WRITE_PERMISSIONS = [
   PERMISSIONS.MANAGE_QUERIES,
@@ -53,12 +59,6 @@ const uploadTicketResultValidator = v.object({
   uploadUrl: v.string(),
 });
 
-interface WritableCommercialSource {
-  id: string;
-  sourceType: string;
-  teamAreas: string[];
-}
-
 function isAllowedMimeType(mimeType: string) {
   const normalized = mimeType.trim().toLowerCase();
   return (
@@ -86,16 +86,6 @@ function canUploadCommercialFiles(
       ) ||
         access.roles?.includes("Tour Manager"))
   );
-}
-
-async function cleanupUnreferencedUpload(ctx: ActionCtx, storageId: Id<"_storage">) {
-  try {
-    await ctx.runMutation(internal.crm.storageReferences.deleteIfUnreferenced, {
-      storageId,
-    });
-  } catch (error) {
-    console.error("Failed to clean up rejected commercial upload:", error);
-  }
 }
 
 export const generateUploadUrl = action({
@@ -175,13 +165,13 @@ export const uploadFile = action({
       throw new ConvexError("FORBIDDEN");
     }
     if (!isAllowedMimeType(args.mimeType)) {
-      await cleanupUnreferencedUpload(ctx, args.storageId);
+      await cleanupUnreferencedUpload(ctx, args.storageId, REJECTED_UPLOAD);
       throw new ConvexError(
         "File type not allowed. Use PDF, Word, Excel, PowerPoint, images, or plain text."
       );
     }
     if (args.category === "proposalDoc" && args.teamArea !== "contracting") {
-      await cleanupUnreferencedUpload(ctx, args.storageId);
+      await cleanupUnreferencedUpload(ctx, args.storageId, REJECTED_UPLOAD);
       throw new ConvexError(
         "Proposal Docs can only be uploaded to the Contracting Team File Area."
       );
@@ -192,17 +182,17 @@ export const uploadFile = action({
     }
     const actualMimeType = blob.type?.trim() || args.mimeType.trim();
     if (!isAllowedMimeType(actualMimeType)) {
-      await cleanupUnreferencedUpload(ctx, args.storageId);
+      await cleanupUnreferencedUpload(ctx, args.storageId, REJECTED_UPLOAD);
       throw new ConvexError(
         "File type not allowed. Use PDF, Word, Excel, PowerPoint, images, or plain text."
       );
     }
     if (args.category === "proposalDoc" && !isPdfMimeType(actualMimeType)) {
-      await cleanupUnreferencedUpload(ctx, args.storageId);
+      await cleanupUnreferencedUpload(ctx, args.storageId, REJECTED_UPLOAD);
       throw new ConvexError("Proposal Docs must be PDF files.");
     }
     if (blob.size < 1 || blob.size > MAX_FILE_BYTES || blob.size !== args.fileSize) {
-      await cleanupUnreferencedUpload(ctx, args.storageId);
+      await cleanupUnreferencedUpload(ctx, args.storageId, REJECTED_UPLOAD);
       throw new ConvexError("Each file must be between 1 byte and 15 MB.");
     }
     try {
@@ -235,7 +225,7 @@ export const uploadFile = action({
         uploaderTeam: access.roles.join(", ") || "Portal user",
       });
     } catch (error) {
-      await cleanupUnreferencedUpload(ctx, args.storageId);
+      await cleanupUnreferencedUpload(ctx, args.storageId, REJECTED_UPLOAD);
       throw error;
     }
     return { success: true };
@@ -259,16 +249,7 @@ export const getDownloadFile = action({
     if (!record) {
       throw new ConvexError("Commercial file not found");
     }
-    const blob: Blob | null = await ctx.storage.get(record.storageId);
-    if (!blob) {
-      throw new ConvexError("File is no longer available");
-    }
-    const bytes: Uint8Array = new Uint8Array(await blob.arrayBuffer());
-    // SAFETY: bytes is a freshly allocated full-span Uint8Array, so slicing its buffer yields ArrayBuffer.
-    const buffer = bytes.buffer.slice(
-      bytes.byteOffset,
-      bytes.byteOffset + bytes.byteLength
-    ) as ArrayBuffer;
+    const file = await readStoredFileForDownload(ctx, record);
     await recordCompletedDocumentAccess(ctx, {
       // SAFETY: the commercial-file record was loaded through a validator-backed Convex query.
       expectedSourceStorageId: record.storageId as Id<"_storage">,
@@ -276,11 +257,7 @@ export const getDownloadFile = action({
       sourceId: args.fileId,
       sourceType: "commercialFile",
     });
-    return {
-      bytes: buffer,
-      fileName: record.fileName,
-      mimeType: record.mimeType,
-    };
+    return file;
   },
   returns: v.object({
     bytes: v.bytes(),

@@ -1,26 +1,26 @@
 import type { Infer } from "convex/values";
 import { v } from "convex/values";
+import { literalUnion } from "../lib/literalValidators";
 
-export const ticketingScopeValidator = v.union(
-  v.literal("Domestic"),
-  v.literal("International"),
-  v.literal("Both"),
-  v.literal("Not required")
-);
+export const TICKETING_SCOPES = ["Domestic", "International", "Both", "Not required"] as const;
+
+export const ticketingScopeValidator = literalUnion(TICKETING_SCOPES);
 
 export type TicketingScope = Infer<typeof ticketingScopeValidator>;
 export type TicketingScopeOutput = TicketingScope | "";
 
-export const queryTypeValidator = v.union(
-  v.literal("MICE"),
-  v.literal("MICE Bidding"),
-  v.literal("Cement"),
-  v.literal("Cement Bidding"),
-  v.literal("FIT"),
-  v.literal("Family Group"),
-  v.literal("B2B"),
-  v.literal("Spiritual")
-);
+export const QUERY_TYPES = [
+  "MICE",
+  "MICE Bidding",
+  "Cement",
+  "Cement Bidding",
+  "FIT",
+  "Family Group",
+  "B2B",
+  "Spiritual",
+] as const;
+
+export const queryTypeValidator = literalUnion(QUERY_TYPES);
 
 export const travelTypeValidator = v.union(
   v.literal("Domestic Travel"),
@@ -42,24 +42,13 @@ export const salesDecisionValidator = v.union(
   v.literal("Order Lost")
 );
 
-export const leadStageValidator = v.union(
-  v.literal("Inquiry"),
-  v.literal("Proposal"),
-  v.literal("Negotiation"),
-  v.literal("Confirmation"),
-  v.literal("Lost")
-);
+export const LEAD_STAGES = ["Inquiry", "Proposal", "Negotiation", "Confirmation", "Lost"] as const;
+
+export const leadStageValidator = literalUnion(LEAD_STAGES);
 
 // Storage stays widened until the registry-backed Closed -> Lost migration is
 // verified on every deployment. Public writers must use leadStageValidator.
-export const leadStageStorageValidator = v.union(
-  v.literal("Inquiry"),
-  v.literal("Proposal"),
-  v.literal("Negotiation"),
-  v.literal("Confirmation"),
-  v.literal("Lost"),
-  v.literal("Closed")
-);
+export const leadStageStorageValidator = literalUnion([...LEAD_STAGES, "Closed"]);
 
 export const querySourceValidator = v.union(
   v.literal("Website"),
@@ -69,6 +58,12 @@ export const querySourceValidator = v.union(
   v.literal("Referral"),
   v.literal("Citius Concierge"),
   v.literal("Sacred Bharat")
+);
+
+export const inboundSourceValidator = v.union(
+  v.literal("Citius Concierge"),
+  v.literal("Sacred Bharat"),
+  v.literal("Website")
 );
 
 export const contractingStatusValidator = v.union(
@@ -97,38 +92,13 @@ export const lostReasonValidator = v.union(
 export type QuerySource = Infer<typeof querySourceValidator>;
 export type QuerySourceOutput = QuerySource | "";
 
-export type TravelType = "Domestic Travel" | "International Travel";
-
-export type QueryType =
-  | "MICE"
-  | "MICE Bidding"
-  | "Cement"
-  | "Cement Bidding"
-  | "FIT"
-  | "Family Group"
-  | "B2B"
-  | "Spiritual";
-
-export type SalesStatus =
-  | "Proposal in discussion"
-  | "Change in destination"
-  | "Date/Destination Change Required"
-  | "Order Confirmed"
-  | "Order Lost";
-
-export type LeadStage = "Inquiry" | "Proposal" | "Negotiation" | "Confirmation" | "Lost";
-export type LeadStageStorage = LeadStage | "Closed";
-
-export type ContractingStatus =
-  | "Query Received"
-  | "Proposal in progress"
-  | "Proposal sent"
-  | "Change in destination"
-  | "Date/Destination Change Required"
-  | "Order Confirmed"
-  | "Order Lost";
-
-export type LostReason = "Price" | "Competition" | "Not travelling" | "Other";
+export type TravelType = Infer<typeof travelTypeValidator>;
+export type QueryType = Infer<typeof queryTypeValidator>;
+export type SalesStatus = Infer<typeof salesStatusValidator>;
+export type LeadStage = Infer<typeof leadStageValidator>;
+export type LeadStageStorage = Infer<typeof leadStageStorageValidator>;
+export type ContractingStatus = Infer<typeof contractingStatusValidator>;
+export type LostReason = Infer<typeof lostReasonValidator>;
 
 export type SalesDecision = Infer<typeof salesDecisionValidator>;
 export type ContractingProgress = Infer<typeof contractingProgressValidator>;

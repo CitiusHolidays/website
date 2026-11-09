@@ -67,6 +67,7 @@ import {
   getAllowedSalesPipelineBoardTargets as getAllowedSalesPipelineBoardTargetsImplementation,
   isSalesPipelineBoardLocked as isSalesPipelineBoardLockedImplementation,
   resolveSalesPipelineStage as resolveSalesPipelineStageImplementation,
+  salesPipelineBoardStageValidator,
 } from "./salesPipelinePolicy";
 
 export const assertConfirmedQueryIsTerminal = assertConfirmedQueryIsTerminalImplementation;
@@ -244,12 +245,6 @@ export const submitToContracting = mutation({
   handler: handleSubmitToContracting,
   returns: queryIdResultValidator,
 });
-
-const salesPipelineBoardStageValidator = v.union(
-  v.literal("Inquiry"),
-  v.literal("Proposal"),
-  v.literal("Negotiation")
-);
 
 export const moveSalesPipelineStage = mutation({
   args: {

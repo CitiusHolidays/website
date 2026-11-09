@@ -5,6 +5,7 @@ import type { RuntimeValue } from "../lib/runtimeValues";
 import { isRuntimeNumber } from "../lib/runtimeValues";
 import { normalizeEmail } from "./lib/staffAccess";
 import { notificationRecipientCanAccess } from "./notificationEmailAudience";
+import { linkedQueriesForProposal } from "./proposalRelations";
 
 interface DetailRow {
   label: string;
@@ -90,25 +91,6 @@ async function getPnr(ctx: QueryCtx, pnrId?: Id<"pnrs">) {
 
 async function getFlightGroup(ctx: QueryCtx, flightGroupId?: Id<"flightGroups">) {
   return flightGroupId ? await ctx.db.get("flightGroups", flightGroupId) : null;
-}
-
-async function linkedQueriesForProposal(ctx: QueryCtx, proposal: Doc<"proposals">) {
-  const queryIds = new Set<Id<"queries">>();
-  if (proposal.queryId) {
-    queryIds.add(proposal.queryId);
-  }
-  const links = await ctx.db
-    .query("proposalQueryLinks")
-    .withIndex("by_proposalId", (q) => q.eq("proposalId", proposal._id))
-    .collect();
-  for (const link of links) {
-    queryIds.add(link.queryId);
-  }
-
-  const queryResults = await Promise.all(
-    [...queryIds].map((queryId) => ctx.db.get("queries", queryId))
-  );
-  return queryResults.filter((query): query is Doc<"queries"> => Boolean(query));
 }
 
 function addQueryRows(rows: DetailRow[], query: Doc<"queries">) {

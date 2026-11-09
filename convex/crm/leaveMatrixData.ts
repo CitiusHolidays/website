@@ -1,4 +1,8 @@
-/** Convex copy of leave matrix seed (see `src/lib/portal/leaveMatrix.js`). */
+/**
+ * Leave head-approver defaults from "Employess Details - Leave Matrix.xlsx".
+ * Column "Leave Application Alert" is the first-line approver (not HR).
+ * HR is always the second approval stage in the portal.
+ */
 
 const WHITESPACE_PATTERN = /\s+/;
 

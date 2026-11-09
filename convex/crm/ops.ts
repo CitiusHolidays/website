@@ -8,13 +8,13 @@ import { appSurfaceValidator, requireConnectTrip } from "./appPilot";
 import { getExternalTourManagerProfile } from "./externalTourManagerProfiles";
 import { scheduleCrmMetricSync } from "./financeMetricSync";
 import {
+  getVisibleJob,
   MAX_TOUR_MANAGER_ASSIGNMENTS_PER_JOB_CARD,
   syncJobCardTourManagerVisibility,
 } from "./jobCardVisibility";
 import {
   assertBulkDeleteMutationBatch,
   assertDateRangeOrder,
-  canSeeJobCardRecord,
   createActivity,
   deleteEntityNotifications,
   flushDeferredNotificationCleanup,
@@ -42,19 +42,6 @@ import {
   compactPageItems,
   mapInBoundedBatches,
 } from "./paginationPolicy";
-
-async function getVisibleJob(
-  ctx: MutationCtx | QueryCtx,
-  access: PortalAccess,
-  jobCardId: Id<"jobCards">
-) {
-  const job = await ctx.db.get("jobCards", jobCardId);
-  if (!job) {
-    return null;
-  }
-  const linkedQuery = job.queryId ? await ctx.db.get("queries", job.queryId) : null;
-  return canSeeJobCardRecord(access, job, linkedQuery) ? job : null;
-}
 
 async function getValidatedTravelBatch(
   ctx: MutationCtx | QueryCtx,
