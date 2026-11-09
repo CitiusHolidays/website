@@ -18,7 +18,7 @@ interface Capability {
 }
 
 const CONVEX_ROOT = dirname(fileURLToPath(import.meta.url));
-const EXPECTED_CAPABILITY_HASH = "af7a98c450ade298fc9c836613e141f0776be91c797adad09c5cf4010de378d0";
+const EXPECTED_CAPABILITY_HASH = "eb0c882358daf98cb5608a6f79ca1ea06335b4aa99c920e19580f348c3d883df";
 const ALLOWED_REGISTRATION_FACTORIES = new Set(["crm/commercialFiles.ts:mutationWithAccess"]);
 
 const ADMIN_ONLY_CAPABILITIES = new Set(["crm/postTourReports.archive"]);
@@ -41,6 +41,7 @@ const AI_SERVER_ONLY_CAPABILITIES = new Set([
 
 const PAYMENT_SERVER_ONLY_CAPABILITIES = new Set([
   "bookings.confirmBookingByOrderId",
+  "bookings.createPendingBooking",
   "bookings.markPaymentFailedByOrderId",
   "bookings.markRefundedByPaymentId",
   "bookings.recordPaymentAuthorized",
@@ -854,7 +855,7 @@ describe("Convex capability inventory", () => {
     for (const name of PAYMENT_SERVER_ONLY_CAPABILITIES) {
       expect(source).toContain(`export const ${name.split(".")[1]} = mutation`);
     }
-    expect(source.match(/assertPaymentMutationSecret\(args\.serverSecret\)/g)).toHaveLength(4);
+    expect(source.match(/assertPaymentMutationSecret\(args\.serverSecret\)/g)).toHaveLength(5);
   });
 
   test("Server-only AI runtime writers retain their secret guard", () => {
