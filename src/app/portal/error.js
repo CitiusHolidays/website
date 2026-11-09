@@ -1,7 +1,7 @@
 "use client";
 
-import PrivateAuthError from "@/components/auth/PrivateAuthError";
+import PortalRouteError from "@/components/portal/PortalRouteError";
 
-export default function PortalError({ reset }) {
-  return <PrivateAuthError loginHref="/auth/connect" reset={reset} />;
+export default function PortalError({ error, retry }) {
+  return <PortalRouteError error={error} retry={retry} />;
 }
