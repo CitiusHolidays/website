@@ -247,6 +247,7 @@ import type * as crm_seatReads from "../crm/seatReads.js";
 import type * as crm_settings from "../crm/settings.js";
 import type * as crm_staff from "../crm/staff.js";
 import type * as crm_staffAction from "../crm/staffAction.js";
+import type * as crm_staffPasswordSetup from "../crm/staffPasswordSetup.js";
 import type * as crm_staffImport from "../crm/staffImport.js";
 import type * as crm_staffSettingsReturnContracts from "../crm/staffSettingsReturnContracts.js";
 import type * as crm_staffTravel from "../crm/staffTravel.js";
@@ -603,6 +604,7 @@ declare const fullApi: ApiFromModules<{
   "crm/settings": typeof crm_settings;
   "crm/staff": typeof crm_staff;
   "crm/staffAction": typeof crm_staffAction;
+  "crm/staffPasswordSetup": typeof crm_staffPasswordSetup;
   "crm/staffImport": typeof crm_staffImport;
   "crm/staffSettingsReturnContracts": typeof crm_staffSettingsReturnContracts;
   "crm/staffTravel": typeof crm_staffTravel;

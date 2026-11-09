@@ -155,6 +155,18 @@ export const createAuthOptions = (ctx: GenericCtx<DataModel>) => {
           console.error(JSON.stringify({ event: "existing_user_recovery_queue_failed" }));
         }
       },
+      // A reset link proves the inbox, so a staff member's password set through one is theirs to
+      // keep when their staff access is set up (crm/staffPasswordSetup).
+      onPasswordReset: async ({ user }) => {
+        try {
+          await requireRunMutationCtx(ctx).runMutation(
+            internal.crm.staffPasswordSetup.recordPasswordSetByLink,
+            { email: user.email }
+          );
+        } catch {
+          console.error(JSON.stringify({ event: "staff_password_set_by_link_record_failed" }));
+        }
+      },
       requireEmailVerification: true,
       resetPasswordTokenExpiresIn: AUTH_EMAIL_TOKEN_TTL_SECONDS,
       // A reset is how someone takes an account back, so it signs out every existing session:
