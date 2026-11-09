@@ -5,7 +5,8 @@ import { fetchAction, fetchMutation, fetchQuery } from "convex/nextjs";
 import { anyApi } from "convex/server";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { getLoginUrlForCallback } from "@/lib/auth-sign-in-targets";
+import { signInHrefWithReturn } from "@/lib/auth-return-path";
+import { getAuthVariantFromCallbackUrl } from "@/lib/auth-sign-in-targets";
 import {
   isRuntimeBoolean,
   isRuntimeFunction,
@@ -388,15 +389,17 @@ export async function getServerUser(options) {
   return await fetchAuthQuery(anyApi.auth.getCurrentUser, {}, { token });
 }
 
-const getLoginUrl = (callbackUrl) => getLoginUrlForCallback(callbackUrl || "/account");
-
-export async function requireAuth(callbackUrl, options) {
-  const loginUrl = getLoginUrl(callbackUrl);
+/**
+ * The signed-in user, or a redirect to the sign-in page for `callbackUrl`'s area. `returnPath`
+ * (the page that was asked for) rides along as `returnTo` only when it is inside that area.
+ */
+export async function requireAuth(callbackUrl, options, { returnPath } = {}) {
+  const variant = getAuthVariantFromCallbackUrl(callbackUrl || "/account");
   // Only redirect for true unauthenticated states.
   // Let other errors bubble so we don't trap users in a login loop.
   const user = await getServerUser(options);
   if (!user) {
-    redirect(loginUrl);
+    redirect(signInHrefWithReturn(returnPath, variant));
   }
 
   return { session: { user }, user };

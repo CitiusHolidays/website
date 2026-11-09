@@ -82,7 +82,3 @@ export function getSignInAuthUrl(variantId = "guest") {
   const variant = getAuthVariant(variantId);
   return variant.authPath;
 }
-
-export function getLoginUrlForCallback(callbackUrl) {
-  return getAuthVariantFromCallbackUrl(callbackUrl).authPath;
-}
