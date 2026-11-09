@@ -19,6 +19,7 @@
     "convex:dev": "bunx convex dev",
     "convex:typecheck": "cd convex && bun ../node_modules/@typescript/native/bin/tsc --noEmit",
     "coverage:check": "bun config/release/coverage-ratchet.ts",
+    "cycles": "bunx madge@8.0.0 --circular --extensions ts,tsx,js,jsx --ts-config tsconfig.json src convex",
     "deadcode": "knip --config knip.jsonc --reporter compact",
     "deadcode:ratchet": "bun config/release/deadcode-ratchet.ts",
     "deadcode:ratchet:update": "bun config/release/deadcode-ratchet.ts --write-baseline",

@@ -2,7 +2,7 @@ import type { Doc } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { authorizedCustomerIdentityIds } from "../lib/customerIdentityAccess";
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
-import { canReceiveNotification } from "./lib/notifications";
+import { canReceiveNotification } from "./lib/notificationRecipients";
 import { type PortalAccess, portalAccessForStaff } from "./lib/staffAccess";
 import { createNavigationWorkReader } from "./navigationWork";
 

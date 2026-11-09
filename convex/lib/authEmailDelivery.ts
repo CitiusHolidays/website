@@ -405,3 +405,20 @@ export async function deliverTransactionalAuthEmail(
     sendEmail,
   });
 }
+
+export function reportAuthEmailFailure(outcome: {
+  correlationDigest?: string;
+  failureCode?: string;
+  purpose: AuthEmailPurpose;
+  status?: string;
+}) {
+  console.error(
+    JSON.stringify({
+      correlationDigest: outcome.correlationDigest,
+      event: "auth_email_delivery_failed",
+      failureCode: outcome.failureCode ?? "delivery_unavailable",
+      purpose: outcome.purpose,
+      status: outcome.status ?? "unknown",
+    })
+  );
+}

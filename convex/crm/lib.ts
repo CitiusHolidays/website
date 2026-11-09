@@ -21,8 +21,8 @@ export {
   getLeaveApprovalActions,
   isHrReviewer,
 } from "./lib/leavePolicy";
+export { canReceiveNotification } from "./lib/notificationRecipients";
 export {
-  canReceiveNotification,
   deleteEntityNotifications,
   expandNotificationEmailRoles,
   flushDeferredNotificationCleanup,
