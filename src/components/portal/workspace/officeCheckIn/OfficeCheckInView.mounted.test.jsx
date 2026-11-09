@@ -15,7 +15,10 @@ const deleteCheckIn = mock(async () => ({ mode: "erase" }));
 const chooseAwayReason = mock(async () => null);
 const toastSuccess = mock(() => undefined);
 const fetchMock = mock(async () => Response.json({ ok: true, replayed: false }));
-const getCurrentPosition = mock(() => undefined);
+const watchPosition = mock(() => undefined);
+const clearWatch = mock(() => undefined);
+/** The device stamps each reading as it is taken, so the fixture's reading is fresh. */
+const READING_AT = Date.now();
 const originalFetch = globalThis.fetch;
 const originalNavigator = globalThis.navigator;
 
@@ -157,7 +160,7 @@ beforeAll(async () => {
   globalThis.fetch = fetchMock;
   Object.defineProperty(globalThis, "navigator", {
     configurable: true,
-    value: { geolocation: { getCurrentPosition }, userAgent: "bun-test" },
+    value: { geolocation: { clearWatch, watchPosition }, userAgent: "bun-test" },
   });
   ({ createRoot } = await import("react-dom/client"));
   ({ OfficeCheckInView } = await import("./OfficeCheckInView"));
@@ -181,7 +184,8 @@ beforeEach(() => {
   ]) {
     fn.mockClear();
   }
-  getCurrentPosition.mockReset();
+  watchPosition.mockReset();
+  clearWatch.mockReset();
   document.body.innerHTML = "";
 });
 
@@ -230,10 +234,10 @@ async function settle() {
 }
 
 function givePosition() {
-  getCurrentPosition.mockImplementation((success) =>
+  watchPosition.mockImplementation((success) =>
     success({
       coords: { accuracy: 18, latitude: 19.076_001, longitude: 72.877_656 },
-      timestamp: 1_762_300_000_000,
+      timestamp: READING_AT,
     })
   );
 }
@@ -260,7 +264,7 @@ describe("Office check-in: my day", () => {
 
     await press(findButton(view.container, "Clock in"));
 
-    expect(getCurrentPosition).not.toHaveBeenCalled();
+    expect(watchPosition).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock.mock.calls[0][0]).toBe("/api/portal/office-check-in");
     const body = postedBody();
@@ -281,15 +285,15 @@ describe("Office check-in: my day", () => {
         requirement: "network_and_geofence",
       },
     });
-    getCurrentPosition.mockImplementation((success) =>
+    watchPosition.mockImplementation((success) =>
       success({
         coords: { accuracy: 12, latitude: 18.52, longitude: 73.85 },
-        timestamp: 1_762_300_000_000,
+        timestamp: READING_AT,
       })
     );
     const view = await mount();
 
-    expect(getCurrentPosition).not.toHaveBeenCalled();
+    expect(watchPosition).not.toHaveBeenCalled();
     expect(view.container.textContent).toContain(
       "Your browser asks for your location once, when you press the button."
     );
@@ -297,12 +301,12 @@ describe("Office check-in: my day", () => {
 
     await press(findButton(view.container, "Clock in"));
 
-    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
+    expect(watchPosition).toHaveBeenCalledTimes(1);
     expect(postedBody()).toEqual({
       action: "clock_in",
       location: {
         accuracyMeters: 12,
-        capturedAt: 1_762_300_000_000,
+        capturedAt: READING_AT,
         kind: "position",
         latitude: 18.52,
         longitude: 73.85,
@@ -321,7 +325,7 @@ describe("Office check-in: my day", () => {
       },
     });
     let answer;
-    getCurrentPosition.mockImplementation((_success, error) => {
+    watchPosition.mockImplementation((_success, error) => {
       answer = error;
     });
     const view = await mount();
@@ -338,7 +342,7 @@ describe("Office check-in: my day", () => {
     expect(button.getAttribute("aria-busy")).toBe("true");
     expect(document.activeElement).toBe(button);
     await press(button);
-    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
+    expect(watchPosition).toHaveBeenCalledTimes(1);
 
     await act(async () => {
       answer({ code: 3 });
@@ -361,7 +365,7 @@ describe("Office check-in: my day", () => {
         requirement: "geofence",
       },
     });
-    getCurrentPosition.mockImplementation((_success, error) => error({ code: 1 }));
+    watchPosition.mockImplementation((_success, error) => error({ code: 1 }));
     const view = await mount();
 
     await press(findButton(view.container, "Clock in"));
@@ -463,12 +467,12 @@ describe("Office check-in: my day", () => {
     givePosition();
     await press(findButton(group, "Sales call"));
     await settle();
-    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
+    expect(watchPosition).toHaveBeenCalledTimes(1);
     expect(chooseAwayReason).toHaveBeenCalledWith({
       checkInId: "officeCheckIns_staff_me",
       location: {
         accuracyMeters: 18,
-        capturedAt: 1_762_300_000_000,
+        capturedAt: READING_AT,
         kind: "position",
         latitude: 19.076_001,
         longitude: 72.877_656,
@@ -486,7 +490,7 @@ describe("Office check-in: my day", () => {
     const group = view.container.querySelector("fieldset[aria-labelledby]");
     await press(findButton(group, "Work from home"));
     await settle();
-    expect(getCurrentPosition).not.toHaveBeenCalled();
+    expect(watchPosition).not.toHaveBeenCalled();
     expect(chooseAwayReason).toHaveBeenCalledWith({
       checkInId: "officeCheckIns_staff_me",
       reason: "out_of_office",
@@ -498,7 +502,7 @@ describe("Office check-in: my day", () => {
     state.status = myStatus({
       today: checkIn("staff_me", { clockIn: verification("fail", "outside_allowlist") }),
     });
-    getCurrentPosition.mockImplementation((_success, error) => error({ code: 1 }));
+    watchPosition.mockImplementation((_success, error) => error({ code: 1 }));
     const view = await mount();
     const group = view.container.querySelector("fieldset[aria-labelledby]");
     await press(findButton(group, "On tour"));

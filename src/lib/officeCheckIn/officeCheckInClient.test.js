@@ -30,29 +30,48 @@ afterEach(() => {
   Object.defineProperty(globalThis, "navigator", { configurable: true, value: originalNavigator });
 });
 
+function position({ accuracy = 18.5, latitude = 12.5, longitude = 77.25, timestamp }) {
+  return { coords: { accuracy, latitude, longitude }, timestamp };
+}
+
+/**
+ * A browser geolocation whose watch the test drives: `emit` delivers a reading,
+ * `fail` an error, and `cleared` lists the watch ids the code stopped.
+ */
+function fakeWatch() {
+  const watch = { cleared: [], emit: undefined, fail: undefined, options: undefined };
+  setGeolocation({
+    clearWatch: (id) => watch.cleared.push(id),
+    watchPosition: (success, error, options) => {
+      watch.emit = success;
+      watch.fail = error;
+      watch.options = options;
+      return 7;
+    },
+  });
+  return watch;
+}
+
 describe("readLocation", () => {
   test("Reports not_supported without a geolocation API", async () => {
     setGeolocation(undefined);
     expect(await readLocation()).toEqual({ code: "not_supported", kind: "error" });
   });
 
-  test("Takes one fresh high-accuracy reading and keeps the device timestamp", async () => {
-    const getCurrentPosition = mock((success, _error, options) => {
-      expect(options).toEqual(LOCATION_REQUEST_OPTIONS);
-      success({
-        coords: { accuracy: 18.5, latitude: 12.5, longitude: 77.25 },
-        timestamp: 1_700_000_000_000,
-      });
-    });
-    setGeolocation({ getCurrentPosition });
-    expect(await readLocation()).toEqual({
+  test("Takes the first fresh high-accuracy reading, keeps its timestamp and stops listening", async () => {
+    const watch = fakeWatch();
+    const pending = readLocation();
+    const takenAt = Date.now();
+    watch.emit(position({ timestamp: takenAt }));
+    expect(await pending).toEqual({
       accuracyMeters: 18.5,
-      capturedAt: 1_700_000_000_000,
+      capturedAt: takenAt,
       kind: "position",
       latitude: 12.5,
       longitude: 77.25,
     });
-    expect(getCurrentPosition).toHaveBeenCalledTimes(1);
+    expect(watch.options).toEqual(LOCATION_REQUEST_OPTIONS);
+    expect(watch.cleared).toEqual([7]);
     expect(LOCATION_REQUEST_OPTIONS).toEqual({
       enableHighAccuracy: true,
       maximumAge: 0,
@@ -65,41 +84,80 @@ describe("readLocation", () => {
     [2, "position_unavailable"],
     [3, "timeout"],
   ])("Maps error code %i to %s", async (code, expected) => {
+    const watch = fakeWatch();
+    const pending = readLocation();
+    watch.fail({ code });
+    expect(await pending).toEqual({ code: expected, kind: "error" });
+    expect(watch.cleared).toEqual([7]);
+  });
+
+  test("Stops a watch that answered before its id was returned", async () => {
+    const cleared = [];
     setGeolocation({
-      getCurrentPosition: (_success, error) => error?.({ code }),
+      clearWatch: (id) => cleared.push(id),
+      watchPosition: (success) => {
+        success(position({ timestamp: Date.now() }));
+        return 3;
+      },
     });
-    expect(await readLocation()).toEqual({ code: expected, kind: "error" });
+    expect((await readLocation()).kind).toBe("position");
+    expect(cleared).toEqual([3]);
+  });
+});
+
+describe("readLocation with a remembered position", () => {
+  test("Skips the device's old position and waits for one taken after the press", async () => {
+    const watch = fakeWatch();
+    const pending = readLocation();
+    watch.emit(position({ latitude: 1, timestamp: Date.now() - 45 * 60_000 }));
+    const takenAt = Date.now();
+    watch.emit(position({ latitude: 19.07, timestamp: takenAt }));
+    const reading = await pending;
+    expect(reading).toMatchObject({ capturedAt: takenAt, latitude: 19.07 });
+    expect(watch.cleared).toEqual([7]);
+  });
+
+  test("Sends the newest old reading when no fresh one comes in time", async () => {
+    const watch = fakeWatch();
+    const pending = readLocation(1000, 20);
+    const old = Date.now() - 45 * 60_000;
+    watch.emit(position({ latitude: 1, timestamp: old }));
+    watch.emit(position({ latitude: 2, timestamp: old + 1000 }));
+    expect(await pending).toMatchObject({ capturedAt: old + 1000, latitude: 2 });
+    expect(watch.cleared).toEqual([7]);
+  });
+
+  test("Sends the old reading rather than an error when the browser then gives up", async () => {
+    const watch = fakeWatch();
+    const pending = readLocation();
+    const old = Date.now() - 45 * 60_000;
+    watch.emit(position({ timestamp: old }));
+    watch.fail({ code: 3 });
+    expect(await pending).toMatchObject({ capturedAt: old, kind: "position" });
   });
 });
 
 describe("readLocation timestamps", () => {
   test("Scales a microsecond device timestamp back to milliseconds", async () => {
-    setGeolocation({
-      getCurrentPosition: (success) =>
-        success({
-          coords: { accuracy: 25, latitude: 18.5, longitude: 73.8 },
-          timestamp: 1_793_917_339_994_000,
-        }),
-    });
-    expect((await readLocation()).capturedAt).toBe(1_793_917_339_994);
+    const watch = fakeWatch();
+    const pending = readLocation();
+    const takenAt = Date.now();
+    watch.emit(position({ timestamp: takenAt * 1000 }));
+    expect((await pending).capturedAt).toBe(takenAt);
   });
 });
 
 describe("readLocation watchdog", () => {
   test("Reports a timeout when the browser never answers, so the press can finish", async () => {
-    setGeolocation({ getCurrentPosition: () => undefined });
+    const watch = fakeWatch();
     expect(await readLocation(20)).toEqual({ code: "timeout", kind: "error" });
+    expect(watch.cleared).toEqual([7]);
   });
 
   test("Ignores a late browser answer after the watchdog has fired", async () => {
-    let late;
-    setGeolocation({
-      getCurrentPosition: (success) => {
-        late = success;
-      },
-    });
+    const watch = fakeWatch();
     const reading = await readLocation(10);
-    late({ coords: { accuracy: 5, latitude: 1, longitude: 2 }, timestamp: 1 });
+    watch.emit(position({ timestamp: Date.now() }));
     expect(reading).toEqual({ code: "timeout", kind: "error" });
   });
 });

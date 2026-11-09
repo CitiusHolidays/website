@@ -33,6 +33,9 @@ check-ins came from but did not match. Confirm any candidate with IT before addi
 - An accuracy limit in metres, smaller than the radius (a reading passes only when its whole
   accuracy circle fits inside the fence). Indoor phone readings are often 20 to 100 m and desktop browsers
   without GPS can be kilometres off. Readings worse than the limit are recorded as uncertain.
+  A device can first answer with the position it remembers from earlier (common on a Mac after
+  sleep), so the press waits up to 10 seconds for a reading taken after it; only if none arrives is
+  the old one sent, and it is recorded as uncertain.
 - Which staff use phones or laptops versus fixed desktops. Desktops usually cannot give a useful
   location, so a location-only or "both" rule will leave them uncertain.
 
