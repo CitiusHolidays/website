@@ -212,10 +212,10 @@ describe("Office check-in presentation", () => {
       tone: "blue",
     });
     expect(teamStatusFor(failed({ awayReason: "market_visit", status: "closed" }))).toEqual({
-      label: "On market visit",
+      label: "Sales call",
       tone: "gray",
     });
-    expect(teamStatusFor(failed({ awayReason: "out_of_office" })).label).toBe("Out of office");
+    expect(teamStatusFor(failed({ awayReason: "out_of_office" })).label).toBe("Work from home");
     // A held check-in still says it needs the manager.
     expect(
       teamStatusFor(failed({ admission: "pending_review", awayReason: "on_tour" })).label

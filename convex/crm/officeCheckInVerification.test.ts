@@ -831,7 +831,7 @@ describe("Away answer locations", () => {
     ...overrides,
   });
 
-  test("Only On tour and On market visit carry a location", () => {
+  test("Only On tour and Sales call carry a location", () => {
     expect(awayReasonNeedsLocation("on_tour")).toBe(true);
     expect(awayReasonNeedsLocation("market_visit")).toBe(true);
     expect(awayReasonNeedsLocation("out_of_office")).toBe(false);

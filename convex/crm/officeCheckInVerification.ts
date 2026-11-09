@@ -54,8 +54,8 @@ export function needsAwayReason(checkIn: {
 }
 
 /**
- * On tour and On market visit carry the person's location at the moment they answer, so the
- * person who oversees them can see where they were (owner decision 2026-11-07). Out of office
+ * On tour and Sales call carry the person's location at the moment they answer, so the
+ * person who oversees them can see where they were (owner decision 2026-11-07). Work from home
  * carries none. This is the one place check-in keeps an exact point; it is deleted with the
  * check-in at the end of the retention period.
  */

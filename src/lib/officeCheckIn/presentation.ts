@@ -98,9 +98,9 @@ export const NETWORK_KIND_LABELS = {
 
 /** The answers to "Where are you working today?", asked when a clock-in check fails. */
 export const AWAY_REASON_LABELS = {
-  market_visit: "On market visit",
+  market_visit: "Sales call",
   on_tour: "On tour",
-  out_of_office: "Out of office",
+  out_of_office: "Work from home",
 } satisfies Record<AwayReason, string>;
 
 export const OUTCOME_LABELS = {
@@ -117,8 +117,8 @@ const OUTCOME_TONES = {
 
 /**
  * A check that didn't pass reads Fail or Uncertain only while the person hasn't said where they
- * are. Once they have, the badge says what the answer means: On tour and On market visit wait for
- * a manager to check, and Out of office simply wasn't at the office. The evidence is unchanged.
+ * are. Once they have, the badge says what the answer means: On tour and Sales call wait for
+ * a manager to check, and Work from home simply wasn't at the office. The evidence is unchanged.
  */
 const AWAY_CHECK_BADGES = {
   market_visit: { label: "Under review", tone: "amber" },
@@ -196,18 +196,18 @@ export function describeGeofenceReason(reason: GeofenceReason, accuracyMeters?: 
 }
 
 /**
- * Why On tour or On market visit couldn't be saved: both need the person's location, so unlike a
+ * Why On tour or Sales call couldn't be saved: both need the person's location, so unlike a
  * clock-in, nothing is recorded without it.
  */
 export function describeAwayLocationProblem(code: GeolocationErrorCode) {
   const cause = {
-    not_supported: "This browser can't share location. Try your phone, or choose Out of office.",
+    not_supported: "This browser can't share location. Try your phone, or choose Work from home.",
     permission_denied: "Your browser or device blocked location. The steps below turn it on.",
     position_unavailable:
       "Your device couldn't work out where it is. The steps below check that location is on.",
     timeout: "Your device took too long to find its location. Try again.",
   } satisfies Record<GeolocationErrorCode, string>;
-  return `Not saved: On tour and On market visit need your location. ${cause[code]}`;
+  return `Not saved: On tour and Sales call need your location. ${cause[code]}`;
 }
 
 /** "Location at 12:34, accurate to about 20 m" in the office time zone. */

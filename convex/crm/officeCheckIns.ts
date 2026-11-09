@@ -381,14 +381,14 @@ export const clockOutViaGateway = mutation({
 });
 
 const AWAY_REASON_WORDS = {
-  market_visit: "on market visit",
-  on_tour: "on tour",
-  out_of_office: "out of office",
+  market_visit: "on a sales call",
+  on_tour: "working on tour",
+  out_of_office: "working from home",
 } satisfies Record<AwayReason, string>;
 
 /**
  * The person says where they are working when their own clock-in check didn't
- * pass: on tour, on a market visit, or out of office. It is their statement,
+ * pass: on tour, on a sales call, or working from home. It is their statement,
  * recorded beside the evidence, and it never changes admission: a pending
  * check-in still waits for a manager. They may change it while clocked in, until
  * a manager has reviewed the session.
@@ -396,7 +396,7 @@ const AWAY_REASON_WORDS = {
 export const chooseAwayReason = mutation({
   args: {
     checkInId: v.id("officeCheckIns"),
-    /** Required for On tour and On market visit: the device's reading when the person answered. */
+    /** Required for On tour and Sales call: the device's reading when the person answered. */
     location: v.optional(locationReadingValidator),
     reason: awayReasonValidator,
   },
@@ -434,7 +434,7 @@ export const chooseAwayReason = mutation({
       }
       answer.awayLocation = located.location;
     } else {
-      // Out of office carries no location; drop any point from an earlier answer.
+      // Work from home carries no location; drop any point from an earlier answer.
       answer.awayLocation = undefined;
     }
     await ctx.db.patch("officeCheckIns", checkIn._id, answer);
@@ -448,7 +448,7 @@ export const chooseAwayReason = mutation({
       subjectStaffId: checkIn.staffId,
       // The audit line says a location was shared, never where.
       summary: [
-        `working ${AWAY_REASON_WORDS[args.reason]}`,
+        AWAY_REASON_WORDS[args.reason],
         answer.awayLocation ? ", location shared" : "",
         previous ? ` (was ${AWAY_REASON_WORDS[previous]})` : "",
       ].join(""),

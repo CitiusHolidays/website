@@ -59,7 +59,7 @@ function busyLabel(phase: Phase, reason: AwayReason) {
 
 /**
  * Asks where the person is working when their clock-in check didn't place them at the office.
- * On tour and On market visit read the device's location once, when pressed, and save it with
+ * On tour and Sales call read the device's location once, when pressed, and save it with
  * the answer for the people who oversee them; without a location those two can't be saved. The
  * answer can be changed while clocked in, until a manager has reviewed the session.
  */
@@ -116,8 +116,8 @@ export function AwayReasonPicker({ session }: { session: CheckInRecord }) {
             : "We couldn't confirm you're at the office. Choose one so your manager knows."}
         </p>
         <p className="text-brand-muted text-xs">
-          On tour and On market visit share your location at that moment with the people who oversee
-          you, so they can check it. It is kept with this check-in for 3 months.
+          On tour and Sales call share your location at that moment with the people who oversee you,
+          so they can check it. It is kept with this check-in for 3 months.
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
