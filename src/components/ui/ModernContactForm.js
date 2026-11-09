@@ -359,9 +359,8 @@ function ContactFormSuccess({ onStartAnother }) {
   );
 }
 
-export default function ModernContactForm({ initialValues }) {
+function ContactEnquiryForm({ form, initialValues }) {
   const {
-    announcement,
     buttonState,
     clearFocusedField,
     errors,
@@ -373,10 +372,197 @@ export default function ModernContactForm({ initialValues }) {
     handleTurnstileVerify,
     messageRef,
     onSubmit,
-    startAnother,
     submitted,
     updateFormValue,
-  } = useModernContactForm(initialValues);
+  } = form;
+
+  return (
+    <form
+      aria-busy={buttonState === "processing"}
+      className="space-y-6"
+      hidden={submitted}
+      noValidate
+      onSubmit={onSubmit}
+      ref={formRef}
+    >
+      {/* Honeypot — hidden from users; bots often fill every field */}
+      <div aria-hidden="true" className="absolute -left-[9999px] size-0 overflow-hidden opacity-0">
+        <label htmlFor="company">Company</label>
+        <input
+          autoComplete="off"
+          disabled={buttonState === "processing"}
+          id="company"
+          name="company"
+          onChange={updateFormValue}
+          tabIndex={-1}
+          type="text"
+          value={formValues.company}
+        />
+      </div>
+
+      {initialValues?.destination ? (
+        <div>
+          <label className="mb-2 block text-gray-700 text-sm" htmlFor="destination">
+            Destination
+          </label>
+          <input
+            className="min-h-12 w-full rounded-lg border-2 border-gray-300 bg-white px-4 py-3 text-gray-800 focus:border-orange-500 focus:outline-none"
+            disabled={buttonState === "processing"}
+            id="destination"
+            maxLength={80}
+            name="destination"
+            onChange={updateFormValue}
+            type="text"
+            value={formValues.destination}
+          />
+        </div>
+      ) : null}
+      {INPUT_FIELDS.map((field) => {
+        const focused = focusedField === field.name;
+        const raised = focused || Boolean(formValues[field.name]);
+        return (
+          <div className="relative" key={field.name}>
+            <div className="absolute top-1/2 left-4 z-10 -translate-y-1/2 transform">
+              <field.icon
+                className={`size-5 ${errors[field.name] ? "text-red-500" : "text-gray-400"}`}
+              />
+            </div>
+
+            <label
+              className="pointer-events-none absolute top-1/2 left-12 text-gray-500 transition-[color,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none"
+              htmlFor={field.name}
+              style={floatingLabelStyle({
+                error: Boolean(errors[field.name]),
+                focused,
+                raised,
+              })}
+            >
+              {field.label}
+            </label>
+
+            <input
+              aria-describedby={errors[field.name] ? `${field.name}-error` : undefined}
+              aria-invalid={errors[field.name] ? "true" : "false"}
+              aria-label={field.label}
+              autoComplete={field.autoComplete}
+              className={`w-full rounded-lg border-2 bg-white px-12 py-4 text-gray-800 transition-[border-color,box-shadow] duration-200 focus:outline-none ${
+                errors[field.name]
+                  ? "border-red-500 focus:border-red-500"
+                  : "border-gray-300 focus:border-orange-500"
+              }`}
+              disabled={buttonState === "processing"}
+              id={field.name}
+              name={field.name}
+              onBlur={clearFocusedField}
+              onChange={updateFormValue}
+              onFocus={focusField}
+              type={field.type}
+              value={formValues[field.name]}
+            />
+            {errors[field.name] ? (
+              <p
+                className="mt-1 ml-1 flex items-center gap-1 text-red-500 text-sm"
+                id={`${field.name}-error`}
+              >
+                <AlertCircle size={14} /> {errors[field.name]}
+              </p>
+            ) : null}
+          </div>
+        );
+      })}
+
+      <div className="relative">
+        <div className="absolute top-5 left-4 z-10">
+          <MessageSquare
+            className={`size-5 ${errors.message ? "text-red-500" : "text-gray-400"}`}
+          />
+        </div>
+
+        <label
+          className="pointer-events-none absolute top-5 left-12 text-gray-500 transition-[color,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none"
+          htmlFor="message"
+          style={floatingLabelStyle({
+            error: Boolean(errors.message),
+            focused: focusedField === "message",
+            raised: focusedField === "message" || Boolean(formValues.message),
+            textarea: true,
+          })}
+        >
+          Message
+        </label>
+
+        <textarea
+          aria-describedby={errors.message ? "message-error" : undefined}
+          aria-invalid={errors.message ? "true" : "false"}
+          aria-label="Message"
+          className={`w-full resize-none rounded-lg border-2 bg-white px-12 py-4 text-gray-800 transition-[border-color,box-shadow] duration-200 focus:outline-none ${
+            errors.message
+              ? "border-red-500 focus:border-red-500"
+              : "border-gray-300 focus:border-orange-500"
+          }`}
+          disabled={buttonState === "processing"}
+          id="message"
+          name="message"
+          onBlur={clearFocusedField}
+          onChange={updateFormValue}
+          onFocus={focusField}
+          onInput={resizeMessageInput}
+          ref={messageRef}
+          rows={4}
+          value={formValues.message}
+        />
+        {errors.message ? (
+          <p className="mt-1 ml-1 flex items-center gap-1 text-red-500 text-sm" id="message-error">
+            <AlertCircle size={14} /> {errors.message}
+          </p>
+        ) : null}
+      </div>
+
+      <div>
+        <label className="flex cursor-pointer items-start gap-3 text-gray-700 text-sm">
+          <input
+            aria-describedby={errors.consent ? "consent-help consent-error" : "consent-help"}
+            aria-invalid={errors.consent ? "true" : "false"}
+            checked={formValues.consent}
+            className="mt-0.5 size-5 shrink-0 accent-orange-500"
+            disabled={buttonState === "processing"}
+            name="consent"
+            onChange={updateFormValue}
+            type="checkbox"
+          />
+          <span id="consent-help">
+            I agree that Citius Holidays may contact me about this enquiry.
+          </span>
+        </label>
+        {errors.consent ? (
+          <p className="mt-1 ml-8 flex items-center gap-1 text-red-500 text-sm" id="consent-error">
+            <AlertCircle size={14} /> {errors.consent}
+          </p>
+        ) : null}
+      </div>
+
+      {errors.form || errors.turnstile ? (
+        <p className="mt-1 ml-1 flex items-center gap-1 text-red-500 text-sm">
+          <AlertCircle size={14} /> {errors.form || errors.turnstile}
+        </p>
+      ) : null}
+
+      {TURNSTILE_SITE_KEY ? (
+        <TurnstileWidget
+          onError={handleTurnstileExpire}
+          onExpire={handleTurnstileExpire}
+          onVerify={handleTurnstileVerify}
+          siteKey={TURNSTILE_SITE_KEY}
+        />
+      ) : null}
+
+      <AnimatedSubmitButton isSubmitting={buttonState === "processing"} state={buttonState} />
+    </form>
+  );
+}
+
+export default function ModernContactForm({ initialValues }) {
+  const form = useModernContactForm(initialValues);
 
   return (
     <div className="mx-auto w-full max-w-md">
@@ -389,199 +575,10 @@ export default function ModernContactForm({ initialValues }) {
       </div>
 
       <p aria-live="polite" className="sr-only" role="status">
-        {announcement}
+        {form.announcement}
       </p>
-      {submitted ? <ContactFormSuccess onStartAnother={startAnother} /> : null}
-      <form
-        aria-busy={buttonState === "processing"}
-        className="space-y-6"
-        hidden={submitted}
-        noValidate
-        onSubmit={onSubmit}
-        ref={formRef}
-      >
-        {/* Honeypot — hidden from users; bots often fill every field */}
-        <div
-          aria-hidden="true"
-          className="absolute -left-[9999px] size-0 overflow-hidden opacity-0"
-        >
-          <label htmlFor="company">Company</label>
-          <input
-            autoComplete="off"
-            disabled={buttonState === "processing"}
-            id="company"
-            name="company"
-            onChange={updateFormValue}
-            tabIndex={-1}
-            type="text"
-            value={formValues.company}
-          />
-        </div>
-
-        {initialValues?.destination ? (
-          <div>
-            <label className="mb-2 block text-gray-700 text-sm" htmlFor="destination">
-              Destination
-            </label>
-            <input
-              className="min-h-12 w-full rounded-lg border-2 border-gray-300 bg-white px-4 py-3 text-gray-800 focus:border-orange-500 focus:outline-none"
-              disabled={buttonState === "processing"}
-              id="destination"
-              maxLength={80}
-              name="destination"
-              onChange={updateFormValue}
-              type="text"
-              value={formValues.destination}
-            />
-          </div>
-        ) : null}
-        {INPUT_FIELDS.map((field) => {
-          const focused = focusedField === field.name;
-          const raised = focused || Boolean(formValues[field.name]);
-          return (
-            <div className="relative" key={field.name}>
-              <div className="absolute top-1/2 left-4 z-10 -translate-y-1/2 transform">
-                <field.icon
-                  className={`size-5 ${errors[field.name] ? "text-red-500" : "text-gray-400"}`}
-                />
-              </div>
-
-              <label
-                className="pointer-events-none absolute top-1/2 left-12 text-gray-500 transition-[color,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none"
-                htmlFor={field.name}
-                style={floatingLabelStyle({
-                  error: Boolean(errors[field.name]),
-                  focused,
-                  raised,
-                })}
-              >
-                {field.label}
-              </label>
-
-              <input
-                aria-describedby={errors[field.name] ? `${field.name}-error` : undefined}
-                aria-invalid={errors[field.name] ? "true" : "false"}
-                aria-label={field.label}
-                autoComplete={field.autoComplete}
-                className={`w-full rounded-lg border-2 bg-white px-12 py-4 text-gray-800 transition-[border-color,box-shadow] duration-200 focus:outline-none ${
-                  errors[field.name]
-                    ? "border-red-500 focus:border-red-500"
-                    : "border-gray-300 focus:border-orange-500"
-                }`}
-                disabled={buttonState === "processing"}
-                id={field.name}
-                name={field.name}
-                onBlur={clearFocusedField}
-                onChange={updateFormValue}
-                onFocus={focusField}
-                type={field.type}
-                value={formValues[field.name]}
-              />
-              {errors[field.name] ? (
-                <p
-                  className="mt-1 ml-1 flex items-center gap-1 text-red-500 text-sm"
-                  id={`${field.name}-error`}
-                >
-                  <AlertCircle size={14} /> {errors[field.name]}
-                </p>
-              ) : null}
-            </div>
-          );
-        })}
-
-        <div className="relative">
-          <div className="absolute top-5 left-4 z-10">
-            <MessageSquare
-              className={`size-5 ${errors.message ? "text-red-500" : "text-gray-400"}`}
-            />
-          </div>
-
-          <label
-            className="pointer-events-none absolute top-5 left-12 text-gray-500 transition-[color,transform] duration-[160ms] ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none"
-            htmlFor="message"
-            style={floatingLabelStyle({
-              error: Boolean(errors.message),
-              focused: focusedField === "message",
-              raised: focusedField === "message" || Boolean(formValues.message),
-              textarea: true,
-            })}
-          >
-            Message
-          </label>
-
-          <textarea
-            aria-describedby={errors.message ? "message-error" : undefined}
-            aria-invalid={errors.message ? "true" : "false"}
-            aria-label="Message"
-            className={`w-full resize-none rounded-lg border-2 bg-white px-12 py-4 text-gray-800 transition-[border-color,box-shadow] duration-200 focus:outline-none ${
-              errors.message
-                ? "border-red-500 focus:border-red-500"
-                : "border-gray-300 focus:border-orange-500"
-            }`}
-            disabled={buttonState === "processing"}
-            id="message"
-            name="message"
-            onBlur={clearFocusedField}
-            onChange={updateFormValue}
-            onFocus={focusField}
-            onInput={resizeMessageInput}
-            ref={messageRef}
-            rows={4}
-            value={formValues.message}
-          />
-          {errors.message ? (
-            <p
-              className="mt-1 ml-1 flex items-center gap-1 text-red-500 text-sm"
-              id="message-error"
-            >
-              <AlertCircle size={14} /> {errors.message}
-            </p>
-          ) : null}
-        </div>
-
-        <div>
-          <label className="flex cursor-pointer items-start gap-3 text-gray-700 text-sm">
-            <input
-              aria-describedby={errors.consent ? "consent-help consent-error" : "consent-help"}
-              aria-invalid={errors.consent ? "true" : "false"}
-              checked={formValues.consent}
-              className="mt-0.5 size-5 shrink-0 accent-orange-500"
-              disabled={buttonState === "processing"}
-              name="consent"
-              onChange={updateFormValue}
-              type="checkbox"
-            />
-            <span id="consent-help">
-              I agree that Citius Holidays may contact me about this enquiry.
-            </span>
-          </label>
-          {errors.consent ? (
-            <p
-              className="mt-1 ml-8 flex items-center gap-1 text-red-500 text-sm"
-              id="consent-error"
-            >
-              <AlertCircle size={14} /> {errors.consent}
-            </p>
-          ) : null}
-        </div>
-
-        {errors.form || errors.turnstile ? (
-          <p className="mt-1 ml-1 flex items-center gap-1 text-red-500 text-sm">
-            <AlertCircle size={14} /> {errors.form || errors.turnstile}
-          </p>
-        ) : null}
-
-        {TURNSTILE_SITE_KEY ? (
-          <TurnstileWidget
-            onError={handleTurnstileExpire}
-            onExpire={handleTurnstileExpire}
-            onVerify={handleTurnstileVerify}
-            siteKey={TURNSTILE_SITE_KEY}
-          />
-        ) : null}
-
-        <AnimatedSubmitButton isSubmitting={buttonState === "processing"} state={buttonState} />
-      </form>
+      {form.submitted ? <ContactFormSuccess onStartAnother={form.startAnother} /> : null}
+      <ContactEnquiryForm form={form} initialValues={initialValues} />
     </div>
   );
 }
