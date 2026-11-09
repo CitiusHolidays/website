@@ -115,6 +115,44 @@ describe("Better Auth transactional email callbacks", () => {
   });
 });
 
+test("Carries the sign-in area from the reset callback into the emailed link", async () => {
+  const originalKey = process.env.RESEND_API_KEY;
+  const originalFetch = globalThis.fetch;
+  process.env.RESEND_API_KEY = "test-provider-key";
+  const sentBodies: string[] = [];
+  globalThis.fetch = (_input: RequestInfo | URL, init?: RequestInit) => {
+    sentBodies.push(String(init?.body ?? ""));
+    return Promise.resolve(new Response(null, { status: 400 }));
+  };
+  const consoleError = spyOn(console, "error").mockImplementation(() => undefined);
+  const callback = "http://localhost:3000/auth/reset-password?from=connect&auth_delivery=opaque";
+  try {
+    const { ctx } = createReceiptContext();
+    await createAuthOptions(ctx).emailAndPassword?.sendResetPassword?.({
+      token: "reset-token",
+      url: `http://localhost:3000/api/auth/reset-password/reset-token?callbackURL=${encodeURIComponent(callback)}`,
+      user: {
+        createdAt: new Date(),
+        email: "person@example.com",
+        emailVerified: true,
+        id: "auth-user",
+        name: "Person",
+        updatedAt: new Date(),
+      },
+    });
+
+    expect(sentBodies.join("")).toContain("/auth/reset-password?token=reset-token&from=connect");
+  } finally {
+    consoleError.mockRestore();
+    globalThis.fetch = originalFetch;
+    if (originalKey === undefined) {
+      delete process.env.RESEND_API_KEY;
+    } else {
+      process.env.RESEND_API_KEY = originalKey;
+    }
+  }
+});
+
 describe("Native app sign-in configuration", () => {
   test("Enables the Expo plugin and trusts only the Citius app schemes", () => {
     // SAFETY: option construction reads environment only; no Convex context method is invoked.

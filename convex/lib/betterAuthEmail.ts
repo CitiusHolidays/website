@@ -12,6 +12,11 @@ function getSiteUrl() {
   return resolveAuthOrigin(process.env);
 }
 
+// Staff invitations return to Citius Connect; every other recovery email is a traveller's.
+function recoveryArea(controlKey: AuthEmailControlKey) {
+  return controlKey === "email.auth.staff_setup" ? "connect" : "guest";
+}
+
 function outcomeReason(
   purpose: AuthEmailPurpose,
   outcome: Awaited<ReturnType<typeof getAuthEmailDeliveryOutcome>>
@@ -32,7 +37,7 @@ export async function sendVerificationEmail(
   const correlation = await createTrustedAuthEmailCorrelation(
     ctx,
     "verification",
-    `${siteUrl}/auth/email-verified`,
+    `${siteUrl}/auth/email-verified?from=${recoveryArea(controlKey)}`,
     email,
     controlKey
   );
@@ -60,7 +65,7 @@ export async function sendPasswordSetupEmail(
   const correlation = await createTrustedAuthEmailCorrelation(
     ctx,
     "password_reset",
-    `${siteUrl}/auth/reset-password`,
+    `${siteUrl}/auth/reset-password?from=${recoveryArea(controlKey)}`,
     email,
     controlKey
   );
