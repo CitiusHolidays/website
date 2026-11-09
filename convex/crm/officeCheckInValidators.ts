@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import { literalUnion } from "../lib/literalValidators";
 import {
   AWAY_REASONS,
   CHECK_IN_REQUIREMENTS,
@@ -11,15 +12,11 @@ import {
   SIGNAL_OUTCOMES,
 } from "./officeCheckInVerification";
 
-function literals<const Value extends string>(values: readonly Value[]) {
-  return v.union(...values.map((value) => v.literal(value)));
-}
-
-export const checkInRequirementValidator = literals(CHECK_IN_REQUIREMENTS);
-export const enforcementModeValidator = literals(ENFORCEMENT_MODES);
-export const signalOutcomeValidator = literals(SIGNAL_OUTCOMES);
-export const networkEntryKindValidator = literals(NETWORK_ENTRY_KINDS);
-export const awayReasonValidator = literals(AWAY_REASONS);
+export const checkInRequirementValidator = literalUnion(CHECK_IN_REQUIREMENTS);
+export const enforcementModeValidator = literalUnion(ENFORCEMENT_MODES);
+export const signalOutcomeValidator = literalUnion(SIGNAL_OUTCOMES);
+export const networkEntryKindValidator = literalUnion(NETWORK_ENTRY_KINDS);
+export const awayReasonValidator = literalUnion(AWAY_REASONS);
 
 /** The exact point stored with an On tour or Sales call answer (see `awayLocationFrom`). */
 export const awayLocationValidator = v.object({
@@ -50,7 +47,7 @@ export const locationReadingValidator = v.union(
     latitude: v.number(),
     longitude: v.number(),
   }),
-  v.object({ code: literals(GEOLOCATION_ERROR_CODES), kind: v.literal("error") }),
+  v.object({ code: literalUnion(GEOLOCATION_ERROR_CODES), kind: v.literal("error") }),
   v.object({ kind: v.literal("not_requested") })
 );
 
@@ -65,9 +62,9 @@ export const verificationRecordValidator = v.object({
   geofence: v.optional(
     v.object({
       accuracyMeters: v.optional(v.number()),
-      distanceBand: v.optional(literals(DISTANCE_BANDS)),
+      distanceBand: v.optional(literalUnion(DISTANCE_BANDS)),
       outcome: signalOutcomeValidator,
-      reason: literals(GEOFENCE_REASONS),
+      reason: literalUnion(GEOFENCE_REASONS),
     })
   ),
   network: v.optional(
@@ -76,7 +73,7 @@ export const verificationRecordValidator = v.object({
       matchedLabel: v.optional(v.string()),
       observedPrefix: v.optional(v.string()),
       outcome: signalOutcomeValidator,
-      reason: literals(NETWORK_REASONS),
+      reason: literalUnion(NETWORK_REASONS),
     })
   ),
   outcome: signalOutcomeValidator,

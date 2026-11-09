@@ -51,6 +51,8 @@ export const passengerImportBatchResultValidator = v.object({
   updated: v.number(),
 });
 
+export type PassengerImportPreview = Awaited<ReturnType<typeof previewPassengerImportRowsHandler>>;
+
 export async function previewPassengerImportRowsHandler(
   ctx: QueryCtx,
   args: { access: PortalAccess; jobCardId: Id<"jobCards">; rows: PassengerImportRow[] }

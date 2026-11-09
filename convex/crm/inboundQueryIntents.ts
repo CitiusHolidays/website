@@ -14,13 +14,8 @@ import {
 import { recordOperationalEffect, resolveOperationalControl } from "./lib/operationalControls";
 import { boundedPaginationOptions } from "./paginationPolicy";
 import { handleQueryCreate } from "./queryCreation";
-import { queryTypeValidator, travelTypeValidator } from "./queryValidators";
+import { inboundSourceValidator, queryTypeValidator, travelTypeValidator } from "./queryValidators";
 
-const inboundSourceValidator = v.union(
-  v.literal("Citius Concierge"),
-  v.literal("Sacred Bharat"),
-  v.literal("Website")
-);
 const sacredBharatContextValidator = v.object({
   entryPoint: v.union(v.literal("journey_planner"), v.literal("trail")),
   templeId: v.optional(v.string()),

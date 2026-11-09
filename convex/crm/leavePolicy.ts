@@ -1,4 +1,5 @@
 import type { Id } from "../_generated/dataModel";
+import { literalUnion } from "../lib/literalValidators";
 
 export const LEAVE_TYPES = [
   "Privilege",
@@ -12,6 +13,8 @@ export const LEAVE_TYPES = [
 ] as const;
 
 export type LeaveType = (typeof LEAVE_TYPES)[number];
+
+export const leaveTypeValidator = literalUnion(LEAVE_TYPES);
 
 interface StaffForLeave {
   employmentStatus?: "Probationer" | "Confirmed";

@@ -1,3 +1,5 @@
+import { literalUnion } from "../../lib/literalValidators";
+
 export const PERMISSIONS = {
   APPROVE_EXPENSES: "approve:expenses",
   APPROVE_LEAVE: "approve:leave",
@@ -63,6 +65,8 @@ export const ALL_ROLES = [
 ] as const;
 
 export type StaffRole = (typeof ALL_ROLES)[number];
+
+export const staffRoleValidator = literalUnion(ALL_ROLES);
 
 export function isStaffRole(value: string): value is StaffRole {
   return ALL_ROLES.some((role) => role === value);

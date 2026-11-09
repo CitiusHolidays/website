@@ -12,20 +12,10 @@ import { aggregateMetric, loadMetricTotals } from "./metricAggregates";
 import type { MetricValues } from "./metricTypes";
 import { reportsOverviewResultValidator } from "./miscReturnContracts";
 import { loadReportsSnapshot, OPERATIONAL_DETAIL_LIMIT } from "./operationalSnapshots";
-
-const REPORT_QUERY_TYPES = [
-  "MICE",
-  "MICE Bidding",
-  "Cement",
-  "Cement Bidding",
-  "FIT",
-  "Family Group",
-  "B2B",
-  "Spiritual",
-] as const;
+import { QUERY_TYPES } from "./queryValidators";
 
 export function buildAggregateReport(values: MetricValues, confirmedOnly: boolean) {
-  const revenueByType = REPORT_QUERY_TYPES.flatMap((queryType) => {
+  const revenueByType = QUERY_TYPES.flatMap((queryType) => {
     const row = {
       count: aggregateMetric(
         values,

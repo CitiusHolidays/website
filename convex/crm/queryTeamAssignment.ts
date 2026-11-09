@@ -15,9 +15,7 @@ import {
 import { insertWithE2eOwnership, patchWithE2eOwnership } from "./lib/e2eOwnership";
 import { publishWorkNotification } from "./lib/notifications";
 import { refreshProposalLinkProjections } from "./proposalLinkProjection";
-
-const TICKETING_SCOPE_VALUES = ["Domestic", "International", "Both", "Not required"] as const;
-type TicketingScope = (typeof TICKETING_SCOPE_VALUES)[number];
+import { TICKETING_SCOPES, type TicketingScope } from "./queryValidators";
 
 async function loadVisibleQueryForAssignment(
   ctx: MutationCtx,
@@ -77,10 +75,10 @@ function normalizedTicketingScope(scope: string | undefined): TicketingScope | u
   if (!value) {
     return;
   }
-  if (!TICKETING_SCOPE_VALUES.some((candidate) => candidate === value)) {
+  if (!TICKETING_SCOPES.some((candidate) => candidate === value)) {
     throw new ConvexError("Select a valid Ticketing Scope.");
   }
-  return TICKETING_SCOPE_VALUES.find((candidate) => candidate === value);
+  return TICKETING_SCOPES.find((candidate) => candidate === value);
 }
 
 function isHeadAssignmentAccess(access: PortalAccess) {

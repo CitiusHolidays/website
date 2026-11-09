@@ -1,6 +1,7 @@
 "use client";
 
 import { api } from "@convex/_generated/api";
+import type { ProductionTestRecipeId } from "@convex/crm/lib/productionTestRecipes";
 import { useAction, useConvexAuth, useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { ShieldCheck } from "lucide-react";
 import { useRef, useState } from "react";
@@ -24,7 +25,6 @@ import {
   type OperationalControlKey,
   type OperationalControlRow,
   type PersistedControlState,
-  type ProductionTestRecipeId,
   type ProductionTestResult,
   persistedStateForConfiguredState,
   type RestorationChoice,

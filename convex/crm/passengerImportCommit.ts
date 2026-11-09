@@ -31,7 +31,7 @@ import type {
 } from "./passengerImportReceipts";
 import type {
   commitPassengerImportRowHandler,
-  previewPassengerImportRowsHandler,
+  PassengerImportPreview,
 } from "./passengerImportRows";
 
 const SOURCE_DIGEST_PATTERN = /^[0-9a-f]{64}$/i;
@@ -104,7 +104,6 @@ export type PassengerImportCommitResult = PassengerImportCommitSummary & {
 };
 
 type CommittedPassengerRow = Awaited<ReturnType<typeof commitPassengerImportRowHandler>>;
-type PassengerImportPreview = Awaited<ReturnType<typeof previewPassengerImportRowsHandler>>;
 type PassengerImportBatchClaim = Awaited<
   ReturnType<typeof claimPassengerImportOperationBatchHandler>
 >;
