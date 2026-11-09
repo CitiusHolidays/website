@@ -1,4 +1,5 @@
 import { describe, expect, mock, test } from "bun:test";
+import { Suspense } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 let searchParams = new URLSearchParams();
@@ -14,6 +15,7 @@ mock.module("next/image", () => ({
 
 const { default: ResetPasswordPage } = await import("./reset-password/page.client.js");
 const { default: EmailVerifiedPage } = await import("./email-verified/page.client.js");
+const { default: EmailVerifiedRoute } = await import("./email-verified/page.js");
 const { travellerDestination } = await import("@/lib/auth-sign-in-targets");
 const { default: ForgotPasswordPage } = await import("./forgot-password/page.client.js");
 
@@ -69,6 +71,13 @@ describe("Email verified page", () => {
     for (const next of ["/portal", "https://evil.example/account", "//evil.example", undefined]) {
       expect(travellerDestination({ from: "guest", next })).toBeNull();
     }
+  });
+
+  test("Reads the link's query inside Suspense so the page can prerender", () => {
+    // Cache Components fails the production build when a page awaits searchParams outside Suspense.
+    const element = EmailVerifiedRoute({ searchParams: Promise.resolve({}) });
+    expect(element).not.toBeInstanceOf(Promise);
+    expect(element.type).toBe(Suspense);
   });
 
   test("Never forwards staff or an expired link", () => {
