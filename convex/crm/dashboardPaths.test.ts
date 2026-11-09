@@ -35,11 +35,11 @@ describe("Dashboard notification path parity", () => {
       href: "/portal/expenses",
       title: "Expense manager approval requested",
     },
-    // Internal and external Tour Managers both reach Job Cards; the id is the assignment.
+    // The id is the Tour Manager assignment; that page opens the assignment's Job Card.
     {
       entityId: "assignment_1",
       entityType: "tourManager",
-      href: "/portal/job-cards",
+      href: "/portal/job-cards/tour-manager/assignment_1",
       title: "Tour Manager allocated",
     },
   ];

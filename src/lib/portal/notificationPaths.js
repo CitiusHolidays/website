@@ -111,8 +111,8 @@ function buildNotificationPath({ entityType, entityId, title }) {
     ],
     // The approving manager and the submitter both act from the Expenses page.
     ["expense", () => "/portal/expenses"],
-    // Internal and external Tour Managers both reach Job Cards; the id is the assignment.
-    ["tourManager", () => "/portal/job-cards"],
+    // The id is the Tour Manager assignment; that page opens the assignment's Job Card.
+    ["tourManager", () => `/portal/job-cards/tour-manager/${encodeURIComponent(entityId)}`],
     [
       "inboundQueryIntent",
       () => {
