@@ -276,6 +276,32 @@ test("an unsupported photo is refused before upload and a removed photo is annou
   expect(container.textContent).toContain("Photo removed.");
 });
 
+test("a failed photo removal replaces the earlier success instead of sitting beside it", async () => {
+  const container = await mount({
+    entries: [
+      {
+        ...entry,
+        photos: [{ fileName: "hotel.jpg", fileSize: 100, id: "photo-1", mimeType: "image/jpeg" }],
+      },
+    ],
+    onRemovePhoto: () => Promise.reject(new Error("offline")),
+  });
+  const input = container.querySelector('input[type="file"]');
+  const file = new dom.window.File(["synthetic"], "lobby.jpg", { type: "image/jpeg" });
+  Object.defineProperty(input, "files", { configurable: true, value: [file] });
+  await act(async () => input.dispatchEvent(new dom.window.Event("change", { bubbles: true })));
+  expect(container.querySelector('[role="status"]:not(:empty)')?.textContent).toBe(
+    "Photo uploaded."
+  );
+
+  await act(async () => button(container, "Remove photo").click());
+
+  expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+    "Photo could not be removed. Try again."
+  );
+  expect(container.querySelector('[role="status"]:not(:empty)')).toBeNull();
+});
+
 test("vendor details show only when recorded, and edits are marked", async () => {
   const container = await mount({
     entries: [

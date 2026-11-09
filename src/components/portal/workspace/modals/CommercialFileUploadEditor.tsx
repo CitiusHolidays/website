@@ -63,6 +63,7 @@ function errorMessage(cause: unknown, fallback: string) {
 async function runCommercialUploads(
   files: File[],
   uploadOne: (file: File) => Promise<void>,
+  onUploaded: (file: File) => void,
   onSuccess: () => void,
   onSettled: () => void
 ) {
@@ -70,6 +71,9 @@ async function runCommercialUploads(
     for (const file of files) {
       // biome-ignore lint/performance/noAwaitInLoops: preserve ordered uploads and stop after the first failed file.
       await uploadOne(file);
+      // Dequeue each stored file at once, so a later failure leaves only what still needs
+      // uploading and a retry cannot store an earlier file twice.
+      onUploaded(file);
     }
     onSuccess();
     return "";
@@ -162,11 +166,11 @@ export function CommercialFileUploadEditor({
           uploadToken,
         });
       },
+      (uploaded) => setPendingFiles((queued) => queued.filter((file) => file !== uploaded)),
       () => {
         toast.success(
           `${pendingFiles.length} file${pendingFiles.length === 1 ? "" : "s"} uploaded.`
         );
-        setPendingFiles([]);
         setNote("");
       },
       () => setBusy(false)
