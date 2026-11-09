@@ -82,3 +82,21 @@ export function getSignInAuthUrl(variantId = "guest") {
   const variant = getAuthVariant(variantId);
   return variant.authPath;
 }
+
+/**
+ * Recovery pages (`/auth/forgot-password`, `/auth/reset-password`, `/auth/email-verified`) carry
+ * `?from=connect|guest|vendor`, the sign-in page the person started from. Unknown or missing values
+ * fall back to `fallbackId`.
+ */
+export function getAuthVariantFromArea(area, fallbackId = "guest") {
+  return (
+    SIGN_IN_TARGET_LIST.find((target) => target.authPath === `/auth/${area}`) ??
+    getAuthVariant(fallbackId)
+  );
+}
+
+/** `path` with the variant's `?from=` area, so the recovery page returns to the same sign-in. */
+export function authRecoveryHref(path, variant) {
+  const area = variant?.authPath?.split("/").at(-1);
+  return area ? `${path}?${new URLSearchParams({ from: area })}` : path;
+}

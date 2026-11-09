@@ -5,7 +5,7 @@ import { useEffect, useReducer, useRef } from "react";
 import { signInWithEmail, signInWithGoogle, signUpWithEmail } from "@/lib/auth-client";
 import { formatAuthApiError } from "@/lib/auth-errors";
 import { resolveAuthReturnPath } from "@/lib/auth-return-path";
-import { AuthLoginForm, AuthVerificationNotice } from "./AuthLoginForm";
+import { AuthLoginForm, AuthOtherSignIn, AuthVerificationNotice } from "./AuthLoginForm";
 import AuthShell from "./AuthShell";
 
 function createAuthState({ allowSignup, initialMode, error }) {
@@ -220,6 +220,7 @@ export function AuthLoginCredentials({
             showPassword={showPassword}
             variant={variant}
           />
+          {mode === "signin" ? <AuthOtherSignIn variantId={variant.id} /> : null}
         </>
       )}
     </AuthShell>

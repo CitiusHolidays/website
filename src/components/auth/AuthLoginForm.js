@@ -3,6 +3,7 @@
 import { ArrowRight, Eye, EyeOff, Lock, Mail, User } from "lucide-react";
 import { AnimatePresence, m } from "motion/react";
 import Link from "next/link";
+import { authRecoveryHref } from "@/lib/auth-sign-in-targets";
 
 const AUTH_INPUT_CLASS =
   "w-full rounded-xl border border-[#e2e8f0] bg-white px-4 py-3 pl-11 text-[#0f172a] outline-none transition-[border-color,box-shadow] duration-200 placeholder:font-normal placeholder:text-[#94a3b8] focus:border-auth-accent-ink focus:ring-2 focus:ring-auth-accent-ink";
@@ -103,7 +104,14 @@ function AuthEmailField({ onInputChange, value }) {
   );
 }
 
-function AuthPasswordField({ mode, onInputChange, onTogglePassword, showPassword, value }) {
+function AuthPasswordField({
+  forgotPasswordHref,
+  mode,
+  onInputChange,
+  onTogglePassword,
+  showPassword,
+  value,
+}) {
   return (
     <div className="group">
       <div className="mb-1.5 ml-1 flex items-center justify-between">
@@ -111,7 +119,7 @@ function AuthPasswordField({ mode, onInputChange, onTogglePassword, showPassword
           Password
         </label>
         {mode === "signin" && (
-          <Link className={`${AUTH_LIGHT_LINK_CLASS} text-sm`} href="/auth/forgot-password">
+          <Link className={`${AUTH_LIGHT_LINK_CLASS} text-sm`} href={forgotPasswordHref}>
             Forgot password?
           </Link>
         )}
@@ -173,6 +181,28 @@ function AuthFormError({ formError, formStatusRef }) {
   );
 }
 
+// Staff and travellers each land on the other's sign-in page often enough to need a way across.
+// Vendor sign-in is unlisted, so it links nowhere.
+const OTHER_SIGN_IN = {
+  employee: { href: "/auth/guest", label: "Guest sign in", prompt: "Booked a trip with us?" },
+  guest: { href: "/auth/connect", label: "Citius Connect", prompt: "Citius Holidays staff?" },
+};
+
+export function AuthOtherSignIn({ variantId }) {
+  const other = OTHER_SIGN_IN[variantId];
+  if (!other) {
+    return null;
+  }
+  return (
+    <p className="mt-6 text-center text-[#64748b] text-sm">
+      {other.prompt}
+      <Link className={`${AUTH_LIGHT_LINK_CLASS} ml-2`} href={other.href}>
+        {other.label}
+      </Link>
+    </p>
+  );
+}
+
 function AuthModeSwitch({ mode, onToggleMode }) {
   return (
     <div className="mt-6 text-center">
@@ -227,6 +257,7 @@ export function AuthLoginForm({
         <AuthEmailField onInputChange={onInputChange} value={formData.email} />
 
         <AuthPasswordField
+          forgotPasswordHref={authRecoveryHref("/auth/forgot-password", variant)}
           mode={mode}
           onInputChange={onInputChange}
           onTogglePassword={onTogglePassword}
