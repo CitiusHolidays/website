@@ -72,6 +72,8 @@ const DOCUMENT_OR_DATA_PATTERN = /\b(document|xhr|fetch|data)\b/i;
 const EMPTY_PAGE_ERRORS_PATTERN = /^(\[\]|no (page )?errors?( found)?)$/i;
 const FAILED_NETWORK_PATTERN = /\b[45]\d\d\b|\b(failed|aborted)\b|net::ERR/i;
 const SAME_ORIGIN_PATH_PATTERN = /(^|\s)\/[A-Za-z0-9]/;
+// agent-browser prefixes request rows with an ID such as `[78649.589]`; its digits are not a status.
+const REQUEST_ID_PREFIX_PATTERN = /^\s*\[[^\]]*\]\s*/;
 
 function validateAllowlist(
   smokeCase: BrowserSmokeCase,
@@ -197,7 +199,7 @@ export function evaluateBrowserHealth({
 
   const { origin } = new URL(target);
   for (const line of nonemptyLines(networkOutput)) {
-    const failed = FAILED_NETWORK_PATTERN.test(line);
+    const failed = FAILED_NETWORK_PATTERN.test(line.replace(REQUEST_ID_PREFIX_PATTERN, ""));
     if (!failed || isAllowlisted(line, networkAllowlist)) {
       continue;
     }

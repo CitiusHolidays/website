@@ -107,6 +107,25 @@ describe("Browser smoke harness", () => {
     ).toEqual([]);
   });
 
+  test("Reads status from agent-browser request rows instead of their request IDs", () => {
+    const health = (networkOutput: string) =>
+      evaluateBrowserHealth({
+        consoleAllowlist: [],
+        consoleOutput: "",
+        errorOutput: "",
+        networkAllowlist: [],
+        networkOutput,
+        target: "http://localhost:3000/",
+      });
+    expect(health("[78649.589] GET http://localhost:3000/icon1.png (Other) 200")).toEqual([]);
+    expect(health("[70527.411] GET http://localhost:3000/_next/static/a.js (Script) 200")).toEqual(
+      []
+    );
+    expect(health("[78649.1528] POST http://localhost:3000/api/events (Ping) 503")).toEqual([
+      expect.stringContaining("network request"),
+    ]);
+  });
+
   test("Turns every inspection subprocess failure into a case result", async () => {
     const failedCommands = ["get url", "read", "console", "errors", "network requests"];
     const results = await Promise.all(
