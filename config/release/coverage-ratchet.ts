@@ -7,7 +7,8 @@ import { formatCliHelp, parseCliArguments } from "../commands/cli";
 interface CoverageCounter {
   covered: number;
   found: number;
-  percent: number;
+  /** Null when the file has nothing of this kind to execute (found is 0). */
+  percent: number | null;
 }
 
 export interface FileCoverage {
@@ -49,11 +50,14 @@ const COVERAGE_CLI = {
 } as const;
 
 function percent(covered: number, found: number, label: string) {
-  if (found <= 0) {
-    throw new Error(`${label} has a zero coverage denominator`);
-  }
-  if (covered < 0 || covered > found) {
+  if (!(Number.isInteger(found) && Number.isInteger(covered)) || covered < 0 || covered > found) {
     throw new Error(`${label} has invalid covered/found counts`);
+  }
+  // Bun 1.4.4 writes a record for every loaded file, including modules with no functions
+  // (FNF:0), such as convex/_generated/api.js. That is "nothing to cover", not a broken record.
+  // compareCoverage still fails closed when a ratcheted file reports a zero denominator.
+  if (found === 0) {
+    return null;
   }
   return Number(((covered / found) * 100).toFixed(2));
 }
@@ -142,15 +146,17 @@ export function compareCoverage(
       findings.push(`${expected.risk}: ${expected.path} is missing from LCOV`);
       continue;
     }
-    if (actual.lines.percent < expected.linesMinimumPercent) {
-      findings.push(
-        `${expected.risk}: ${expected.path} lines ${actual.lines.percent}% is below ${expected.linesMinimumPercent}%`
-      );
-    }
-    if (actual.functions.percent < expected.functionsMinimumPercent) {
-      findings.push(
-        `${expected.risk}: ${expected.path} functions ${actual.functions.percent}% is below ${expected.functionsMinimumPercent}%`
-      );
+    for (const [kind, counter, minimum] of [
+      ["lines", actual.lines, expected.linesMinimumPercent],
+      ["functions", actual.functions, expected.functionsMinimumPercent],
+    ] as const) {
+      if (counter.percent === null) {
+        findings.push(`${expected.risk}: ${expected.path} has a zero ${kind} coverage denominator`);
+      } else if (counter.percent < minimum) {
+        findings.push(
+          `${expected.risk}: ${expected.path} ${kind} ${counter.percent}% is below ${minimum}%`
+        );
+      }
     }
   }
   return findings;
