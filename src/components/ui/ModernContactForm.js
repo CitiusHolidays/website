@@ -337,7 +337,7 @@ function ContactFormSuccess({ onStartAnother }) {
         <CheckCircle2 aria-hidden="true" className="mt-0.5 size-6 shrink-0 text-emerald-700" />
         <div>
           <h3
-            className="font-semibold text-emerald-950 text-lg outline-none"
+            className="scroll-mt-32 font-semibold text-emerald-950 text-lg outline-none"
             ref={focusOnMount}
             tabIndex={-1}
           >
