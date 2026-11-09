@@ -139,9 +139,6 @@ export default function HomeMainClient() {
 
       <section aria-labelledby="home-proof-heading" className="bg-public-surface pt-24">
         <div className="mx-auto max-w-3xl px-4 text-center">
-          <p className="mb-3 font-medium text-public-blue text-sm uppercase tracking-widest">
-            Why Citius
-          </p>
           <h2
             className="font-heading font-semibold text-4xl text-public-ink md:text-5xl"
             id="home-proof-heading"
@@ -156,9 +153,6 @@ export default function HomeMainClient() {
 
         <AnimatedSection className="py-20" data-proof-module="company-stats">
           <div className="mb-14 text-center">
-            <p className="mb-2 font-medium text-public-blue text-sm uppercase tracking-widest">
-              Our Impact
-            </p>
             <h3 className="font-heading font-semibold text-3xl text-public-ink md:text-4xl">
               By the Numbers
             </h3>

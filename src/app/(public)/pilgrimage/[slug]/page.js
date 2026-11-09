@@ -74,7 +74,6 @@ export default function PilgrimageTrailPage({ params }) {
       fallback={
         <PublicRouteLoadingShell
           description="Route details, dates, inclusions, and booking information for this Citius Spiritual Trail."
-          eyebrow="Citius Spiritual Trails"
           title="Spiritual Trail"
           tone="dark"
         />

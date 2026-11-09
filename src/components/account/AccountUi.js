@@ -267,12 +267,7 @@ export function JourneyOverviewCard({ booking, onOpen }) {
 
       <aside className="account-card flex flex-col rounded-2xl p-6 sm:p-8">
         <div>
-          <p className="font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.16em]">
-            Your route
-          </p>
-          <h3 className="account-display mt-2 text-2xl text-[var(--account-ink)]">
-            Itinerary preview
-          </h3>
+          <h3 className="account-display text-2xl text-[var(--account-ink)]">Itinerary preview</h3>
           <p className="mt-2 text-[var(--account-muted)] text-xs">
             {getJourneyAccessLabel(booking.entitlement)}
           </p>
@@ -357,9 +352,6 @@ export function ItinerarySnapshot({ trip }) {
     <section>
       <div className="mb-5 flex items-end justify-between gap-4">
         <div>
-          <p className="mb-1 font-semibold text-[10px] text-[var(--account-gold)] uppercase tracking-[0.2em]">
-            Daily highlights
-          </p>
           <h3 className="account-display text-3xl text-[var(--account-ink)]">Itinerary snapshot</h3>
         </div>
         <span className="text-[var(--account-muted)] text-xs">
@@ -405,17 +397,12 @@ export function ItinerarySnapshot({ trip }) {
   );
 }
 
-export function TravelInfoCard({ icon, eyebrow, title, children }) {
+export function TravelInfoCard({ icon, title, children }) {
   return (
     <article className="account-card overflow-hidden rounded-2xl">
       <div className="flex items-center gap-3 border-[var(--account-border)] border-b px-5 py-4 sm:px-6">
         <span className="text-[var(--account-gold)]">{icon}</span>
-        <div>
-          <p className="text-[10px] text-[var(--account-muted)] uppercase tracking-[0.14em]">
-            {eyebrow}
-          </p>
-          <h3 className="account-display mt-0.5 text-[var(--account-ink)] text-xl">{title}</h3>
-        </div>
+        <h3 className="account-display text-[var(--account-ink)] text-xl">{title}</h3>
       </div>
       <div className="text-[var(--account-muted)] text-sm leading-6">{children}</div>
     </article>

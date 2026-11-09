@@ -120,14 +120,14 @@ export default function TrailHeroSlideshow({ trail }) {
                 Coming soon
               </span>
             )}
-            {trail.tagline ? (
-              <p className="mb-2 line-clamp-2 font-heading text-public-orange text-xs uppercase tracking-[0.2em] drop-shadow-sm md:text-sm">
-                {trail.tagline}
-              </p>
-            ) : null}
             <h1 className="mb-3 font-heading text-3xl text-white leading-tight drop-shadow-md md:text-5xl">
               {trail.title}
             </h1>
+            {trail.tagline ? (
+              <p className="mb-3 line-clamp-2 font-heading text-public-orange text-sm drop-shadow-sm md:text-base">
+                {trail.tagline}
+              </p>
+            ) : null}
             <p className="line-clamp-3 max-w-3xl font-sans text-lg text-white/90 italic drop-shadow md:line-clamp-none md:text-xl">
               {trail.subtitle}
             </p>
