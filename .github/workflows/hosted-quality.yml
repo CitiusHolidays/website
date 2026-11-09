@@ -17,7 +17,10 @@ jobs:
   target-neutral:
     name: Required quality
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Successful runs take 4-8 minutes (116 green runs since 2026-08-19, max 7.6).
+    # When the Bun test lane hangs after "killed 1 dangling process" it never
+    # recovers, so a 30-minute limit only doubled the wait. 15 keeps 2x headroom.
+    timeout-minutes: 15
     steps:
       - name: Check out exact revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

@@ -28,7 +28,7 @@ describe("Credential-free hosted quality workflow", () => {
   test("Is read-only, cancellable, bounded, and revision-labelled", () => {
     expect(workflow).toContain("permissions:\n  contents: read");
     expect(workflow).toContain("cancel-in-progress: true");
-    expect(workflow).toContain("timeout-minutes: 30");
+    expect(workflow).toContain("timeout-minutes: 15");
     expect(workflow).toContain(`${TEMPLATE_DOLLAR}{GITHUB_SHA}`);
     expect(workflow).toContain("pull_request:");
     expect(workflow).toContain("fetch-depth: 1");
