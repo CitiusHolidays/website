@@ -1,8 +1,9 @@
 # UX map
 
 A route-by-route description of what each part of the site does, who can reach it, where it
-links, and every state it can show. It is built from the code at `f8ae8eac` (main, 9 Nov 2026)
-and checked against a local run. Every claim names the file that implements it.
+links, and every state it can show. It was built from the code at `f8ae8eac` (main, 9 Nov 2026),
+checked against a local run, and updated for the fixes listed under [Known gaps](#known-gaps).
+Every claim names the file that implements it.
 
 This page describes behaviour. It does not authorize a redesign: [DESIGN.md](../DESIGN.md) owns
 UI decisions, [roles and access](PORTAL_ROLES_AND_ACCESS.md) owns permissions, and executable
@@ -58,8 +59,8 @@ but only the Account deletion flow sets it (`src/components/account/AccountDelet
 | `src/app/not-found.js` | Every unmatched URL, including `/portal/*` | "Page not found", links to `/` and `/auth/connect`, no public or portal chrome. Seen locally for `/nope`, `/inbound-leads` and `/portal/nope` |
 | `src/app/(auth)/error.js` | Auth pages | Scenic `PrivateAuthError`: "We couldn’t verify your session", Try again, Return to sign in (`/auth/guest` for every auth page) |
 | `src/app/(authenticated)/error.js` | `/account`, `/vendor` | Plain `PrivateAuthError`, same copy, Return to sign in → `/auth/guest` |
-| `src/app/portal/error.js` | Every portal page without its own boundary | Plain `PrivateAuthError` with Return to sign in → `/auth/connect` (see [Staff Workspace errors](#staff-workspace-errors)) |
-| `src/app/portal/{travel-schedule,external-tour-managers}/error.tsx` | Those pages | `TravelWorkspaceError`: "This page could not be loaded / Check your connection and try again" |
+| `src/app/portal/error.js` | Every portal page without its own boundary | `PortalRouteError` inside the portal shell (see [Staff Workspace errors](#staff-workspace-errors)) |
+| `src/app/portal/{travel-schedule,external-tour-managers}/error.tsx` | Those pages | The same `PortalRouteError` |
 | `src/app/portal/post-tour-feedback/error.tsx` | That page | "Feedback could not be loaded" with Try again |
 | `src/app/(public)/photo-booth/error.tsx` | `/photo-booth` | Retry and a link to `/` |
 | `src/app/portal/queries/loading.js` | `/portal/queries` | `QueriesLoadingPanel` |
@@ -72,11 +73,12 @@ returned that page because no Sanity project was configured (`src/sanity/cachedF
 
 ### Document titles
 
-The root layout sets the template `%s | Citius Holidays` (`src/app/layout.js:39-42`). Titles that
-already end in `| Citius Holidays` render the brand twice (seen locally, for example
-"Policies & Terms | Citius Holidays | Citius Holidays"). Portal pages set their own title on the
-client as `<page> | Citius Connect` (`src/components/portal/workspace/portalRouteLifecycle.tsx:72`);
-pages outside `PortalWorkspace` keep the portal layout's server title.
+The root layout sets the template `%s | Citius Holidays` (`src/app/layout.js:39-42`), so route
+titles name only the page (for example "Policies & Terms | Citius Holidays", seen locally);
+`src/app/metadataTitleSuffix.contract.test.ts` keeps the brand from being repeated. The portal
+layout title is absolute, "Citius Connect" (`src/app/portal/layout.js`). Portal pages set their own
+title on the client as `<page> | Citius Connect` (`src/components/portal/workspace/portalRouteLifecycle.tsx`);
+pages outside `PortalWorkspace` keep "Citius Connect".
 
 ## Public site
 
@@ -117,7 +119,8 @@ inventory was seen locally on `/`, `/about`, `/services`, `/contact` and `/polic
 | `/app/invite#token`, `/app/sign-in#token` | Hand a token to the Citius app (`src/components/customerApp/AppHandoffPage.tsx`) | Button to the app deep link; "This link is incomplete or has expired." (`:58-61`) | None | Missing-token state seen locally |
 | Root 404 | `src/app/not-found.js` | Static | `/`, `/auth/connect` | Seen locally |
 
-`src/app/sitemap.js` lists `/account` (sign-in only) and omits `/sacred-bharat`.
+`src/app/sitemap.js` lists public pages only (guarded by `src/app/sitemap.test.js`) and omits
+`/sacred-bharat`.
 `src/app/robots.js:9` disallows `/admin`, which does not exist.
 
 ## Authentication
@@ -175,8 +178,10 @@ Entry: `src/app/portal/layout.js` → `PortalAuthBoundary.js` → `PortalShell`.
 
 `usePortalWorkspaceState.ts:284-289` computes `canAccessPortalRoute`; the lifecycle boundary shows
 `LoadingPanel` ("Loading portal data") while access loads and, when denied, "You do not have access
-to this page / Your staff role does not include this page." with no onward link
-(`portalRouteLifecycle.tsx:110-125`). The sidebar stays usable. A login without the dashboard is
+to this page / Your staff role does not include this page." with "Go to your workspace" → `/portal`
+(`portalRouteLifecycle.tsx`; the denied dashboard has no link because it redirects instead).
+Inbound Leads also requires a Sales, Sales Head, director or admin role, matching the server
+(`canAccessPortalRoute` in `portalRouteManifest.ts`). The sidebar stays usable. A login without the dashboard is
 sent from `/portal` to its first page (`PortalWorkspace.tsx:63-71`).
 
 Seen locally with the Sales account: `/portal` dashboard; denied panel on `/portal/settings`,
@@ -223,30 +228,28 @@ Every sidebar `href` has a route (code-verified).
 | Queries | Route `loading.js` and "Loading All Sales Queries" | "No active queries yet." / "No lost queries." (`QueriesView.tsx:598`) | Code-verified only |
 | Job Cards, Travellers, Finance | Table skeleton (`SelectableDataTable.tsx:674-675`) | "No Job Cards yet.", "No travellers yet.", "No invoices yet." | Code-verified only |
 | Any filtered table | — | "No matches. Adjust or clear filters." with Clear filters (`SelectableDataTable.tsx:644-645`) | Code-verified only |
-| Inbound Leads | None: the empty copy shows during the first load (`InboundLeadsView.jsx:370-372`) | "No inbound leads match these filters." | Code-verified only |
+| Inbound Leads | `PortalViewLoading` until the first page arrives (`InboundLeadsView.jsx`) | "No inbound leads match these filters." | Covered by `InboundLeadsView.mounted.test.jsx`; Sales page seen locally |
 
 ### Stand-alone portal pages
 
 | Page | Gate | Wrong role sees | Loading / empty | Bad link |
 | --- | --- | --- | --- | --- |
-| `/portal/job-cards/[jobCardId]` (`JobCardCommandCenter.js`) | Convex `getCommandCenter`: `view:jobCards` plus record scope (`convex/crm/jobCardCommandCenter.ts:51-64`) | `portal/error.js` "We could not verify your session" (seen locally as Sales) | Unlabelled pulse box (`JobCardCommandCenter.js:152-154`) | Invalid id and deleted card also reach "We could not verify your session" (seen locally for `abc`) |
-| `/portal/travel-schedule` (`StaffTravelWorkspace.tsx`) | Convex `requireStaff()` | External logins: "This page could not be loaded / Check your connection" | "Loading travel..."; "You have no trips recorded." (`:407-411`) | Trip rows link to `/portal/job-cards/{id}` for every viewer (`:293-302`) |
-| `/portal/external-tour-managers` (`ExternalTourManagersWorkspace.tsx`) | Convex `view:tourManagers` | "This page could not be loaded / Check your connection" (seen locally as Sales) | "Loading profiles..."; "No external tour-manager profiles yet." (`:765-767`) | "This profile is no longer available." (`:654`) |
+| `/portal/job-cards/[jobCardId]` (`JobCardCommandCenter.js`) | Convex `getCommandCenter`: `view:jobCards` plus record scope (`convex/crm/jobCardCommandCenter.ts:51-64`) | "You do not have access to this" (seen locally as Sales) | Unlabelled pulse box (`JobCardCommandCenter.js:152-154`) | "This record could not be found" for an invalid id or deleted card (seen locally for `abc` as Operations) |
+| `/portal/travel-schedule` (`StaffTravelWorkspace.tsx`) | Convex `requireStaff()` | External logins: "You do not have access to this" | "Loading travel..."; "You have no trips recorded." (`:407-411`) | Trip rows link to the Job Card only when the server returns it, which needs `view:jobCards` and record scope (`convex/crm/staffTravel.ts:36-49`) |
+| `/portal/external-tour-managers` (`ExternalTourManagersWorkspace.tsx`) | Convex `view:tourManagers` | "You do not have access to this" (seen locally as Sales) | "Loading profiles..."; "No external tour-manager profiles yet." (`:765-767`) | "This profile is no longer available." (`:654`) |
 | `/portal/post-tour-feedback` (`PostTourFeedbackWorkspace.tsx`) | Convex `requireStaffSession`, open to every login | — | "Loading post-tour feedback..." (`page.tsx:23`) | "This Job Card is no longer available. Choose another Job Card." (`:260-263`) |
 
 ### Staff Workspace errors
 
-`src/app/portal/error.js` renders the session-failure copy for every page error. In practice it is
-reached by role denials, invalid ids and missing records, not session failures:
+Every portal error boundary renders `PortalRouteError` (`src/components/portal/PortalRouteError.tsx`)
+inside the shell. `classifyPortalRouteError` (`src/lib/portal/portalRouteError.ts`) reads the
+Convex error a client query threw:
 
-- `ConvexError("FORBIDDEN")` from `requireStaff` (`convex/crm/lib/staffAccess.ts:172-181`).
-  Contracting, Accounts Head, Ticketing, Head of Ticketing, Operations Head and Sales Cement pass
-  the Inbound Leads route gate (`view:queries`) but the server allows only Sales, Sales Head and
-  director roles. Seen locally: Contracting on `/portal/inbound-leads` sees "We could not verify
-  your session".
-- Validator errors from URL ids, for example `/portal/inbound-leads?open=inboundIntent&id=x`
-  (`InboundLeadsView.jsx:155,183-186`).
-- Job Card detail errors (above).
+| Error | Copy | Actions |
+| --- | --- | --- |
+| `ConvexError("FORBIDDEN")` (`convex/crm/lib/staffAccess.ts`), which also covers a session that lost staff access | "You do not have access to this" | Go to your workspace, Sign in again |
+| `ConvexError` "… not found" or "Invalid … id" | "This record could not be found" | Go to your workspace |
+| Anything else, including argument-validator errors from URL ids such as `/portal/inbound-leads?open=inboundIntent&id=x` | "This page could not be loaded" | Try again, Go to your workspace |
 
 Unknown portal paths render the root 404 without the portal shell (seen locally for `/portal/nope`).
 
@@ -254,8 +257,8 @@ Unknown portal paths render the root 404 without the portal shell (seen locally 
 
 Two builders produce portal links: `src/lib/portal/notificationPaths.js` (in-app) and
 `convex/crm/notificationPaths.ts` (email). They agree for query, proposal, job card, ticket, leave,
-approval and inbound lead. They differ for post-tour reports: in-app opens the report, email opens
-`/portal/activity`. Expense-approval and Tour Manager allocation notifications carry no
+approval, inbound lead and post-tour report (`convex/crm/dashboardPaths.test.ts` checks the pair).
+The email change takes effect once the Convex functions are deployed. Expense-approval and Tour Manager allocation notifications carry no
 destination and open `/portal/activity` in both (`convex/crm/expenseApprovalWorkflow.ts:216-223`,
 `convex/crm/ops.ts:587-593`).
 
@@ -272,5 +275,36 @@ destination and open `/portal/activity` in both (`convex/crm/expenseApprovalWork
 
 ## Known gaps
 
-The quality pass that produced this page fixed some of these; the rest need an owner decision.
-See the pull request that adds this page for the current list.
+Fixed in this quality pass (each with a test, apart from the one-word copy fix):
+
+- Page titles repeated the brand ("… | Citius Holidays | Citius Holidays").
+- Inbound Leads let roles with `view:queries` but no Sales or director role (Contracting, Ticketing,
+  Sales Cement and others) through the route gate, then the server refused them.
+- Portal errors all said "We could not verify your session"; they now distinguish no access,
+  missing record and load failure, in Staff Workspace styling, with a way back.
+- Inbound Leads showed "No inbound leads match these filters." while the first page loaded.
+- Post-tour report emails linked to `/portal/activity` instead of the report.
+- The "no access" panel had no onward link.
+- The sitemap listed `/account`.
+- A stray comma in the coming-soon trail notice.
+
+Open, needing an owner or another workstream:
+
+| Gap | Where | Why it is open |
+| --- | --- | --- |
+| Signed-out deep links drop the target (`/portal/*` → `/auth/connect`, `/account?tab=` → `/auth/guest`) | `src/lib/auth-server.js:391-401`, `account/page.js:23` | Auth flow; needs a decision on carrying `returnTo` from server redirects (pathname is not available to layouts) |
+| A customer sent from the portal lands on `/account?portal=unauthorized` with no explanation | `PortalAuthBoundary.js:32-34` | Customer Account copy and placement are an owner decision |
+| Unlinked customer identity loops between the error page and sign-in, with no sign-out or contact | `account/page.js:31-33`, `(authenticated)/error.js` | Needs a support path decision |
+| Staff can open the customer Account, which creates a customer profile for the staff login | `account/page.js:34` | Account policy decision |
+| Customers can open `/vendor` | `vendor/page.js:15` | Vendor portal is a placeholder; access rules not decided |
+| Expense-approval and Tour Manager allocation notifications open `/portal/activity` | `convex/crm/expenseApprovalWorkflow.ts:216-223`, `convex/crm/ops.ts:587-593` | Needs a target page per notification |
+| `/portal/*` 404 renders without the portal shell and links to staff sign-in | `src/app/not-found.js` | Portal-specific not-found is a design decision |
+| No `global-error`, no public error boundaries; Sanity failures fall to Next's default page | `src/app/` | Public error design decision |
+| Recovery pages always return to `/auth/guest`; `email-verified` uses staff copy; Google sign-in shows on staff and vendor pages; no link between staff and guest sign-in | `src/app/(auth)/auth/**` | Auth workstream |
+| Reset password renders the form without a token | `reset-password/page.client.js:47-56` | Auth workstream |
+| Coming-soon trails show "not yet open" beside departure details; trail back link commented out; no CTA on `/about` and `/services`; contact success is a two-second "Sent!" | Public pages | Content and design decisions |
+| No privacy policy page | `/policies` | Legal content |
+| `robots.js` disallows `/admin`, which does not exist | `src/app/robots.js:9` | Which private prefixes to list is an SEO decision |
+| Command palette missing on stand-alone portal pages and omits the photo booth | `PortalWorkspace.tsx:112` | Shell design decision |
+| Eyebrow labels that `DESIGN.md` discourages (`not-found.js`, `PrivateAuthError`, mice, pilgrimage, home, account, vendor) | Several | Visual change per surface needs design sign-off |
+| `PastJourneyCard` without `onOpen` links to `/services/{slug}`, which does not exist | `src/components/account/AccountUi.js:570` | Only the unused `BookingCard` reaches it; left to the unused-code workstream |
