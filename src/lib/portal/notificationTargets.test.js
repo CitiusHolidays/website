@@ -99,6 +99,14 @@ describe("NotificationTargets", () => {
     ).toBe("/portal/job-cards?open=assignTicketingOwner&id=job123");
   });
 
+  test("Maps Tour Manager allocation notifications to the assignment's Job Card", () => {
+    for (const title of ["Tour Manager allocated", "Tour Manager allocation updated"]) {
+      expect(
+        getNotificationHref({ entityId: "assignment123", entityType: "tourManager", title })
+      ).toBe("/portal/job-cards/tour-manager/assignment123");
+    }
+  });
+
   test("Resolves approval deep links to expense modal data", () => {
     const resolved = resolveDeepLink(
       { id: "approval123", open: "approval", queryId: null },

@@ -5,6 +5,7 @@ import type { Id } from "../_generated/dataModel";
 import schema from "../schema";
 import { modules } from "../test.setup";
 import { syncJobCardTourManagerVisibility } from "./jobCardVisibility";
+import { getNotificationHref } from "./notificationPaths";
 import { TOUR_MANAGER_VISIBILITY_MIGRATION_KEY } from "./tourManagerVisibilityMigration";
 
 const NOW = Date.parse("2026-10-10T12:00:00Z");
@@ -243,6 +244,73 @@ describe("Tour Manager Job Card visibility from assignments", () => {
     await t.run((ctx) => ctx.db.delete("jobCards", f.otherJobCardId));
     await t.run((ctx) => syncJobCardTourManagerVisibility(ctx, f.otherJobCardId));
     expect(await t.run((ctx) => ctx.db.get("jobCards", f.otherJobCardId))).toBeNull();
+  });
+});
+
+describe("Tour Manager allocation notification link", () => {
+  const jobCardFor = (
+    f: Awaited<ReturnType<typeof seed>>,
+    staffKey: string,
+    assignmentId: string
+  ) =>
+    f
+      .actor(staffKey)
+      .query(api.crm.jobCards.getJobCardIdForTourManagerAssignment, { assignmentId });
+
+  test("the allocated Tour Manager's notification opens their Job Card", async () => {
+    const t = harness();
+    const f = await seed(t);
+    const { id: assignmentId } = await f.assign("tm-first");
+    const notification = await t.run((ctx) =>
+      ctx.db
+        .query("notifications")
+        .withIndex("by_entity", (q) =>
+          q.eq("entityType", "tourManager").eq("entityId", assignmentId)
+        )
+        .unique()
+    );
+    expect(notification?.recipientStaffId).toBe(f.staffIds["tm-first"]);
+    expect(getNotificationHref({ ...notification, title: notification?.title ?? "" })).toBe(
+      `/portal/job-cards/tour-manager/${assignmentId}`
+    );
+    expect(await jobCardFor(f, "tm-first", assignmentId)).toBe(f.jobCardId);
+  });
+
+  test("an office role that can see the Job Card gets it too", async () => {
+    const f = await seed(harness());
+    const { id: assignmentId } = await f.assign("tm-first");
+    expect(await jobCardFor(f, "ops-head", assignmentId)).toBe(f.jobCardId);
+  });
+
+  test("another Tour Manager gets null, not the Job Card", async () => {
+    const f = await seed(harness());
+    const { id: assignmentId } = await f.assign("tm-first");
+    await f.assign("tm-outsider", f.otherJobCardId);
+    expect(await jobCardFor(f, "tm-outsider", assignmentId)).toBeNull();
+  });
+
+  test("a removed or inactive assignment, or a bad id, resolves to null", async () => {
+    const f = await seed(harness());
+    const { id: removed } = await f.assign("tm-first");
+    const { id: inactive } = await f.assign("tm-second");
+    await f.opsHead.mutation(api.crm.ops.removeTourManager, { tourManagerId: removed });
+    await f.opsHead.mutation(api.crm.ops.updateTourManager, {
+      status: "Inactive",
+      tourManagerId: inactive,
+    });
+    expect(await jobCardFor(f, "tm-first", removed)).toBeNull();
+    expect(await jobCardFor(f, "ops-head", removed)).toBeNull();
+    expect(await jobCardFor(f, "tm-second", inactive)).toBeNull();
+    expect(await jobCardFor(f, "tm-first", "not-an-id")).toBeNull();
+  });
+
+  test("a signed-out caller gets null rather than an error", async () => {
+    const t = harness();
+    const f = await seed(t);
+    const { id: assignmentId } = await f.assign("tm-first");
+    expect(
+      await t.query(api.crm.jobCards.getJobCardIdForTourManagerAssignment, { assignmentId })
+    ).toBeNull();
   });
 });
 

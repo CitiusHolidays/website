@@ -37,6 +37,7 @@ import {
 import {
   handleJobCardGetDetail,
   handleJobCardGetListRow,
+  handleJobCardIdForTourManagerAssignment,
   handleJobCardListPage,
   handleListTravelBatches,
   handleMyAssignedJobCardsPage,
@@ -112,6 +113,13 @@ export const getDetail = query({
   },
   handler: handleJobCardGetDetail,
   returns: jobCardGetListRowResultValidator,
+});
+
+/** The Job Card a Tour Manager allocation notification opens; null when the caller may not see it. */
+export const getJobCardIdForTourManagerAssignment = query({
+  args: { assignmentId: v.string() },
+  handler: handleJobCardIdForTourManagerAssignment,
+  returns: v.union(v.null(), v.id("jobCards")),
 });
 
 export const listTravelBatches = query({

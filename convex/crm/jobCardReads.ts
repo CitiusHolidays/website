@@ -2,6 +2,7 @@ import { ConvexError } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
 import { type AppSurface, isAppPilotOn, requireAppPilotForSurface } from "./appPilot";
+import { getVisibleJob } from "./jobCardVisibility";
 import {
   canSeeJobCardRecord,
   PERMISSIONS,
@@ -9,6 +10,7 @@ import {
   publicTravelBatch,
   requireStaff,
 } from "./lib";
+import { getPortalAccess } from "./lib/staffAccess";
 import { assertListSearchReady } from "./listSearch";
 import {
   applyCrmCreatedAtIndexRange,
@@ -196,6 +198,28 @@ export async function handleJobCardGetDetail(
   }
   requireAppPilotForSurface(visible.job, args.surface);
   return publicJobCard(visible.job, visible.linkedQuery);
+}
+
+/**
+ * The Job Card behind a Tour Manager assignment, for the "Tour Manager allocated" notification
+ * link. Null, never an error, when the id is malformed, the assignment is gone or has no Job
+ * Card, or the caller may not see that Job Card, so a stale link cannot reveal that it exists.
+ */
+export async function handleJobCardIdForTourManagerAssignment(
+  ctx: QueryCtx,
+  args: { assignmentId: string }
+) {
+  const access = await getPortalAccess(ctx);
+  if (!(access.allowed && access.permissions.includes(PERMISSIONS.VIEW_JOB_CARDS))) {
+    return null;
+  }
+  const assignmentId = ctx.db.normalizeId("tourManagerAssignments", args.assignmentId);
+  const assignment = assignmentId ? await ctx.db.get("tourManagerAssignments", assignmentId) : null;
+  if (!assignment?.jobCardId) {
+    return null;
+  }
+  const job = await getVisibleJob(ctx, access, assignment.jobCardId);
+  return job?._id ?? null;
 }
 
 export async function handleListTravelBatches(

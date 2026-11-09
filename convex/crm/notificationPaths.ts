@@ -80,7 +80,8 @@ export function getNotificationHref(args: NotificationPathInput) {
     case "expense":
       return "/portal/expenses";
     case "tourManager":
-      return "/portal/job-cards";
+      // The id is the Tour Manager assignment; that page opens the assignment's Job Card.
+      return `/portal/job-cards/tour-manager/${encodeURIComponent(args.entityId)}`;
     case "postTourReport":
       return `/portal/post-tour-feedback?reportId=${encodeURIComponent(args.entityId)}&view=report`;
     default:
