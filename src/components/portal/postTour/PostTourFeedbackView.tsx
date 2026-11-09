@@ -305,44 +305,54 @@ interface FeedbackCardHandlers {
   onUpload: (entry: FeedbackEntry, file: File) => Promise<void>;
 }
 
+/**
+ * One outcome at a time: a new action replaces the last announcement, so a stale
+ * "Photo removed." can never sit beside the next action's failure.
+ */
+type CardActivity =
+  | { kind: "idle" }
+  | { kind: "busy" }
+  | { kind: "done"; message: string }
+  | { kind: "failed"; message: string };
+
 function useFeedbackCardActions(
   entry: FeedbackEntry,
   { onDelete, onRemovePhoto, onUpload }: Omit<FeedbackCardHandlers, "onUpdate">
 ) {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [status, setStatus] = useState("");
+  const [activity, setActivity] = useState<CardActivity>({ kind: "idle" });
   const remove = async () => {
-    setBusy(true);
-    setError("");
+    setActivity({ kind: "busy" });
     try {
       await onDelete(entry);
+      setActivity({ kind: "idle" });
     } catch {
-      setError("Feedback could not be deleted. Try again.");
+      setActivity({ kind: "failed", message: "Feedback could not be deleted. Try again." });
     }
-    setBusy(false);
   };
   const upload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) {
       return;
     }
-    setError("");
-    setStatus("");
     if (!isAcceptedPhoto(file)) {
-      setError("Choose a JPEG, PNG or WebP photo no larger than 4 MB.");
+      setActivity({
+        kind: "failed",
+        message: "Choose a JPEG, PNG or WebP photo no larger than 4 MB.",
+      });
       event.target.value = "";
       return;
     }
     const input = event.target;
-    setBusy(true);
+    setActivity({ kind: "busy" });
     try {
       await onUpload(entry, file);
-      setStatus("Photo uploaded.");
+      setActivity({ kind: "done", message: "Photo uploaded." });
     } catch {
-      setError("Photo upload failed. Your comments are saved. Choose the photo again to retry.");
+      setActivity({
+        kind: "failed",
+        message: "Photo upload failed. Your comments are saved. Choose the photo again to retry.",
+      });
     }
-    setBusy(false);
     input.value = "";
   };
   const removePhoto = async (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -350,17 +360,22 @@ function useFeedbackCardActions(
     if (!photo) {
       return;
     }
-    setBusy(true);
-    setError("");
+    setActivity({ kind: "busy" });
     try {
       await onRemovePhoto(photo.id);
-      setStatus("Photo removed.");
+      setActivity({ kind: "done", message: "Photo removed." });
     } catch {
-      setError("Photo could not be removed. Try again.");
+      setActivity({ kind: "failed", message: "Photo could not be removed. Try again." });
     }
-    setBusy(false);
   };
-  return { busy, error, remove, removePhoto, status, upload };
+  return {
+    busy: activity.kind === "busy",
+    error: activity.kind === "failed" ? activity.message : "",
+    remove,
+    removePhoto,
+    status: activity.kind === "done" ? activity.message : "",
+    upload,
+  };
 }
 
 function FeedbackCardHeader({ entry }: { entry: FeedbackEntry }) {
