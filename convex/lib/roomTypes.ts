@@ -88,7 +88,3 @@ export function resolveTravellerRoomFields(
     roomType: nextRoomType,
   };
 }
-
-export function resolveRoomingEntryRoomType(roomType: RuntimeValue): RoomTypeLabel | undefined {
-  return resolveRoomCategory(roomType);
-}

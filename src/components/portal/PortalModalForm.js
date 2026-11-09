@@ -119,10 +119,6 @@ function formatNotesPreview(value, maxWords = MAX_QUERY_NOTES_WORDS) {
   );
 }
 
-function notesPreview(value) {
-  return formatNotesPreview(value);
-}
-
 function useFormFieldChange(onChange, formField) {
   return (value) => {
     if (formField) {
@@ -815,7 +811,6 @@ export {
   MAX_QUERY_NOTES_WORDS,
   MultiSelect,
   money,
-  notesPreview,
   proposalCostPerPax,
   QueryAttachmentsPanel,
   QueryFilePicker,

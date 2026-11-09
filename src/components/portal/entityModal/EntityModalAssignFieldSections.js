@@ -35,7 +35,7 @@ function confirmedQueryOptions(queries) {
   }, []);
 }
 
-function teamOptionsForIds(team, ids) {
+export function teamOptionsForIds(team, ids) {
   const idSet = new Set(ids ?? []);
   return team.reduce((options, member) => {
     if (idSet.has(member.id)) {
@@ -429,8 +429,4 @@ export function AssignTicketingOwnerFields({
       </div>
     </>
   );
-}
-
-export function teamOptionsForCollaborators(team, ids) {
-  return teamOptionsForIds(team, ids);
 }

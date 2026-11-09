@@ -30,10 +30,6 @@ async function getIdentityOrThrow(ctx: QueryCtx | MutationCtx) {
   return identity;
 }
 
-async function readIdentityIds(ctx: QueryCtx | MutationCtx, identity: UserIdentity) {
-  return await authorizedCustomerIdentityIds(ctx, identity);
-}
-
 async function mutationIdentity(ctx: MutationCtx, identity: UserIdentity) {
   const authUserId = await ensureCanonicalIdentityLink(ctx, identity);
   return { authUserId, identityIds: await authorizedCustomerIdentityIds(ctx, identity) };
@@ -295,7 +291,7 @@ export async function listMyGroupsHandler(ctx: QueryCtx) {
   if (!identity) {
     return [];
   }
-  const identityIds = await readIdentityIds(ctx, identity);
+  const identityIds = await authorizedCustomerIdentityIds(ctx, identity);
   const countProjectionIsVerified = await groupCountProjectionIsVerified(ctx);
   const memberships = (
     await Promise.all(
@@ -343,7 +339,7 @@ export async function listMyGroupsHandler(ctx: QueryCtx) {
 
 export async function getGroupLeaderboardHandler(ctx: QueryCtx, args: { groupId: string }) {
   const identity = await getIdentityOrThrow(ctx);
-  const identityIds = await readIdentityIds(ctx, identity);
+  const identityIds = await authorizedCustomerIdentityIds(ctx, identity);
   const identityIdSet = new Set(identityIds);
   const groupId = ctx.db.normalizeId("sacredBharatGroups", args.groupId);
   if (!groupId) {
