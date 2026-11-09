@@ -95,7 +95,7 @@ function LeadStory({ post }) {
             alt={getImageAlt(post.mainImage)}
             className="public-media-edge"
             image={post.mainImage}
-            maxHeightClass="max-h-[36rem]"
+            maxHeightClass="[--plate-max-h:36rem]"
             priority
             sizes="(max-width: 1023px) 100vw, 40vw"
             width={1200}
@@ -140,7 +140,7 @@ function ContentsEntry({ post }) {
               alt={getImageAlt(post.mainImage)}
               className="public-media-edge"
               image={post.mainImage}
-              maxHeightClass="max-h-64 sm:max-h-52"
+              maxHeightClass="[--plate-max-h:16rem] sm:[--plate-max-h:13rem]"
               sizes="(max-width: 639px) 100vw, 272px"
               width={720}
             />
