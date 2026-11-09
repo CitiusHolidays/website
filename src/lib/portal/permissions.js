@@ -97,7 +97,7 @@ const INBOUND_LEAD_ROLES = new Set([
   "Director Cement",
 ]);
 
-function canAccessInboundLeads(access) {
+export function canAccessInboundLeads(access) {
   return Boolean(access?.roles?.some((role) => INBOUND_LEAD_ROLES.has(role)));
 }
 
