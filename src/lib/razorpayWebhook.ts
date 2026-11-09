@@ -1,3 +1,4 @@
+import { isJsonObject, type JsonObject, type JsonValue } from "./jsonValue";
 import { isRuntimeNumber, isRuntimeString } from "./runtimeValues";
 export interface RazorpayPaymentEntity {
   error_description?: string;
@@ -20,6 +21,56 @@ export interface RazorpayWebhookPayload {
     refund?: {
       entity?: RazorpayRefundEntity;
     };
+  };
+}
+
+function optionalString(entity: JsonObject, key: string) {
+  const value = entity[key];
+  return isRuntimeString(value) ? value : undefined;
+}
+
+function paymentEntityFrom(value: JsonValue): RazorpayPaymentEntity | undefined {
+  if (!isJsonObject(value)) {
+    return;
+  }
+  return {
+    error_description: optionalString(value, "error_description"),
+    id: optionalString(value, "id"),
+    order_id: optionalString(value, "order_id"),
+  };
+}
+
+function refundEntityFrom(value: JsonValue): RazorpayRefundEntity | undefined {
+  if (!isJsonObject(value)) {
+    return;
+  }
+  return {
+    amount: value.amount,
+    id: optionalString(value, "id"),
+    payment_id: optionalString(value, "payment_id"),
+  };
+}
+
+function entityOf(container: JsonValue) {
+  return isJsonObject(container) ? container.entity : undefined;
+}
+
+/**
+ * Narrows a signed provider body to the fields this handler reads. Malformed shapes become absent
+ * fields, so the event handlers reject them as invalid payloads instead of failing on property
+ * access.
+ */
+export function parseRazorpayWebhookPayload(body: JsonValue): RazorpayWebhookPayload {
+  if (!isJsonObject(body)) {
+    return {};
+  }
+  const inner = isJsonObject(body.payload) ? body.payload : {};
+  return {
+    event: body.event,
+    payload: {
+      payment: { entity: paymentEntityFrom(entityOf(inner.payment)) },
+      refund: { entity: refundEntityFrom(entityOf(inner.refund)) },
+    },
   };
 }
 

@@ -10,6 +10,7 @@ import {
   travelBatchSummaryTransitionValidator,
 } from "./lib/importContractValidators";
 import { notificationEmailOutboxFields } from "./lib/notificationEmailValidators";
+import { operationalEffectReceiptFields } from "./lib/operationalEffectReceiptValidators";
 import {
   postTourCategoryValidator,
   postTourRatingValidator,
@@ -2093,38 +2094,7 @@ export default defineSchema({
     .index("by_tokenHash", ["tokenHash"])
     .index("by_expiresAt", ["expiresAt"]),
 
-  operationalEffectReceipts: defineTable({
-    controlKey: v.string(),
-    createdAt: v.number(),
-    disposition: v.union(
-      v.literal("created"),
-      v.literal("duplicate"),
-      v.literal("failed"),
-      v.literal("not_applicable"),
-      v.literal("queued"),
-      v.literal("suppressed"),
-      v.literal("throttled")
-    ),
-    effectId: v.string(),
-    entityId: v.optional(v.string()),
-    entityType: v.optional(v.string()),
-    payloadFingerprint: v.optional(v.string()),
-    reason: v.union(
-      v.literal("configured_default"),
-      v.literal("corrupt_safe_default"),
-      v.literal("explicit_disabled"),
-      v.literal("explicit_enabled"),
-      v.literal("expired_safe_default"),
-      v.literal("missing_safe_default"),
-      v.literal("no_recipients"),
-      v.literal("pre_activation_standard"),
-      v.literal("prerequisite_disabled"),
-      v.literal("test_override")
-    ),
-    recipientCount: v.optional(v.number()),
-    synthetic: v.optional(v.boolean()),
-    testSessionId: v.optional(v.id("operationalControlTestSessions")),
-  })
+  operationalEffectReceipts: defineTable(operationalEffectReceiptFields)
     .index("by_effectId", ["effectId"])
     .index("by_controlKey_createdAt", ["controlKey", "createdAt"])
     .index("by_createdAt", ["createdAt"])

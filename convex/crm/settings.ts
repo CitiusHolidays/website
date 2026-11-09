@@ -7,6 +7,7 @@ import { ConvexError, v } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "../_generated/server";
 import { internalMutation, internalQuery, mutation, query } from "../_generated/server";
+import { operationalEffectReceiptFields } from "../lib/operationalEffectReceiptValidators";
 import { requireOperationalAdmin } from "./lib/operationalAdminAccess";
 import {
   assertAvailableControl,
@@ -1535,7 +1536,7 @@ export const recordOperationalEffectInternal = internalMutation({
     }),
   returns: v.object({
     id: v.id("operationalEffectReceipts"),
-    receipt: v.any(),
+    receipt: v.object(operationalEffectReceiptFields),
     replayed: v.boolean(),
   }),
 });

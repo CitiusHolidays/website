@@ -176,12 +176,13 @@ export function serializePassengerExportChunk(rows: PassengerExportSortableRow[]
 
 function parseSortableRow(line: string): PassengerExportSortableRow {
   // SAFETY: the following checks validate every field required from the serialized sortable row.
-  const row = JSON.parse(line) as Partial<PassengerExportSortableRow>;
-  if (!(isRuntimeNumber(row.createdAt) && isRuntimeString(row.fullName))) {
+  const { createdAt, fullName, ...optionalFields } = JSON.parse(
+    line
+  ) as Partial<PassengerExportSortableRow>;
+  if (!(isRuntimeNumber(createdAt) && isRuntimeString(fullName))) {
     throw new ConvexError("Passenger export source chunk is malformed");
   }
-  // SAFETY: createdAt and fullName are the only required fields; remaining fields are optional.
-  return row as PassengerExportSortableRow;
+  return { ...optionalFields, createdAt, fullName };
 }
 
 async function writeLine(stream: ReturnType<typeof createWriteStream>, line: string) {
