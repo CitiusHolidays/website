@@ -5,6 +5,7 @@ import {
 } from "@convex/lib/accountDeletionContract";
 import { anyApi } from "convex/server";
 import { fetchAuthMutation, fetchAuthQuery, getToken } from "@/lib/auth-server";
+import { isCrossSiteBrowserRequest } from "@/lib/http/crossSiteRequest";
 import type { JsonValue } from "@/lib/jsonValue";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
 import { isRuntimeObject, isRuntimeString } from "@/lib/runtimeValues";
@@ -17,6 +18,7 @@ const ACCOUNT_DELETION_FAILURES = {
     error: `Type ${ACCOUNT_DELETION_CONFIRMATION_PHRASE} to confirm.`,
     status: 400,
   },
+  forbidden_origin: { error: "Request origin not allowed.", status: 403 },
   reauthentication_required: {
     error: "For your security, sign in again, then delete your account within 10 minutes.",
     status: 401,
@@ -97,6 +99,10 @@ async function handleEligibility() {
 }
 
 async function handleDeletion(request: Request) {
+  // Cookie-authenticated state change: refuse a forged cross-site browser request.
+  if (isCrossSiteBrowserRequest(request)) {
+    return failure("forbidden_origin");
+  }
   const token = await getToken();
   if (!token) {
     return failure("unauthorized");

@@ -254,6 +254,31 @@ describe("Create-order route boundary", () => {
     });
   });
 
+  test("Refuses a cross-site browser request before any identity or provider work", async () => {
+    let dependencyCalls = 0;
+    const count = () => {
+      dependencyCalls += 1;
+      return Promise.reject(new Error("must not be called"));
+    };
+    const response = await handleCreateOrder(
+      new Request("http://localhost/api/create-order", {
+        body: JSON.stringify(validBody()),
+        headers: { "content-type": "text/plain", origin: "https://attacker.example" },
+        method: "POST",
+      }),
+      routeOptions({
+        createPendingBooking: count,
+        createProviderOrder: count,
+        ensureProfile: count,
+        establishIdentity: count,
+        prepareCheckout: count,
+      })
+    );
+
+    expect(response.status).toBe(403);
+    expect(dependencyCalls).toBe(0);
+  });
+
   test("Validates all provider fields instead of accepting an unchecked cast", () => {
     expect(() =>
       parseRazorpayOrder(

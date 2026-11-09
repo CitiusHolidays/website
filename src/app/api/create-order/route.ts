@@ -13,6 +13,7 @@ import { executeRazorpayNewOrderOrchestration } from "@convex/crm/lib/majorCapab
 import { anyApi } from "convex/server";
 import { NextResponse } from "next/server";
 import { fetchAuthMutation, fetchAuthQuery } from "@/lib/auth-server";
+import { isCrossSiteBrowserRequest } from "@/lib/http/crossSiteRequest";
 import { withApiRequestLogging } from "@/lib/observability/api-log";
 import {
   type OperationalControlDecision,
@@ -270,6 +271,10 @@ function parsePendingBooking(value: JsonValue): PendingBookingResult {
 
 export async function handleCreateOrder(request: Request, options: CreateOrderOptions = {}) {
   const deps = { ...defaultDependencies(), ...options.deps };
+  // Cookie-authenticated state change: refuse a forged cross-site browser request.
+  if (isCrossSiteBrowserRequest(request)) {
+    return NextResponse.json({ error: "Request origin not allowed." }, { status: 403 });
+  }
   try {
     let body: CreateOrderBody;
     try {
