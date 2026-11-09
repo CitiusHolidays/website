@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
-import { TrailTabContent } from "./TrailShell";
+import { TrailCta, TrailTabContent } from "./TrailShell";
 
 const plain = (markup) =>
   markup
@@ -62,5 +62,23 @@ describe("Trail tab content", () => {
   test("Renders nothing for an unknown tab id", () => {
     expect(panelText("constructor")).toBe("");
     expect(panelText("not-a-tab")).toBe("");
+  });
+});
+
+describe("Trail closing call to action", () => {
+  test("Asks for interest, not a brochure, on a trail with no departures yet", () => {
+    const comingSoon = plain(renderToStaticMarkup(<TrailCta isAerial={false} isComingSoon />));
+    expect(comingSoon).toContain("Register your interest");
+    expect(comingSoon).not.toContain("departure batches");
+    expect(comingSoon).not.toContain("Brochure");
+  });
+
+  test("Sends both versions to the pilgrimage enquiry", () => {
+    for (const isComingSoon of [false, true]) {
+      const markup = renderToStaticMarkup(
+        <TrailCta isAerial={false} isComingSoon={isComingSoon} />
+      );
+      expect(markup).toContain('href="/contact?intent=pilgrimage-enquiry"');
+    }
   });
 });

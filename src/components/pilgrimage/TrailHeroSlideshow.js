@@ -1,7 +1,9 @@
 "use client";
 
+import { ArrowLeft } from "lucide-react";
 import { AnimatePresence, m } from "motion/react";
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
 import { useSlideshowPlayback } from "./useSlideshowPlayback";
 
@@ -96,15 +98,15 @@ export default function TrailHeroSlideshow({ trail }) {
 
       {/* Full-height overlay: back link top, title + slide dots bottom — matches base SpiritualHero viewport */}
       <div className="relative z-20 mx-auto flex h-full min-h-[700px] w-full max-w-6xl flex-col px-4 pt-28 pb-12 md:pt-32 md:pb-16">
-        {/* <m.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="shrink-0">
+        <m.div animate={{ opacity: 1, y: 0 }} className="shrink-0" initial={{ opacity: 0, y: 8 }}>
           <Link
+            className="inline-flex min-h-11 items-center gap-2 rounded-sm font-medium text-sm text-white/85 drop-shadow-sm transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-white focus-visible:outline-offset-2"
             href="/pilgrimage#all-trails"
-            className="inline-flex items-center gap-2 text-sm text-white/85 hover:text-white transition-colors font-medium drop-shadow-sm"
           >
-            <ArrowLeft className="size-4" />
+            <ArrowLeft aria-hidden="true" className="size-4" />
             All spiritual trails
           </Link>
-        </m.div> */}
+        </m.div>
 
         <div className="flex min-h-0 flex-1 flex-col justify-end">
           <m.div
