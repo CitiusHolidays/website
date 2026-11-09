@@ -15,7 +15,7 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 import { decryptPassportDetails, EncryptionConfigurationError } from "../lib/encryption";
-import { isRuntimeNumber, isRuntimeString } from "../lib/runtimeValues";
+import { isRuntimeNumber, isRuntimeObject, isRuntimeString } from "../lib/runtimeValues";
 import { classifyImportError } from "./importWorkerPolicy";
 import type { PortalAccess } from "./lib";
 import { CRM_LIST_MAX_ROWS_READ } from "./paginationPolicy";
@@ -179,10 +179,13 @@ export function serializePassengerExportChunk(rows: PassengerExportSortableRow[]
 }
 
 function parseSortableRow(line: string): PassengerExportSortableRow {
-  // SAFETY: the following checks validate every field required from the serialized sortable row.
-  const { createdAt, fullName, ...optionalFields } = JSON.parse(
-    line
-  ) as Partial<PassengerExportSortableRow>;
+  // SAFETY: a serialized line may be any JSON value; the checks below reject non-objects and
+  // validate every required field before the row is used.
+  const parsed = JSON.parse(line) as Partial<PassengerExportSortableRow> | null;
+  if (!isRuntimeObject(parsed) || Array.isArray(parsed)) {
+    throw new ConvexError("Passenger export source chunk is malformed");
+  }
+  const { createdAt, fullName, ...optionalFields } = parsed;
   if (!(isRuntimeNumber(createdAt) && isRuntimeString(fullName))) {
     throw new ConvexError("Passenger export source chunk is malformed");
   }
