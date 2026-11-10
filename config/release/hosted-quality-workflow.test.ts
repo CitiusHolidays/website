@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { PRERENDER_CHECK_ENV } from "./prerender-check";
 
 const root = resolve(import.meta.dir, "../..");
 const workflow = readFileSync(resolve(root, ".github/workflows/hosted-quality.yml"), "utf8");
@@ -14,12 +15,16 @@ const WORKFLOW_ENVIRONMENT_PATTERN = /^\s+environment:/m;
 const TEMPLATE_DOLLAR = String.fromCodePoint(36);
 const BUN_VERSION_PATTERN = /bun-version:\s*(\S+)/g;
 const TRIGGER_BLOCK_PATTERN = /^on:\n((?:[ #].*\n|\n)*)/m;
+const SECRET_NAME_PATTERN = /SECRET|KEY|TOKEN|PASSWORD|DEPLOYMENT/;
 const DEPLOY_JOB_CONDITION_PATTERN = /^ {2}(\w+):\n(?: {4}.*\n)*? {4}if: >-\n((?: {6}.*\n)+)/gm;
 
 describe("Credential-free hosted quality workflow", () => {
   test("Pins every third-party action to an immutable commit", () => {
     const references = [...workflow.matchAll(ACTION_REFERENCE_PATTERN)].map((match) => match[1]);
+    // Required quality and Production build each check out and install the same pinned pair.
     expect(references).toEqual([
+      "3d3c42e5aac5ba805825da76410c181273ba90b1",
+      "0c5077e51419868618aeaa5fe8019c62421857d6",
       "3d3c42e5aac5ba805825da76410c181273ba90b1",
       "0c5077e51419868618aeaa5fe8019c62421857d6",
     ]);
@@ -82,6 +87,20 @@ describe("Credential-free hosted quality workflow", () => {
       expect(sharedQuality).not.toContain(excluded);
     }
     expect(sharedQuality).toContain('export const PINNED_BUN_VERSION = "1.4.4"');
+  });
+
+  test("Builds and prerenders every route with public values only", () => {
+    expect(workflow).toContain("name: Production build");
+    expect(workflow).toContain("run: bun run prerender:check");
+    expect(workflow.match(/timeout-minutes: 15/g)).toHaveLength(2);
+    const values = Object.entries(PRERENDER_CHECK_ENV);
+    for (const [name, value] of values) {
+      expect(name, name).not.toMatch(SECRET_NAME_PATTERN);
+      expect(value.startsWith("http") ? new URL(value).hostname : value, name).not.toContain(
+        "citiusholidays"
+      );
+    }
+    expect(PRERENDER_CHECK_ENV.NEXT_PUBLIC_CONVEX_URL).toContain("prerender-check");
   });
 
   test("Installs the same Bun in every workflow as the package pin", () => {
